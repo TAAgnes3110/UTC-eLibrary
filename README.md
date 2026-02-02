@@ -1,59 +1,83 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+[text](README.md)# UTC-eLibrary - Đồ án Quản lý thư viện
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Hệ thống quản lý thư viện trường Đại học Giao thông Vận tải (UTC).
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 👨‍💻 Thông tin tác giả
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **Tác giả:** Vũ Tuấn Kiệt
+- **Bút danh:** TAAgnes
+- **Email:** [taagnes3110@gmail.com](mailto:taagnes3110@gmail.com)
+- **Số điện thoại:** 0936992346
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## ℹ️ Giới thiệu
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+Dự án này là Đồ án Quản lý thư viện, được xây dựng nhằm mục đích quản lý sách, độc giả, và quy trình mượn trả sách một cách hiệu quả và hiện đại.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Công nghệ sử dụng
+- **Backend:** Laravel
+- **Frontend:** Vue.js
+- **Database:** MySQL
+- **Styling:** TailwindCSS
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## 🌟 Chức năng Hệ thống
 
-### Premium Partners
+Hệ thống được thiết kế với đầy đủ các nghiệp vụ quản lý thư viện chuyên nghiệp:
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 📚 Quản lý Sách (Tài nguyên)
+- **Quản lý đa dạng:** Hỗ trợ quản lý cả sách bản cứng và tài liệu số (bản mềm).
+- **Nghiệp vụ chi tiết:**
+  - Nhập sách và phân loại sách khoa học.
+  - Hỗ trợ in nhãn sách, in phích, và in sổ quản lý.
+  - Quy trình thanh lý sách cũ/hỏng.
 
-## Contributing
+### 👤 Quản lý Độc giả
+- Quản lý thông tin chi tiết của độc giả.
+- Tích hợp chức năng **in thẻ thư viện**.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 🔄 Quản lý Mượn - Trả
+- Theo dõi chặt chẽ quy trình mượn trả tài liệu.
+- Quản lý quá trình gia hạn, phạt quá hạn (nếu có).
 
-## Code of Conduct
+### 📊 Báo cáo & Thống kê - Kiểm kê
+- **Kiểm kê:** Chức năng kiểm kê tài sản định kỳ nhanh chóng chính xác.
+- **Hệ thống báo cáo mạnh mẽ:**
+  - Báo cáo tổng quan về số lượng sách và đầu sách hiện có.
+  - Thống kê hoạt động mượn trả chi tiết theo thời gian (ngày, tháng, năm).
+  - Phân tích dữ liệu mượn trả theo từng lớp học, từng nhóm độc giả cụ thể.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 🚀 Cài đặt và Triển khai
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+1. **Clone repository:**
+   ```bash
+   git clone https://github.com/TAAgnes3110/UTC-eLibrary.git
+   cd UTC-eLibrary
+   ```
 
-## License
+2. **Cài đặt dependencies:**
+   ```bash
+   composer install
+   npm install
+   ```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+3. **Cấu hình môi trường:**
+   - Copy file `.env.example` thành `.env`
+   - Cấu hình database và các biến môi trường khác.
+
+4. **Chạy migration và seeder:**
+   ```bash
+   php artisan migrate --seed
+   ```
+
+5. **Chạy ứng dụng:**
+   ```bash
+   npm run dev
+   php artisan serve
+   ```

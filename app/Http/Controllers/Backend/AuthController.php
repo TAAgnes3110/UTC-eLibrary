@@ -1,0 +1,168 @@
+<?php
+
+namespace App\Http\Controllers\Backend;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\AuthRequests\LoginRequest;
+use App\Http\Requests\AuthRequests\RegisterRequest;
+use App\Http\Resources\UserResource;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
+use Illuminate\Support\Facades\Cache;
+use App\Http\Controllers\Backend\EmailOTPController;
+use App\Http\Requests\AuthRequests\ForgotPasswordRequest;
+use App\Http\Requests\OtpRequests\VerifyOTPRequest;
+
+class AuthController extends Controller                                       
+{
+    /**
+     * @param LoginRequest $request
+     * @return JsonResponse
+     * @todo Đăng nhập
+     */
+    public function login(LoginRequest $request): JsonResponse
+    {
+        $loginField = $request->input('login');
+        $password = $request->input('password');
+
+        $user = User::query()
+            ->where('email', $loginField)
+            ->orWhere('code', $loginField)
+            ->first();
+
+        if ($user) {
+            $credentials = [
+                'email' => $user->email,
+                'password' => $password
+            ];
+
+            if (!$token = JWTAuth::attempt($credentials)) {
+                return $this->jsonResponse([
+                    'status' => 'error',
+                    'messages' => __('messages.invalid_credentials')
+                ], 401);
+            }
+
+            return $this->jsonResponse([
+                'status' => 'success',
+                'messages' => __('messages.success_login'),
+                'token' => $token,
+                'user' => new UserResource($user)
+            ], 200);
+        } else {
+            return $this->jsonResponse([
+                'status' => 'error',
+                'messages' => __('Tài khoản hoặc mật khẩu không đúng')
+            ], 401);
+        }
+    }
+
+    /**
+     * @param RegisterRequest $request
+     * @return JsonResponse
+     * @todo Đăng ký
+     */
+    public function register(RegisterRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        try {
+            Cache::put('register_' . $data['email'], $data, 600);
+            app(EmailOTPController::class)->sendOtp($data['email'], $data['name']);
+
+            return $this->jsonResponse([
+                'status' => 'success',
+                'messages' => __('Vui lòng kiểm tra email để lấy mã OTP xác nhận tài khoản.'),
+                'email' => $data['email']
+            ], 200);
+        } catch (\Exception $e) {
+            Cache::forget('register_' . $data['email']);
+            return $this->jsonResponse([
+                'status' => 'error',
+                'messages' => 'Lỗi gửi OTP: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * @param VerifyOTPRequest $request
+     * @return JsonResponse
+     * @todo Xác nhận OTP
+     */
+    public function verifyRegister(VerifyOTPRequest $request): JsonResponse
+    {
+        $otpCheck = app(EmailOTPController::class)->checkOTP($request->email, $request->otp);
+
+        if (!$otpCheck['status']) {
+            return $this->jsonResponse([
+                'status' => 'error',
+                'messages' => $otpCheck['message']
+            ], $otpCheck['code']);
+        }
+
+        $pendingUser = Cache::get('register_' . $request->email);
+
+        if ($pendingUser) {
+            $user = User::create($pendingUser);
+            $user->email_verified_at = now();
+            $user->save();
+
+            Cache::forget('register_' . $request->email);
+
+            $token = JWTAuth::fromUser($user);
+
+            return $this->jsonResponse([
+                'status' => 'success',
+                'messages' => __('Đăng ký tài khoản thành công!'),
+                'token' => $token,
+                'user' => $user
+            ], 200);
+        }
+
+        return $this->jsonResponse([
+            'status' => 'error',
+            'messages' => __('Phiên đăng ký đã hết hạn hoặc không tồn tại.')
+        ], 404);
+    }
+
+
+
+    public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $user = User::where('email', $data['email'])->first();
+        if (!$user) {
+            return this->jsonResponse([
+                'status' => 'error',
+                'messages' => __('messages.user_not_found')
+            ], 404);
+        }
+
+        $user->password = bcrypt($data['password']);
+        $user->save();
+
+        return $this->jsonResponse([
+            'status' => 'success',
+            'messages' => __('messages.success_reset_password')
+        ], 200);
+    }
+
+    /**
+     * @return JsonResponse
+     * @todo Đăng xuất
+     */
+    public function logout(): JsonResponse
+    {
+        JWTAuth::invalidate(JWTAuth::getToken());
+        return $this->jsonResponse([
+            'status' => 'success',
+            'messages' => __('messages.success_logout')
+        ], 200);
+    }
+
+    public function user(Request $request): JsonResponse
+    {
+        return new UserResource();
+    }
+}

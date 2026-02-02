@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTC eLibrary - Hệ Thống Thư Viện Đại Học Giao Thông Vận Tải</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Custom Config -->
+    <style>
+        :root {
+            --utc-primary: #1e3a8a; /* Indigo 900 / UTC Blue */
+            --utc-secondary: #0ea5e9; /* Sky 500 */
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        [x-cloak] { display: none !important; }
+        .premium-shadow { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05); }
+        .sidebar-scroll::-webkit-scrollbar { display: none; }
+        .animate-enter { animation: enter 0.5s ease-out; }
+        @keyframes enter {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body x-data="appData()" x-init="initApp()">
+
+    <!-- LOGIN SCREEN -->
+    <div x-show="!isLoggedIn" x-transition.opacity.duration.500ms class="fixed inset-0 z-50 flex bg-white">
+        <!-- Left: Branding & Image -->
+        <div class="hidden lg:flex w-1/2 bg-slate-900 relative overflow-hidden items-center justify-center">
+            <div class="absolute inset-0 bg-blue-900/40 mix-blend-multiply z-10"></div>
+            <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?q=80&w=2070&auto=format&fit=crop" class="absolute inset-0 w-full h-full object-cover opacity-60">
+            <div class="relative z-20 text-center text-white p-12">
+                <div class="w-24 h-24 bg-white/10 backdrop-blur-xl rounded-2xl mx-auto flex items-center justify-center mb-8 border border-white/20 shadow-2xl">
+                    <i data-lucide="book-open" class="w-12 h-12 text-white"></i>
+                </div>
+                <h1 class="text-4xl font-black tracking-tight mb-4">UTC eLibrary</h1>
+                <p class="text-lg text-blue-100 font-medium max-w-md mx-auto leading-relaxed">Hệ thống quản lý thư viện thông minh<br>Trường Đại Học Giao Thông Vận Tải</p>
+            </div>
+        </div>
+
+        <!-- Right: Login Form -->
+        <div class="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12 relative">
+            <div class="max-w-md w-full space-y-8 animate-enter">
+                <div class="text-center lg:text-left">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Logo_Truong_Dai_hoc_Giao_thong_Van_tai.svg/1200px-Logo_Truong_Dai_hoc_Giao_thong_Van_tai.svg.png" class="h-16 mx-auto lg:mx-0 mb-6 w-auto" alt="UTC Logo">
+                    <h2 class="text-3xl font-black text-slate-900">Đăng nhập hệ thống</h2>
+                </div>
+
+                <form @submit.prevent="login" class="space-y-6 mt-8">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Email</label>
+                             <input type="email" x-model="loginForm.email" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold" placeholder="admin@utc.edu.vn">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Mật khẩu</label>
+                            <input type="password" x-model="loginForm.password" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold" placeholder="••••••••">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-4 bg-blue-900 text-white rounded-xl font-bold shadow-lg shadow-blue-900/20 hover:bg-blue-800 hover:-translate-y-1 hover:shadow-2xl active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 group">
+                        <span x-show="!isLoading" class="group-hover:tracking-wider transition-all">Đăng Nhập</span>
+                        <i x-show="isLoading" data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD (Dynamic Layout based on Role) -->
+    <div x-show="isLoggedIn" x-transition.opacity.duration.500ms class="flex h-screen overflow-hidden bg-[#F1F5F9]" :class="role === 'student' ? 'flex-col' : 'flex-row'">
+
+        <!-- SIDEBAR (Admin & Librarian Only) -->
+        <aside x-show="role !== 'student'" class="w-72 bg-white h-full border-r border-slate-200 flex flex-col z-40 transition-all duration-300">
+            <!-- Header -->
+            <div class="p-6 flex items-center gap-3 border-b border-slate-100">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Logo_Truong_Dai_hoc_Giao_thong_Van_tai.svg/1200px-Logo_Truong_Dai_hoc_Giao_thong_Van_tai.svg.png" class="w-10 h-10 object-contain">
+                <div>
+                    <h1 class="font-black text-slate-900 text-lg leading-none tracking-tight">UTC Library</h1>
+                    <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider" x-text="role === 'admin' ? 'Admin Panel' : 'Librarian Portal'"></span>
+                </div>
+            </div>
+
+            <!-- Navigation (Admin & Librarian) -->
+            <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-1 sidebar-scroll">
+
+                <a href="#" @click.prevent="activeTab = 'dashboard'" :class="activeTab === 'dashboard' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i> Dashboard
+                </a>
+
+                <p class="px-4 pt-6 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Quản Lý Tài Nguyên</p>
+
+                <a href="#" @click.prevent="activeTab = 'books'" :class="activeTab === 'books' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="book" class="w-5 h-5"></i> Quản lý Sách
+                </a>
+
+                <a href="#" @click.prevent="activeTab = 'categories'" :class="activeTab === 'categories' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="list" class="w-5 h-5"></i> Quản lý Danh Mục
+                </a>
+                <a href="#" @click.prevent="activeTab = 'authors'" :class="activeTab === 'authors' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="user-pen" class="w-5 h-5"></i> Quản lý Tác Giả
+                </a>
+                <a href="#" @click.prevent="activeTab = 'publishers'" :class="activeTab === 'publishers' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="building-2" class="w-5 h-5"></i> Quản lý NXB
+                </a>
+
+                <p class="px-4 pt-6 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Quản Lý Nghiệp Vụ</p>
+
+                <a href="#" @click.prevent="activeTab = 'readers'" :class="activeTab === 'readers' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="users" class="w-5 h-5"></i> Quản lý Độc Giả
+                </a>
+                <a href="#" @click.prevent="activeTab = 'cards'" :class="activeTab === 'cards' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="contact-2" class="w-5 h-5"></i> Quản lý Thẻ Thư Viện
+                </a>
+                <a href="#" @click.prevent="activeTab = 'loans'" :class="activeTab === 'loans' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="clipboard-list" class="w-5 h-5"></i> Quản lý Phiếu Mượn
+                </a>
+
+                <p class="px-4 pt-6 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Báo Cáo & Hệ Thống</p>
+                <a href="#" @click.prevent="activeTab = 'stats'" :class="activeTab === 'stats' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                    <i data-lucide="bar-chart-3" class="w-5 h-5"></i> Thống kê
+                </a>
+                <template x-if="role === 'admin'">
+                    <a href="#" @click.prevent="activeTab = 'sys_users'" :class="activeTab === 'sys_users' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50 font-medium'" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 hover:translate-x-2 hover:bg-slate-50 hover:shadow-sm active:scale-95">
+                        <i data-lucide="user-cog" class="w-5 h-5"></i> QL Người Dùng
+                    </a>
+                </template>
+            </nav>
+
+            <!-- User Footer -->
+            <div class="p-4 border-t border-slate-100">
+                <div class="bg-slate-50 rounded-2xl p-3 flex items-center gap-3 border border-slate-200">
+                    <div class="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-white font-black text-sm" x-text="role === 'admin' ? 'AD' : 'LB'"></div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-bold text-slate-900 truncate" x-text="role === 'admin' ? 'Nguyễn Văn Admin' : 'Trần Thị Thủ Thư'"></p>
+                        <p class="text-[10px] font-bold text-slate-500 uppercase" x-text="role === 'admin' ? 'Administrator' : 'Librarian'"></p>
+                    </div>
+                    <button @click="logout" class="p-1.5 hover:bg-white rounded-lg transition-colors text-slate-400 hover:text-rose-500"><i data-lucide="log-out" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- STUDENT TOP NAVIGATION (Student Only) -->
+        <header x-show="role === 'student'" class="bg-white border-b border-slate-200 sticky top-0 z-50">
+            <div class="max-w-[1600px] mx-auto px-6 h-20 flex items-center justify-between">
+                 <div class="flex items-center gap-3">
+                    <img src="../../public/Image/logoUTC.png" class="w-10 h-10 object-contain">
+                    <div>
+                        <h1 class="font-black text-slate-900 text-lg leading-none tracking-tight">UTC Library</h1>
+                        <span class="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Cổng Thông Tin Thư Viện</span>
+                    </div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="flex-1 max-w-2xl mx-12 relative">
+                    <input type="text" placeholder="Tìm kiếm sách, tài liệu, giáo trình..." class="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all font-medium">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
+                         <div class="text-right hidden md:block">
+                            <p class="text-sm font-bold text-slate-900">Sinh Viên A</p>
+                            <p class="text-[10px] font-bold text-slate-500 uppercase">2024001</p>
+                        </div>
+                         <div class="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold">SV</div>
+                    </div>
+                     <button @click="logout" class="p-2 hover:bg-rose-50 rounded-xl transition-all duration-200 text-slate-400 hover:text-rose-600 hover:rotate-180 active:scale-90"><i data-lucide="log-out" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto relative bg-[#F1F5F9]">
+
+            <!-- Admin/Librarian Top Bar (Hidden for Student) -->
+            <header x-show="role !== 'student'" class="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+                <h2 class="text-xl font-bold text-slate-800 capitalize" x-text="getPageTitle()"></h2>
+
+                <div class="flex items-center gap-4">
+                     <!-- ROLE SWITCHER FOR DEMO -->
+                    <div class="flex bg-slate-100 p-1 rounded-xl mr-4">
+                        <button @click="switchRole('admin')" :class="role === 'admin' ? 'bg-white shadow text-slate-900 font-bold scale-105' : 'text-slate-500 font-medium hover:text-slate-900'" class="text-[10px] px-3 py-1.5 rounded-lg transition-all duration-200 active:scale-95">Admin</button>
+                        <button @click="switchRole('librarian')" :class="role === 'librarian' ? 'bg-white shadow text-sky-600 font-bold scale-105' : 'text-slate-500 font-medium hover:text-sky-600'" class="text-[10px] px-3 py-1.5 rounded-lg transition-all duration-200 active:scale-95">Thủ Thư</button>
+                        <button @click="switchRole('student')" :class="role === 'student' ? 'bg-white shadow text-blue-600 font-bold scale-105' : 'text-slate-500 font-medium hover:text-blue-600'" class="text-[10px] px-3 py-1.5 rounded-lg transition-all duration-200 active:scale-95">Độc Giả</button>
+                    </div>
+
+                     <div class="relative hidden md:block">
+                        <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                        <input type="text" placeholder="Tìm kiếm dữ liệu..." class="bg-slate-100 border-none rounded-xl pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500/20 w-64 transition-all">
+                    </div>
+                </div>
+            </header>
+
+             <!-- STUDENT HOME PAGE (Matching home.blade.php layout) -->
+            <div x-show="role === 'student'" class="p-8 max-w-[1600px] mx-auto animate-enter">
+                 <!-- Role Switcher for Student View -->
+                 <div class="fixed bottom-6 right-6 z-50 bg-white p-2 rounded-2xl shadow-2xl border border-slate-200 flex gap-2">
+                    <span class="text-xs font-bold uppercase text-slate-400 px-2 py-1.5 self-center">View As:</span>
+                     <button @click="switchRole('admin')" class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200">Admin</button>
+                     <button @click="switchRole('librarian')" class="px-3 py-1.5 bg-slate-100 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200">Thủ Thư</button>
+                 </div>
+
+                <div class="grid grid-cols-12 gap-8">
+                    <!-- Left Sidebar: Material Types & Categories -->
+                    <div class="col-span-12 lg:col-span-3 space-y-6">
+                        <!-- MATERIAL TYPES (New Request) -->
+                        <div class="bg-white rounded-[1.5rem] premium-shadow border border-slate-100 overflow-hidden">
+                            <div class="bg-indigo-900 p-4">
+                                <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="layers" class="w-4 h-4"></i> Kho Tài Liệu</h3>
+                            </div>
+                            <div class="p-2">
+                                <template x-for="type in materialTypes">
+                                    <button @click="selectedMaterialType = type.id"
+                                        :class="selectedMaterialType === type.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'"
+                                        class="w-full flex justify-between items-center p-3 rounded-xl transition-all group mb-1">
+                                        <div class="flex items-center gap-3">
+                                            <div :class="selectedMaterialType === type.id ? 'bg-indigo-200 text-indigo-800' : 'bg-slate-100 text-slate-500'" class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors">
+                                                <i :data-lucide="type.icon" class="w-4 h-4"></i>
+                                            </div>
+                                            <span class="text-sm font-bold group-hover:text-indigo-700 transition-colors" x-text="type.name"></span>
+                                        </div>
+                                        <i x-show="selectedMaterialType === type.id" data-lucide="chevron-right" class="w-4 h-4 text-indigo-500"></i>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- CATEGORIES -->
+                        <div class="bg-white rounded-[1.5rem] premium-shadow border border-slate-100 overflow-hidden">
+                            <div class="bg-blue-600 p-4">
+                                <h3 class="font-bold text-white flex items-center gap-2"><i data-lucide="list" class="w-4 h-4"></i> Chuyên Ngành</h3>
+                            </div>
+                            <div class="p-2">
+                                <template x-for="cat in categories">
+                                    <a href="#" class="flex justify-between items-center p-3 hover:bg-slate-50 rounded-xl transition-colors group">
+                                        <span class="text-sm font-bold text-slate-600 group-hover:text-blue-600" x-text="cat.name"></span>
+                                        <span class="px-2 py-0.5 bg-slate-100 text-slate-500 text-[10px] font-black rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600" x-text="cat.count"></span>
+                                    </a>
+                                </template>
+                            </div>
+                             <div class="p-3 border-t border-slate-100 text-center">
+                                <button class="text-xs font-bold text-blue-600 hover:text-blue-800 hover:scale-105 transition-all active:scale-95">Xem tất cả</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Content: Book Grid -->
+                    <div class="col-span-12 lg:col-span-9 space-y-6">
+                        <div class="flex items-center justify-between bg-white p-4 rounded-[1.5rem] premium-shadow border border-slate-100">
+                            <h3 class="font-black text-slate-900 text-lg" x-text="materialTypes.find(t => t.id === selectedMaterialType)?.name || 'Tất Cả Tài Liệu'"></h3>
+                            <div class="flex gap-2">
+                                <div class="relative group">
+                                     <button @click="showStudentFilterModal = true" class="text-xs font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 hover:bg-blue-50 px-3 py-2 rounded-lg transition-all active:scale-95 border border-transparent hover:border-blue-100">
+                                        <i data-lucide="filter" class="w-3 h-3"></i> Bộ lọc nâng cao
+                                        <div x-show="studentFilter.author || studentFilter.publisher || studentFilter.yearFrom" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            <template x-for="book in getFilteredBooks()">
+                                <div class="bg-white p-4 rounded-[2rem] border border-slate-100 premium-shadow group hover:-translate-y-1 transition-transform duration-300">
+                                    <!-- Book Cover -->
+                                    <div @click="selectedBook = book" class="aspect-[2/3] rounded-2xl bg-slate-200 overflow-hidden mb-4 relative shadow-inner cursor-pointer">
+                                        <img :src="book.image" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                                        <span class="absolute bottom-2 left-2 bg-white/90 backdrop-blur text-blue-900 px-2 py-1 rounded-lg text-[10px] font-black uppercase" x-text="book.category"></span>
+                                    </div>
+
+                                    <!-- Info -->
+                                    <div>
+                                        <h4 @click="selectedBook = book" class="font-bold text-slate-900 line-clamp-2 min-h-[3rem] text-sm cursor-pointer hover:text-blue-600 transition-colors" x-text="book.title"></h4>
+                                        <p class="text-xs text-slate-500 mt-1 mb-3" x-text="book.author"></p>
+
+                                        <div class="flex items-center justify-between border-t border-slate-50 pt-3">
+                                            <span class="font-black text-rose-500 text-sm" x-text="book.price + ' đ'"></span>
+                                            <button @click="selectedBook = book" class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all duration-200 hover:scale-110 active:scale-90 shadow hover:shadow-blue-600/30">
+                                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Pagination -->
+                        <div class="flex justify-center gap-2 mt-8">
+                            <button class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-95"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+                            <button class="w-10 h-10 rounded-xl bg-blue-600 text-white font-bold flex items-center justify-center shadow-lg shadow-blue-600/20 hover:-translate-y-1 hover:shadow-blue-600/40 transition-all active:scale-95">1</button>
+                            <button class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 font-bold hover:border-blue-500 hover:text-blue-500 transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-95">2</button>
+                            <button class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 font-bold hover:border-blue-500 hover:text-blue-500 transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-95">3</button>
+                            <button class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 hover:border-blue-500 hover:text-blue-500 transition-all hover:-translate-y-1 hover:shadow-md active:translate-y-0 active:scale-95"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN/LIBRARIAN CONTENT WRAPPER -->
+            <div x-show="role !== 'student'" class="p-8 max-w-[1600px] mx-auto space-y-8 animate-enter">
+
+                <!-- DASHBOARD VIEW -->
+                <div x-show="activeTab === 'dashboard'" class="space-y-8">
+                     <!-- Librarian Dashboard Focus: Operational -->
+                    <div x-show="role === 'librarian'" class="bg-blue-900 rounded-[2.5rem] p-10 text-white premium-shadow relative overflow-hidden mb-8">
+                        <div class="relative z-10 max-w-2xl">
+                            <h2 class="text-3xl font-black mb-4">Chào mừng trở lại, Thủ thư!</h2>
+                            <p class="text-blue-200 text-lg mb-8">Hôm nay có <strong class="text-white">12</strong> phiếu mượn cần xử lý và <strong class="text-white">5</strong> sách quá hạn.</p>
+                            <div class="flex gap-4">
+                                <button @click="activeTab = 'loans'" class="px-6 py-3 bg-white text-blue-900 rounded-xl font-bold hover:bg-blue-50 transition-all hover:scale-105 active:scale-95 hover:shadow-lg flex items-center gap-2"><i data-lucide="qr-code" class="w-4 h-4"></i> Xử Lý Mượn Trả</button>
+                                <button class="px-6 py-3 bg-blue-800 text-white rounded-xl font-bold hover:bg-blue-700 transition-all hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-blue-900/50 flex items-center gap-2"><i data-lucide="list-todo" class="w-4 h-4"></i> Xem Danh Sách Quá Hạn</button>
+                            </div>
+                        </div>
+                        <i data-lucide="library" class="absolute -right-12 -bottom-12 w-64 h-64 opacity-10 rotate-12"></i>
+                    </div>
+
+                    <!-- Stats Cards (Shared but Admin sees more) -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white p-6 rounded-[2rem] premium-shadow border border-slate-100">
+                            <i data-lucide="book" class="w-8 h-8 text-indigo-600 bg-indigo-50 p-1.5 rounded-lg mb-4"></i>
+                            <h3 class="text-3xl font-black text-slate-900">15,240</h3>
+                            <p class="text-sm font-bold text-slate-500">Tổng số Sách</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-[2rem] premium-shadow border border-slate-100">
+                             <i data-lucide="users" class="w-8 h-8 text-emerald-600 bg-emerald-50 p-1.5 rounded-lg mb-4"></i>
+                            <h3 class="text-3xl font-black text-slate-900">1,204</h3>
+                             <p class="text-sm font-bold text-slate-500">Độc Giả</p>
+                        </div>
+                         <div class="bg-white p-6 rounded-[2rem] premium-shadow border border-slate-100">
+                             <i data-lucide="clipboard-list" class="w-8 h-8 text-amber-600 bg-amber-50 p-1.5 rounded-lg mb-4"></i>
+                            <h3 class="text-3xl font-black text-slate-900">342</h3>
+                             <p class="text-sm font-bold text-slate-500">Phiếu Mượn</p>
+                        </div>
+                         <div class="bg-white p-6 rounded-[2rem] premium-shadow border border-slate-100">
+                             <i data-lucide="alert-triangle" class="w-8 h-8 text-rose-600 bg-rose-50 p-1.5 rounded-lg mb-4"></i>
+                            <h3 class="text-3xl font-black text-slate-900">15</h3>
+                             <p class="text-sm font-bold text-slate-500">Sách Quá Hạn</p>
+                        </div>
+                    </div>
+
+                    <div x-show="role === 'admin'" class="bg-white p-8 rounded-[2.5rem] premium-shadow border border-slate-100">
+                        <h3 class="font-bold text-lg mb-6">Thống kê Mượn/Trả (Năm 2026)</h3>
+                        <div class="h-80 w-full">
+                            <canvas id="chartLoan"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            <!-- BOOKS VIEW (Full Columns) -->
+                <div x-show="activeTab === 'books'" class="space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div class="flex gap-3">
+                            <button @click="openAddModal()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 hover:shadow-blue-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Thêm Sách Mới
+                            </button>
+                            <button @click="showImportModal = true; excelFile = null" class="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 hover:-translate-y-1 hover:shadow-emerald-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Nhập từ Excel
+                            </button>
+                        </div>
+                        <button @click="downloadSample()" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all duration-200 active:scale-95 flex items-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> Tải file mẫu
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-[2rem] premium-shadow border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr>
+                                    <th class="p-5">ID</th>
+                                    <th class="p-5">Tiêu đề sách</th>
+                                    <th class="p-5">Danh Mục</th>
+                                    <th class="p-5">Tác Giả</th>
+                                    <th class="p-5">NXB</th>
+                                    <th class="p-5">Số Lượng</th>
+                                    <th class="p-5">Giá (VNĐ)</th>
+                                    <th class="p-5 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <template x-for="book in books">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-5 font-bold text-slate-500" x-text="book.id"></td>
+                                        <td class="p-5">
+                                            <div class="flex items-center gap-3">
+                                                 <img :src="book.image" class="w-10 h-14 object-cover rounded shadow-sm">
+                                                 <span class="font-bold text-slate-900" x-text="book.title"></span>
+                                            </div>
+                                        </td>
+                                        <td class="p-5 text-sm" x-text="book.category"></td>
+                                        <td class="p-5 text-sm" x-text="book.author"></td>
+                                        <td class="p-5 text-sm" x-text="book.publisher"></td>
+                                        <td class="p-5 text-sm font-bold" x-text="book.quantity_remaining + '/' + book.quantity_total"></td>
+                                        <td class="p-5 text-sm font-bold text-emerald-600" x-text="book.price"></td>
+                                        <td class="p-5 text-right flex justify-end gap-2">
+                                            <button @click="openEditModal(book)" class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-transform hover:scale-110 active:scale-90"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button @click="confirmDelete(book)" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-transform hover:scale-110 active:scale-90"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ADD BOOK MODAL -->
+                <div x-show="showAddBookModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showAddBookModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-enter">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900" x-text="isEditing ? 'Cập nhật thông tin sách' : 'Thêm Sách Mới'"></h3>
+                            <button @click="showAddBookModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8 overflow-y-auto">
+                            <div class="grid grid-cols-12 gap-8">
+                                <!-- Cover Upload -->
+                                <div class="col-span-12 md:col-span-4">
+                                    <div class="aspect-[2/3] bg-slate-50 rounded-2xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center p-4 text-center hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer group relative overflow-hidden">
+                                         <input type="file" class="absolute inset-0 opacity-0 cursor-pointer z-10" @change="handleImageUpload">
+                                         <div x-show="!newBook.imagePreview">
+                                            <div class="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center mb-4 mx-auto group-hover:scale-110 transition-transform">
+                                                <i data-lucide="image-plus" class="w-8 h-8 text-blue-600"></i>
+                                            </div>
+                                            <p class="text-sm font-bold text-slate-600">Tải ảnh bìa</p>
+                                            <p class="text-xs text-slate-400 mt-1">PNG, JPG (Max 2MB)</p>
+                                         </div>
+                                         <img x-show="newBook.imagePreview" :src="newBook.imagePreview" class="absolute inset-0 w-full h-full object-cover">
+                                    </div>
+                                </div>
+
+                                <!-- Fields -->
+                                <div class="col-span-12 md:col-span-8 space-y-6">
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-2">Tên sách <span class="text-rose-500">*</span></label>
+                                        <input type="text" x-model="newBook.title" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold" placeholder="Nhập tên sách...">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-bold text-slate-700 mb-2">Danh mục</label>
+                                            <select x-model="newBook.category" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold appearance-none">
+                                                <option>Giáo trình</option>
+                                                <option>Công nghệ thông tin</option>
+                                                <option>Kinh tế</option>
+                                            </select>
+                                        </div>
+                                         <div>
+                                            <label class="block text-sm font-bold text-slate-700 mb-2">Tác giả</label>
+                                            <select x-model="newBook.author" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold appearance-none">
+                                                <option>Nguyễn Văn A</option>
+                                                <option>Trần Thị B</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                     <div class="grid grid-cols-3 gap-6">
+                                        <div>
+                                            <label class="block text-sm font-bold text-slate-700 mb-2">Năm XB</label>
+                                            <input type="number" x-model="newBook.year" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-bold text-slate-700 mb-2">Số trang</label>
+                                            <input type="number" x-model="newBook.pages" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                        </div>
+                                         <div>
+                                            <label class="block text-sm font-bold text-slate-700 mb-2">Giá bìa</label>
+                                            <input type="text" x-model="newBook.price" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-bold text-slate-700 mb-2">Số lượng nhập</label>
+                                        <input type="number" x-model="newBook.qty" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold" value="10">
+                                    </div>
+                                    <div>
+                                         <label class="block text-sm font-bold text-slate-700 mb-2">Mô tả giới thiệu</label>
+                                        <textarea x-model="newBook.desc" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold h-32"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showAddBookModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="saveBook" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all" x-text="isEditing ? 'Lưu Thay Đổi' : 'Lưu Sách Mới'"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- IMPORT EXCEL MODAL -->
+                <div x-show="showImportModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showImportModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden animate-enter">
+                         <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900">Nhập Sách từ Excel</h3>
+                            <button @click="showImportModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8">
+                            <div class="border-2 border-dashed border-emerald-300 bg-emerald-50/30 rounded-2xl p-8 text-center hover:bg-emerald-50 transition-colors cursor-pointer group relative">
+                                <input type="file" @change="handleExcelSelect" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                                <div class="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                                    <i data-lucide="sheet" class="w-10 h-10 text-emerald-600"></i>
+                                </div>
+                                <h4 class="text-lg font-bold text-emerald-900 mb-2" x-text="excelFile ? excelFile.name : 'Kéo thả file Excel vào đây'"></h4>
+                                <p class="text-sm text-slate-500 mb-6" x-show="!excelFile">Hoặc nhấn để chọn file từ máy tính</p>
+                                <button class="px-4 py-2 bg-white border border-emerald-200 text-emerald-700 font-bold rounded-xl shadow-sm hover:shadow hover:border-emerald-400 transition-all" x-text="excelFile ? 'Đổi File' : 'Chọn File'"></button>
+                            </div>
+                            <div class="mt-6">
+                                <h5 class="text-sm font-bold text-slate-900 mb-2">Hướng dẫn:</h5>
+                                <ul class="text-xs text-slate-500 space-y-1 list-disc pl-4">
+                                    <li>Tải file mẫu để xem định dạng chuẩn.</li>
+                                    <li>Các cột bắt buộc: Tiêu đề, Tác giả, Giá bìa.</li>
+                                    <li>Hỗ trợ định dạng .xlsx, .xls, .csv.</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showImportModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="showImportModal = false; alert('Demo: Đã nhập dữ liệu từ ' + (excelFile ? excelFile.name : 'file mẫu') + '!')" class="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all" :disabled="!excelFile" :class="!excelFile ? 'opacity-50 cursor-not-allowed' : ''">Tiến Hành Nhập</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DELETE CONFIRMATION MODAL -->
+                <div x-show="showDeleteModal" x-transition.opacity class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showDeleteModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-enter p-8 text-center">
+                        <div class="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+                            <i data-lucide="alert-triangle" class="w-10 h-10 text-rose-600"></i>
+                        </div>
+                        <h3 class="text-2xl font-black text-slate-900 mb-2">Xác nhận xóa?</h3>
+                        <p class="text-slate-500 mb-8">Bạn có chắc chắn muốn xóa sách <strong class="text-slate-900" x-text="bookToDelete?.title"></strong> không? Hành động này không thể hoàn tác.</p>
+                        <div class="flex justify-center gap-4">
+                             <button @click="showDeleteModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="deleteBook" class="px-6 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 shadow-lg shadow-rose-600/20 transition-all">Xóa Ngay</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CATEGORIES VIEW -->
+                <div x-show="activeTab === 'categories'" class="space-y-6">
+                    <div class="flex justify-between items-center">
+                         <button @click="openAddCategoryModal()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 hover:shadow-blue-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Thêm Danh Mục
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-[2rem] premium-shadow border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr>
+                                    <th class="p-5">ID</th>
+                                    <th class="p-5">Tên Danh Mục</th>
+                                    <th class="p-5">Mô Tả</th>
+                                    <th class="p-5">Số Lượng Sách</th>
+                                    <th class="p-5 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <template x-for="cat in categories">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-5 font-bold text-slate-500" x-text="cat.id"></td>
+                                        <td class="p-5 font-bold text-slate-900" x-text="cat.name"></td>
+                                        <td class="p-5 text-sm text-slate-500" x-text="cat.desc"></td>
+                                        <td class="p-5 text-sm font-bold" x-text="cat.count"></td>
+                                        <td class="p-5 text-right flex justify-end gap-2">
+                                            <button @click="openEditCategoryModal(cat)" class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-transform hover:scale-110 active:scale-90"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button @click="confirmDeleteCategory(cat)" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-transform hover:scale-110 active:scale-90"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CATEGORY MODAL -->
+                <div x-show="showCategoryModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showCategoryModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-enter">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900" x-text="isEditing ? 'Cập nhật Danh Mục' : 'Thêm Danh Mục'"></h3>
+                            <button @click="showCategoryModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8 space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Tên danh mục <span class="text-rose-500">*</span></label>
+                                <input type="text" x-model="newCategory.name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Mô tả</label>
+                                <textarea x-model="newCategory.desc" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold h-24"></textarea>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showCategoryModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="saveCategory" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all" x-text="isEditing ? 'Lưu Thay Đổi' : 'Tạo Mới'"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROFILES (Authors & Publishers) Reusable Layout -->
+                <div x-show="['authors', 'publishers'].includes(activeTab)" class="space-y-6">
+                    <div class="flex justify-between items-center">
+                         <button @click="openAddAuthorModal()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 hover:shadow-blue-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> <span x-text="activeTab === 'authors' ? 'Thêm Tác Giả' : 'Thêm NXB'"></span>
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-[2rem] premium-shadow border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr>
+                                    <th class="p-5">ID</th>
+                                    <th class="p-5">Tên</th>
+                                    <th class="p-5">Thông Tin (Địa chỉ/Bio)</th>
+                                    <th class="p-5 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                <template x-for="item in (activeTab==='authors' ? authors : publishers)">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-5 font-bold text-slate-500" x-text="item.id"></td>
+                                        <td class="p-5 font-bold text-slate-900" x-text="item.name"></td>
+                                        <td class="p-5 text-sm text-slate-500" x-text="item.info"></td>
+                                        <td class="p-5 text-right flex justify-end gap-2">
+                                            <button @click="openEditAuthorModal(item)" class="p-2 text-amber-500 hover:bg-amber-50 rounded-lg transition-transform hover:scale-110 active:scale-90"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button @click="confirmDeleteAuthor(item)" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-transform hover:scale-110 active:scale-90"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- AUTHOR/PUBLISHER MODAL -->
+                <div x-show="showAuthorModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showAuthorModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-enter">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900" x-text="(isEditing ? 'Cập nhật ' : 'Thêm ') + (activeTab === 'authors' ? 'Tác Giả' : 'Nhà Xuất Bản')"></h3>
+                            <button @click="showAuthorModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8 space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Tên <span class="text-rose-500">*</span></label>
+                                <input type="text" x-model="newAuthor.name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2" x-text="activeTab === 'authors' ? 'Thông tin giới thiệu (Bio)' : 'Địa chỉ'"></label>
+                                <textarea x-model="newAuthor.info" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold h-24"></textarea>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showAuthorModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="saveAuthor" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all" x-text="isEditing ? 'Lưu Thay Đổi' : 'Tạo Mới'"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- READERS VIEW -->
+                <div x-show="activeTab === 'readers'" class="space-y-6">
+                    <div class="flex justify-between items-center bg-white p-4 rounded-2xl premium-shadow border border-slate-100">
+                         <div class="flex gap-4 items-center">
+                            <input type="text" placeholder="Tìm độc giả..." class="pl-4 pr-4 py-2 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-blue-500/20">
+                         </div>
+                         <button @click="openAddReaderModal()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 hover:shadow-blue-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i> Thêm Độc Giả
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-[2rem] premium-shadow border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr>
+                                    <th class="p-5">ID</th>
+                                    <th class="p-5">Họ Tên</th>
+                                    <th class="p-5">Email</th>
+                                    <th class="p-5">SĐT</th>
+                                    <th class="p-5">Trạng thái</th>
+                                    <th class="p-5 text-right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                             <tbody class="divide-y divide-slate-50">
+                                <template x-for="r in readers">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-5 font-bold text-slate-500" x-text="r.id"></td>
+                                        <td class="p-5 font-bold text-slate-900" x-text="r.name"></td>
+                                        <td class="p-5 text-sm" x-text="r.email"></td>
+                                        <td class="p-5 text-sm" x-text="r.phone"></td>
+                                        <td class="p-5"><span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-[10px] font-black uppercase">Hoạt động</span></td>
+                                        <td class="p-5 text-right flex justify-end gap-2">
+                                            <button @click="openEditReaderModal(r)" class="p-1.5 text-blue-500 hover:bg-blue-50 rounded"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                                            <button @click="confirmDeleteReader(r)" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- READER MODAL -->
+                <div x-show="showReaderModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showReaderModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-enter">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900" x-text="isEditing ? 'Cập Nhật Độc Giả' : 'Thêm Độc Giả Mới'"></h3>
+                            <button @click="showReaderModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8 space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Họ và Tên <span class="text-rose-500">*</span></label>
+                                <input type="text" x-model="newReader.name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Email</label>
+                                    <input type="email" x-model="newReader.email" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Số Điện Thoại</label>
+                                    <input type="text" x-model="newReader.phone" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                </div>
+                            </div>
+                        </div>
+                         <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showReaderModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="saveReader" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all" x-text="isEditing ? 'Lưu Thay Đổi' : 'Tạo Độc Giả'"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LIBRARY CARDS VIEW -->
+                <div x-show="activeTab === 'cards'" class="space-y-6">
+                    <div class="flex justify-between items-center bg-white p-4 rounded-2xl premium-shadow border border-slate-100">
+                         <div class="flex gap-4 items-center">
+                            <input type="text" placeholder="Mã thẻ / Tên SV..." class="pl-4 pr-4 py-2 bg-slate-50 rounded-xl text-sm font-semibold border-none focus:ring-2 focus:ring-blue-500/20">
+                         </div>
+                         <button @click="openAddCardModal()" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 hover:-translate-y-1 hover:shadow-indigo-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                            <i data-lucide="id-card" class="w-4 h-4"></i> Phát Hành Thẻ Mới
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-[2rem] premium-shadow border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr>
+                                    <th class="p-5">Số Thẻ</th>
+                                    <th class="p-5">Độc Giả</th>
+                                    <th class="p-5">Ngày Cấp</th>
+                                    <th class="p-5">Ngày Hết Hạn</th>
+                                    <th class="p-5">Trạng Thái</th>
+                                    <th class="p-5 text-right">Tác Vụ</th>
+                                </tr>
+                            </thead>
+                             <tbody class="divide-y divide-slate-50">
+                                <template x-for="r in readers">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-5 font-bold text-slate-900" x-text="'UTC' + (2024000 + r.id)"></td>
+                                        <td class="p-5 font-bold text-slate-700" x-text="r.name"></td>
+                                        <td class="p-5 text-sm" x-text="'01/01/2024'"></td>
+                                        <td class="p-5 text-sm" x-text="'01/01/2026'"></td>
+                                        <td class="p-5"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-[10px] font-black uppercase">Đang sử dụng</span></td>
+                                        <td class="p-5 text-right flex justify-end gap-2">
+                                            <button @click="alert('In thẻ cho ' + r.name)" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded"><i data-lucide="printer" class="w-4 h-4"></i></button>
+                                            <button @click="if(confirm('Khóa thẻ của ' + r.name + '?')) alert('Đã khóa thẻ!')" class="p-1.5 text-rose-500 hover:bg-rose-50 rounded"><i data-lucide="lock" class="w-4 h-4"></i></button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CARD MODAL -->
+                <div x-show="showCardModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showCardModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-enter">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900">Cấp Thẻ Thư Viện</h3>
+                            <button @click="showCardModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8 space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Chọn Độc Giả</label>
+                                <select class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold appearance-none">
+                                    <template x-for="r in readers">
+                                        <option x-text="r.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Loại Thẻ</label>
+                                <select class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold appearance-none">
+                                    <option>Thẻ Sinh Viên (2 năm)</option>
+                                    <option>Thẻ Giảng Viên (5 năm)</option>
+                                    <option>Thẻ Khách (6 tháng)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showCardModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="saveCard" class="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-600/20 transition-all">Cấp Thẻ Ngay</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LOANS VIEW -->
+                <div x-show="activeTab === 'loans'" class="space-y-6">
+                     <div class="flex justify-between items-center">
+                        <button @click="openAddLoanModal()" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 hover:shadow-blue-600/40 active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Tạo Phiếu Mượn
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-[2rem] premium-shadow border border-slate-100 overflow-hidden">
+                        <table class="w-full text-left">
+                            <thead class="bg-slate-50 border-b border-slate-100 text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                <tr>
+                                    <th class="p-5">ID</th>
+                                    <th class="p-5">Độc Giả</th>
+                                    <th class="p-5">Ngày Mượn</th>
+                                    <th class="p-5">Hẹn Trả</th>
+                                    <th class="p-5">Trạng Thái</th>
+                                    <th class="p-5 text-right">Tác Vụ</th>
+                                </tr>
+                            </thead>
+                             <tbody class="divide-y divide-slate-50">
+                                <template x-for="l in loans">
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="p-5 font-bold text-slate-500" x-text="l.id"></td>
+                                        <td class="p-5 font-bold text-slate-900" x-text="l.reader"></td>
+                                        <td class="p-5 text-sm" x-text="l.borrowDate"></td>
+                                        <td class="p-5 text-sm" x-text="l.dueDate"></td>
+                                         <td class="p-5">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider"
+                                            :class="l.status === 'Đang mượn' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'" x-text="l.status"></span>
+                                        </td>
+                                        <td class="p-5 text-right flex justify-end gap-2">
+                                            <button @click="if(l.status === 'Đang mượn') { if(confirm('Xác nhận trả sách cho phiếu ' + l.id + '?')) { l.status = 'Đã trả'; } } else { alert('Phiếu này đã hoàn tất!'); }" class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-transform hover:scale-110 active:scale-90" title="Trả sách">
+                                                <i class="w-4 h-4" :data-lucide="l.status === 'Đang mượn' ? 'corner-down-left' : 'check-circle'"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- LOAN MODAL -->
+                <div x-show="showLoanModal" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                    <div @click.outside="showLoanModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col animate-enter">
+                        <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 class="text-xl font-black text-slate-900">Tạo Phiếu Mượn Sách</h3>
+                            <button @click="showLoanModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                        </div>
+                        <div class="p-8 space-y-6">
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Độc Giả</label>
+                                    <select x-model="newLoan.reader" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold appearance-none">
+                                        <template x-for="r in readers">
+                                            <option x-text="r.name"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Ngày Hẹn Trả</label>
+                                    <input type="date" x-model="newLoan.dueDate" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                </div>
+                            </div>
+
+                            <!-- SEARCH BOOK SECTION -->
+                            <div class="relative">
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Tìm & Thêm Sách</label>
+                                <div class="relative">
+                                    <input type="text" x-model="bookSearchQuery" placeholder="Nhập tên sách, mã sách hoặc tác giả..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 font-semibold">
+                                    <i data-lucide="search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
+                                </div>
+
+                                <!-- Search Results Dropdown -->
+                                <div x-show="bookSearchQuery.length > 0" class="absolute z-10 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-100 max-h-60 overflow-y-auto">
+                                    <template x-for="book in books.filter(b => b.title.toLowerCase().includes(bookSearchQuery.toLowerCase()) || b.author.toLowerCase().includes(bookSearchQuery.toLowerCase()))">
+                                        <div @click="addBookToLoan(book)" class="p-3 hover:bg-blue-50 cursor-pointer flex justify-between items-center border-b border-slate-50 last:border-0 group transition-colors">
+                                            <div>
+                                                <p class="font-bold text-slate-800 text-sm" x-text="book.title"></p>
+                                                <p class="text-[11px] text-slate-500">
+                                                    <span x-text="book.author"></span> • <span x-text="book.publisher"></span> • <span class="font-mono text-xs" x-text="book.year"></span>
+                                                </p>
+                                            </div>
+                                            <button class="text-blue-600 opacity-0 group-hover:opacity-100 font-bold text-xs bg-blue-100 px-2 py-1 rounded">Thêm</button>
+                                        </div>
+                                    </template>
+                                    <div x-show="books.filter(b => b.title.toLowerCase().includes(bookSearchQuery.toLowerCase())).length === 0" class="p-4 text-center text-slate-500 text-sm">
+                                        Không tìm thấy sách phù hợp
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SELECTED BOOKS LIST -->
+                            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                                <h4 class="text-xs font-bold uppercase text-slate-400 mb-3 flex justify-between">
+                                    <span>Sách Đã Chọn</span>
+                                    <span x-text="newLoan.books.length + ' quyển'"></span>
+                                </h4>
+                                <div class="space-y-2 max-h-40 overflow-y-auto pr-2">
+                                    <template x-for="(book, index) in newLoan.books">
+                                        <div class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100 shadow-sm">
+                                            <div class="flex items-center gap-3">
+                                                 <img :src="book.image" class="w-8 h-10 object-cover rounded">
+                                                 <div>
+                                                     <p class="text-sm font-bold text-slate-800 line-clamp-1" x-text="book.title"></p>
+                                                     <p class="text-[10px] text-slate-500" x-text="book.publisher"></p>
+                                                 </div>
+                                            </div>
+                                            <button @click="removeBookFromLoan(index)" class="text-rose-400 hover:text-rose-600 p-1 hover:bg-rose-50 rounded-md transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                                        </div>
+                                    </template>
+                                    <div x-show="newLoan.books.length === 0" class="text-center py-4 text-slate-400 text-sm italic">
+                                        Chưa có sách nào được chọn
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                            <button @click="showLoanModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Hủy bỏ</button>
+                            <button @click="saveLoan" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all">Tạo Phiếu</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- STATS & USERS (Placeholder for completeness) -->
+                <div x-show="['stats', 'sys_users'].includes(activeTab)" class="flex items-center justify-center h-96 bg-white rounded-[2rem] premium-shadow border border-slate-100">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                            <i data-lucide="construction" class="w-8 h-8"></i>
+                        </div>
+                        <h3 class="text-xl font-bold text-slate-900">Module Đang Phát Triển</h3>
+                        <p class="text-slate-500 mt-2">Tính năng này đã có trong Laravel Backend.</p>
+                    </div>
+                </div>
+
+            </div>
+            <!-- BOOK DETAIL MODAL (Matching sach/show.blade.php) -->
+            <div x-show="selectedBook" x-transition.opacity class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+                <div @click.outside="selectedBook = null" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col md:flex-row animate-enter">
+
+                    <!-- Left: Image -->
+                    <div class="w-full md:w-1/3 bg-slate-100 p-8 flex items-center justify-center border-r border-slate-100 relative">
+                        <button @click="selectedBook = null" class="absolute top-4 left-4 p-2 bg-white rounded-full shadow hover:bg-slate-50 md:hidden"><i data-lucide="x" class="w-5 h-5"></i></button>
+                        <div class="aspect-[2/3] h-96 shadow-2xl rounded-2xl overflow-hidden rotate-3 hover:rotate-0 transition-transform duration-500">
+                             <img :src="selectedBook?.image" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+
+                    <!-- Right: Info -->
+                    <div class="w-full md:w-2/3 p-8 md:p-12 overflow-y-auto max-h-[80vh]">
+                        <div class="flex justify-between items-start mb-6">
+                            <div>
+                                <span class="bg-blue-100 text-blue-700 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider" x-text="selectedBook?.category"></span>
+                                <h2 class="text-3xl font-black text-slate-900 mt-3 leading-tight" x-text="selectedBook?.title"></h2>
+                                <p class="text-lg text-slate-500 font-medium mt-1" x-text="selectedBook?.author"></p>
+                            </div>
+                            <button @click="selectedBook = null" class="p-2 hover:bg-slate-100 rounded-full transition-colors hidden md:block"><i data-lucide="x" class="w-6 h-6 text-slate-400"></i></button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                            <div>
+                                <p class="text-xs text-slate-400 font-bold uppercase">Nhà Xuất Bản</p>
+                                <p class="font-bold text-slate-700" x-text="selectedBook?.publisher"></p>
+                            </div>
+                             <div>
+                                <p class="text-xs text-slate-400 font-bold uppercase">Năm Xuất Bản</p>
+                                <p class="font-bold text-slate-700" x-text="selectedBook?.year"></p>
+                            </div>
+                             <div>
+                                <p class="text-xs text-slate-400 font-bold uppercase">Số Trang</p>
+                                <p class="font-bold text-slate-700" x-text="selectedBook?.pages + ' trang'"></p>
+                            </div>
+                             <div>
+                                <p class="text-xs text-slate-400 font-bold uppercase">Tình Trạng</p>
+                                <p class="font-bold" :class="selectedBook?.quantity_remaining > 0 ? 'text-emerald-600' : 'text-rose-600'" x-text="selectedBook?.quantity_remaining > 0 ? 'Còn hàng (' + selectedBook?.quantity_remaining + ')' : 'Hết hàng'"></p>
+                            </div>
+                        </div>
+
+                        <div class="prose prose-slate mb-8">
+                            <h3 class="text-lg font-bold text-slate-900 mb-2">Giới thiệu sách</h3>
+                            <p class="text-slate-600 leading-relaxed" x-text="selectedBook?.description || 'Đang cập nhật nội dung giới thiệu cho cuốn sách này...'"></p>
+                        </div>
+
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-8">
+                             <div>
+                                <span class="block text-xs text-slate-400 font-bold uppercase mb-1">Giá bìa</span>
+                                <span class="text-3xl font-black text-blue-600" x-text="selectedBook?.price + ' đ'"></span>
+                            </div>
+                            <button class="px-8 py-4 bg-blue-900 text-white rounded-xl font-bold hover:bg-blue-800 shadow-xl shadow-blue-900/20 hover:-translate-y-1 hover:shadow-2xl active:translate-y-0 active:scale-95 transition-all duration-200 flex items-center gap-3">
+                                <i data-lucide="shopping-bag" class="w-5 h-5 animate-bounce"></i>
+                                Đăng Ký Mượn
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- STUDENT FILTER MODAL -->
+        <div x-show="showStudentFilterModal" x-transition.opacity class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" x-cloak>
+            <div @click.outside="showStudentFilterModal = false" class="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-enter">
+                <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                    <h3 class="text-xl font-black text-slate-900 flex items-center gap-2"><i data-lucide="sliders-horizontal" class="w-5 h-5 text-blue-600"></i> Bộ Lọc Tìm Kiếm</h3>
+                    <button @click="showStudentFilterModal = false" class="p-2 hover:bg-slate-100 rounded-full transition-colors"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+                </div>
+                <div class="p-8 space-y-6">
+                    <!-- Years -->
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-3">Năm xuất bản</label>
+                        <div class="flex items-center gap-3">
+                            <input type="number" x-model="studentFilter.yearFrom" placeholder="Từ năm" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20">
+                            <span class="text-slate-400">-</span>
+                            <input type="number" x-model="studentFilter.yearTo" placeholder="Đến năm" class="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20">
+                        </div>
+                    </div>
+
+                    <!-- Publisher -->
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Nhà Xuất Bản</label>
+                        <select x-model="studentFilter.publisher" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20 appearance-none">
+                            <option value="">Tất cả NXB</option>
+                            <template x-for="p in publishers">
+                                <option :value="p.name" x-text="p.name"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Author -->
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-2">Tác Giả</label>
+                        <input type="text" x-model="studentFilter.author" placeholder="Nhập tên tác giả..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm focus:ring-2 focus:ring-blue-500/20">
+                    </div>
+                </div>
+                <div class="p-6 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50">
+                    <button @click="studentFilter = { yearFrom: '', yearTo: '', publisher: '', author: '' }; showStudentFilterModal = false" class="px-6 py-3 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all">Xóa lọc</button>
+                    <button @click="showStudentFilterModal = false" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all">Áp dụng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP LOGIC -->
+    <script>
+        function appData() {
+            return {
+                isLoggedIn: false,
+                isLoading: false,
+                role: 'student', // 'admin', 'librarian', 'student'
+                activeTab: 'dashboard',
+                loginForm: { email: '', password: '' },
+                selectedBook: null, // For modal
+
+                // Modal States
+                showAddBookModal: false,
+                showImportModal: false,
+                showDeleteModal: false,
+                showCategoryModal: false,
+                showAuthorModal: false,
+                showReaderModal: false,
+                showCardModal: false,
+                showLoanModal: false,
+
+                bookToDelete: null,
+                isEditing: false,
+                excelFile: null,
+
+                newCategory: { id: null, name: '', desc: '', count: 0 },
+                newAuthor: { id: null, name: '', info: '' },
+                newReader: { id: null, name: '', email: '', phone: '' },
+                newLoan: { reader: '', dueDate: '', books: [] },
+                bookSearchQuery: '',
+
+                newBook: {
+                    id: null, title: '', category: 'Giáo trình', author: 'Nguyễn Văn A',
+                    year: '', pages: '', price: '', qty: 10, desc: '',
+                    imagePreview: null, publisher: 'NXB Giáo Dục'
+                },
+
+                // STUDENT FILTER LOGIC
+                selectedMaterialType: 'all',
+                materialTypes: [
+                    { id: 'all', name: 'Tất cả tài liệu', icon: 'library' },
+                    { id: 'giao_trinh', name: 'Giáo trình', icon: 'book' },
+                    { id: 'tham_khao', name: 'Sách tham khảo', icon: 'bookmark' },
+                    { id: 'do_an', name: 'Đồ án / Luận văn', icon: 'graduation-cap' },
+                    { id: 'nckh', name: 'Nghiên cứu KH', icon: 'microscope' },
+                    { id: 'tap_chi', name: 'Tạp chí / Báo', icon: 'newspaper' }
+                ],
+                showStudentFilterModal: false,
+                studentFilter: { yearFrom: '', yearTo: '', publisher: '', author: '' },
+
+                getFilteredBooks() {
+                    return this.books.filter(book => {
+                        // 1. Filter by Material Type
+                        // Note: Existing mock data needs 'type' property.
+                        // For demo functionality without rewriting all data, I'll map category/title to type if missing.
+                        let bookType = book.type;
+                        if (!bookType) {
+                            if (book.category === 'Giáo trình') bookType = 'giao_trinh';
+                            else if (book.title.includes('Đồ án')) bookType = 'do_an';
+                            else if (book.category === 'Tạp chí') bookType = 'tap_chi';
+                            else bookType = 'tham_khao'; // Default fallback
+                        }
+
+                        if (this.selectedMaterialType !== 'all' && bookType !== this.selectedMaterialType) return false;
+
+                        // 2. Filter by Year Range
+                        if (this.studentFilter.yearFrom && parseInt(book.year) < parseInt(this.studentFilter.yearFrom)) return false;
+                        if (this.studentFilter.yearTo && parseInt(book.year) > parseInt(this.studentFilter.yearTo)) return false;
+
+                        // 3. Filter by Publisher
+                        if (this.studentFilter.publisher && book.publisher !== this.studentFilter.publisher) return false;
+
+                        // 4. Filter by Author
+                        if (this.studentFilter.author && !book.author.toLowerCase().includes(this.studentFilter.author.toLowerCase())) return false;
+
+                        return true;
+                    });
+                },
+
+                // MOCK DATA
+                books: [
+                    { id: 101, type: 'giao_trinh', title: 'Giáo trình Cấu trúc dữ liệu', category: 'Công nghệ thông tin', author: 'Nguyễn Đức Nghĩa', publisher: 'NXB Bách Khoa', quantity_total: 50, quantity_remaining: 32, price: '120,000', image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=1000&auto=format&fit=crop', year: '2019', pages: 250, description: 'Giáo trình chuẩn về Cấu trúc dữ liệu và Giải thuật.' },
+                    { id: 102, type: 'giao_trinh', title: 'Lập trình Hướng đối tượng Java', category: 'Công nghệ thông tin', author: 'Phạm Văn Ất', publisher: 'NXB Giáo Dục', quantity_total: 30, quantity_remaining: 5, price: '95,000', image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?q=80&w=1000&auto=format&fit=crop', year: '2021', pages: 400 },
+                    { id: 103, type: 'tham_khao', title: 'Xác suất thống kê', category: 'Khoa học cơ bản', author: 'Đặng Hùng Thắng', publisher: 'NXB Đại học Quốc gia', quantity_total: 100, quantity_remaining: 88, price: '60,000', image: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?q=80&w=1000&auto=format&fit=crop', year: '2018', pages: 180 },
+                    { id: 104, type: 'tham_khao', title: 'Kinh tế vi mô', category: 'Kinh tế', author: 'N. Gregory Mankiw', publisher: 'NXB Kinh Tế', quantity_total: 45, quantity_remaining: 0, price: '150,000', image: 'https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?q=80&w=1000&auto=format&fit=crop', year: '2022', pages: 550 },
+                    { id: 105, type: 'giao_trinh', title: 'Giải tích 1 & 2', category: 'Khoa học cơ bản', author: 'Nguyễn Đình Trí', publisher: 'NXB Giao Thông', quantity_total: 80, quantity_remaining: 45, price: '85,000', image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=1000&auto=format&fit=crop', year: '2020', pages: 320 },
+                    { id: 106, type: 'giao_trinh', title: 'Mạng Máy Tính', category: 'Công nghệ thông tin', author: 'Andrew S. Tanenbaum', publisher: 'NXB Thống Kê', quantity_total: 25, quantity_remaining: 12, price: '180,000', image: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc51?q=80&w=1000&auto=format&fit=crop', year: '2021', pages: 600 },
+                    { id: 107, type: 'do_an', title: 'Đồ án: Hệ thống quản lý thư viện', category: 'Công nghệ thông tin', author: 'SV. Nguyễn Văn A', publisher: 'ĐH GTVT', quantity_total: 1, quantity_remaining: 1, price: '0', image: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=300&h=450', year: '2024', pages: 80, description: 'Đồ án tốt nghiệp xây dựng hệ thống quản lý thư viện.' },
+                    { id: 108, type: 'nckh', title: 'Nghiên cứu ứng dụng AI trong Giao thông', category: 'Công nghệ thông tin', author: 'Nhóm NCKH K60', publisher: 'Tạp chí GTVT', quantity_total: 5, quantity_remaining: 5, price: '0', image: 'https://images.unsplash.com/photo-1664575602554-208c7a6646cf?auto=format&fit=crop&q=80&w=300&h=450', year: '2023', pages: 120, description: 'Đề tài NCKH cấp trường.' },
+                    { id: 109, type: 'tap_chi', title: 'Tạp chí Cầu Đường - Số 12', category: 'Xây dựng', author: 'Nhiều tác giả', publisher: 'Hội KHKT', quantity_total: 100, quantity_remaining: 90, price: '20,000', image: 'https://plus.unsplash.com/premium_photo-1661331818293-1678170d10d9?auto=format&fit=crop&q=80&w=300&h=450', year: '2024', pages: 50 }
+                ],
+                categories: [
+                    { id: 1, name: 'Công nghệ thông tin', count: 120 },
+                    { id: 2, name: 'Kinh tế vận tải', count: 85 },
+                    { id: 3, name: 'Cơ khí - Động lực', count: 90 },
+                    { id: 4, name: 'Điện - Điện tử', count: 76 },
+                    { id: 5, name: 'Xây dựng cầu đường', count: 110 }
+                ],
+                authors: [
+                    { id: 1, name: 'Phạm Văn Ất', info: 'Giáo sư đầu ngành CNTT...' },
+                    { id: 2, name: 'Nguyễn Đức Nghĩa', info: 'Chuyên gia giải thuật...' },
+                ],
+                publishers: [
+                    { id: 1, name: 'NXB Giao Thông Vận Tải', info: 'Số 3 Cầu Giấy, Hà Nội' },
+                    { id: 2, name: 'NXB Giáo Dục', info: 'Hoàn Kiếm, Hà Nội' },
+                ],
+                readers: [
+                    { id: 1, name: 'Sinh Viên A', email: 'sv_a@utc.edu.vn', phone: '0912345678' },
+                    { id: 2, name: 'Giảng Viên B', email: 'gv_b@utc.edu.vn', phone: '0987654321' },
+                ],
+                loans: [
+                    { id: 1, reader: 'Sinh Viên A', admin: 'Admin User', borrowDate: '20/01/2026', dueDate: '03/02/2026', status: 'Đang mượn' }
+                ],
+
+                initApp() {
+                    this.isLoading = true;
+                    // Simulate loading
+                    setTimeout(() => { this.isLoading = false; }, 800);
+
+                    this.$watch('activeTab', (val) => {
+                         setTimeout(() => lucide.createIcons(), 50);
+                         if (val === 'dashboard' && this.role !== 'student') {
+                             setTimeout(() => this.initChart(), 100);
+                         }
+                    });
+                     this.$watch('role', (val) => {
+                         this.activeTab = val === 'student' ? 'dashboard' : 'dashboard';
+                         setTimeout(() => lucide.createIcons(), 50);
+                    });
+                },
+
+                getPageTitle() {
+                    const titles = {
+                        'dashboard': 'Tổng quan',
+                        'books': 'Quản lý Sách',
+                        'categories': 'Danh mục',
+                        'authors': 'Tác giả',
+                        'publishers': 'Nhà xuất bản',
+                        'readers': 'Độc giả',
+                        'loans': 'Phiếu mượn',
+                        'stats': 'Báo cáo thống kê',
+                        'sys_users': 'Hệ thống người dùng'
+                    };
+                    return titles[this.activeTab] || 'Dashboard';
+                },
+
+                login() {
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        // Demo logic: Set role based on email
+                        const email = this.loginForm.email.toLowerCase();
+                        if (email.includes('admin')) {
+                            this.role = 'admin';
+                        } else if (email.includes('librarian') || email.includes('thuthu')) {
+                            this.role = 'librarian';
+                        } else {
+                            this.role = 'student';
+                        }
+
+                        this.isLoggedIn = true;
+                        this.isLoading = false;
+                        this.$nextTick(() => {
+                            lucide.createIcons();
+                            if(this.role !== 'student') this.initChart();
+                        });
+                    }, 1000);
+                },
+
+                logout() {
+                    this.isLoggedIn = false;
+                    this.loginForm = { email: '', password: '' };
+                    this.role = 'student';
+                },
+
+                switchRole(newRole) {
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        this.role = newRole;
+                        this.isLoading = false;
+                        this.$nextTick(() => {
+                            lucide.createIcons();
+                            if(newRole !== 'student') this.initChart();
+                        });
+                    }, 500);
+                },
+
+                initChart() {
+                    const ctx = document.getElementById('chartLoan');
+                    if (ctx) {
+                        if (window.myChart) window.myChart.destroy();
+                        window.myChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6'],
+                                datasets: [{
+                                    label: 'Lượt Mượn',
+                                    data: [120, 190, 300, 250, 400, 350],
+                                    borderColor: '#2563eb',
+                                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }, {
+                                    label: 'Lượt Trả',
+                                    data: [100, 150, 280, 220, 380, 310],
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.0)',
+                                    borderDash: [5, 5],
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'top' } },
+                                scales: { y: { beginAtZero: true } }
+                            }
+                        });
+                    }
+                },
+                handleImageUpload(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            this.newBook.imagePreview = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                },
+
+                // --- NEW METHODS FOR CRUD ---
+                openAddModal() {
+                    this.isEditing = false;
+                    this.newBook = {
+                        id: null, title: '', category: 'Giáo trình', author: 'Nguyễn Văn A',
+                        year: '', pages: '', price: '', qty: 10, desc: '',
+                        imagePreview: null, publisher: 'NXB Giáo Dục'
+                    };
+                    this.showAddBookModal = true;
+                },
+
+                openEditModal(book) {
+                    this.isEditing = true;
+                    this.newBook = JSON.parse(JSON.stringify(book)); // Deep copy
+                    this.newBook.imagePreview = book.image;
+                    this.showAddBookModal = true;
+                },
+
+                saveBook() {
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        const bookData = {
+                            ...this.newBook,
+                            image: this.newBook.imagePreview || 'https://via.placeholder.com/300x450',
+                             quantity_total: parseInt(this.newBook.qty),
+                             price: this.newBook.price
+                        };
+
+                        if (this.isEditing) {
+                            const index = this.books.findIndex(b => b.id === bookData.id);
+                            if (index !== -1) {
+                                this.books[index] = { ...this.books[index], ...bookData };
+                            }
+                        } else {
+                            bookData.id = Math.max(...this.books.map(b => b.id)) + 1;
+                            bookData.quantity_remaining = bookData.quantity_total;
+                            bookData.totalQty = bookData.qty; // Fix naming mismatch
+                            this.books.unshift(bookData);
+                        }
+
+                        this.showAddBookModal = false;
+                        this.isLoading = false;
+                        alert(this.isEditing ? 'Đã cập nhật thông tin sách!' : 'Đã thêm sách mới thành công!');
+                    }, 600);
+                },
+
+                confirmDelete(book) {
+                    this.bookToDelete = book;
+                    this.showDeleteModal = true;
+                },
+
+                deleteBook() {
+                    this.books = this.books.filter(b => b.id !== this.bookToDelete.id);
+                    this.showDeleteModal = false;
+                    this.bookToDelete = null;
+                    alert('Đã xóa sách khỏi hệ thống!');
+                },
+
+                handleExcelSelect(event) {
+                    this.excelFile = event.target.files[0];
+                },
+
+                downloadSample() {
+                    alert('Đang tải xuống file mẫu: book_import_template.xlsx');
+                },
+
+                // --- CATEGORY CRUD ---
+                openAddCategoryModal() {
+                    this.isEditing = false;
+                    this.newCategory = { id: null, name: '', desc: '', count: 0 };
+                    this.showCategoryModal = true;
+                },
+                openEditCategoryModal(cat) {
+                    this.isEditing = true;
+                    this.newCategory = { ...cat };
+                    this.showCategoryModal = true;
+                },
+                saveCategory() {
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        if (this.isEditing) {
+                            const idx = this.categories.findIndex(c => c.id === this.newCategory.id);
+                            if (idx !== -1) this.categories[idx] = { ...this.newCategory };
+                        } else {
+                            const newId = Math.max(...this.categories.map(c => c.id)) + 1;
+                            this.categories.push({ ...this.newCategory, id: newId });
+                        }
+                        this.showCategoryModal = false;
+                        this.isLoading = false;
+                        alert('Đã lưu danh mục thành công!');
+                    }, 500);
+                },
+                confirmDeleteCategory(cat) {
+                     if(confirm('Bạn có chắc muốn xóa danh mục "' + cat.name + '"?')) {
+                        this.categories = this.categories.filter(c => c.id !== cat.id);
+                     }
+                },
+
+                // --- AUTHOR / PUBLISHER CRUD ---
+                openAddAuthorModal() {
+                    this.isEditing = false;
+                    this.newAuthor = { id: null, name: '', info: '' };
+                    this.showAuthorModal = true;
+                },
+                openEditAuthorModal(item) {
+                     this.isEditing = true;
+                     this.newAuthor = { ...item };
+                     this.showAuthorModal = true;
+                },
+                saveAuthor() {
+                    const list = this.activeTab === 'authors' ? this.authors : this.publishers;
+                     this.isLoading = true;
+                    setTimeout(() => {
+                         if (this.isEditing) {
+                            const idx = list.findIndex(i => i.id === this.newAuthor.id);
+                            if (idx !== -1) list[idx] = { ...this.newAuthor };
+                        } else {
+                            const newId = Math.max(...list.map(i => i.id)) + 1;
+                            list.push({ ...this.newAuthor, id: newId });
+                        }
+                        this.showAuthorModal = false;
+                        this.isLoading = false;
+                        alert('Đã lưu thông tin thành công!');
+                    }, 500);
+                },
+                confirmDeleteAuthor(item) {
+                    const list = this.activeTab === 'authors' ? this.authors : this.publishers;
+                    if(confirm('Bạn có chắc muốn xóa "' + item.name + '"?')) {
+                         if (this.activeTab === 'authors') {
+                             this.authors = this.authors.filter(i => i.id !== item.id);
+                         } else {
+                             this.publishers = this.publishers.filter(i => i.id !== item.id);
+                         }
+                    }
+                },
+
+                // --- READER CRUD ---
+                openAddReaderModal() {
+                    this.isEditing = false;
+                    this.newReader = { id: null, name: '', email: '', phone: '' };
+                    this.showReaderModal = true;
+                },
+                openEditReaderModal(reader) {
+                    this.isEditing = true;
+                    this.newReader = { ...reader };
+                    this.showReaderModal = true;
+                },
+                saveReader() {
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        if(this.isEditing) {
+                            const idx = this.readers.findIndex(r => r.id === this.newReader.id);
+                            if(idx !== -1) this.readers[idx] = { ...this.newReader };
+                        } else {
+                            const newId = Math.max(...this.readers.map(r => r.id)) + 1;
+                            this.readers.push({ ...this.newReader, id: newId });
+                        }
+                        this.showReaderModal = false;
+                        this.isLoading = false;
+                        alert('Đã lưu độc giả thành công!');
+                    }, 500);
+                },
+                confirmDeleteReader(reader) {
+                    if(confirm('Xóa độc giả ' + reader.name + '?')) {
+                        this.readers = this.readers.filter(r => r.id !== reader.id);
+                    }
+                },
+
+                // --- CARD CRUD (Simple Mock) ---
+                openAddCardModal() {
+                    this.showCardModal = true;
+                },
+                saveCard() {
+                    this.showCardModal = false;
+                    alert('Đã phát hành thẻ mới thành công!');
+                },
+
+                // --- LOAN CRUD ---
+                openAddLoanModal() {
+                    this.newLoan = { reader: this.readers[0]?.name, dueDate: '', books: [] };
+                    this.bookSearchQuery = '';
+                    this.showLoanModal = true;
+                },
+                addBookToLoan(book) {
+                    if (!this.newLoan.books.find(b => b.id === book.id)) {
+                        this.newLoan.books.push(book);
+                    }
+                    this.bookSearchQuery = ''; // Clear search after add
+                },
+                removeBookFromLoan(index) {
+                    this.newLoan.books.splice(index, 1);
+                },
+                saveLoan() {
+                    if (this.newLoan.books.length === 0) {
+                        alert('Vui lòng chọn ít nhất một cuốn sách!');
+                        return;
+                    }
+                    this.isLoading = true;
+                    setTimeout(() => {
+                        const newId = Math.max(...this.loans.map(l => l.id)) + 1;
+                         const loan = {
+                            id: newId,
+                            reader: this.newLoan.reader,
+                            admin: this.role === 'admin' ? 'Nguyễn Văn Admin' : 'Trần Thị Thủ Thư',
+                            borrowDate: new Date().toLocaleDateString('vi-VN'),
+                            dueDate: this.newLoan.dueDate || 'Loading...',
+                            status: 'Đang mượn',
+                            books: this.newLoan.books // Save selected books
+                        };
+                        this.loans.unshift(loan);
+                        this.showLoanModal = false;
+                        this.isLoading = false;
+                        alert('Đã tạo phiếu mượn công!');
+                    }, 600);
+                }
+            };
+        }
+    </script>
+</body>
+</html>

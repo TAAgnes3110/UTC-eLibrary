@@ -13,7 +13,6 @@ class Loan extends BaseModel
 
   protected $fillable = [
     'user_id',
-    'reader_id',
     'book_copy_id',
     'librarian_id',
     'loan_date',
@@ -30,7 +29,6 @@ class Loan extends BaseModel
     'notes',
     'params',
   ];
-
   protected $casts = [
     'loan_date' => 'date',
     'due_date' => 'date',
@@ -39,37 +37,26 @@ class Loan extends BaseModel
     'overdue_fine' => 'decimal:2',
     'params' => 'array',
   ];
-
   public function user(): BelongsTo
   {
     return $this->belongsTo(User::class);
   }
-
-  public function reader(): BelongsTo
-  {
-    return $this->belongsTo(Reader::class);
-  }
-
   public function bookCopy(): BelongsTo
   {
     return $this->belongsTo(BookCopy::class);
   }
-
   public function librarian(): BelongsTo
   {
     return $this->belongsTo(User::class, 'librarian_id');
   }
-
   public function history(): HasMany
   {
     return $this->hasMany(LoanHistory::class);
   }
-
   public function fine(): HasOne
   {
     return $this->hasOne(Fine::class);
   }
-
   public function isOverdue(): bool
   {
     if ($this->status === 'returned') {

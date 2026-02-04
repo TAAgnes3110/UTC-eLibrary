@@ -19,9 +19,4 @@ class Faculty extends BaseModel
   {
     return $this->hasMany(Department::class);
   }
-
-  public function readers(): HasMany
-  {
-    return $this->hasMany(Reader::class);
-  }
 }

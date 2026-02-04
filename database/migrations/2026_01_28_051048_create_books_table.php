@@ -10,22 +10,30 @@ return new class extends Migration
     {
         Schema::create('books', function (Blueprint $table) {
             $table->increments('id');
-            $table->string('title')->comment('Tên sách');
-            $table->string('classification_code')->nullable()->comment('Phân loại sách');
+            $table->enum('type', ['book', 'thesis', 'dissertation', 'research', 'magazine', 'other'])->default('book')->index()->comment('Loại tài liệu');
+
+            $table->string('title')->comment('Tên sách/Tên đề tài');
+            $table->string('classification_code')->nullable()->comment('Phân loại sách/Mã đề tài');
             $table->string('classification_detail')->nullable()->comment('Phân loại chi tiết');
+
             $table->unsignedInteger('category_id')->nullable();
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null');
+            $table->unsignedInteger('faculty_id')->nullable()->comment('Khoa quản lý (đối với đồ án/NCKH)');
+            $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('set null');
+
             $table->unsignedInteger('publisher_id')->nullable();
             $table->foreign('publisher_id')->references('id')->on('publishers')->onDelete('set null');
+
             $table->string('publication_place')->nullable()->comment('Nơi xuất bản');
-            $table->year('published_year')->nullable()->comment('Năm xuất bản');
+            $table->year('published_year')->nullable()->comment('Năm xuất bản/Năm bảo vệ');
+
             $table->integer('total_pages')->nullable()->comment('Số trang');
             $table->string('book_size')->nullable()->comment('Khổ sách');
             $table->integer('volume_number')->nullable()->comment('Tập số');
             $table->decimal('price', 10, 2)->nullable()->comment('Giá sách');
             $table->text('notes')->nullable()->comment('Ghi chú');
             $table->enum('status', ['available', 'unavailable', 'processing'])->default('available')->comment('Trạng thái');
-            $table->json('params')->nullable()->comment('Tham số bổ sung');
+            $table->json('params')->nullable()->comment('Tham số bổ sung (Lưu bậc học, chuyên ngành...)');
             $table->timestamps();
             $table->softDeletes();
         });
@@ -36,7 +44,7 @@ return new class extends Migration
             $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
             $table->unsignedInteger('author_id');
             $table->foreign('author_id')->references('id')->on('authors')->onDelete('cascade');
-            $table->enum('role', ['author', 'co-author', 'editor', 'translator'])->default('author')->comment('Vai trò');
+            $table->enum('role', ['author', 'co-author', 'editor', 'translator', 'supervisor'])->default('author')->comment('Vai trò (Tác giả/GVHD)');
             $table->integer('order')->default(0)->comment('Thứ tự');
             $table->timestamps();
         });

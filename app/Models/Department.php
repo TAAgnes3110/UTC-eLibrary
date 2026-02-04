@@ -21,8 +21,8 @@ class Department extends BaseModel
     return $this->belongsTo(Faculty::class);
   }
 
-  public function readers(): HasMany
-  {
-    return $this->hasMany(Reader::class);
-  }
+  // public function readers(): HasMany
+  // {
+  //   return $this->hasMany(Reader::class);
+  // }
 }

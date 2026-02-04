@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Frontend\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AuthRequests\LoginRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Validation\ValidationException;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -28,21 +30,19 @@ class AuthenticatedSessionController extends Controller
     $password = $request->input('password');
     $remember = $request->boolean('remember');
 
-    $user = \App\Models\User::query()
+    $user = User::query()
       ->where('email', $loginField)
       ->orWhere('code', $loginField)
-      ->orWhere('phone', $loginField)
-      ->orWhere('card_number', $loginField)
       ->first();
 
     if (!$user) {
-      throw \Illuminate\Validation\ValidationException::withMessages([
+      throw ValidationException::withMessages([
         'login' => __('Tài khoản không tồn tại trong hệ thống'),
       ]);
     }
 
     if (!Auth::guard('web')->attempt(['email' => $user->email, 'password' => $password], $remember)) {
-      throw \Illuminate\Validation\ValidationException::withMessages([
+      throw ValidationException::withMessages([
         'login' => __('Tài khoản hoặc mật khẩu không chính xác'),
       ]);
     }

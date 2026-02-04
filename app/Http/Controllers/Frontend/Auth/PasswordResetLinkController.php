@@ -33,8 +33,7 @@ class PasswordResetLinkController extends Controller
 
         app(EmailOTPController::class)->sendOtp($user->email, $user->name);
 
-        return redirect()->route('password.reset')->with([
-            'email' => $user->email,
+        return redirect()->route('password.reset', ['email' => $user->email])->with([
             'status' => 'Đã gửi mã OTP đến email của bạn. Vui lòng kiểm tra.',
         ]);
     }

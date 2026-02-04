@@ -21,9 +21,12 @@ class UserController extends Controller
                         ->orWhere('code', 'like', "%{$keyword}%")
                         ->orWhere('email', 'like', "%{$keyword}%")
                         ->orWhere('phone', 'like', "%{$keyword}%")
-                        ->orWhere('card_number', 'like', "%{$keyword}%");
+                        ->orWhereHas('libraryCard', function ($query) use ($keyword) {
+                            $query->where('card_number', 'like', "%{$keyword}%");
+                        });
                 });
             })
+            ->with(['libraryCard'])
             ->orderByDesc('id')
             ->paginate(50)
             ->withQueryString();
@@ -38,15 +41,13 @@ class UserController extends Controller
     public function store(UserRequest $request): JsonResponse
     {
         $data = $request->except(['id']);
-        if (empty($data['card_number'])) {
-            $data['card_number'] = $data['code'] ?? null;
-        }
-
         $exists = User::query()
             ->where('email', $data['email'] ?? null)
             ->orWhere('code', $data['code'] ?? null)
             ->orWhere('phone', $data['phone'] ?? null)
-            ->orWhere('card_number', $data['card_number'] ?? null)
+            ->orWhereHas('libraryCard', function ($query) use ($data) {
+                $query->where('card_number', $data['card_number'] ?? null);
+            })
             ->exists();
         if ($exists) {
             return $this->jsonResponse([
@@ -54,10 +55,24 @@ class UserController extends Controller
                 'messages' => __('messages.error_exist'),
             ], 409);
         }
+
+        $card_number = $data['card_number'] ?? null;
+        unset($data['card_number']);
+
         $user = User::create($data);
+
+        if ($card_number) {
+            $user->libraryCard()->create([
+                'card_number' => $card_number,
+                'status' => 'active',
+                'is_active' => true,
+                'issue_date' => now(),
+            ]);
+        }
+
         return $this->jsonResponse([
             'status' => 'success',
-            'data' => $user,
+            'data' => $user->load('libraryCard'),
             'messages' => __('messages.success_create')
         ], 201);
     }
@@ -84,7 +99,9 @@ class UserController extends Controller
                 $query->where('email', $data['email'] ?? null)
                     ->orWhere('code', $data['code'] ?? null)
                     ->orWhere('phone', $data['phone'] ?? null)
-                    ->orWhere('card_number', $data['card_number'] ?? null);
+                    ->orWhereHas('libraryCard', function ($q) use ($data) {
+                        $q->where('card_number', $data['card_number'] ?? null);
+                    });
             })
             ->exists();
         if ($exists) {
@@ -93,12 +110,28 @@ class UserController extends Controller
                 'messages' => __('messages.error_exist')
             ], 409);
         }
-        $item->fill($request->except(['id']));
+
+        $card_number = $data['card_number'] ?? null;
+        unset($data['card_number']);
+
+        $item->fill($data);
         if ($item->save()) {
+            if ($card_number) {
+                $item->libraryCard()->updateOrCreate(
+                    ['user_id' => $item->id],
+                    [
+                        'card_number' => $card_number,
+                        'status' => 'active',
+                        'is_active' => true,
+                        'issue_date' => now(),
+                    ]
+                );
+            }
+
             return $this->jsonResponse([
                 'status' => 'success',
                 'messages' => __('messages.success_update'),
-                'data' => $item
+                'data' => $item->load('libraryCard')
             ]);
         }
 

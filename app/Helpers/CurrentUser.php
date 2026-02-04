@@ -21,7 +21,6 @@ class CurrentUser
         $this->name = !empty($user->name) ? $user->name : $currentPerson->name;
         $this->is_admin = $user->is_admin;
         $this->use_hns_sign = $user->use_hns_sign;
-        // Ensure roles/permissions are arrays of strings for Spatie integration
         $this->roles = $user->roles instanceof \Illuminate\Support\Collection
             ? $user->roles->pluck('name')->toArray()
             : (array)$user->roles;

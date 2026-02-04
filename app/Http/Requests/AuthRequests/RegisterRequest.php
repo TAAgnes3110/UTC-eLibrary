@@ -11,7 +11,7 @@ class RegisterRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'role' => $this->role ?? RoleType::GUEST->value,
+            'user_type' => RoleType::GUEST->value,
         ]);
     }
 
@@ -22,12 +22,12 @@ class RegisterRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
-            'phone' => 'required|string|max:255|unique:users,phone',
-            'role' => [Rule::in([
-                RoleType::STUDENT->value,
-                RoleType::TEACHER->value,
-                RoleType::GUEST->value
-            ])],
+            'phone' => 'nullable|string|max:20|unique:users,phone',
+            'user_type' => [Rule::in([RoleType::GUEST->value])],
+
+            'organization' => 'nullable|string|max:255',
+            'province' => 'nullable|string|max:100',
+
             'params' => 'nullable|array',
         ];
     }
@@ -36,7 +36,7 @@ class RegisterRequest extends FormRequest
     {
         return [
             'code.required' => 'Mã sinh viên hoặc CCCD không được để trống',
-            'code.unique' => 'Mã sinh viên hoặc CCCD đã tồn tại',
+            'code.unique' => 'Mã số đã tồn tại trong hệ thống',
             'name.required' => 'Tên không được để trống',
             'email.required' => 'Email không được để trống',
             'email.email' => 'Email không hợp lệ',
@@ -44,9 +44,8 @@ class RegisterRequest extends FormRequest
             'password.required' => 'Mật khẩu không được để trống',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự',
             'password.confirmed' => 'Xác nhận mật khẩu không đúng',
-            'phone.required' => 'Số điện thoại không được để trống',
             'phone.unique' => 'Số điện thoại đã tồn tại',
-            'role.in' => 'Vai trò không hợp lệ',
+            'user_type.enum' => 'Loại người dùng không hợp lệ',
         ];
     }
 }

@@ -7,8 +7,7 @@ enum RoleType: string
     case SUPER_ADMIN = "SUPER_ADMIN";
     case ADMIN = "ADMIN";
     case LIBRARIAN = "LIBRARIAN";
-    case TEACHER = "TEACHER";
-    case STUDENT = "STUDENT";
+    case MEMBER = "MEMBER";
     case GUEST = "GUEST";
 
 

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -26,9 +28,12 @@ abstract class BaseModel extends Model
 
     public function getArrParams()
     {
-        if (!empty($this->params)) {
-            $params = json_decode(json_encode($this->params), true);
-            return is_array($params) ? $params : [];
+        if (!empty($this->params) && is_array($this->params)) {
+            return $this->params;
+        }
+        if (!empty($this->params) && is_string($this->params)) {
+            $decoded = json_decode($this->params, true);
+            return is_array($decoded) ? $decoded : [];
         }
         return [];
     }
@@ -67,13 +72,12 @@ abstract class BaseModel extends Model
 
     public function toParams()
     {
-        $this->params = (object)$this->arrParams;
+        $this->params = $this->arrParams;
         return $this;
     }
 
-    public function scopeCustomer($query)
+    public function scopeCustomer(Builder $query): Builder
     {
-        // Implement customer scope logic if needed
         return $query;
     }
 }

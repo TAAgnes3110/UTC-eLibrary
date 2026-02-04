@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watchEffect } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
@@ -15,7 +15,16 @@ import ThemeToggle from '@/Components/ThemeToggle.vue';
 
 const sidebarOpen = ref(true);
 const showingNavigationDropdown = ref(false);
-const user = usePage().props.auth.user;
+const page = usePage();
+const user = page.props.auth.user;
+
+// Sync token to localStorage for API calls
+watchEffect(() => {
+    const token = page.props.auth?.token;
+    if (token) {
+        localStorage.setItem('token', token);
+    }
+});
 </script>
 
 <template>

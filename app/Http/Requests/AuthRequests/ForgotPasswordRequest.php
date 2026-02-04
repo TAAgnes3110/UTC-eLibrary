@@ -5,7 +5,7 @@ namespace App\Http\Requests\AuthRequests;
 use App\Http\Requests\BaseRequest;
 use Illuminate\Foundation\Http\FormRequest;
 
-class ResetPasswordRequest extends BaseRequest
+class ForgotPasswordRequest extends BaseRequest
 {
     public function rules(): array
     {

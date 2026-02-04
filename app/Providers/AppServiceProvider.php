@@ -21,5 +21,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+        $this->bootMicrosoftAzureSocialite();
+    }
+
+    protected function bootMicrosoftAzureSocialite()
+    {
+        $socialite = $this->app->make(\Laravel\Socialite\Contracts\Factory::class);
+
+        $socialite->extend('microsoft-azure', function ($app) use ($socialite) {
+            $config = $app['config']['services.azure'];
+            return $socialite->buildProvider(\SocialiteProviders\Azure\Provider::class, $config);
+        });
     }
 }

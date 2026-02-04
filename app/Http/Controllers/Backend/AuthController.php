@@ -2,20 +2,23 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Enums\RoleType;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\AuthRequests\LoginRequest;
-use App\Http\Requests\AuthRequests\RegisterRequest;
-use App\Http\Resources\UserResource;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
-use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
-use Illuminate\Support\Facades\Cache;
 use App\Http\Controllers\Backend\EmailOTPController;
 use App\Http\Requests\AuthRequests\ForgotPasswordRequest;
+use App\Http\Requests\AuthRequests\LoginRequest;
+use App\Http\Requests\AuthRequests\RegisterRequest;
 use App\Http\Requests\OtpRequests\VerifyOTPRequest;
+use App\Http\Resources\UserResource;
+use App\Models\User;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
-class AuthController extends Controller                                       
+class AuthController extends Controller
 {
     /**
      * @param LoginRequest $request
@@ -30,6 +33,10 @@ class AuthController extends Controller
         $user = User::query()
             ->where('email', $loginField)
             ->orWhere('code', $loginField)
+            ->orWhere('phone', $loginField)
+            ->orWhereHas('libraryCard', function ($query) use ($loginField) {
+                $query->where('card_number', $loginField);
+            })
             ->first();
 
         if ($user) {
@@ -44,6 +51,9 @@ class AuthController extends Controller
                     'messages' => __('messages.invalid_credentials')
                 ], 401);
             }
+
+            // Start session for web guard (Inertia)
+            auth('web')->login($user, $request->boolean('remember'));
 
             return $this->jsonResponse([
                 'status' => 'success',
@@ -76,7 +86,7 @@ class AuthController extends Controller
                 'messages' => __('Vui lòng kiểm tra email để lấy mã OTP xác nhận tài khoản.'),
                 'email' => $data['email']
             ], 200);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Cache::forget('register_' . $data['email']);
             return $this->jsonResponse([
                 'status' => 'error',
@@ -104,20 +114,30 @@ class AuthController extends Controller
         $pendingUser = Cache::get('register_' . $request->email);
 
         if ($pendingUser) {
-            $user = User::create($pendingUser);
-            $user->email_verified_at = now();
-            $user->save();
+            DB::beginTransaction();
+            try {
+                $user = User::create($pendingUser);
+                $user->email_verified_at = now();
+                $user->save();
 
-            Cache::forget('register_' . $request->email);
+                DB::commit();
+                Cache::forget('register_' . $request->email);
 
-            $token = JWTAuth::fromUser($user);
+                $token = JWTAuth::fromUser($user);
 
-            return $this->jsonResponse([
-                'status' => 'success',
-                'messages' => __('Đăng ký tài khoản thành công!'),
-                'token' => $token,
-                'user' => $user
-            ], 200);
+                return $this->jsonResponse([
+                    'status' => 'success',
+                    'messages' => __('Đăng ký tài khoản thành công!'),
+                    'token' => $token,
+                    'user' => $user
+                ], 200);
+            } catch (Exception $e) {
+                DB::rollBack();
+                return $this->jsonResponse([
+                    'status' => 'error',
+                    'messages' => 'Lỗi tạo tài khoản: ' . $e->getMessage()
+                ], 500);
+            }
         }
 
         return $this->jsonResponse([
@@ -126,14 +146,12 @@ class AuthController extends Controller
         ], 404);
     }
 
-
-
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $data = $request->validated();
         $user = User::where('email', $data['email'])->first();
         if (!$user) {
-            return this->jsonResponse([
+            return $this->jsonResponse([
                 'status' => 'error',
                 'messages' => __('messages.user_not_found')
             ], 404);
@@ -163,6 +181,6 @@ class AuthController extends Controller
 
     public function user(Request $request): JsonResponse
     {
-        return new UserResource();
+        return $this->jsonResponse(new UserResource($request->user()));
     }
 }

@@ -40,7 +40,7 @@ class UserRequest extends BaseRequest
             ],
             'password' => 'nullable|string|min:8',
             'role' => ['required', Rule::in(array_column(RoleType::cases(), 'value'))],
-            'params' => 'nullable|array',
+
         ];
     }
 

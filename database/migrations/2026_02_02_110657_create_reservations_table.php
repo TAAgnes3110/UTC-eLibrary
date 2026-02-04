@@ -12,7 +12,7 @@ return new class extends Migration
             $table->increments('id');
             $table->unsignedInteger('user_id');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->unsignedInteger('book_id'); // Reserve title, not copy
+            $table->unsignedInteger('book_id');
             $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
             $table->enum('status', ['pending', 'fulfilled', 'cancelled', 'expired'])->default('pending')->comment('Trạng thái');
             $table->date('reservation_date')->comment('Ngày đặt');

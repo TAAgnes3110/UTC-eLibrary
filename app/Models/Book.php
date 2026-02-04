@@ -15,12 +15,14 @@ class Book extends BaseModel
     protected $table = 'books';
 
     protected $fillable = [
+        'type',
         'title',
         'isbn',
         'isbn13',
         'classification_code',
         'classification_detail',
         'category_id',
+        'faculty_id',
         'publisher_id',
         'publication_place',
         'published_year',
@@ -51,11 +53,17 @@ class Book extends BaseModel
         'params' => 'array',
         'price' => 'decimal:2',
         'average_rating' => 'decimal:2',
+        'type' => \App\Enums\BookType::class,
     ];
 
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function faculty(): BelongsTo
+    {
+        return $this->belongsTo(Faculty::class);
     }
 
     public function publisher(): BelongsTo

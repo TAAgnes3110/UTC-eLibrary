@@ -14,6 +14,14 @@ return [
     |
     */
 
+    'azure' => [
+        'client_id' => env('AZURE_CLIENT_ID'),
+        'client_secret' => env('AZURE_CLIENT_SECRET'),
+        'redirect' => env('AZURE_REDIRECT_URI', 'http://localhost:8000/auth/microsoft/callback'),
+        'tenant' => env('AZURE_TENANT_ID', 'organizations'),
+        'proxy' => env('PROXY')
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

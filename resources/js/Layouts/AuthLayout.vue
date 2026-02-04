@@ -10,7 +10,7 @@ import { useColorMode } from '@vueuse/core'
             class="absolute inset-0 z-0 h-full w-full bg-cover bg-center bg-no-repeat"
             style="background-image: url('/Image/utc_bg_v2.png');"
         >
-            <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]" />
+            <div class="absolute inset-0 bg-black/15 backdrop-blur-[0.5px]" />
         </div>
 
         <!-- Central Content Wrapper -->

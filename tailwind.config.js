@@ -23,7 +23,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ['Inter', ...defaultTheme.fontFamily.sans],
-        display: ['Outfit', ...defaultTheme.fontFamily.sans],
+        display: ['Sora', ...defaultTheme.fontFamily.sans],
       },
       fontSize: {
         small: ['0.875rem', { lineHeight: '1.25rem' }],

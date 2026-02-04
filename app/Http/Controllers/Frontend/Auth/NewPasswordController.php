@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Validation\ValidationException;
 
 class NewPasswordController extends Controller
 {
@@ -37,7 +38,7 @@ class NewPasswordController extends Controller
         $otpCheck = app(EmailOTPController::class)->checkOTP($request->email, $request->otp);
 
         if (!$otpCheck['status']) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'otp' => $otpCheck['message'],
             ]);
         }

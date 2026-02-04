@@ -1,9 +1,12 @@
 <?php
 
+use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Backend\AuthController;
 use App\Http\Controllers\Backend\EmailOTPController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+use App\Enums\RoleType;
 
 
 Route::group(['prefix' => 'auth', 'namespace' => 'App\Http\Controllers\Backend'], function () {
@@ -15,6 +18,3 @@ Route::group(['prefix' => 'auth', 'namespace' => 'App\Http\Controllers\Backend']
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 });
 
-Route::middleware('auth:api')->get('/user', function (Request $request) {
-    return $request->user();
-});

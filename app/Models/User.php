@@ -4,47 +4,62 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
-use Illuminate\Auth\Authenticatable;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
+use App\Enums\RoleType;
 
-class User extends BaseModel implements JWTSubject, AuthenticatableContract
+class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use Authenticatable, HasFactory, Notifiable, \Spatie\Permission\Traits\HasRoles;
+    use HasFactory, Notifiable, \Spatie\Permission\Traits\HasRoles;
 
-    public static string $tableName = 'users';
     protected $table = 'users';
-    public $primaryKey = 'id';
+
     protected $fillable = [
         'name',
         'email',
         'password',
         'code',
         'phone',
-        'card_number',
-        'role',
-        'customer_id',
-        'params',
+        'user_type',
+        'avatar',
+        'date_of_birth',
+        'gender',
+        'address',
+        'is_active',
     ];
+
     protected $hidden = [
         'password',
         'remember_token',
     ];
+
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'role' => \App\Enums\RoleType::class,
-            'params' => 'object',
+            'user_type' => RoleType::class,
+            'is_active' => 'boolean',
         ];
     }
+    public function libraryCard()
+    {
+        return $this->hasOne(LibraryCard::class);
+    }
+
+
+    public function fines()
+    {
+        return $this->hasMany(Fine::class);
+    }
+
     public function getJWTIdentifier()
     {
         return $this->getKey();
     }
+
     public function getJWTCustomClaims()
     {
         return [];

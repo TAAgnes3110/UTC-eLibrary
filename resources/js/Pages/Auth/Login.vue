@@ -1,8 +1,9 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import AuthLayout from '@/Layouts/AuthLayout.vue'
-import { User, Lock, Eye, EyeOff, LayoutDashboard, HelpCircle, ArrowRight, LogIn } from 'lucide-vue-next'
+import { User, Lock, Eye, EyeOff, ArrowRight, LogIn } from 'lucide-vue-next'
 import { ref } from 'vue'
+import { Label } from '@/Components/ui/label'
 
 const { status } = defineProps({
     status: String,
@@ -17,8 +18,32 @@ const form = useForm({
 })
 
 const submit = () => {
-    form.post(route('login'), {
-        onFinish: () => form.reset('password'),
+    form.processing = true;
+    axios.post(route('login'), {
+        login: form.login,
+        password: form.password,
+        remember: form.remember
+    })
+    .then(response => {
+        if (response.data.token) {
+            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('user', JSON.stringify(response.data.user));
+            form.reset('password');
+            window.location.href = route('dashboard');
+        } else {
+            form.errors.login = "Lỗi hệ thống: Không nhận được Token xác thực.";
+            form.processing = false;
+        }
+    })
+    .catch(error => {
+        form.processing = false;
+        if (error.response && error.response.status === 401) {
+            form.errors.login = error.response.data.messages || 'Thông tin đăng nhập không chính xác.';
+            form.reset('password');
+        } else {
+
+            form.errors.login = 'Đã có lỗi xảy ra. Vui lòng thử lại sau.';
+        }
     });
 }
 </script>
@@ -29,7 +54,7 @@ const submit = () => {
             <Head title="Đăng nhập" />
 
             <!-- Brand Header -->
-            <div class="mb-2 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-700">
+            <div class="mb-6 flex flex-col items-center shrink-0 z-20 animate-in fade-in slide-in-from-top-4 duration-700">
                  <div class="group relative flex items-center justify-center gap-4 transition-transform hover:scale-105">
                      <div class="absolute -inset-2 bg-yellow-400/20 rounded-full blur-xl group-hover:bg-yellow-400/30 transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
                      <div class="relative bg-white/10 backdrop-blur-md rounded-xl p-1.5 border border-white/20 shadow-2xl">
@@ -46,7 +71,7 @@ const submit = () => {
 
             <!-- Login Card -->
             <div class="w-full max-w-[440px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[2rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700">
-                <div class="px-8 py-6">
+                <div class="px-5 py-6 sm:px-8">
                     <!-- Title Section -->
                     <div class="mb-4 relative flex items-center min-h-[50px]">
                         <!-- Icon on the Left -->
@@ -162,15 +187,15 @@ const submit = () => {
 
                     <a
                         :href="route('auth.microsoft')"
-                        class="flex items-center justify-center gap-3 w-full h-14 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-white/10 hover:border-white/20 transition-all active:scale-[0.98] shadow-lg"
+                        class="mt-4 flex items-center justify-center gap-3 w-full min-h-[56px] h-auto py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-xs sm:text-sm hover:bg-white/10 hover:border-white/20 transition-all active:scale-[0.98] shadow-lg"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21">
+                        <svg class="shrink-0" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 21 21">
                             <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
                             <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
                             <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
                             <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
                         </svg>
-                        <span class="uppercase tracking-widest leading-none">Đăng nhập với Microsoft 365</span>
+                        <span class="uppercase tracking-wide leading-tight text-center">Đăng nhập với Microsoft 365</span>
                     </a>
 
                     <div class="text-center mt-4 pt-4 border-t border-white/10 space-y-2">

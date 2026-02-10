@@ -11,7 +11,7 @@ class RegisterRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'user_type' => RoleType::GUEST->value,
+            'user_type' => RoleType::MEMBER->value,
         ]);
     }
 
@@ -23,7 +23,7 @@ class RegisterRequest extends FormRequest
             'email' => 'required|email|max:255|unique:users,email',
             'password' => 'required|string|min:8|confirmed',
             'phone' => 'nullable|string|max:20|unique:users,phone',
-            'user_type' => [Rule::in([RoleType::GUEST->value])],
+            'user_type' => [Rule::in([RoleType::GUEST->value, RoleType::MEMBER->value])],
 
             'organization' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:100',
@@ -37,6 +37,7 @@ class RegisterRequest extends FormRequest
         return [
             'code.required' => 'Mã sinh viên hoặc CCCD không được để trống',
             'code.unique' => 'Mã số đã tồn tại trong hệ thống',
+            'code.exists' => 'Mã sinh viên không tồn tại trong danh sách bạn đọc',
             'name.required' => 'Tên không được để trống',
             'email.required' => 'Email không được để trống',
             'email.email' => 'Email không hợp lệ',

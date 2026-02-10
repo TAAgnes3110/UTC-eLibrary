@@ -23,7 +23,6 @@ class Init
     public function handle(Request $request, Closure $next)
     {
         global $currentSystem, $currentCustomer, $currentUser, $currentPerson, $role_prefix, $period, $domain, $bearer_token, $yaht, $__token, $apis;
-        //Log::info(json_encode($request));
         $bearer_token = '';
         $yaht = '';
         $__token = '';
@@ -69,5 +68,6 @@ class Init
                 'message' => 'Token hết thời hạn',
             ], 408);
         }
+        return $next($request);
     }
 }

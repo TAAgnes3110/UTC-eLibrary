@@ -19,7 +19,7 @@ const submit = () => {
             <Head title="Quên mật khẩu" />
 
             <!-- Brand Header -->
-            <div class="mb-2 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-700">
+            <div class="mb-6 flex flex-col items-center shrink-0 z-20 animate-in fade-in slide-in-from-top-4 duration-700">
                  <div class="group relative flex items-center justify-center gap-4 transition-transform hover:scale-105">
                      <div class="absolute -inset-2 bg-yellow-400/20 rounded-full blur-xl group-hover:bg-yellow-400/30 transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
                      <div class="relative bg-white/10 backdrop-blur-md rounded-xl p-1.5 border border-white/20 shadow-2xl">
@@ -36,7 +36,7 @@ const submit = () => {
 
             <!-- Forgot Password Card -->
             <div class="w-full max-w-[440px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[2rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700">
-                <div class="px-8 py-6">
+                <div class="px-5 py-6 sm:px-8">
                     <!-- Title Section -->
                     <div class="mb-4 relative flex items-center min-h-[50px]">
                         <!-- Icon on the Left -->

@@ -23,7 +23,7 @@ class Controller extends BaseController
         if (!empty($__token) && is_array($data)) {
             $data['__token'] = $__token;
         }
-        return response()->json($data, $code, ['Content-Type' => 'application/json;charset=UTF-8', 'charset' => 'utf-8'], JSON_UNESCAPED_UNICODE);
+        return response()->json($data, $code, ['Content-Type' => 'application/json;charset=UTF-8'], JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -102,5 +102,4 @@ class Controller extends BaseController
         $res = $this->callApi($apis['base'] . 'persons/' . $subUrl, $method, $data);
         return $this->processResponse($res, $return_collect, 'name', 'id');
     }
-
 }

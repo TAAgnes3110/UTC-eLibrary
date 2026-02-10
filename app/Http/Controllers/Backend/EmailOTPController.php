@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OtpRequests\SendOTPRequest;
-use App\Mail\SendOTP;
+use App\Models\EmailOtp;
+use App\Services\OtpService;
+use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use App\Helpers\CurrentUser;
@@ -14,52 +15,55 @@ use App\Helpers\CurrentUser;
 class EmailOTPController extends Controller
 {
     /**
-     * @param string $email
-     * @param string $name
-     * @return void
+     * @param SendOTPRequest $request
+     * @return JsonResponse
+     * @todo Gửi mã OTP
      */
-    public function sendOtp($email, $name)
+    public function sendOTP(SendOTPRequest $request): JsonResponse
     {
-        $otp = rand(100000, 999999);
-        $data = [
-            'otp' => $otp,
-            'name' => $name
-        ];
+        $email = $request->email;
+        $name = $request->name ?? 'Người dùng';
 
-        Cache::put('otp_' . $email, $otp, 300);
+        try {
+            $otpService = app(OtpService::class);
+            $result = $otpService->sendOtp($email, $name);
 
-        Mail::to($email)->send(new SendOTP($data));
+            if (!$result['status']) {
+                $statusCode = isset($result['seconds_left']) ? 429 : 500;
+                return $this->jsonResponse(['status' => 'error', 'messages' => $result['message']], $statusCode);
+            }
+
+            return $this->jsonResponse(['status' => 'success', 'messages' => $result['message'], 'otp' => $result['otp']], 200);
+        } catch (Exception $e) {
+            return $this->jsonResponse(['status' => 'error', 'messages' => $e->getMessage()], 500);
+        }
     }
 
     /**
-     * @param Request $request
+     * @param SendOTPRequest $request
      * @return JsonResponse
+     * @todo Lưu mã OTP
      */
-    public function store(Request $request): JsonResponse
+    public function store(SendOTPRequest $request): JsonResponse
     {
-        $email = $request->input('email');
-        $user = \App\Models\User::where('email', $email)->first();
-        if ($user) {
-            $this->sendOtp($email, $user->name);
-            return $this->jsonResponse(['status' => 'success', 'messages' => 'OTP sent successfully'], 200);
-        }
-
-        return $this->jsonResponse(['status' => 'error', 'messages' => 'User not found'], 404);
+        return $this->sendOTP($request);
     }
 
-    public function checkOTP($email, $otp)
+    /**
+     * @param string $email
+     * @param string $otp
+     * @return array
+     * @todo Kiểm tra mã OTP
+     */
+    public function checkOTP(string $email, string $otp): array
     {
-        $cachedOtp = Cache::get('otp_' . $email);
+        $otpService = app(OtpService::class);
+        $result = $otpService->verifyOtp($email, $otp);
 
-        if (!$cachedOtp) {
-            return ['status' => false, 'message' => 'OTP expired or not found', 'code' => 400];
-        }
-
-        if ($cachedOtp != $otp) {
-            return ['status' => false, 'message' => 'Invalid OTP', 'code' => 400];
-        }
-
-        Cache::forget('otp_' . $email);
-        return ['status' => true, 'message' => 'OTP Verified', 'code' => 200];
+        return [
+            'status' => $result['status'],
+            'message' => $result['message'],
+            'code' => $result['status'] ? 200 : ($result['code'] ?? 400)
+        ];
     }
 }

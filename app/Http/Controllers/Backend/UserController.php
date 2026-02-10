@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
@@ -17,7 +17,8 @@ class UserController extends Controller
         $items = User::query()
             ->when($keyword, function ($query) use ($keyword) {
                 $query->where(function ($q) use ($keyword) {
-                    $q->where('name', 'like', "%{$keyword}%")
+                    $q->where('id', 'like', '%' . $keyword . '%')
+                        ->orwhere('name', 'like', "%{$keyword}%")
                         ->orWhere('code', 'like', "%{$keyword}%")
                         ->orWhere('email', 'like', "%{$keyword}%")
                         ->orWhere('phone', 'like', "%{$keyword}%")
@@ -41,26 +42,12 @@ class UserController extends Controller
     public function store(UserRequest $request): JsonResponse
     {
         $data = $request->except(['id']);
-        $exists = User::query()
-            ->where('email', $data['email'] ?? null)
-            ->orWhere('code', $data['code'] ?? null)
-            ->orWhere('phone', $data['phone'] ?? null)
-            ->orWhereHas('libraryCard', function ($query) use ($data) {
-                $query->where('card_number', $data['card_number'] ?? null);
-            })
-            ->exists();
-        if ($exists) {
-            return $this->jsonResponse([
-                'status' => 'error',
-                'messages' => __('messages.error_exist'),
-            ], 409);
+        if ($existingUser = User::duplicate($data)->first()) {
+            return $this->existingUserResponse($existingUser, $data);
         }
-
         $card_number = $data['card_number'] ?? null;
         unset($data['card_number']);
-
         $user = User::create($data);
-
         if ($card_number) {
             $user->libraryCard()->create([
                 'card_number' => $card_number,
@@ -93,22 +80,8 @@ class UserController extends Controller
             ], 410);
         }
         $data = $request->all();
-        $exists = User::query()
-            ->where('id', '!=', $id)
-            ->where(function ($query) use ($data) {
-                $query->where('email', $data['email'] ?? null)
-                    ->orWhere('code', $data['code'] ?? null)
-                    ->orWhere('phone', $data['phone'] ?? null)
-                    ->orWhereHas('libraryCard', function ($q) use ($data) {
-                        $q->where('card_number', $data['card_number'] ?? null);
-                    });
-            })
-            ->exists();
-        if ($exists) {
-            return $this->jsonResponse([
-                'status' => 'error',
-                'messages' => __('messages.error_exist')
-            ], 409);
+        if ($existingUser = User::duplicate($data, $id)->first()) {
+            return $this->existingUserResponse($existingUser, $data);
         }
 
         $card_number = $data['card_number'] ?? null;
@@ -178,5 +151,28 @@ class UserController extends Controller
             'status' => 'success',
             'messages' => __('messages.success_update')
         ]);
+    }
+
+    /**
+     * @param User $user
+     * @param array $data
+     * @return JsonResponse
+     * @todo Trả về phản hồi khi thông tin đã tồn tại
+     */
+    public function existingUserResponse(User $user, array $data): JsonResponse
+    {
+        $message = __('Thông tin đã được sử dụng.');
+        if (isset($data['email']) && $user->email === $data['email']) {
+            $message = __('Email đã tồn tại trong hệ thống.');
+        } elseif (isset($data['code']) && $user->code === $data['code']) {
+            $message = __('Mã số (MSV/CCCD) đã tồn tại trong hệ thống.');
+        } elseif (!empty($data['phone']) && $user->phone === $data['phone']) {
+            $message = __('Số điện thoại đã tồn tại trong hệ thống.');
+        }
+
+        return $this->jsonResponse([
+            'status' => 'error',
+            'messages' => $message
+        ], 400);
     }
 }

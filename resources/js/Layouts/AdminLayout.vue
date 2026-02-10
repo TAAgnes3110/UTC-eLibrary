@@ -19,8 +19,12 @@ const props = defineProps({
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
-const sidebarOpen = ref(true);
-
+const sidebarOpen = ref(window.innerWidth >= 1024);
+router.on('navigate', () => {
+    if (window.innerWidth < 1024) {
+        sidebarOpen.value = false;
+    }
+});
 const navigation = [
     { name: 'Tổng quan', href: 'admin.dashboard', icon: 'lucide:layout-grid', active: 'admin.dashboard' },
     { type: 'divider', label: 'Quản Lý Tài Nguyên' },
@@ -62,10 +66,19 @@ const logout = () => {
 
 <template>
     <div class="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+        <!-- Mobile Overlay -->
+        <div
+            v-if="sidebarOpen"
+            class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+            @click="sidebarOpen = false"
+        ></div>
+
         <!-- Sidebar -->
         <aside
-            :class="sidebarOpen ? 'w-72 translate-x-0' : 'w-20 lg:translate-x-0 -translate-x-full'"
-            class="fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out"
+            :class="[
+                'fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ease-in-out',
+                sidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0 lg:w-20'
+            ]"
         >
             <!-- Header -->
             <div class="h-16 flex items-center gap-3 px-6 border-b border-slate-100 dark:border-slate-800 shrink-0">

@@ -4,11 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class EmailOtp extends BaseModel
+class EmailOtp extends Model
 {
-    public static string $tableName= 'email_otp';
-    protected $table='email_otp';
-    public $primaryKey='id';
+    public static string $tableName = 'email_otp';
+    protected $table = 'email_otp';
+    public $primaryKey = 'id';
     protected $fillable = [
         'email',
         'otp',
@@ -17,5 +17,4 @@ class EmailOtp extends BaseModel
     protected $casts = [
         'expired_at' => 'datetime',
     ];
-
 }

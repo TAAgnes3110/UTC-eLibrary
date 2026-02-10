@@ -12,7 +12,6 @@ class Department extends BaseModel
   protected $fillable = [
     'code',
     'name',
-    'description',
     'faculty_id',
   ];
 
@@ -20,9 +19,4 @@ class Department extends BaseModel
   {
     return $this->belongsTo(Faculty::class);
   }
-
-  // public function readers(): HasMany
-  // {
-  //   return $this->hasMany(Reader::class);
-  // }
 }

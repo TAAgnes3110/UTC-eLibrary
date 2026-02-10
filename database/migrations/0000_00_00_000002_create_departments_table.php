@@ -12,12 +12,8 @@ return new class extends Migration
             $table->increments('id');
             $table->unsignedInteger('faculty_id');
             $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('cascade');
-            $table->string('code')->unique()->comment('Mã bộ môn');
-            $table->string('name')->comment('Tên bộ môn');
-            $table->text('description')->nullable()->comment('Mô tả');
-            $table->string('head_name')->nullable()->comment('Tên trưởng bộ môn');
-            $table->string('phone')->nullable()->comment('Số điện thoại');
-            $table->string('email')->nullable()->comment('Email');
+            $table->string('code')->unique()->comment('Mã lớp/bộ môn');
+            $table->string('name')->comment('Tên lớp/bộ môn');
             $table->boolean('is_active')->default(true)->comment('Trạng thái hoạt động');
             $table->json('params')->nullable()->comment('Tham số bổ sung');
             $table->timestamps();

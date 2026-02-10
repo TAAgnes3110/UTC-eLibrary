@@ -4,8 +4,8 @@ import { Input } from '@/Components/ui/input'
 import { Label } from '@/Components/ui/label'
 import AuthLayout from '@/Layouts/AuthLayout.vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
-import { User, Phone, Mail, Building, MapPin, Lock, CreditCard, ArrowRight, UserPlus, Eye, EyeOff, Calendar, Users, Home, ChevronDown } from 'lucide-vue-next'
-import { ref, watch, onMounted } from 'vue'
+import { User, Phone, Mail, Lock, CreditCard, ArrowRight, UserPlus, Eye, EyeOff, Calendar, Users, Home, ChevronDown } from 'lucide-vue-next'
+import { ref } from 'vue'
 
 const form = useForm({
     code: '',
@@ -37,7 +37,7 @@ const submit = () => {
             <Head title="Đăng ký Độc giả ngoài" />
 
             <!-- Brand Header -->
-            <div class="mb-2 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-700">
+            <div class="mb-6 flex flex-col items-center shrink-0 z-20 animate-in fade-in slide-in-from-top-4 duration-700">
                  <div class="group relative flex items-center justify-center gap-4 transition-transform hover:scale-105">
                      <div class="absolute -inset-2 bg-yellow-400/20 rounded-full blur-xl group-hover:bg-yellow-400/30 transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
                      <div class="relative bg-white/10 backdrop-blur-md rounded-xl p-1.5 border border-white/20 shadow-2xl">
@@ -54,7 +54,7 @@ const submit = () => {
 
             <!-- Registration Card -->
             <div class="w-full max-w-[600px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[2.5rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700">
-                <div class="px-8 py-5">
+                <div class="px-5 py-5 sm:px-8">
                     <!-- Title Section -->
                     <div class="mb-4 relative flex items-center min-h-[50px]">
                         <!-- Icon on the Left -->

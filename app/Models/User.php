@@ -48,13 +48,19 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasOne(LibraryCard::class);
     }
-
-
     public function fines()
     {
         return $this->hasMany(Fine::class);
     }
-
+    public function scopeDuplicate($query, array $data, ?int $excludeId = null)
+    {
+        return $query->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+            ->where(function ($q) use ($data) {
+                $q->where('email', $data['email'])
+                    ->orWhere('code', $data['code'])
+                    ->when(!empty($data['phone']), fn($q) => $q->orWhere('phone', $data['phone']));
+            });
+    }
     public function getJWTIdentifier()
     {
         return $this->getKey();
@@ -62,6 +68,15 @@ class User extends Authenticatable implements JWTSubject
 
     public function getJWTCustomClaims()
     {
-        return [];
+        return [
+            'id' => $this->id,
+            'code' => $this->code,
+            'name' => $this->name,
+            'email' => $this->email,
+            'phone' => $this->phone,
+            'avatar' => $this->avatar,
+            'roles' => $this->getRoleNames(),
+            'permissions' => $this->getPermissionNames()
+        ];
     }
 }

@@ -12,7 +12,6 @@ class Faculty extends BaseModel
   protected $fillable = [
     'code',
     'name',
-    'description',
   ];
 
   public function departments(): HasMany

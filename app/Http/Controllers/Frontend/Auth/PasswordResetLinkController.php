@@ -30,8 +30,14 @@ class PasswordResetLinkController extends Controller
                 'email' => 'Email không tồn tại trong hệ thống.',
             ]);
         }
+        $otpService = app(\App\Services\OtpService::class);
+        $result = $otpService->sendOtp($user->email, $user->name);
 
-        app(EmailOTPController::class)->sendOtp($user->email, $user->name);
+        if (!$result['status']) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'email' => $result['message'],
+            ]);
+        }
 
         return redirect()->route('password.reset', ['email' => $user->email])->with([
             'status' => 'Đã gửi mã OTP đến email của bạn. Vui lòng kiểm tra.',

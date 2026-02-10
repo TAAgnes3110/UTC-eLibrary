@@ -11,7 +11,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // List of tables that extend BaseModel and need params column
         $tables = [
             'authors',
             'books',
@@ -19,7 +18,7 @@ return new class extends Migration
             'categories',
             'customers',
             'departments',
-            'email_otps',
+            'email_otp',
             'faculties',
             'fines',
             'library_settings',
@@ -52,7 +51,7 @@ return new class extends Migration
             'categories',
             'customers',
             'departments',
-            'email_otps',
+            'email_otp',
             'faculties',
             'fines',
             'library_settings',

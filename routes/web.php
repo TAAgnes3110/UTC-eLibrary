@@ -7,7 +7,7 @@ use Inertia\Inertia;
 Route::middleware('guest')->group(function () {
   Route::get('login', [\App\Http\Controllers\Frontend\Auth\AuthenticatedSessionController::class, 'create'])
     ->name('login');
-  Route::post('login', [\App\Http\Controllers\Frontend\Auth\AuthenticatedSessionController::class, 'store']);
+  Route::post('login', [\App\Http\Controllers\Backend\AuthController::class, 'login']);
 
   Route::get('register', [\App\Http\Controllers\Frontend\Auth\RegisteredUserController::class, 'create'])->name('register');
   Route::post('register', [\App\Http\Controllers\Frontend\Auth\RegisteredUserController::class, 'store']);

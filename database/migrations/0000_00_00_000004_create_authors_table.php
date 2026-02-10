@@ -12,15 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('authors', function (Blueprint $table) {
-            $table->increments('id');
-            $table->string('name')->comment('Tên tác giả');
-            $table->string('pen_name')->nullable()->comment('Bút danh');
-            $table->text('biography')->nullable()->comment('Tiểu sử');
-            $table->string('nationality')->nullable()->comment('Quốc tịch');
-            $table->date('birth_date')->nullable()->comment('Ngày sinh');
-            $table->date('death_date')->nullable()->comment('Ngày mất');
-            $table->string('email')->nullable()->comment('Email');
-            $table->string('website')->nullable()->comment('Website');
+            $table->increments('id')->index();
+            $table->string('name')->comment('Tên tác giả')->index();
+            $table->text('tieu_su')->nullable();
+            $table->date('birth_date')->nullable();
+            $table->json('params')->nullable();
             $table->string('avatar')->nullable()->comment('Ảnh đại diện');
             $table->timestamps();
         });

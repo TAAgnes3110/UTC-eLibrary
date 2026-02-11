@@ -29,7 +29,7 @@ class OtpService
       ];
     }
 
-    $otp = (string) rand(100000, 999999);
+    $otp = \App\Helpers\Helpers::generateRandomNumber(6);
     $expired_at = now()->addMinutes(10);
 
     EmailOtp::updateOrCreate(

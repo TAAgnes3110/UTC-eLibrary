@@ -78,6 +78,10 @@ abstract class BaseModel extends Model
 
     public function scopeCustomer(Builder $query): Builder
     {
+        global $currentCustomer;
+        if ($currentCustomer && isset($currentCustomer->id) && $currentCustomer->id > 0) {
+            return $query->where('customer_id', $currentCustomer->id);
+        }
         return $query;
     }
 }

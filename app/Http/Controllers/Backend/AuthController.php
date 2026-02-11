@@ -186,9 +186,18 @@ class AuthController extends Controller
      * @return JsonResponse
      * @todo Đăng xuất
      */
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
-        JWTAuth::invalidate(JWTAuth::getToken());
+        try {
+            JWTAuth::invalidate(JWTAuth::getToken());
+        } catch (\Exception $e) {
+            // Token đã hết hạn hoặc không tồn tại — bỏ qua
+        }
+
+        auth('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return $this->jsonResponse([
             'status' => 'success',
             'messages' => __('messages.success_logout')

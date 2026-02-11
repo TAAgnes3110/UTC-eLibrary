@@ -66,5 +66,13 @@ Route::middleware('auth')->group(function () {
     Route::get('/users', function () {
       return Inertia::render('Admin/Users/Index');
     })->name('users.index');
+
+    Route::get('/profile', function () {
+      return Inertia::render('Admin/Profile');
+    })->name('profile');
+
+    Route::get('/settings', function () {
+      return Inertia::render('Admin/Settings');
+    })->name('settings');
   });
 });

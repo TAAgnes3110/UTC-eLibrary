@@ -81,3 +81,40 @@ Hệ thống được thiết kế với đầy đủ các nghiệp vụ quản 
    npm run dev
    php artisan serve
    ```
+
+6. **Chạy Ngrok (tùy chọn — để truy cập từ bên ngoài):**
+
+   Ngrok tạo một đường hầm (tunnel) để expose localhost ra internet, hữu ích khi:
+   - Test trên điện thoại / thiết bị khác
+   - Demo cho người khác xem
+   - Test callback từ bên thứ 3 (Microsoft OAuth, Webhook...)
+
+   **Bước 1:** Đăng ký tài khoản tại [ngrok.com](https://ngrok.com) và lấy Authtoken.
+
+   **Bước 2:** Thêm vào file `.env`:
+   ```env
+   NGROK_AUTHTOKEN=your_ngrok_authtoken_here
+   ```
+
+   **Bước 3:** Chạy ngrok:
+
+   - **Windows (CMD / PowerShell):**
+     ```cmd
+     start-ngrok.bat
+     ```
+
+   - **Git Bash / WSL:**
+     ```bash
+     # Cách 1: Gọi trực tiếp file .bat
+     cmd //c start-ngrok.bat
+
+     # Cách 2: Chạy ngrok thủ công
+     ngrok http 8000
+     ```
+
+   **Bước 4:** Copy URL ngrok (ví dụ: `https://xxxx.ngrok-free.dev`) và cập nhật `APP_URL` trong `.env`:
+   ```env
+   APP_URL=https://xxxx.ngrok-free.dev
+   ```
+
+   > ⚠️ **Lưu ý:** Mỗi lần restart ngrok sẽ tạo URL mới (trừ khi dùng gói trả phí với domain cố định). Nhớ cập nhật lại `APP_URL` sau mỗi lần restart.

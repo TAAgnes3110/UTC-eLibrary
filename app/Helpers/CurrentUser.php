@@ -2,103 +2,113 @@
 
 namespace App\Helpers;
 
-/**
- * Response Class helper
- */
+use App\Enums\RoleType;
+
 class CurrentUser
 {
     public int $id = 0;
     public string $name = '';
+    public string $email = '';
+    public string $phone = '';
+    public string $code = '';
+    public string $avatar = '';
+    public string $user_type = '';
     public int $is_admin = 0;
-    public bool $use_hns_sign = false;
     public array $roles = [];
     public array $permissions = [];
-    public array $params = [];
+
     public function __construct($user)
     {
-        global $currentPerson;
         $this->id = $user->id;
-        $this->name = !empty($user->name) ? $user->name : $currentPerson->name;
-        $this->is_admin = $user->is_admin;
-        $this->use_hns_sign = $user->use_hns_sign;
-        $this->roles = $user->roles instanceof \Illuminate\Support\Collection
-            ? $user->roles->pluck('name')->toArray()
-            : (array)$user->roles;
+        $this->name = $user->name ?? '';
+        $this->email = $user->email ?? '';
+        $this->phone = $user->phone ?? '';
+        $this->code = $user->code ?? '';
+        $this->avatar = $user->avatar ?? '';
 
-        $this->permissions = $user->permissions instanceof \Illuminate\Support\Collection
-            ? $user->permissions->pluck('name')->toArray()
-            : (array)$user->permissions;
+        $userType = $user->user_type ?? '';
+        $this->user_type = $userType instanceof RoleType ? $userType->value : (string)$userType;
 
-        $this->params = (array)$user->params;
+        $this->is_admin = match ($this->user_type) {
+            RoleType::SUPER_ADMIN->value => 9,
+            RoleType::ADMIN->value       => 1,
+            default                      => 0,
+        };
+
+        if (method_exists($user, 'getRoleNames')) {
+            $this->roles = $user->getRoleNames()->toArray();
+        } elseif (isset($user->roles)) {
+            $this->roles = is_array($user->roles) ? $user->roles : (array)$user->roles;
+        }
+
+        if (method_exists($user, 'getAllPermissions')) {
+            $this->permissions = $user->getAllPermissions()->pluck('name')->toArray();
+        } elseif (isset($user->permissions)) {
+            $this->permissions = is_array($user->permissions) ? $user->permissions : (array)$user->permissions;
+        }
     }
+
+    public function isAdmin(): bool
+    {
+        return $this->is_admin >= 1;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->is_admin === 9;
+    }
+
+    public function isLibrarian(): bool
+    {
+        return $this->user_type === RoleType::LIBRARIAN->value || $this->hasRole(RoleType::LIBRARIAN->value);
+    }
+
+    public function isMember(): bool
+    {
+        return $this->user_type === RoleType::MEMBER->value;
+    }
+
+    /**
+     * Nhân viên thư viện (Thủ thư, Admin, SuperAdmin)
+     */
+    public function isStaff(): bool
+    {
+        return in_array($this->user_type, RoleType::staffRoles());
+    }
+
     public function hasRoleOrPermission(string $rolesOrPermission): bool
     {
-        global $role_prefix;
-        if ((!empty($this->roles) || !empty($this->permissions)) && $rolesOrPermission) {
-            $rolesOrPermission = str_replace("role_prefix_", $role_prefix, $rolesOrPermission);
-            $rolesOrPermissions = explode("|", $rolesOrPermission);
-            if (!empty($this->roles)) {
-                foreach ($this->roles as $role) {
-                    if (in_array($role, $rolesOrPermissions)) {
-                        return true;
-                    }
-                }
-            }
-            if (!empty($this->permissions)) {
-                foreach ($this->permissions as $permission) {
-                    if (in_array($permission, $rolesOrPermissions)) {
-                        return true;
-                    }
-                }
+        if (empty($rolesOrPermission)) return false;
+        if ($this->isSuperAdmin()) return true;
+
+        $items = explode('|', $rolesOrPermission);
+        foreach ($items as $item) {
+            if (in_array($item, $this->roles) || in_array($item, $this->permissions)) {
+                return true;
             }
         }
         return false;
     }
+
     public function hasRole(string $role): bool
     {
-        global $role_prefix;
-        if (!empty($this->roles) && $role) {
-            $role = str_replace("role_prefix_", $role_prefix, $role);
-            $roles = explode("|", $role);
-            foreach ($this->roles as $r) {
-                if (in_array($r, $roles)) {
-                    return true;
-                }
-            }
+        if (empty($role)) return false;
+        if ($this->isSuperAdmin()) return true;
+
+        foreach ($this->roles as $r) {
+            if (in_array($r, explode('|', $role))) return true;
         }
         return false;
     }
+
     public function hasPermission(string $permission): bool
     {
-        global $role_prefix;
-        if (!empty($this->permissions) && $permission) {
-            $permission = str_replace("role_prefix_", $role_prefix, $permission);
-            $permissions = explode("|", $permission);
-            foreach ($this->permissions as $p) {
-                if (in_array($p, $permissions)) {
-                    return true;
-                }
-            }
+        if (empty($permission)) return false;
+        if ($this->isSuperAdmin()) return true;
+
+        foreach ($this->permissions as $p) {
+            if (in_array($p, explode('|', $permission))) return true;
         }
         return false;
-    }
-    public function isAdmin()
-    {
-        global $currentSystem;
-        if ($this->is_admin == 1 && $currentSystem->user_id == $this->id) {
-            return  true;
-        }
-        return false;
-    }
-    public function isSuperAdmin()
-    {
-        if ($this->is_admin == 9) {
-            return true;
-        }
-        return false;
-    }
-    public function isSupporter()
-    {
-        return $this->hasRole(\App\Enums\RoleType::LIBRARIAN->value) || $this->hasRole(\App\Enums\RoleType::SUPER_ADMIN->value);
     }
 }

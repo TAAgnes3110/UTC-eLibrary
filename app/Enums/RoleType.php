@@ -10,58 +10,37 @@ enum RoleType: string
     case MEMBER = "MEMBER";
     case GUEST = "GUEST";
 
-
-    /**
-     * @param int|string $value
-     *
-     * @return array|string|null
-     */
-    public static function getName(int|string $value): array|string|null
+    public static function getName(int|string $value): ?string
     {
         $result = collect(self::cases())->where('value', $value)->first();
-        if (!$result) {
-            return null;
-        }
-        return __('enums.RoleType.' . $result->name);
+        return $result ? __('enums.RoleType.' . $result->name) : null;
     }
 
-    /**
-     *
-     * @return array|string|null
-     */
-    public static function getNames(): array|string|null
+    public static function getNames(): array
     {
-        return collect(self::cases())->mapWithKeys(function ($it) {
-            return [$it->name => [
+        return collect(self::cases())->mapWithKeys(fn($it) => [
+            $it->name => [
                 'value' => $it->value,
                 'label' => __('enums.RoleType.' . $it->name),
-            ]];
-        })->toArray();
-    }
-    public static function getRoleTypes(): array|string|null
-    {
-        return collect(self::cases())->map(function ($it) {
-            return [
-                'id' => $it->value,
-                'text' => __('enums.RoleType.' . $it->name),
-            ];
-        })->toArray();
-    }
-    public static function values(): array
-    {
-        return collect(self::cases())->map(function ($it) {
-            return $it->value;
-        })->toArray();
+            ]
+        ])->toArray();
     }
 
-    /**
-     *
-     * @return string
-     */
-    public static function getComment(): string
+    public static function getRoleTypes(): array
     {
-        return collect(self::cases())->map(function ($it) {
-            return $it->value . ':' . __('enums.RoleType.' . $it->name);
-        })->join(', ');
+        return collect(self::cases())->map(fn($it) => [
+            'id' => $it->value,
+            'text' => __('enums.RoleType.' . $it->name),
+        ])->toArray();
+    }
+
+    public static function values(): array
+    {
+        return collect(self::cases())->map(fn($it) => $it->value)->toArray();
+    }
+
+    public static function staffRoles(): array
+    {
+        return [self::LIBRARIAN->value, self::ADMIN->value, self::SUPER_ADMIN->value];
     }
 }

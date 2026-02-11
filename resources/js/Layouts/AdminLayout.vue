@@ -20,11 +20,16 @@ const props = defineProps({
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const sidebarOpen = ref(window.innerWidth >= 1024);
+
+// Trạng thái collapsed: sidebar thu gọn trên desktop (chỉ icon)
+const collapsed = computed(() => !sidebarOpen.value);
+
 router.on('navigate', () => {
     if (window.innerWidth < 1024) {
         sidebarOpen.value = false;
     }
 });
+
 const navigation = [
     { name: 'Tổng quan', href: 'admin.dashboard', icon: 'lucide:layout-grid', active: 'admin.dashboard' },
     { type: 'divider', label: 'Quản Lý Tài Nguyên' },
@@ -76,12 +81,17 @@ const logout = () => {
         <!-- Sidebar -->
         <aside
             :class="[
-                'fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-transform duration-300 ease-in-out',
-                sidebarOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0 lg:w-20'
+                'fixed inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-all duration-300 ease-in-out',
+                sidebarOpen
+                    ? 'translate-x-0 w-72'
+                    : '-translate-x-full lg:translate-x-0 lg:w-[72px]'
             ]"
         >
             <!-- Header -->
-            <div class="h-16 flex items-center gap-3 px-6 border-b border-slate-100 dark:border-slate-800 shrink-0">
+            <div :class="[
+                'h-16 flex items-center border-b border-slate-100 dark:border-slate-800 shrink-0 transition-all duration-300',
+                collapsed ? 'lg:justify-center lg:px-0 px-6 gap-3' : 'px-6 gap-3'
+            ]">
                 <div class="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 dark:bg-slate-800 flex items-center justify-center p-1">
                     <img src="/Image/logoUTC.png" alt="UTC Logo" class="w-full h-full object-contain" />
                 </div>
@@ -92,14 +102,17 @@ const logout = () => {
             </div>
 
             <!-- Navigation -->
-            <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-1">
+            <nav :class="[
+                'flex-1 overflow-y-auto py-6 space-y-1 transition-all duration-300',
+                collapsed ? 'lg:px-2 px-4' : 'px-4'
+            ]">
                 <template v-for="(item, index) in navigation" :key="index">
                     <!-- Divider -->
                     <template v-if="item.type === 'divider'">
                         <p v-show="sidebarOpen" class="px-4 pt-6 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
                             {{ item.label }}
                         </p>
-                        <div v-show="!sidebarOpen" class="border-t border-slate-200 dark:border-slate-800 my-4"></div>
+                        <div v-show="!sidebarOpen" class="border-t border-slate-200 dark:border-slate-800 my-4 lg:mx-1"></div>
                     </template>
                     <!-- Nav Link -->
                     <template v-else>
@@ -107,7 +120,8 @@ const logout = () => {
                             v-if="hasRoute(item.href)"
                             :href="route(item.href)"
                             :class="[
-                                'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group',
+                                'flex items-center gap-3 rounded-xl transition-all duration-200 group',
+                                collapsed ? 'lg:justify-center lg:px-0 lg:py-2.5 px-4 py-3' : 'px-4 py-3',
                                 isActive(item.active)
                                     ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-bold shadow-sm'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:translate-x-1 font-medium'
@@ -120,7 +134,8 @@ const logout = () => {
                         <div
                             v-else
                             :class="[
-                                'flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 dark:text-slate-600 cursor-not-allowed',
+                                'flex items-center gap-3 rounded-xl text-slate-400 dark:text-slate-600 cursor-not-allowed',
+                                collapsed ? 'lg:justify-center lg:px-0 lg:py-2.5 px-4 py-3' : 'px-4 py-3',
                             ]"
                             :title="item.name + ' (coming soon)'"
                         >
@@ -131,29 +146,11 @@ const logout = () => {
                 </template>
             </nav>
 
-            <!-- User Footer -->
-            <div class="p-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
-                <div class="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3 flex items-center gap-3 border border-slate-200 dark:border-slate-700">
-                    <div class="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center text-white font-black text-sm shrink-0">
-                        {{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}
-                    </div>
-                    <div v-show="sidebarOpen" class="flex-1 min-w-0">
-                        <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{{ user?.name || 'Admin' }}</p>
-                        <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">{{ user?.role || 'Administrator' }}</p>
-                    </div>
-                    <button
-                        @click="logout"
-                        class="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-rose-500 shrink-0"
-                        title="Đăng xuất"
-                    >
-                        <Icon icon="lucide:log-out" class="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
+
         </aside>
 
         <!-- Main Content -->
-        <div :class="sidebarOpen ? 'lg:ml-72' : 'lg:ml-20'" class="transition-all duration-300 min-h-screen flex flex-col">
+        <div :class="sidebarOpen ? 'lg:ml-72' : 'lg:ml-[72px]'" class="transition-all duration-300 min-h-screen flex flex-col">
             <!-- Top Bar -->
             <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 h-16 flex items-center justify-between">
                 <div class="flex items-center gap-2 lg:gap-4">
@@ -200,11 +197,11 @@ const logout = () => {
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator class="dark:bg-slate-800" />
-                            <DropdownMenuItem class="dark:hover:bg-slate-800">
+                            <DropdownMenuItem v-if="hasRoute('admin.profile')" @click="router.visit(route('admin.profile'))" class="cursor-pointer dark:hover:bg-slate-800">
                                 <Icon icon="lucide:user" class="mr-2 h-4 w-4" />
                                 <span class="dark:text-slate-300">Hồ sơ cá nhân</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem class="dark:hover:bg-slate-800">
+                            <DropdownMenuItem v-if="hasRoute('admin.settings')" @click="router.visit(route('admin.settings'))" class="cursor-pointer dark:hover:bg-slate-800">
                                 <Icon icon="lucide:settings" class="mr-2 h-4 w-4" />
                                 <span class="dark:text-slate-300">Cài đặt</span>
                             </DropdownMenuItem>

@@ -1,13 +1,15 @@
 <script setup>
 import { ref, computed } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import BookActions from '@/Components/Admin/Books/BookActions.vue';
 import BooksFilter from '@/Components/Admin/Books/BooksFilter.vue';
 import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
 import BookPagination from '@/Components/Admin/Books/BookPagination.vue';
 import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
 import DeleteConfirmModal from '@/Components/Admin/Books/DeleteConfirmModal.vue';
+import ImportExcelModal from '@/Components/Admin/Books/ImportExcelModal.vue';
+import UpdateCoversModal from '@/Components/Admin/Books/UpdateCoversModal.vue';
 
 const props = defineProps({
     books: { type: Object, default: () => ({ data: [] }) },
@@ -15,127 +17,264 @@ const props = defineProps({
     filters: { type: Object, default: () => ({}) },
 });
 
+// =============================================
 // Modal state
-const showModal = ref(false);
+// =============================================
+const showFormModal = ref(false);
 const showDeleteModal = ref(false);
+const showImportModal = ref(false);
+const showUpdateCoversModal = ref(false);
 const isEditing = ref(false);
 const selectedBook = ref(null);
+const importLoading = ref(false);
 
+// =============================================
+// Selection state (checkbox)
+// =============================================
+const selectedIds = ref([]);
+
+const toggleSelect = (id) => {
+    const idx = selectedIds.value.indexOf(id);
+    if (idx >= 0) {
+        selectedIds.value.splice(idx, 1);
+    } else {
+        selectedIds.value.push(id);
+    }
+};
+
+const toggleAll = () => {
+    const books = booksData.value;
+    const allSelected = books.every(b => selectedIds.value.includes(b.id));
+    if (allSelected) {
+        selectedIds.value = [];
+    } else {
+        selectedIds.value = books.map(b => b.id);
+    }
+};
+
+const deselectAll = () => {
+    selectedIds.value = [];
+};
+
+// =============================================
 // Form
+// =============================================
 const form = useForm({
     id: null,
     title: '',
+    type: 'book',
     category_id: '',
-    author: '',
-    publisher: '',
-    year: '',
-    pages: '',
-    price: '',
-    quantity: 10,
+    parallel_title: '',
+    language: '',
+    responsibility_info: '',
     description: '',
+    author: '',
+    co_authors: '',
+    org_author: '',
+    publication_place: '',
+    publisher: '',
+    published_year: '',
+    classification_code: '',
+    total_pages: '',
+    book_size: '',
+    volume_number: '',
+    quantity: 0,
+    price: '',
+    notes: '',
+    digital_url: '',
     image: null,
+    image_url: null,
 });
 
-// Sample data for demo
+// =============================================
+// Data: use API data or sample
+// =============================================
 const sampleBooks = ref([
-    { id: 101, title: 'Giáo trình Cấu trúc dữ liệu', category: 'Công nghệ thông tin', author: 'Nguyễn Đức Nghĩa', publisher: 'NXB Bách Khoa', quantity_total: 50, quantity_remaining: 32, price: '120,000', year: '2019', pages: 250 },
-    { id: 102, title: 'Lập trình Hướng đối tượng Java', category: 'Công nghệ thông tin', author: 'Phạm Văn Ất', publisher: 'NXB Giáo Dục', quantity_total: 30, quantity_remaining: 5, price: '95,000', year: '2021', pages: 400 },
-    { id: 103, title: 'Xác suất thống kê', category: 'Khoa học cơ bản', author: 'Đặng Hùng Thắng', publisher: 'NXB ĐH Quốc gia', quantity_total: 100, quantity_remaining: 88, price: '60,000', year: '2018', pages: 180 },
-    { id: 104, title: 'Kinh tế vi mô', category: 'Kinh tế', author: 'N. Gregory Mankiw', publisher: 'NXB Kinh Tế', quantity_total: 45, quantity_remaining: 0, price: '150,000', year: '2022', pages: 550 },
-    { id: 105, title: 'Giải tích 1 & 2', category: 'Khoa học cơ bản', author: 'Nguyễn Đình Trí', publisher: 'NXB Giao Thông', quantity_total: 80, quantity_remaining: 45, price: '85,000', year: '2020', pages: 320 },
-    { id: 106, title: 'Mạng Máy Tính', category: 'Công nghệ thông tin', author: 'Andrew S. Tanenbaum', publisher: 'NXB Thống Kê', quantity_total: 25, quantity_remaining: 12, price: '180,000', year: '2021', pages: 600 },
+    { id: 1, title: 'Ngữ văn 6. T.1', classification_code: 'SI0000001', status: 'available', publication_place: 'Hà Nội', publisher_name: 'Giáo dục Việt Nam', published_year: 2021, quantity: 5, authors: [{ name: 'Nguyễn Thị Hồng Nam' }] },
+    { id: 2, title: 'Ngữ văn 6. T.2', classification_code: 'SI0000002', status: 'available', publication_place: 'Hà Nội', publisher_name: 'Giáo dục Việt Nam', published_year: 2022, quantity: 3, authors: [{ name: 'Nguyễn Thị Hồng Nam' }] },
+    { id: 3, title: 'Bài tập Ngữ văn. T.1', classification_code: 'SI0000003', status: 'available', publication_place: 'Hà Nội', publisher_name: 'Giáo dục Việt Nam', published_year: 2021, quantity: 8, authors: [{ name: 'Nguyễn Thị Hồng Nam' }] },
+    { id: 4, title: 'TK Tiếng Việt CNGD lớp 1 tập 3', classification_code: 'SI0000004', status: 'available', publication_place: 'H.', publisher_name: 'Giáo dục', published_year: 2020, quantity: 2, authors: [{ name: 'HỒ NGỌC ĐẠI' }] },
+    { id: 5, title: 'TK Toán 1 tập 2', classification_code: 'SI0000005', status: 'available', publication_place: 'H.', publisher_name: 'Giáo dục', published_year: 2012, quantity: 10, authors: [{ name: 'NGUYỄN TUẤN' }] },
 ]);
 
 const booksData = computed(() => props.books?.data?.length ? props.books.data : sampleBooks.value);
 
-// Search
-const searchQuery = ref('');
-const filteredBooks = computed(() => {
-    if (!searchQuery.value) return booksData.value;
-    const query = searchQuery.value.toLowerCase();
-    return booksData.value.filter(book =>
-        book.title.toLowerCase().includes(query) ||
-        book.author.toLowerCase().includes(query) ||
-        book.category.toLowerCase().includes(query)
-    );
+const pagination = computed(() => ({
+    current_page: props.books?.current_page || 1,
+    last_page: props.books?.last_page || 1,
+    per_page: props.books?.per_page || 20,
+    total: props.books?.total || booksData.value.length,
+    from: props.books?.from || 1,
+    to: props.books?.to || booksData.value.length,
+}));
+
+const filterValues = ref({ status: '', classification_code: '', title: '' });
+
+const selectedCodes = computed(() => {
+    return booksData.value
+        .filter(b => selectedIds.value.includes(b.id))
+        .map(b => b.classification_code || `SI${String(b.id).padStart(7, '0')}`);
 });
 
-// Actions
+const filteredBooks = computed(() => {
+    let data = booksData.value;
+    if (filterValues.value.title) {
+        const q = filterValues.value.title.toLowerCase();
+        data = data.filter(b => b.title.toLowerCase().includes(q));
+    }
+    if (filterValues.value.classification_code) {
+        data = data.filter(b => (b.classification_code || '').toLowerCase().includes(filterValues.value.classification_code.toLowerCase()));
+    }
+    if (filterValues.value.status) {
+        data = data.filter(b => b.status === filterValues.value.status);
+    }
+    return data;
+});
+
 const openAddModal = () => {
     isEditing.value = false;
     form.reset();
-    showModal.value = true;
+    showFormModal.value = true;
 };
 
 const openEditModal = (book) => {
     isEditing.value = true;
     selectedBook.value = book;
     form.id = book.id;
-    form.title = book.title;
-    form.category_id = ''; // Assuming category needs ID mapping, logic remains same
-    form.author = book.author;
-    form.publisher = book.publisher;
-    form.year = book.year;
-    form.pages = book.pages;
-    form.price = book.price;
-    form.quantity = book.quantity_total; // Map quantity_total to quantity input
-    showModal.value = true;
+    form.title = book.title || '';
+    form.type = book.type || 'book';
+    form.category_id = book.category_id || '';
+    form.classification_code = book.classification_code || '';
+    form.author = book.authors?.[0]?.name || book.author || '';
+    form.co_authors = (book.authors?.slice(1) || []).map(a => a.name).join(', ');
+    form.publisher = book.publisher_name || book.publisher?.name || '';
+    form.publication_place = book.publication_place || '';
+    form.published_year = book.published_year || '';
+    form.total_pages = book.total_pages || '';
+    form.book_size = book.book_size || '';
+    form.volume_number = book.volume_number || '';
+    form.price = book.price || '';
+    form.notes = book.notes || '';
+    form.description = book.description || '';
+    form.language = book.language || '';
+    form.image_url = book.image_url || null;
+    showFormModal.value = true;
 };
 
+const saveBook = () => {
+    // TODO: Connect to API
+    console.log('Saving book:', form);
+    showFormModal.value = false;
+    form.reset();
+};
+
+// =============================================
+// Actions: Delete
+// =============================================
 const confirmDelete = (book) => {
     selectedBook.value = book;
     showDeleteModal.value = true;
 };
 
-const saveBook = () => {
-    // In real app, submit to server
-    console.log('Saving book:', form);
-    showModal.value = false;
-    form.reset();
+const confirmBulkDelete = () => {
+    selectedBook.value = null;
+    showDeleteModal.value = true;
 };
 
 const deleteBook = () => {
-    // In real app, delete on server
-    console.log('Deleting book:', selectedBook.value);
+    // TODO: Connect to API
+    if (selectedBook.value) {
+        console.log('Deleting book:', selectedBook.value);
+    } else {
+        console.log('Bulk deleting:', selectedIds.value);
+    }
     showDeleteModal.value = false;
     selectedBook.value = null;
+    selectedIds.value = [];
+};
+
+// =============================================
+// Actions: Import Excel
+// =============================================
+const importExcel = async (file) => {
+    importLoading.value = true;
+    // TODO: Connect to backend API
+    console.log('Importing file:', file.name);
+    setTimeout(() => {
+        importLoading.value = false;
+        showImportModal.value = false;
+    }, 1500);
+};
+
+const exportExcel = () => {
+    // TODO: Connect to API
+    console.log('Exporting Excel, selected:', selectedIds.value);
+};
+
+const updateCovers = (data) => {
+    // TODO: Connect to API
+    console.log('Updating covers with zip:', data.file.name);
+    setTimeout(() => {
+        showUpdateCoversModal.value = false;
+    }, 1000);
+};
+
+const downloadTemplate = () => {
+    window.location.href = '/templates/mau_nhap_sach.csv';
 };
 </script>
 
 <template>
     <Head title="Quản lý Sách - Admin" />
-    <AdminLayout title="Quản lý Sách">
-        <div class="space-y-6 animate-in fade-in-50 duration-500">
-            <!-- Header Actions -->
+    <AdminLayout
+        title="Quản lý Sách"
+        :breadcrumbs="[
+            { label: 'Dữ liệu Thư viện' },
+            { label: 'Quản lý Sách' },
+        ]"
+    >
+        <div class="space-y-4 animate-in fade-in-50 duration-500">
+            <!-- Top Actions -->
             <BookActions
+                :selected-count="selectedIds.length"
                 @add="openAddModal"
-                @import="() => {}"
-                @download-template="() => {}"
+                @import-excel="showImportModal = true"
+                @export-excel="exportExcel"
+                @update-covers="showUpdateCoversModal = true"
+                @deselect-all="deselectAll"
+                @delete-selected="confirmBulkDelete"
             />
 
-            <!-- Search & Filter Bar -->
+            <!-- Filter Bar -->
             <BooksFilter
-                v-model="searchQuery"
-                :categories="['Công nghệ thông tin', 'Khoa học cơ bản', 'Kinh tế']"
+                v-model="filterValues"
+                @search="(v) => filterValues = v"
             />
 
-            <!-- Books Table -->
+            <!-- Table -->
             <BooksTable
                 :books="filteredBooks"
+                :selected-ids="selectedIds"
+                :page="pagination.current_page"
+                :per-page="pagination.per_page"
                 @edit="openEditModal"
                 @delete="confirmDelete"
+                @toggle-select="toggleSelect"
+                @toggle-all="toggleAll"
+                @update-single-cover="(book) => { selectedIds = [book.id]; showUpdateCoversModal = true; }"
             />
 
             <!-- Pagination -->
-            <BookPagination />
+            <BookPagination :pagination="pagination" />
         </div>
 
         <!-- Add/Edit Modal -->
         <BookFormModal
-            :show="showModal"
+            :show="showFormModal"
             :form="form"
             :is-editing="isEditing"
-            @close="showModal = false"
+            :categories="categories"
+            @close="showFormModal = false"
             @submit="saveBook"
         />
 
@@ -143,8 +282,26 @@ const deleteBook = () => {
         <DeleteConfirmModal
             :show="showDeleteModal"
             :book="selectedBook"
+            :selected-count="selectedIds.length"
             @close="showDeleteModal = false"
             @confirm="deleteBook"
+        />
+
+        <!-- Import Modal -->
+        <ImportExcelModal
+            :show="showImportModal"
+            :loading="importLoading"
+            @close="showImportModal = false"
+            @import="importExcel"
+            @download-template="downloadTemplate"
+        />
+
+        <!-- Update Covers Modal -->
+        <UpdateCoversModal
+            :show="showUpdateCoversModal"
+            :selected-codes="selectedCodes"
+            @close="showUpdateCoversModal = false"
+            @submit="updateCovers"
         />
     </AdminLayout>
 </template>

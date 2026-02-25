@@ -1,102 +1,161 @@
 <script setup>
+import { computed } from 'vue';
 import { Icon } from '@iconify/vue';
 
-defineProps({
-    books: {
-        type: Array,
-        required: true,
-        default: () => []
-    }
+const props = defineProps({
+    books: { type: Array, required: true, default: () => [] },
+    selectedIds: { type: Array, default: () => [] },
+    page: { type: Number, default: 1 },
+    perPage: { type: Number, default: 20 },
 });
 
-defineEmits(['edit', 'delete']);
+const emit = defineEmits(['edit', 'delete', 'toggle-select', 'toggle-all']);
 
-const getStockStatus = (remaining, total) => {
-    const ratio = remaining / total;
-    if (remaining === 0) return { label: 'Hết', class: 'bg-rose-100 text-rose-700' };
-    if (ratio < 0.2) return { label: 'Sắp hết', class: 'bg-amber-100 text-amber-700' };
-    return { label: 'Còn hàng', class: 'bg-emerald-100 text-emerald-700' };
+const allSelected = computed(() =>
+    props.books.length > 0 && props.books.every(b => props.selectedIds.includes(b.id))
+);
+
+const isSelected = (id) => props.selectedIds.includes(id);
+
+const getStatusLabel = (status) => {
+    switch (status) {
+        case 'available': return { text: 'Hiển thị', bg: 'bg-emerald-100 dark:bg-emerald-900/30', color: 'text-emerald-700 dark:text-emerald-400' };
+        case 'unavailable': return { text: 'Ẩn', bg: 'bg-slate-100 dark:bg-slate-700', color: 'text-slate-600 dark:text-slate-300' };
+        case 'processing': return { text: 'Đang xử lý', bg: 'bg-amber-100 dark:bg-amber-900/30', color: 'text-amber-700 dark:text-amber-400' };
+        default: return { text: 'Hiển thị', bg: 'bg-emerald-100 dark:bg-emerald-900/30', color: 'text-emerald-700 dark:text-emerald-400' };
+    }
 };
+
+const getRowIndex = (index) => (props.page - 1) * props.perPage + index + 1;
+
+const getPublisherInfo = (book) => {
+    const parts = [];
+    if (book.publication_place) parts.push(book.publication_place);
+    if (book.publisher_name || book.publisher?.name) parts.push(book.publisher_name || book.publisher?.name);
+    if (book.published_year) parts.push(book.published_year);
+    return parts.join(',') || '—';
+};
+
+const getAuthorNames = (book) => {
+    if (book.authors && book.authors.length > 0) {
+        return book.authors.map(a => a.name).join(', ');
+    }
+    return book.author || '';
+};
+
+// Shared border class for column dividers
+const thBorder = 'border-r border-gray-200 dark:border-slate-700';
+const tdBorder = 'border-r border-gray-100 dark:border-slate-800';
 </script>
 
 <template>
-    <div class="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+    <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left">
-                <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+            <table class="w-full text-sm table-fixed">
+                <colgroup>
+                    <col class="w-[40px]" />   <!-- checkbox -->
+                    <col class="w-[50px]" />   <!-- STT -->
+                    <col class="w-[120px]" />  <!-- Mã ấn phẩm -->
+                    <col />                     <!-- Tên ấn phẩm (flex) -->
+                    <col class="w-[220px]" />  <!-- Thông tin xuất bản -->
+                    <col class="w-[60px]" />   <!-- Số lượng -->
+                    <col class="w-[85px]" />   <!-- Trạng thái -->
+                    <col class="w-[85px]" />   <!-- Hành động -->
+                </colgroup>
+                <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                     <tr>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Sách</th>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Danh Mục</th>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Tác Giả / NXB</th>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Số Lượng</th>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Giá</th>
-                        <th class="p-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right">Thao Tác</th>
+                        <th :class="['px-2 py-2.5 text-center', thBorder]">
+                            <input
+                                type="checkbox"
+                                :checked="allSelected"
+                                @change="emit('toggle-all')"
+                                class="w-3.5 h-3.5 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
+                            />
+                        </th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center', thBorder]">STT</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Mã ấn phẩm</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Tên ấn phẩm</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Thông tin xuất bản</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center', thBorder]">SL</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center', thBorder]">Trạng thái</th>
+                        <th class="px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center">Hành động</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-50 dark:divide-slate-800">
+                <tbody class="divide-y divide-gray-100 dark:divide-slate-800">
                     <tr
-                        v-for="book in books"
+                        v-for="(book, index) in books"
                         :key="book.id"
-                        class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
+                        :class="[
+                            'transition-colors',
+                            isSelected(book.id)
+                                ? 'bg-blue-50 dark:bg-blue-900/15'
+                                : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'
+                        ]"
                     >
-                        <td class="p-6 font-mono text-xs font-bold text-slate-400">#{{ book.id }}</td>
-                        <td class="p-6">
-                            <div class="flex items-center gap-4">
-                                <div class="w-12 h-16 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center shrink-0 border dark:border-slate-700 shadow-sm overflow-hidden group">
-                                    <Icon icon="lucide:book" class="w-6 h-6 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                        <td :class="['px-2 py-2.5 text-center', tdBorder]">
+                            <input
+                                type="checkbox"
+                                :checked="isSelected(book.id)"
+                                @change="emit('toggle-select', book.id)"
+                                class="w-3.5 h-3.5 rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
+                            />
+                        </td>
+                        <td :class="['px-2 py-2.5 text-center text-xs text-gray-500 dark:text-slate-400', tdBorder]">{{ getRowIndex(index) }}</td>
+                        <td :class="['px-2 py-2.5 font-mono text-xs font-semibold text-gray-700 dark:text-slate-300', tdBorder]">
+                            {{ book.classification_code || `SI${String(book.id).padStart(7, '0')}` }}
+                        </td>
+                        <td :class="['px-2 py-2.5', tdBorder]">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-10 h-14 bg-gray-50 dark:bg-slate-800 rounded-lg overflow-hidden shrink-0 border border-gray-100 dark:border-slate-800 flex items-center justify-center relative group/cover">
+                                    <img v-if="book.image_url" :src="book.image_url" class="w-full h-full object-cover" />
+                                    <div v-else class="flex flex-col items-center justify-center opacity-40">
+                                        <Icon icon="lucide:book" class="w-5 h-5 text-gray-400" />
+                                    </div>
+                                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" @click.stop="emit('update-single-cover', book)">
+                                        <Icon icon="lucide:camera" class="w-4 h-4 text-white" />
+                                    </div>
                                 </div>
-                                <div class="space-y-0.5">
-                                    <p class="font-black text-slate-900 dark:text-white leading-tight uppercase tracking-tight">{{ book.title }}</p>
-                                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">ISBN: {{ book.isbn || 'N/A' }}</p>
+                                <div class="min-w-0">
+                                    <p class="font-semibold text-sm text-gray-800 dark:text-white leading-snug truncate" :title="book.title">{{ book.title }}</p>
+                                    <p v-if="getAuthorNames(book)" class="text-[11px] text-gray-500 dark:text-slate-400 mt-0.5 truncate uppercase tracking-tighter font-medium" :title="getAuthorNames(book)">
+                                        {{ getAuthorNames(book) }}
+                                    </p>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-6">
-                            <span class="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-lg text-xs font-black uppercase tracking-wider">
-                                {{ book.category }}
+                        <td :class="['px-2 py-2.5 text-xs text-gray-600 dark:text-slate-400', tdBorder]">
+                            {{ getPublisherInfo(book) }}
+                        </td>
+                        <td :class="['px-2 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-slate-300', tdBorder]">
+                            {{ book.quantity ?? 0 }}
+                        </td>
+                        <td :class="['px-2 py-2.5 text-center', tdBorder]">
+                            <span :class="[getStatusLabel(book.status).bg, getStatusLabel(book.status).color, 'px-2 py-0.5 rounded text-[11px] font-semibold inline-block whitespace-nowrap']">
+                                {{ getStatusLabel(book.status).text }}
                             </span>
                         </td>
-                        <td class="p-6">
-                            <p class="text-sm font-bold text-slate-700 dark:text-slate-300">{{ book.author }}</p>
-                            <p class="text-xs font-medium text-slate-400 uppercase tracking-tighter">{{ book.publisher }}</p>
-                        </td>
-                        <td class="p-6">
-                            <div class="space-y-1.5">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs font-black text-slate-900 dark:text-white">{{ book.quantity_remaining }} / {{ book.quantity_total }}</span>
-                                    <span
-                                        :class="[getStockStatus(book.quantity_remaining, book.quantity_total).class, 'px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-tighter']"
-                                    >
-                                        {{ getStockStatus(book.quantity_remaining, book.quantity_total).label }}
-                                    </span>
-                                </div>
-                                <div class="w-24 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div
-                                        class="h-full bg-blue-500 rounded-full transition-all duration-500"
-                                        :style="{ width: `${(book.quantity_remaining / book.quantity_total) * 100}%` }"
-                                    ></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="p-6">
-                            <p class="text-sm font-black text-emerald-600 dark:text-emerald-400 tracking-tighter">{{ book.price }} VNĐ</p>
-                        </td>
-                        <td class="p-6">
-                            <div class="flex justify-end gap-1">
+                        <td class="px-2 py-2.5">
+                            <div class="flex items-center justify-center gap-0.5">
                                 <button
-                                    @click="$emit('edit', book)"
-                                    class="p-2.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-xl transition-all hover:scale-110 active:scale-95"
-                                    title="Chỉnh sửa"
+                                    @click="emit('update-single-cover', book)"
+                                    class="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors"
+                                    title="Cập nhật ảnh bìa"
                                 >
-                                    <Icon icon="lucide:edit-3" class="w-5 h-5" />
+                                    <Icon icon="lucide:image-plus" class="w-3.5 h-3.5" />
                                 </button>
                                 <button
-                                    @click="$emit('delete', book)"
-                                    class="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-all hover:scale-110 active:scale-95"
+                                    @click="emit('edit', book)"
+                                    class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                    title="Sửa"
+                                >
+                                    <Icon icon="lucide:pencil" class="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    @click="emit('delete', book)"
+                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
                                     title="Xóa"
                                 >
-                                    <Icon icon="lucide:trash-2" class="w-5 h-5" />
+                                    <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
                                 </button>
                             </div>
                         </td>
@@ -106,12 +165,12 @@ const getStockStatus = (remaining, total) => {
         </div>
 
         <!-- Empty State -->
-        <div v-if="books.length === 0" class="p-20 text-center">
-            <div class="w-24 h-24 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Icon icon="lucide:book-x" class="w-12 h-12 text-slate-300 dark:text-slate-600" />
+        <div v-if="books.length === 0" class="py-16 text-center">
+            <div class="w-14 h-14 bg-gray-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Icon icon="lucide:book-x" class="w-7 h-7 text-gray-400 dark:text-slate-500" />
             </div>
-            <h3 class="text-xl font-black text-slate-800 dark:text-white mb-2 uppercase tracking-widest">Không tìm thấy sách</h3>
-            <p class="text-slate-500 dark:text-slate-400 font-medium">Thử tìm kiếm với từ khóa khác hoặc thêm sách mới vào thư viện.</p>
+            <h3 class="text-sm font-bold text-gray-700 dark:text-white mb-1">Không tìm thấy sách</h3>
+            <p class="text-xs text-gray-500 dark:text-slate-400">Thử tìm kiếm với từ khóa khác hoặc thêm sách mới.</p>
         </div>
     </div>
 </template>

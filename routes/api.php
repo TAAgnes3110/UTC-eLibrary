@@ -3,6 +3,7 @@
 use App\Http\Controllers\Backend\UserController;
 use App\Http\Controllers\Backend\AuthController;
 use App\Http\Controllers\Backend\AuthorController;
+use App\Http\Controllers\Backend\BookController;
 use App\Http\Controllers\Backend\EmailOTPController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,8 +35,14 @@ Route::group(['middleware' => ['init']], function () {
         Route::group(['prefix' => '/authors'], function () {
             Route::get('/', [AuthorController::class, 'index']);
             Route::post('/', [AuthorController::class, 'store']);
+            Route::post('/import', [AuthorController::class, 'import']);
             Route::put('/{author}', [AuthorController::class, 'update']);
             Route::delete('/{author}', [AuthorController::class, 'destroy']);
+        });
+
+        Route::group(['prefix' => '/books'], function () {
+            Route::get('/', [BookController::class, 'index']);
+            Route::post('/import', [BookController::class, 'import']);
         });
     });
 });

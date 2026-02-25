@@ -6,92 +6,176 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 
+const props = defineProps({
+    publishers: { type: Array, default: () => [
+        { id: 1, name: 'NXB Giao Thông Vận Tải', address: '80A Trần Hưng Đạo, Hà Nội', email: 'nxbgtvt@utc.edu.vn', phone: '024 3942 2167', books_count: 156 },
+        { id: 2, name: 'NXB Bách Khoa', address: 'Số 1 Đại Cồ Việt, Hà Nội', email: 'bkpress@hust.edu.vn', phone: '024 3869 2242', books_count: 89 },
+        { id: 3, name: 'NXB Giáo Dục', address: '81 Trần Hưng Đạo, Hà Nội', email: 'nxbgd@moet.gov.vn', phone: '024 3822 0801', books_count: 412 },
+    ]}
+});
+
+const searchQuery = ref('');
 const showModal = ref(false);
+const isEditing = ref(false);
+
+const filtered = computed(() => {
+    if (!searchQuery.value) return props.publishers;
+    const q = searchQuery.value.toLowerCase();
+    return props.publishers.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        (p.email || '').toLowerCase().includes(q) ||
+        (p.phone || '').toLowerCase().includes(q) ||
+        (p.address || '').toLowerCase().includes(q)
+    );
+});
+
 const form = useForm({
+    id: null,
     name: '',
     address: '',
+    email: '',
     phone: '',
 });
 
-const publishers = ref([
-    { id: 1, name: 'NXB Bách Khoa', address: 'Số 1 Đại Cồ Việt, Hà Nội', phone: '024 3869 2242' },
-    { id: 2, name: 'NXB Giáo Dục', address: '81 Trần Hưng Đạo, Hà Nội', phone: '024 3822 0801' },
-    { id: 3, name: 'NXB ĐH Quốc Gia', address: '16 Hàng Chuối, Hà Nội', phone: '024 3971 4896' },
-    { id: 4, name: 'NXB Giao Thông Vận Tải', address: '80A Trần Hưng Đạo, Hà Nội', phone: '024 3942 2167' },
-]);
+const openAddModal = () => {
+    isEditing.value = false;
+    form.reset();
+    showModal.value = true;
+};
 
-const searchQuery = ref('');
-const filteredPublishers = computed(() => {
-    return publishers.value.filter(p => p.name.toLowerCase().includes(searchQuery.value.toLowerCase()));
-});
+const editPublisher = (p) => {
+    isEditing.value = true;
+    form.id = p.id;
+    form.name = p.name;
+    form.address = p.address || '';
+    form.email = p.email || '';
+    form.phone = p.phone || '';
+    showModal.value = true;
+};
+
+const save = () => {
+    showModal.value = false;
+};
 </script>
 
 <template>
-    <Head title="Quản lý NXB - Admin" />
-    <AdminLayout title="Quản lý Nhà xuất bản">
-        <div class="space-y-6 animate-in fade-in-50 duration-500">
-            <div class="flex justify-between items-center">
-                <Button @click="showModal = true" class="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">
-                    <Icon icon="lucide:building-2" class="w-4 h-4 mr-2" />
-                    Thêm NXB
-                </Button>
+    <Head title="Quản lý Nhà xuất bản - Admin" />
+    <AdminLayout
+        title="Quản lý Nhà xuất bản"
+        :breadcrumbs="[
+            { label: 'Dữ liệu Thư viện' },
+            { label: 'Quản lý Nhà xuất bản' },
+        ]"
+    >
+        <div class="space-y-4 animate-in fade-in-50 duration-500">
+            <!-- Action Header -->
+            <div class="flex items-center justify-between">
+                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Nhà xuất bản</h2>
+                <div class="flex items-center gap-1.5">
+                    <button class="btn-excel-export">
+                        <Icon icon="lucide:file-down" class="w-[17px] h-[17px]" />
+                        <span class="tracking-tight">Xuất excel</span>
+                    </button>
+                    <button @click="openAddModal" class="btn-action-primary">
+                        <Icon icon="lucide:plus" class="w-[18px] h-[18px]" />
+                        <span>Thêm Nhà xuất bản</span>
+                    </button>
+                </div>
             </div>
 
-            <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                        <tr>
-                            <th class="p-5 text-[10px] uppercase font-black text-slate-400">Tên Nhà Xuất Bản</th>
-                            <th class="p-5 text-[10px] uppercase font-black text-slate-400">Địa chỉ</th>
-                            <th class="p-5 text-[10px] uppercase font-black text-slate-400">Liên hệ</th>
-                            <th class="p-5 text-[10px] uppercase font-black text-slate-400 text-right">Thao tác</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                        <tr v-for="p in filteredPublishers" :key="p.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                            <td class="p-5 font-bold text-slate-900 dark:text-white">{{ p.name }}</td>
-                            <td class="p-5 text-sm text-slate-600 dark:text-slate-400">{{ p.address }}</td>
-                            <td class="p-5 text-sm text-slate-600 dark:text-slate-400">{{ p.phone }}</td>
-                            <td class="p-5">
-                                <div class="flex justify-end gap-2">
-                                    <button class="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg">
-                                        <Icon icon="lucide:edit-2" class="w-4 h-4" />
-                                    </button>
-                                    <button class="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg">
-                                        <Icon icon="lucide:trash-2" class="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <!-- Filter Bar -->
+            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div class="relative flex-1">
+                    <Icon icon="lucide:search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                    <Input v-model="searchQuery" placeholder="Tìm tên NXB, địa chỉ, email..." class="pl-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-none text-sm" />
+                </div>
+            </div>
+
+            <!-- Table (Split Columns for DB Readiness) -->
+            <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+                <div class="overflow-x-auto text-nowrap">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-16 text-center">ID</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tên Nhà xuất bản</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Địa chỉ trụ sở</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Số điện thoại</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Email</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center">Số sách</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                            <tr v-for="p in filtered" :key="p.id" class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all">
+                                <td class="p-4 text-center font-mono text-xs text-slate-400">#{{ String(p.id).padStart(3, '0') }}</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                                            <Icon icon="lucide:building-2" class="w-4 h-4" />
+                                        </div>
+                                        <div class="font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors text-[13px] tracking-tight">{{ p.name }}</div>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-[12px] text-slate-600 dark:text-slate-400 truncate max-w-[200px] xl:max-w-xs">{{ p.address }}</td>
+                                <td class="p-4 text-[12px] font-medium text-slate-600 dark:text-slate-300">{{ p.phone }}</td>
+                                <td class="p-4 text-[12px] text-blue-600 dark:text-blue-400 underline underline-offset-4 decoration-blue-500/30">{{ p.email }}</td>
+                                <td class="p-4 text-center">
+                                    <span class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded text-[11px] font-bold">
+                                        {{ p.books_count }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-right">
+                                    <div class="flex justify-end gap-1">
+                                        <button @click="editPublisher(p)" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all" title="Chỉnh sửa">
+                                            <Icon icon="lucide:edit-3" class="w-[18px] h-[18px]" />
+                                        </button>
+                                        <button class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all" title="Xóa">
+                                            <Icon icon="lucide:trash-2" class="w-[18px] h-[18px]" />
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
+        <!-- Add/Edit Modal (Standard) -->
         <Teleport to="body">
-            <div v-if="showModal" class="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                <div class="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-lg animate-in zoom-in-95">
-                    <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between">
-                        <h3 class="text-xl font-black dark:text-white">Thêm NXB</h3>
-                        <button @click="showModal = false"><Icon icon="lucide:x" class="text-slate-400" /></button>
+            <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" @click="showModal = false"></div>
+                <div class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
+                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-blue-600">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">{{ isEditing ? 'Cập nhật' : 'Thêm mới' }} NXB</h3>
+                        <button @click="showModal = false" class="text-white/80 hover:text-white">
+                            <Icon icon="lucide:x" class="w-5 h-5" />
+                        </button>
                     </div>
-                    <div class="p-8 space-y-4">
-                        <div>
-                            <label class="block text-sm font-bold mb-2 dark:text-slate-300">Tên NXB</label>
-                            <Input v-model="form.name" class="h-12 rounded-xl dark:bg-slate-800 dark:border-none dark:text-white" />
+
+                    <div class="p-6 grid grid-cols-2 gap-4">
+                        <div class="col-span-2 space-y-1.5">
+                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tên Nhà xuất bản</label>
+                            <Input v-model="form.name" placeholder="Ví dụ: NXB Giao Thông Vận Tải" class="h-9 rounded-md border-slate-200 text-xs" />
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2 dark:text-slate-300">Số điện thoại</label>
-                            <Input v-model="form.phone" class="h-12 rounded-xl dark:bg-slate-800 dark:border-none dark:text-white" />
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Số điện thoại</label>
+                            <Input v-model="form.phone" placeholder="024 3xxx..." class="h-9 rounded-md border-slate-200 text-xs" />
                         </div>
-                        <div>
-                            <label class="block text-sm font-bold mb-2 dark:text-slate-300">Địa chỉ</label>
-                            <textarea v-model="form.address" class="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border-none h-24 dark:text-white focus:ring-2 focus:ring-indigo-600/20"></textarea>
+                        <div class="space-y-1.5">
+                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Email liên hệ</label>
+                            <Input v-model="form.email" placeholder="contact@publisher.com" class="h-9 rounded-md border-slate-200 text-xs" />
+                        </div>
+                        <div class="col-span-2 space-y-1.5">
+                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Địa chỉ trụ sở</label>
+                            <textarea v-model="form.address" placeholder="Nhập địa chỉ đầy đủ..." class="w-full h-20 p-3 rounded-md border border-slate-200 text-xs outline-none focus:ring-1 focus:ring-blue-500/50 transition-all resize-none"></textarea>
                         </div>
                     </div>
-                    <div class="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
-                        <Button @click="showModal = false" variant="outline" class="rounded-xl dark:text-slate-300">Hủy</Button>
-                        <Button class="rounded-xl bg-indigo-600 text-white">Lưu</Button>
+
+                    <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
+                        <Button variant="outline" size="sm" @click="showModal = false" class="h-8 px-4 font-bold text-xs rounded-md">Bỏ qua</Button>
+                        <Button size="sm" @click="save" class="h-8 px-6 font-bold text-xs rounded-md bg-blue-600 hover:bg-blue-700 text-white">Lưu thay đổi</Button>
                     </div>
                 </div>
             </div>

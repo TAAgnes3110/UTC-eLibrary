@@ -85,6 +85,40 @@
 }
 
 @layer components {
+  /* ==========================================================================
+     UI COMPONENTS - Dễ dàng debug và chỉnh sửa tại đây
+     ========================================================================== */
+
+  /* Nút Nhập Excel (Solid Blue) */
+  .btn-excel-import {
+    @apply h-8 px-3 rounded-md text-xs font-bold bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center gap-1.5 shadow-sm transition-all;
+  }
+
+  /* Nút Xuất Excel (Solid Blue) */
+  .btn-excel-export {
+    @apply h-8 px-3 rounded-md text-xs font-bold bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center gap-1.5 shadow-sm transition-all;
+  }
+
+  /* Nút hành động chính (Xanh đặc) */
+  .btn-action-primary {
+    @apply h-8 px-4 rounded-md text-xs font-bold bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center gap-1.5 shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] transition-all;
+  }
+
+  /* Link Sidebar */
+  .nav-sidebar-link {
+    @apply flex items-center gap-2.5 rounded-lg transition-all duration-200 text-[13px] font-medium;
+  }
+
+  .nav-sidebar-link-active {
+    @apply bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 font-bold;
+  }
+
+  .nav-sidebar-link-inactive {
+    @apply text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/60 hover:text-blue-600 dark:hover:text-blue-300;
+  }
+
+  /* -------------------------------------------------------------------------- */
+
   .premium-shadow {
     @apply shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),0_8px_10px_-6px_rgba(0,0,0,0.05)];
   }

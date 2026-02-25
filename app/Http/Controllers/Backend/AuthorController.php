@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AuthorRequest;
+use App\Imports\AuthorsImport;
 
 use App\Models\Author;
 use Illuminate\Http\JsonResponse;
@@ -11,6 +13,40 @@ use Illuminate\Http\Request;
 
 class AuthorController extends Controller
 {
+    /**
+     * Import tác giả từ file Excel.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|max:10240', // max 10MB
+        ]);
+
+        $file = $request->file('file');
+
+        if (!FileHelpers::isExcelFile($file)) {
+            return $this->jsonResponse([
+                'status' => 'error',
+                'messages' => 'File phải có định dạng: ' . implode(', ', FileHelpers::EXCEL_EXTENSIONS),
+            ], 422);
+        }
+
+        $importer = new AuthorsImport();
+        $result = $importer->import($file);
+
+        $code = match ($result['status']) {
+            'success' => 200,
+            'partial' => 207,
+            default   => 422,
+        };
+
+        return $this->jsonResponse([
+            'status' => $result['status'],
+            'messages' => "Import hoàn tất: {$result['summary']['success']} thành công, {$result['summary']['skipped']} bỏ qua, {$result['summary']['errors']} lỗi.",
+            'data' => $result,
+        ], $code);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $keyword = $request->input('keyword');

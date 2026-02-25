@@ -39,6 +39,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/', function () {
       return Inertia::render('Admin/Dashboard');
     })->name('dashboard');
+    Route::get('/search', function () {
+      return Inertia::render('Admin/Search/Index', [
+        'filters' => request()->all('q')
+      ]);
+    })->name('search');
     Route::get('/books', function () {
       return Inertia::render('Admin/Books/Index');
     })->name('books.index');
@@ -57,12 +62,37 @@ Route::middleware('auth')->group(function () {
     Route::get('/cards', function () {
       return Inertia::render('Admin/Cards/Index');
     })->name('cards.index');
-    Route::get('/loans', function () {
-      return Inertia::render('Admin/Loans/Index');
-    })->name('loans.index');
+    Route::prefix('library')->name('library.')->group(function () {
+      Route::get('/slips', function () {
+        return Inertia::render('Admin/Library/Slips');
+      })->name('slips');
+      Route::get('/liquidation', function () {
+        return Inertia::render('Admin/Library/Liquidation');
+      })->name('liquidation');
+      Route::get('/inventory', function () {
+        return Inertia::render('Admin/Library/Inventory');
+      })->name('inventory');
+    });
+
+    Route::prefix('loans')->name('loans.')->group(function () {
+      Route::get('/', function () {
+        return Inertia::render('Admin/Loans/Index');
+      })->name('index');
+      Route::get('/extensions', function () {
+        return Inertia::render('Admin/Loans/Extensions');
+      })->name('extensions');
+      Route::get('/onsite', function () {
+        return Inertia::render('Admin/Loans/OnSite');
+      })->name('onsite');
+      Route::get('/penalties', function () {
+        return Inertia::render('Admin/Loans/Penalties');
+      })->name('penalties');
+    });
+
     Route::get('/stats', function () {
       return Inertia::render('Admin/Stats/Index');
     })->name('stats.index');
+
     Route::get('/users', function () {
       return Inertia::render('Admin/Users/Index');
     })->name('users.index');

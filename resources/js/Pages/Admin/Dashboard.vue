@@ -15,16 +15,16 @@ defineProps({
 });
 
 const statsCards = [
-    { title: 'Tổng số Sách', value: '15,240', icon: 'lucide:book', color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { title: 'Độc Giả', value: '1,204', icon: 'lucide:users', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-    { title: 'Phiếu Mượn', value: '342', icon: 'lucide:clipboard-list', color: 'text-amber-600', bg: 'bg-amber-50' },
-    { title: 'Sách Quá Hạn', value: '15', icon: 'lucide:alert-triangle', color: 'text-rose-600', bg: 'bg-rose-50' },
+    { title: 'Sách hiện có trong kho', value: '15,240', icon: 'lucide:book', color: 'text-indigo-600', bg: 'bg-indigo-50' },
+    { title: 'Người đang mượn sách', value: '1,204', icon: 'lucide:users', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { title: 'Sách đang cho mượn', value: '342', icon: 'lucide:clipboard-list', color: 'text-amber-600', bg: 'bg-amber-50' },
+    { title: 'Sách chờ thu hồi (Quá hạn)', value: '15', icon: 'lucide:alert-triangle', color: 'text-rose-600', bg: 'bg-rose-50' },
 ];
 
 const quickActions = [
-    { label: 'Xử lý Mượn Trả', icon: 'lucide:qr-code', href: 'admin.loans' }, // Corrected route names to be more standard if needed, or keep as is.
-    { label: 'Thêm Sách Mới', icon: 'lucide:plus', href: 'admin.books' },
-    { label: 'Xem Báo Cáo', icon: 'lucide:bar-chart-3', href: 'admin.stats' },
+    { label: 'Cho mượn hoặc Trả sách', icon: 'lucide:qr-code', href: 'admin.loans' },
+    { label: 'Nhập thêm sách mới', icon: 'lucide:plus', href: 'admin.books' },
+    { label: 'Xem kết quả hoạt động', icon: 'lucide:bar-chart-3', href: 'admin.stats' },
 ];
 
 const handleQuickAction = (action) => {

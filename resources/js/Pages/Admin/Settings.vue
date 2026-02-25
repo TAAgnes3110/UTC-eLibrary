@@ -9,34 +9,38 @@ const language = ref('vi');
 
 const settingsGroups = [
     {
-        title: 'Giao diện',
-        icon: 'lucide:palette',
+        title: 'Quy định mượn trả',
+        icon: 'lucide:clipboard-list',
+        iconBg: 'bg-indigo-50 dark:bg-indigo-900/20',
+        iconColor: 'text-indigo-600 dark:text-indigo-400',
+        items: [
+            { label: 'Số sách tối đa', description: 'Số lượng sách tối đa một độc giả được mượn', type: 'number', key: 'maxBooks', value: 5 },
+            { label: 'Số ngày mượn tối đa', description: 'Thời hạn mượn sách mặc định (ngày)', type: 'number', key: 'maxDays', value: 14 },
+            { label: 'Số lần gia hạn', description: 'Số lần tối đa được phép gia hạn một cuốn sách', type: 'number', key: 'maxExtensions', value: 1 },
+            { label: 'Số ngày gia hạn', description: 'Số ngày được cộng thêm mỗi lần gia hạn', type: 'number', key: 'extensionDays', value: 7 },
+        ]
+    },
+    {
+        title: 'Nội dung thư viện',
+        icon: 'lucide:file-text',
+        iconBg: 'bg-emerald-50 dark:bg-emerald-900/20',
+        iconColor: 'text-emerald-600 dark:text-emerald-400',
+        items: [
+            { label: 'Nội quy thư viện', description: 'Hiển thị trên trang chủ và thông báo cho độc giả', type: 'textarea', key: 'libraryRules' },
+            { label: 'Hướng dẫn sử dụng', description: 'Hướng dẫn độc giả cách tra cứu và mượn sách', type: 'textarea', key: 'userGuide' },
+        ]
+    },
+    {
+        title: 'Giao diện & Hệ thống',
+        icon: 'lucide:settings',
         iconBg: 'bg-purple-50 dark:bg-purple-900/20',
         iconColor: 'text-purple-600 dark:text-purple-400',
         items: [
             { label: 'Chế độ tối', description: 'Chuyển giao diện sang nền tối', type: 'toggle', key: 'darkMode' },
-        ]
-    },
-    {
-        title: 'Ngôn ngữ & Vùng',
-        icon: 'lucide:globe',
-        iconBg: 'bg-blue-50 dark:bg-blue-900/20',
-        iconColor: 'text-blue-600 dark:text-blue-400',
-        items: [
             { label: 'Ngôn ngữ hiển thị', description: 'Chọn ngôn ngữ giao diện', type: 'select', key: 'language', options: [
                 { value: 'vi', label: 'Tiếng Việt' },
                 { value: 'en', label: 'English' },
             ]},
-        ]
-    },
-    {
-        title: 'Thông báo',
-        icon: 'lucide:bell',
-        iconBg: 'bg-amber-50 dark:bg-amber-900/20',
-        iconColor: 'text-amber-600 dark:text-amber-400',
-        items: [
-            { label: 'Thông báo email', description: 'Nhận email khi có cập nhật quan trọng', type: 'toggle', key: 'emailNotif' },
-            { label: 'Thông báo trình duyệt', description: 'Hiển thị popup trên trình duyệt', type: 'toggle', key: 'browserNotif' },
         ]
     },
 ];
@@ -82,15 +86,21 @@ const toggleSetting = (key) => {
 
                             <!-- Toggle -->
                             <button v-if="item.type === 'toggle'" @click="toggleSetting(item.key)"
-                                :class="[
-                                    'relative w-12 h-7 rounded-full transition-colors duration-300 shrink-0',
-                                    toggles[item.key] ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
-                                ]">
-                                <span :class="[
-                                    'absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300',
-                                    toggles[item.key] ? 'translate-x-[22px]' : 'translate-x-0.5'
-                                ]"></span>
+                                 :class="[
+                                     'relative w-12 h-7 rounded-full transition-colors duration-300 shrink-0',
+                                     toggles[item.key] ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-600'
+                                 ]">
+                                 <span :class="[
+                                     'absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300',
+                                     toggles[item.key] ? 'translate-x-[22px]' : 'translate-x-0.5'
+                                 ]"></span>
                             </button>
+
+                            <!-- Number -->
+                            <input v-else-if="item.type === 'number'" type="number"
+                                class="w-20 h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-bold text-center text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 outline-none"
+                                v-model="item.value"
+                            />
 
                             <!-- Select -->
                             <select v-else-if="item.type === 'select'" v-model="language"
@@ -100,6 +110,21 @@ const toggleSetting = (key) => {
                                 </option>
                             </select>
                         </div>
+
+                        <!-- Textarea -->
+                        <div v-if="item.type === 'textarea'" class="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/30">
+                            <textarea
+                                class="w-full min-h-[120px] p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-blue-500/20 outline-none resize-none"
+                                :placeholder="'Nhập ' + item.label.toLowerCase() + '...'"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Save Button for Group -->
+                    <div class="px-6 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                        <Button class="h-9 px-4 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-md shadow-blue-500/20">
+                            Lưu thay đổi
+                        </Button>
                     </div>
                 </div>
             </template>

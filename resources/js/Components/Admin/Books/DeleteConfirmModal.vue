@@ -68,14 +68,14 @@ const message = computed(() => {
                     </div>
                 </div>
 
-                <!-- Footer / Buttons -->
-                <div class="px-8 pb-8 flex flex-col gap-3">
-                    <Button @click="$emit('confirm')" class="w-full h-12 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-[15px] font-bold shadow-lg shadow-rose-500/25 transition-all hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2">
-                         <Icon icon="lucide:check" class="w-4 h-4" />
-                        Đồng ý và xóa ngay
+                <!-- Footer / Buttons (theo edui: Xóa | Hủy bỏ) -->
+                <div class="px-8 pb-8 flex justify-end gap-2">
+                    <Button @click="$emit('close')" variant="outline" class="h-10 px-5 rounded-lg">
+                        Hủy bỏ
                     </Button>
-                    <Button @click="$emit('close')" variant="ghost" class="w-full h-12 rounded-2xl text-[14px] font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                        Hủy bỏ thực hiện
+                    <Button @click="$emit('confirm')" variant="destructive" class="h-10 px-5 rounded-lg gap-2">
+                        <Icon icon="lucide:trash-2" class="w-4 h-4" />
+                        Xóa
                     </Button>
                 </div>
             </div>

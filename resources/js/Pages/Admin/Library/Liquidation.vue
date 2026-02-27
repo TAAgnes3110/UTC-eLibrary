@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -46,46 +47,46 @@ const getCauseIcon = (cause) => {
     if (cause.includes('mất')) return 'lucide:search-x';
     return 'lucide:calendar-x';
 };
+
+const exportExcel = () => {
+    alert('Chức năng xuất Excel đang được xây dựng (FE Mock)');
+};
+const viewLiquidation = (item) => {
+    alert('Xem chi tiết phiếu thanh lý: ' + item.code);
+};
+const printLiquidation = (item) => {
+    alert('In phiếu thanh lý: ' + item.code);
+};
 </script>
 
 <template>
-    <Head title="Thanh lý tài sản - Admin" />
+    <Head title="Quản lý Thanh lý - Admin" />
     <AdminLayout
-        title="Thanh lý tài sản"
+        title="Quản lý Thanh lý"
         :breadcrumbs="[
-            { label: 'Nghiệp vụ Kho' },
-            { label: 'Thanh lý' },
+            { label: 'Kho & Phiếu' },
+            { label: 'Quản lý Thanh lý' },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <!-- Action Header -->
-            <div class="flex items-center justify-between">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách thanh lý</h2>
-                <div class="flex items-center gap-1.5">
-                    <!-- Quyết định -->
-                    <button class="btn-excel-export">
-                        <Icon icon="lucide:file-text" class="w-[17px] h-[17px]" />
-                        <span class="tracking-tight">Quyết định</span>
-                    </button>
+            <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Quản lý Thanh lý</h2>
 
-                    <!-- Thêm mới -->
-                    <button
-                        @click="showModal = true"
-                        class="btn-action-primary"
-                    >
-                        <Icon icon="lucide:plus" class="w-[18px] h-[18px]" />
-                        <span>Tạo phiếu thanh lý</span>
+            <AdminFilterSearch
+                v-model="searchQuery"
+                search-placeholder="Tìm mã phiếu, lý do, số quyết định..."
+                @search="() => {}"
+            >
+                <template #actions>
+                    <button @click="exportExcel" class="btn-excel-export">
+                        <Icon icon="lucide:file-text" class="w-3.5 h-3.5" />
+                        Quyết định
                     </button>
-                </div>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div class="relative flex-1">
-                    <Icon icon="lucide:search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input v-model="searchQuery" placeholder="Tìm mã phiếu, lý do, số quyết định..." class="pl-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-none text-sm" />
-                </div>
-            </div>
+                    <button @click="showModal = true" class="btn-action-primary">
+                        <Icon icon="lucide:plus" class="w-3.5 h-3.5" />
+                        Tạo phiếu thanh lý
+                    </button>
+                </template>
+            </AdminFilterSearch>
 
             <!-- Table -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -105,7 +106,7 @@ const getCauseIcon = (cause) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                            <tr v-for="(l, index) in filtered" :key="l.id" class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all">
+                            <tr v-for="(l, index) in filtered" :key="l.id" class="admin-table-row">
                                 <td class="p-4 text-center font-mono text-xs text-slate-400">{{ index + 1 }}</td>
                                 <td class="p-4 font-bold text-slate-900 dark:text-white uppercase text-[13px] tracking-tight">{{ l.code }}</td>
                                 <td class="p-4">
@@ -130,10 +131,10 @@ const getCauseIcon = (cause) => {
                                 </td>
                                 <td class="p-4">
                                     <div class="flex justify-end gap-1">
-                                        <button class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
+                                        <button @click="viewLiquidation(l)" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
                                             <Icon icon="lucide:eye" class="w-[18px] h-[18px]" />
                                         </button>
-                                        <button class="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all">
+                                        <button @click="printLiquidation(l)" class="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all">
                                             <Icon icon="lucide:printer" class="w-[18px] h-[18px]" />
                                         </button>
                                     </div>
@@ -145,39 +146,39 @@ const getCauseIcon = (cause) => {
             </div>
         </div>
 
-        <!-- Add Modal (Standard) -->
+        <!-- Modal Phiếu đề nghị thanh lý (giao diện thống nhất với Cho mượn / Trả sách / Thẻ bạn đọc) -->
         <Teleport to="body">
             <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" @click="showModal = false"></div>
+                <div class="absolute inset-0 bg-slate-900/50" @click="showModal = false"></div>
                 <div class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-lg overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
-                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-blue-600">
-                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Phiếu đề nghị thanh lý</h3>
-                        <button @click="showModal = false" class="text-white/80 hover:text-white">
+                    <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Phiếu đề nghị thanh lý</h3>
+                        <button type="button" @click="showModal = false" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
                             <Icon icon="lucide:x" class="w-5 h-5" />
                         </button>
                     </div>
 
                     <div class="p-6 space-y-4">
                         <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lý do thanh lý</label>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Lý do thanh lý</label>
                             <div class="grid grid-cols-2 gap-2">
-                                <button class="py-2.5 px-1 rounded-md bg-blue-50 text-blue-600 font-bold text-[11px] border-2 border-blue-200 uppercase">Hỏng / Rách</button>
-                                <button class="py-2.5 px-1 rounded-md bg-slate-50 text-slate-400 font-bold text-[11px] border-2 border-slate-100 uppercase text-nowrap">Mất mát / Thất lạc</button>
+                                <button type="button" class="py-2.5 px-3 rounded-lg border-2 font-bold text-[12px] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 uppercase">Hỏng / Rách</button>
+                                <button type="button" class="py-2.5 px-3 rounded-lg border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-[12px] uppercase text-nowrap">Mất mát / Thất lạc</button>
                             </div>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Số quyết định</label>
-                            <Input placeholder="Nhập số quyết định nếu có..." class="h-9 rounded-md border-slate-200 text-xs shadow-sm" />
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Số quyết định</label>
+                            <Input placeholder="Nhập số quyết định nếu có..." class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
                         </div>
-                        <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-100 rounded-lg flex gap-3 mt-4">
+                        <div class="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-lg flex gap-3">
                             <Icon icon="lucide:alert-circle" class="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-                            <p class="text-[11px] text-red-700 dark:text-red-400 font-medium leading-relaxed">Tài liệu sau khi thanh lý sẽ được chuyển trạng thái "Đã thanh lý" và không thể phục hồi trạng thái cho mượn.</p>
+                            <p class="text-xs text-red-700 dark:text-red-400 font-medium leading-relaxed">Tài liệu sau khi thanh lý sẽ được chuyển trạng thái "Đã thanh lý" và không thể phục hồi trạng thái cho mượn.</p>
                         </div>
                     </div>
 
-                    <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                        <Button variant="outline" size="sm" @click="showModal = false" class="h-8 px-4 font-bold text-xs rounded-md">Bỏ qua</Button>
-                        <Button size="sm" @click="showModal = false" class="h-8 px-6 font-bold text-xs rounded-md bg-blue-600 hover:bg-blue-700 text-white">Xác nhận</Button>
+                    <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30">
+                        <Button variant="outline" @click="showModal = false">Hủy bỏ</Button>
+                        <Button @click="showModal = false" class="bg-blue-600 hover:bg-blue-700 text-white">Xác nhận</Button>
                     </div>
                 </div>
             </div>

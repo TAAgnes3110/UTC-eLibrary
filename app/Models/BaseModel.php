@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +17,7 @@ abstract class BaseModel extends Model
         $this->arrParams = $this->getArrParams();
     }
 
-    protected static function boot()
+    protected static function boot(): void
     {
         parent::boot();
         static::saving(function ($model) {
@@ -26,7 +25,7 @@ abstract class BaseModel extends Model
         });
     }
 
-    public function getArrParams()
+    public function getArrParams(): array
     {
         if (!empty($this->params) && is_array($this->params)) {
             return $this->params;

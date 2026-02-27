@@ -28,10 +28,7 @@ const quickActions = [
 ];
 
 const handleQuickAction = (action) => {
-    // Basic navigation handling - assuming route names exist
-     // In a real app, use route(action.href)
-     console.log('Navigating to:', action.href);
-     // router.visit(route(action.href));
+    if (action?.href) router.visit(route(action.href));
 };
 
 const recentActivities = [

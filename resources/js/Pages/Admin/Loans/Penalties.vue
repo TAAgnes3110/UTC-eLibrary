@@ -5,19 +5,19 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 
 const breadcrumbs = [
-    { label: 'Quản lý mượn, trả' },
-    { label: 'Phạt vi phạm' },
+    { label: 'Mượn – Trả sách' },
+    { label: 'Quản lý Trả muộn & Phạt' },
 ];
 </script>
 
 <template>
-    <AdminLayout title="Quản lý vi phạm" :breadcrumbs="breadcrumbs">
-        <Head title="Phạt vi phạm" />
+    <AdminLayout title="Quản lý Trả muộn & Phạt" :breadcrumbs="breadcrumbs">
+        <Head title="Quản lý Trả muộn & Phạt - Admin" />
 
         <div class="space-y-6">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Danh sách vi phạm</h2>
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Quản lý Trả muộn & Phạt</h2>
                     <p class="text-sm text-slate-500 dark:text-slate-400">Xử lý các trường hợp trả muộn, làm hỏng hoặc mất sách.</p>
                 </div>
                 <Button class="h-10 rounded-xl px-4 bg-orange-600 hover:bg-orange-700 text-white font-bold shadow-lg shadow-orange-500/20">

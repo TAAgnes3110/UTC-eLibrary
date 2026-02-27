@@ -129,12 +129,18 @@ const activities = [
 </script>
 
 <template>
-    <AdminLayout title="Hồ sơ cá nhân">
-        <Head title="Hồ sơ cá nhân" />
+    <AdminLayout
+        title="Hồ sơ cá nhân"
+        :breadcrumbs="[
+            { label: 'Hệ thống' },
+            { label: 'Hồ sơ cá nhân' },
+        ]"
+    >
+        <Head title="Hồ sơ cá nhân - Admin" />
 
-        <div class="max-w-4xl mx-auto space-y-6">
+        <div class="max-w-4xl mx-auto space-y-6 animate-in fade-in-50 duration-500">
 
-            <!-- ═══════════════════════════════ PROFILE HEADER ═══════════════════════════════ -->
+            <!-- Header Card -->
             <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
                 <!-- Banner Gradient -->
                 <div class="h-36 sm:h-44 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 relative overflow-hidden">
@@ -194,7 +200,7 @@ const activities = [
                 </div>
             </div>
 
-            <!-- ═══════════════════════════════ TABS ═══════════════════════════════ -->
+            <!-- Tabs -->
             <div class="flex gap-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-1.5 shadow-sm">
                 <button v-for="tab in tabs" :key="tab.key" @click="activeTab = tab.key"
                     :class="[
@@ -208,7 +214,7 @@ const activities = [
                 </button>
             </div>
 
-            <!-- ═══════════════════════════════ TAB: INFO ═══════════════════════════════ -->
+            <!-- Tab: Thông tin -->
             <div v-if="activeTab === 'info'" class="space-y-6 animate-in fade-in duration-300">
 
                 <!-- Success Alert -->
@@ -327,7 +333,7 @@ const activities = [
                 </div>
             </div>
 
-            <!-- ═══════════════════════════════ TAB: SECURITY ═══════════════════════════════ -->
+            <!-- Tab: Bảo mật -->
             <div v-if="activeTab === 'security'" class="space-y-6 animate-in fade-in duration-300">
 
                 <!-- Password Saved Alert -->
@@ -442,7 +448,7 @@ const activities = [
                 </div>
             </div>
 
-            <!-- ═══════════════════════════════ TAB: ACTIVITY ═══════════════════════════════ -->
+            <!-- Tab: Hoạt động -->
             <div v-if="activeTab === 'activity'" class="space-y-6 animate-in fade-in duration-300">
                 <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
                     <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">

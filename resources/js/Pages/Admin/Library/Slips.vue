@@ -1,12 +1,23 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
+import { Head, useForm, usePage, router } from '@inertiajs/vue3';
+
+const page = usePage();
+const tabFromUrl = () => new URLSearchParams((page.url || '').split('?')[1] || '').get('tab') || 'import';
+const activeTab = ref(tabFromUrl());
+
+watch(() => page.url, () => { activeTab.value = tabFromUrl() === 'export' ? 'export' : 'import'; }, { immediate: false });
+
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 
-const activeTab = ref('import');
+const setTab = (tab) => {
+    activeTab.value = tab;
+    router.get(route('admin.library.slips'), { tab }, { preserveState: true });
+};
 const searchQuery = ref('');
 const showModal = ref(false);
 
@@ -57,66 +68,73 @@ const getStatusStyle = (status) => {
 const getStatusLabel = (status) => {
     return status === 'completed' ? 'Hoàn tất' : 'Đang chờ';
 };
+
+const exportExcel = () => {
+    alert('Chức năng xuất Excel đang được xây dựng (FE Mock)');
+};
+const viewSlip = (item) => {
+    alert('Xem chi tiết phiếu: ' + item.code);
+};
+const printSlip = (item) => {
+    alert('In phiếu: ' + item.code);
+};
+
+const breadcrumbLabel = computed(() => activeTab.value === 'export' ? 'Phiếu xuất' : 'Phiếu nhập');
 </script>
 
 <template>
-    <Head title="Quản lý Nhập/Xuất - Admin" />
+    <Head :title="`${breadcrumbLabel} - Quản lý phiếu - Admin`" />
     <AdminLayout
-        title="Nhập / Xuất sách"
+        title="Quản lý phiếu"
         :breadcrumbs="[
-            { label: 'Nghiệp vụ Kho' },
-            { label: 'Nhập / Xuất sách' },
+            { label: 'Trang chủ' },
+            { label: 'Thư viện số' },
+            { label: 'Quản lý phiếu' },
+            { label: breadcrumbLabel },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <!-- Action Header -->
+            <!-- Tab: Phiếu nhập | Phiếu xuất (đồng bộ URL, sidebar highlight đúng) -->
             <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <div class="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 w-fit">
                     <button
-                        @click="activeTab = 'import'"
+                        @click="setTab('import')"
                         :class="[
                             'px-4 py-1.5 rounded-md text-[13px] font-bold transition-all',
-                            activeTab === 'import' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            activeTab === 'import' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                         ]"
                     >
                         Phiếu nhập
                     </button>
                     <button
-                        @click="activeTab = 'export'"
+                        @click="setTab('export')"
                         :class="[
                             'px-4 py-1.5 rounded-md text-[13px] font-bold transition-all',
-                            activeTab === 'export' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            activeTab === 'export' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
                         ]"
                     >
                         Phiếu xuất
                     </button>
                 </div>
-
-                <div class="flex items-center gap-1.5">
-                    <!-- Xuất excel -->
-                    <button class="btn-excel-export">
-                        <Icon icon="lucide:file-down" class="w-[17px] h-[17px]" />
-                        <span class="tracking-tight">Xuất excel</span>
-                    </button>
-
-                    <!-- Thêm mới -->
-                    <button
-                        @click="openAddModal"
-                        class="btn-action-primary"
-                    >
-                        <Icon icon="lucide:plus" class="w-[18px] h-[18px]" />
-                        <span>Tạo phiếu mới</span>
-                    </button>
-                </div>
             </div>
 
-            <!-- Search Bar -->
-            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div class="relative flex-1">
-                    <Icon icon="lucide:search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input v-model="searchQuery" :placeholder="'Tìm kiếm số phiếu, ' + (activeTab === 'import' ? 'nguồn cung cấp' : 'nơi nhận') + '...'" class="pl-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-1 focus:ring-blue-500/30" />
-                </div>
-            </div>
+            <!-- Bộ lọc + Tìm kiếm thống nhất -->
+            <AdminFilterSearch
+                v-model="searchQuery"
+                :search-placeholder="'Tìm số phiếu, ' + (activeTab === 'import' ? 'nguồn cung cấp' : 'nơi nhận') + '...'"
+                @search="() => {}"
+            >
+                <template #actions>
+                    <button @click="exportExcel" class="btn-excel-export">
+                        <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
+                        Xuất excel
+                    </button>
+                    <button @click="openAddModal" class="btn-action-primary">
+                        <Icon icon="lucide:plus" class="w-3.5 h-3.5" />
+                        Tạo phiếu mới
+                    </button>
+                </template>
+            </AdminFilterSearch>
 
             <!-- Table -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -136,7 +154,7 @@ const getStatusLabel = (status) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                            <tr v-for="(s, index) in filtered" :key="s.id" class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all">
+                            <tr v-for="(s, index) in filtered" :key="s.id" class="admin-table-row">
                                 <td class="p-4 text-center font-mono text-xs text-slate-400">{{ index + 1 }}</td>
                                 <td class="p-4 font-bold text-slate-900 dark:text-white uppercase text-[13px] tracking-tight">{{ s.code }}</td>
                                 <td class="p-4">
@@ -163,10 +181,10 @@ const getStatusLabel = (status) => {
                                 </td>
                                 <td class="p-4">
                                     <div class="flex justify-end gap-1">
-                                        <button class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
+                                        <button @click="viewSlip(s)" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
                                             <Icon icon="lucide:eye" class="w-[18px] h-[18px]" />
                                         </button>
-                                        <button class="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all">
+                                        <button @click="printSlip(s)" class="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all">
                                             <Icon icon="lucide:printer" class="w-[18px] h-[18px]" />
                                         </button>
                                     </div>

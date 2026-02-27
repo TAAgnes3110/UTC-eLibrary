@@ -1,10 +1,14 @@
 <script setup>
 import { ref, computed } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import ImportExcelModal from '@/Components/Admin/Books/ImportExcelModal.vue';
+import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
+import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 
 const props = defineProps({
     authors: { type: Array, default: () => [
@@ -17,7 +21,14 @@ const props = defineProps({
 
 const searchQuery = ref('');
 const showModal = ref(false);
+const showDeleteModal = ref(false);
+const showImportModal = ref(false);
+const showTrashDrawer = ref(false);
+const trashedAuthors = ref([]);
+const loadingTrash = ref(false);
+const importLoading = ref(false);
 const isEditing = ref(false);
+const selectedAuthor = ref(null);
 
 const filtered = computed(() => {
     if (!searchQuery.value) return props.authors;
@@ -54,11 +65,97 @@ const editAuthor = (author) => {
 };
 
 const downloadTemplate = () => {
-    window.location.href = '/templates/mau_nhap_tac_gia.csv';
+    window.location.href = '/templates/02-tac-gia/Mau_nhap_tac_gia.csv';
+};
+
+const importExcel = async (file) => {
+    importLoading.value = true;
+    setTimeout(() => {
+        importLoading.value = false;
+        showImportModal.value = false;
+    }, 1500);
 };
 
 const save = () => {
     showModal.value = false;
+};
+
+const confirmDelete = (author) => {
+    selectedAuthor.value = author;
+    showDeleteModal.value = true;
+};
+
+const deleteAuthor = async () => {
+    if (!selectedAuthor.value) {
+        showDeleteModal.value = false;
+        return;
+    }
+    try {
+        await window.axios.delete(`/authors/${selectedAuthor.value.id}`);
+        router.reload();
+    } catch (_) {
+        router.reload();
+    }
+    showDeleteModal.value = false;
+    selectedAuthor.value = null;
+};
+
+const openTrashDrawer = () => {
+    showTrashDrawer.value = true;
+    fetchTrash();
+};
+const fetchTrash = async () => {
+    loadingTrash.value = true;
+    try {
+        const { data } = await window.axios.get(route('admin.authors.trash'));
+        trashedAuthors.value = data.data || [];
+    } catch {
+        trashedAuthors.value = [];
+    }
+    loadingTrash.value = false;
+};
+const onRestoreAuthor = async (id) => {
+    try {
+        await window.axios.post(route('admin.authors.restore', { id }));
+        fetchTrash();
+        router.reload();
+    } catch (_) {}
+};
+const onForceDeleteAuthor = async (id) => {
+    if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
+    try {
+        await window.axios.delete(route('admin.authors.force', { id }));
+        fetchTrash();
+        router.reload();
+    } catch (_) {}
+};
+
+const exportExcel = () => {
+    // Generate a simple CSV for mock purposes
+    const headers = ['ID', 'Tên Tác Giả', 'Ngày Sinh', 'Quốc Tịch', 'Số Lượng Tác Phẩm', 'Tiểu Sử'];
+
+    let csvContent = headers.join(',') + '\n';
+
+    props.authors.forEach(a => {
+        const row = [
+            a.id,
+            `"${a.name || ''}"`,
+            `"${a.birth_date || ''}"`,
+            `"${a.nationality || ''}"`,
+            a.books_count || 0,
+            `"${(a.bio || '').replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(',') + '\n';
+    });
+
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'Danh_Sach_Tac_Gia.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
 </script>
 
@@ -67,37 +164,40 @@ const save = () => {
     <AdminLayout
         title="Quản lý Tác giả"
         :breadcrumbs="[
-            { label: 'Dữ liệu Thư viện' },
+            { label: 'Dữ liệu thư viện' },
             { label: 'Quản lý Tác giả' },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <!-- Action Header -->
-            <div class="flex items-center justify-between">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Tác giả</h2>
-                <div class="flex items-center gap-1.5">
-                    <button @click="downloadTemplate" class="btn-excel-import">
-                        <Icon icon="lucide:file-spreadsheet" class="w-[17px] h-[17px]" />
-                        <span class="tracking-tight">Nhập excel</span>
-                    </button>
-                    <button class="btn-excel-export">
-                        <Icon icon="lucide:file-down" class="w-[17px] h-[17px]" />
-                        <span class="tracking-tight">Xuất excel</span>
-                    </button>
-                    <button @click="openAddModal" class="btn-action-primary">
-                        <Icon icon="lucide:user-plus" class="w-[18px] h-[18px]" />
-                        <span>Thêm tác giả</span>
-                    </button>
-                </div>
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Quản lý Tác giả</h2>
+                <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
+                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
+                    Thùng rác
+                </Button>
             </div>
 
-            <!-- Filter Bar -->
-            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div class="relative flex-1">
-                    <Icon icon="lucide:search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input v-model="searchQuery" placeholder="Tìm tên tác giả, quốc tịch, tiểu sử..." class="pl-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:ring-1 focus:ring-blue-500/30" />
-                </div>
-            </div>
+            <!-- Bộ lọc + Tìm kiếm thống nhất -->
+            <AdminFilterSearch
+                v-model="searchQuery"
+                search-placeholder="Nhập tên tác giả, quốc tịch, tiểu sử..."
+                @search="() => {}"
+            >
+                <template #actions>
+                    <button @click="showImportModal = true" class="btn-excel-import">
+                        <Icon icon="lucide:file-spreadsheet" class="w-3.5 h-3.5" />
+                        Nhập excel
+                    </button>
+                    <button @click="exportExcel" class="btn-excel-export">
+                        <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
+                        Xuất excel
+                    </button>
+                    <button @click="openAddModal" class="btn-action-primary">
+                        <Icon icon="lucide:user-plus" class="w-3.5 h-3.5" />
+                        Thêm tác giả
+                    </button>
+                </template>
+            </AdminFilterSearch>
 
             <!-- Table (Split Columns for DB Readiness) -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -115,7 +215,7 @@ const save = () => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                            <tr v-for="a in filtered" :key="a.id" class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all">
+                            <tr v-for="a in filtered" :key="a.id" class="admin-table-row">
                                 <td class="p-4 text-center font-mono text-xs text-slate-400">#{{ String(a.id).padStart(3, '0') }}</td>
                                 <td class="p-4">
                                     <div class="flex items-center gap-3">
@@ -148,7 +248,7 @@ const save = () => {
                                         <button @click="editAuthor(a)" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
                                             <Icon icon="lucide:edit-3" class="w-[18px] h-[18px]" />
                                         </button>
-                                        <button class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all">
+                                        <button @click="confirmDelete(a)" class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded transition-all" title="Xóa">
                                             <Icon icon="lucide:trash-2" class="w-[18px] h-[18px]" />
                                         </button>
                                     </div>
@@ -160,43 +260,95 @@ const save = () => {
             </div>
         </div>
 
-        <!-- Add/Edit Modal (Standard) -->
+        <!-- Premium Add/Edit Modal -->
         <Teleport to="body">
-            <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" @click="showModal = false"></div>
-                <div class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
-                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-blue-600">
-                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">{{ isEditing ? 'Cập nhật' : 'Thêm mới' }} tác giả</h3>
-                        <button @click="showModal = false" class="text-white/80 hover:text-white">
-                            <Icon icon="lucide:x" class="w-5 h-5" />
-                        </button>
-                    </div>
+            <Transition enter-active-class="ease-out duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="ease-in duration-200" leave-from-class="opacity-100" leave-to-class="opacity-0">
+                <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" @click.self="showModal = false">
+                    <div class="relative bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 border border-slate-100 dark:border-slate-800">
 
-                    <div class="p-6 grid grid-cols-2 gap-4">
-                        <div class="col-span-2 space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Họ và tên tác giả</label>
-                            <Input v-model="form.name" placeholder="Ví dụ: Nguyễn Nhật Ánh" class="h-9 rounded-md border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs text-slate-900 dark:text-white" />
+                        <!-- Header -->
+                        <div class="px-8 py-5 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-20">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-[18px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
+                                    <Icon :icon="isEditing ? 'lucide:user-cog' : 'lucide:user-plus'" class="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
+                                        {{ isEditing ? 'Cập nhật tác giả' : 'Thêm tác giả mới' }}
+                                    </h3>
+                                    <p class="text-[12px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Hệ thống quản lý thư viện số</p>
+                                </div>
+                            </div>
+                            <button @click="showModal = false" class="w-10 h-10 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full flex items-center justify-center transition-all group active:scale-90">
+                                <Icon icon="lucide:x" class="w-5 h-5 text-slate-400 group-hover:text-rose-500 transition-colors" />
+                            </button>
                         </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ngày sinh</label>
-                            <Input v-model="form.birth_date" type="date" class="h-9 rounded-md border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Quốc tịch</label>
-                            <Input v-model="form.nationality" placeholder="Việt Nam" class="h-9 rounded-md border-slate-200 dark:border-slate-700 dark:bg-slate-800 text-xs text-slate-900 dark:text-white" />
-                        </div>
-                        <div class="col-span-2 space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tiểu sử / Giới thiệu</label>
-                            <textarea v-model="form.bio" placeholder="Mô tả tóm tắt về tác giả..." class="w-full h-24 p-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white outline-none focus:ring-1 focus:ring-blue-500/50 transition-all resize-none"></textarea>
-                        </div>
-                    </div>
 
-                    <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                        <Button variant="outline" size="sm" @click="showModal = false" class="h-8 px-4 font-bold text-xs rounded-md">Bỏ qua</Button>
-                        <Button size="sm" @click="save" class="h-8 px-6 font-bold text-xs rounded-md bg-blue-600 hover:bg-blue-700 text-white">Lưu thay đổi</Button>
+                        <!-- Body -->
+                        <div class="p-8 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+                            <div class="space-y-6">
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div class="col-span-2 space-y-2">
+                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Họ và tên tác giả <span class="text-rose-500">*</span></label>
+                                        <Input v-model="form.name" placeholder="Ví dụ: Nguyễn Nhật Ánh" class="h-14 rounded-[20px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-white/50 dark:dark:bg-slate-900/80 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600" />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Ngày sinh</label>
+                                        <Input v-model="form.birth_date" type="date" class="h-14 rounded-[20px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-white/50 dark:dark:bg-slate-900/80 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-bold text-slate-600 dark:text-slate-300 [color-scheme:light] dark:[color-scheme:dark]" />
+                                    </div>
+                                    <div class="space-y-2">
+                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Quốc tịch</label>
+                                        <Input v-model="form.nationality" placeholder="Ví dụ: Việt Nam" class="h-14 rounded-[20px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-white/50 dark:dark:bg-slate-900/80 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-bold" />
+                                    </div>
+                                    <div class="col-span-2 space-y-2">
+                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tiểu sử / Giới thiệu</label>
+                                        <textarea v-model="form.bio" placeholder="Mô tả tóm tắt về tác giả..." class="w-full h-32 p-4 rounded-[20px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all text-[14px] font-medium resize-none focus:outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="px-8 py-6 border-t border-slate-100 dark:border-slate-800 flex justify-end items-center bg-white dark:bg-slate-900 shrink-0 gap-4">
+                            <Button @click="showModal = false" variant="ghost" class="h-12 rounded-[20px] px-8 text-[14px] font-extrabold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                                Hủy bỏ
+                            </Button>
+                            <Button @click="save" class="h-12 rounded-[20px] px-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[14px] font-extrabold shadow-xl shadow-blue-500/30 transition-all hover:scale-[1.03] active:scale-95 flex items-center justify-center gap-2">
+                                <Icon :icon="isEditing ? 'lucide:save-all' : 'lucide:check-circle'" class="w-5 h-5" />
+                                {{ isEditing ? 'Lưu thay đổi' : 'Xác nhận thêm' }}
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Transition>
         </Teleport>
+
+        <AdminDeleteConfirmModal
+            :show="showDeleteModal"
+            title="Xác nhận xóa tác giả"
+            item-label="tác giả"
+            :item="selectedAuthor"
+            @close="showDeleteModal = false"
+            @confirm="deleteAuthor"
+        />
+        <AdminTrashDrawer
+            :show="showTrashDrawer"
+            title="Thùng rác – Tác giả"
+            item-label-key="name"
+            :items="trashedAuthors"
+            :loading="loadingTrash"
+            @close="showTrashDrawer = false"
+            @restore="onRestoreAuthor"
+            @force-delete="onForceDeleteAuthor"
+        />
+
+        <!-- Import Modal -->
+        <ImportExcelModal
+            :show="showImportModal"
+            :loading="importLoading"
+            @close="showImportModal = false"
+            @import="importExcel"
+            @download-template="downloadTemplate"
+        />
     </AdminLayout>
 </template>

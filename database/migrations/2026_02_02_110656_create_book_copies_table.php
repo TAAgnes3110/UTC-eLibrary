@@ -8,19 +8,22 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('book_copies', function (Blueprint $table) {
+        $conditions = ['new', 'good', 'fair', 'poor', 'damaged'];
+        $statuses = ['available', 'borrowed', 'reserved', 'maintenance', 'lost'];
+
+        Schema::create('book_copies', function (Blueprint $table) use ($conditions, $statuses) {
             $table->increments('id');
             $table->unsignedInteger('book_id');
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
-            $table->string('barcode')->unique()->comment('Mã vạch');
-            $table->string('call_number')->nullable()->comment('Ký hiệu cá biệt');
-            $table->enum('condition', ['new', 'good', 'fair', 'poor', 'damaged'])->default('good')->comment('Tình trạng');
-            $table->enum('status', ['available', 'borrowed', 'reserved', 'maintenance', 'lost'])->default('available')->comment('Trạng thái');
-            $table->string('location')->nullable()->comment('Vị trí (Kệ, Tầng)');
-            $table->text('notes')->nullable()->comment('Ghi chú');
-            $table->json('params')->nullable()->comment('Tham số bổ sung');
+            $table->string('barcode')->unique();
+            $table->string('call_number')->nullable();
+            $table->enum('condition', $conditions)->default('good');
+            $table->enum('status', $statuses)->default('available');
+            $table->string('location')->nullable();
+            $table->text('notes')->nullable();
+            $table->json('params')->nullable();
             $table->timestamps();
             $table->softDeletes();
+            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
         });
     }
 

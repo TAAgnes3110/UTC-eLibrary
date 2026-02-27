@@ -4,20 +4,17 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OtpRequests\SendOTPRequest;
-use App\Models\EmailOtp;
 use App\Services\OtpService;
 use Exception;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Mail;
-use App\Helpers\CurrentUser;
 
 class EmailOTPController extends Controller
 {
     /**
+     * Gửi mã OTP đến email (có giới hạn 90 giây giữa hai lần gửi).
+     *
      * @param SendOTPRequest $request
      * @return JsonResponse
-     * @todo Gửi mã OTP
      */
     public function sendOTP(SendOTPRequest $request): JsonResponse
     {
@@ -40,9 +37,10 @@ class EmailOTPController extends Controller
     }
 
     /**
+     * Alias của sendOTP: lưu / gửi mã OTP (dùng cho route store).
+     *
      * @param SendOTPRequest $request
      * @return JsonResponse
-     * @todo Lưu mã OTP
      */
     public function store(SendOTPRequest $request): JsonResponse
     {
@@ -50,10 +48,11 @@ class EmailOTPController extends Controller
     }
 
     /**
+     * Kiểm tra mã OTP có đúng và còn hiệu lực không (dùng nội bộ, không phải API).
+     *
      * @param string $email
      * @param string $otp
-     * @return array
-     * @todo Kiểm tra mã OTP
+     * @return array{status: bool, message: string, code: int}
      */
     public function checkOTP(string $email, string $otp): array
     {

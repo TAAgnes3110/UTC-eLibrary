@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -39,46 +40,46 @@ const getResultLabel = (result) => {
     if (!result) return '---';
     return result === 'balanced' ? 'Khớp dữ liệu' : 'Chênh lệch';
 };
+
+const exportExcel = () => {
+    alert('Chức năng xuất Excel đang được xây dựng (FE Mock)');
+};
+const viewDetails = (item) => {
+    alert('Xem chi tiết đợt kiểm kê: ' + item.code);
+};
+const moreOptions = (item) => {
+    alert('Tùy chọn cho đợt kiểm kê: ' + item.code);
+};
 </script>
 
 <template>
-    <Head title="Kiểm kê tài sản - Admin" />
+    <Head title="Quản lý Kiểm kê kho - Admin" />
     <AdminLayout
-        title="Kiểm kê tài sản"
+        title="Quản lý Kiểm kê kho"
         :breadcrumbs="[
-            { label: 'Nghiệp vụ Kho' },
-            { label: 'Kiểm kê' },
+            { label: 'Kho & Phiếu' },
+            { label: 'Quản lý Kiểm kê kho' },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <!-- Action Header -->
-            <div class="flex items-center justify-between">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Đợt kiểm kê</h2>
-                <div class="flex items-center gap-1.5">
-                    <!-- Lịch sử -->
-                    <button class="btn-excel-export">
-                        <Icon icon="lucide:history" class="w-[17px] h-[17px]" />
-                        <span class="tracking-tight">Lịch sử</span>
-                    </button>
+            <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Quản lý Kiểm kê kho</h2>
 
-                    <!-- Thêm mới -->
-                    <button
-                        @click="showModal = true"
-                        class="btn-action-primary"
-                    >
-                        <Icon icon="lucide:plus" class="w-[18px] h-[18px]" />
-                        <span>Bắt đầu kiểm kê</span>
+            <AdminFilterSearch
+                v-model="searchQuery"
+                search-placeholder="Tìm tên đợt, mã kiểm kê..."
+                @search="() => {}"
+            >
+                <template #actions>
+                    <button @click="exportExcel" class="btn-excel-export">
+                        <Icon icon="lucide:history" class="w-3.5 h-3.5" />
+                        Lịch sử
                     </button>
-                </div>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <div class="relative flex-1">
-                    <Icon icon="lucide:search" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <Input v-model="searchQuery" placeholder="Tìm tên đợt, mã kiểm kê..." class="pl-10 h-10 rounded-lg bg-slate-50 dark:bg-slate-800/50 border-none text-sm" />
-                </div>
-            </div>
+                    <button @click="showModal = true" class="btn-action-primary">
+                        <Icon icon="lucide:plus" class="w-3.5 h-3.5" />
+                        Bắt đầu kiểm kê
+                    </button>
+                </template>
+            </AdminFilterSearch>
 
             <!-- Table -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -97,7 +98,7 @@ const getResultLabel = (result) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                            <tr v-for="p in filtered" :key="p.id" class="group hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-all">
+                            <tr v-for="p in filtered" :key="p.id" class="admin-table-row">
                                 <td class="p-4">
                                     <span class="text-[12px] font-bold font-mono text-slate-500">{{ p.code }}</span>
                                 </td>
@@ -129,10 +130,10 @@ const getResultLabel = (result) => {
                                 </td>
                                 <td class="p-4">
                                     <div class="flex justify-end gap-1">
-                                        <button class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
+                                        <button @click="viewDetails(p)" class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-all">
                                             <Icon icon="lucide:eye" class="w-[18px] h-[18px]" />
                                         </button>
-                                        <button class="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all">
+                                        <button @click="moreOptions(p)" class="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-all">
                                             <Icon icon="lucide:more-vertical" class="w-[18px] h-[18px]" />
                                         </button>
                                     </div>
@@ -146,46 +147,47 @@ const getResultLabel = (result) => {
 
         <!-- Add Modal (Standard) -->
         <Teleport to="body">
-            <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" @click="showModal = false"></div>
-                <div class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-lg overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
-                    <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-blue-600">
-                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Thiết lập Đợt kiểm kê</h3>
-                        <button @click="showModal = false" class="text-white/80 hover:text-white">
-                            <Icon icon="lucide:x" class="w-5 h-5" />
-                        </button>
-                    </div>
+            <Transition enter-active-class="ease-out duration-300" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="ease-in duration-200" leave-from-class="opacity-100" leave-to-class="opacity-0">
+                <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm" @click.self="showModal = false">
+                    <div class="relative bg-white dark:bg-slate-900 rounded-[24px] w-full max-w-lg overflow-hidden shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+                        <div class="px-8 py-5 border-b border-blue-600 dark:border-blue-500 flex justify-between items-center bg-blue-600">
+                            <h3 class="text-[15px] font-bold text-white uppercase tracking-wider">Thiết lập Đợt kiểm kê</h3>
+                            <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors">
+                                <Icon icon="lucide:x" class="w-5 h-5" />
+                            </button>
+                        </div>
 
-                    <div class="p-6 space-y-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tên đợt kiểm kê</label>
-                            <Input placeholder="Ví dụ: Kiểm kê định kỳ năm 2024" class="h-9 rounded-md border-slate-200 text-xs" />
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1.5">
-                                <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Người phụ trách</label>
-                                <Input value="Admin Root" disabled class="h-9 rounded-md bg-slate-50 border-slate-200 text-xs font-medium" />
+                        <div class="p-8 space-y-6">
+                            <div class="space-y-2">
+                                <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tên đợt kiểm kê</label>
+                                <Input placeholder="Ví dụ: Kiểm kê định kỳ năm 2024" class="h-12 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-bold placeholder:text-slate-400" />
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Hình thức</label>
-                                <select class="w-full h-9 px-3 rounded-md border border-slate-200 text-xs outline-none bg-white">
-                                    <option>Toàn bộ kho</option>
-                                    <option>Theo danh mục</option>
-                                </select>
+                            <div class="grid grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Người phụ trách</label>
+                                    <Input value="Admin Root" disabled class="h-12 rounded-[16px] bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-[14px] font-bold text-slate-500" />
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Hình thức</label>
+                                    <select class="w-full h-12 px-4 rounded-[16px] border border-slate-200 dark:border-slate-800 text-[14px] outline-none bg-white dark:bg-slate-900 font-bold focus:ring-4 focus:ring-blue-500/10 transition-all">
+                                        <option>Toàn bộ kho</option>
+                                        <option>Theo danh mục</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="p-4 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900 rounded-[16px] flex gap-3 mt-4 items-start">
+                                <Icon icon="lucide:info" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+                                <p class="text-[13px] text-blue-700 dark:text-blue-400 font-medium leading-relaxed">Khi bắt đầu kiểm kê, hệ thống sẽ tự động chốt số liệu tồn kho hiện tại để đối soát thực tế.</p>
                             </div>
                         </div>
-                        <div class="p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 rounded-lg flex gap-3 mt-4">
-                            <Icon icon="lucide:info" class="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                            <p class="text-[11px] text-blue-700 dark:text-blue-400 font-medium leading-relaxed">Khi bắt đầu kiểm kê, hệ thống sẽ tự động chốt số liệu tồn kho hiện tại để đối soát thực tế.</p>
-                        </div>
-                    </div>
 
-                    <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-                        <Button variant="outline" size="sm" @click="showModal = false" class="h-8 px-4 font-bold text-xs rounded-md">Bỏ qua</Button>
-                        <Button size="sm" @click="showModal = false" class="h-8 px-6 font-bold text-xs rounded-md bg-blue-600 hover:bg-blue-700 text-white">Xác nhận</Button>
+                        <div class="px-8 py-6 bg-slate-50/80 dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3">
+                            <Button variant="outline" @click="showModal = false" class="h-11 px-6 font-extrabold text-[13px] rounded-[14px] border-slate-200 dark:border-slate-800 bg-white hover:bg-slate-50 text-slate-600">Bỏ qua</Button>
+                            <Button @click="showModal = false" class="h-11 px-8 font-extrabold text-[13px] rounded-[14px] bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20">Xác nhận</Button>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </Transition>
         </Teleport>
     </AdminLayout>
 </template>

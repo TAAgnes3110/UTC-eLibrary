@@ -26,6 +26,7 @@ class RegisteredUserController extends Controller
 
     public function store(RegisterRequest $request): RedirectResponse
     {
+        \Illuminate\Support\Facades\Log::info('Hit store register endpoint', $request->all());
         $data = $request->validated();
         if ($existingUser = User::duplicate($data)->first()) {
             $errorField = 'email';

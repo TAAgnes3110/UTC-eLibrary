@@ -3,8 +3,16 @@
 namespace App\Helpers;
 
 use Illuminate\Http\UploadedFile;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Writer\Csv;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class FileHelpers
 {
@@ -16,15 +24,18 @@ class FileHelpers
   /**
    * Lấy extension của file.
    */
-  public static function getFileExtension(UploadedFile $file): string
+  public static function getFileExtension(UploadedFile|string $file): string
   {
-    return strtolower($file->getClientOriginalExtension());
+    if ($file instanceof UploadedFile) {
+      return strtolower($file->getClientOriginalExtension());
+    }
+    return strtolower(pathinfo((string) $file, PATHINFO_EXTENSION));
   }
 
   /**
    * Kiểm tra file có phải Excel không.
    */
-  public static function isExcelFile(UploadedFile $file): bool
+  public static function isExcelFile(UploadedFile|string $file): bool
   {
     return in_array(self::getFileExtension($file), self::EXCEL_EXTENSIONS);
   }
@@ -33,14 +44,15 @@ class FileHelpers
    * Đọc file Excel thành mảng dữ liệu.
    * Dòng đầu tiên được dùng làm header.
    *
-   * @param UploadedFile $file File upload
+   * @param UploadedFile|string $file File upload hoặc đường dẫn
    * @param int $headerRow Dòng chứa header (mặc định: 1)
    * @param int|null $sheetIndex Index của sheet cần đọc (mặc định: 0 - sheet đầu tiên)
    * @return array{headers: string[], rows: array[], total_rows: int}
    */
-  public static function readExcel(UploadedFile $file, int $headerRow = 1, ?int $sheetIndex = 0): array
+  public static function readExcel(UploadedFile|string $file, int $headerRow = 1, ?int $sheetIndex = 0): array
   {
-    $spreadsheet = IOFactory::load($file->getRealPath());
+    $filePath = $file instanceof UploadedFile ? $file->getRealPath() : $file;
+    $spreadsheet = IOFactory::load($filePath);
     $worksheet = $spreadsheet->getSheet($sheetIndex ?? 0);
     $data = $worksheet->toArray(null, true, true, true);
 
@@ -78,6 +90,162 @@ class FileHelpers
       'rows' => $rows,
       'total_rows' => count($rows),
     ];
+  }
+
+  /**
+   * Xuất danh sách dữ liệu ra file Excel và tải về trực tiếp.
+   *
+   * @param array $data Dữ liệu cần xuất
+   * @param string $filename Tên file (VD: export.xlsx)
+   * @param array|null $headers Header của các cột (tùy chọn)
+   * @return StreamedResponse
+   */
+  public static function downloadExcel(array $data, string $filename = 'export.xlsx', ?array $headers = null): StreamedResponse
+  {
+    $spreadsheet = self::createExcelExport($data, $headers);
+    $ext = self::getFileExtension($filename);
+
+    if ($ext === 'csv') {
+      $writer = new Csv($spreadsheet);
+      $contentType = 'text/csv';
+    } else {
+      $writer = new Xlsx($spreadsheet);
+      $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+
+    return response()->streamDownload(function () use ($writer) {
+      $writer->save('php://output');
+    }, $filename, [
+      'Content-Type' => $contentType,
+      'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+      'Cache-Control' => 'max-age=0',
+    ]);
+  }
+
+  /**
+   * Hỗ trợ lùi phiên bản cho hàm cũ (lưu vào ổ đĩa).
+   */
+  public static function exportExcel(array $data, string $filename, ?array $headers = null): void
+  {
+    self::saveExcel($data, $filename, $headers);
+  }
+
+  /**
+   * Xuất danh sách dữ liệu ra file Excel và lưu vào server.
+   *
+   * @param array $data Dữ liệu cần xuất
+   * @param string $path Đường dẫn file lưu
+   * @param array|null $headers Header của các cột (tùy chọn)
+   */
+  public static function saveExcel(array $data, string $path, ?array $headers = null): void
+  {
+    $spreadsheet = self::createExcelExport($data, $headers);
+    $ext = self::getFileExtension($path);
+
+    if ($ext === 'csv') {
+      $writer = new Csv($spreadsheet);
+    } else {
+      $writer = new Xlsx($spreadsheet);
+    }
+
+    $writer->save($path);
+  }
+
+  /**
+   * Khởi tạo đối tượng Spreadsheet từ dữ liệu. Thêm định dạng sẵn (kẻ viền, nền, wrap, auto-size).
+   *
+   * @param array $data Dữ liệu cần xuất
+   * @param array|null $headers Header của các cột (tùy chọn)
+   */
+  public static function createExcelExport(array $data, ?array $headers = null): Spreadsheet
+  {
+    $spreadsheet = new Spreadsheet();
+    $worksheet = $spreadsheet->getActiveSheet();
+    $worksheet->setTitle('Sheet 1');
+
+    $rowIndex = 1;
+
+    // Nếu không truyền header riêng nhưng param list là array assoc
+    if ($headers === null && !empty($data)) {
+      $firstRow = reset($data);
+      if (is_array($firstRow) && count(array_filter(array_keys($firstRow), 'is_string')) > 0) {
+        $headers = array_keys($firstRow); // Tử động bóc tách từ Assoc Array Data
+      }
+    }
+
+    // Thiết lập Header
+    if (!empty($headers)) {
+      $colIndex = 1;
+      foreach ($headers as $header) {
+        $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+        $worksheet->setCellValue($colLetter . $rowIndex, is_string($header) ? $header : '');
+        $colIndex++;
+      }
+
+      $lastColIndex = count($headers);
+      $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
+
+      $headerStyle = [
+        'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+        'alignment' => [
+          'horizontal' => Alignment::HORIZONTAL_CENTER,
+          'vertical' => Alignment::VERTICAL_CENTER,
+        ],
+        'borders' => [
+          'allBorders' => ['borderStyle' => Border::BORDER_THIN],
+        ],
+        'fill' => [
+          'fillType' => Fill::FILL_SOLID,
+          'startColor' => ['argb' => 'FF4F81BD'], // Màu xanh dương standard
+        ],
+      ];
+      $worksheet->getStyle('A1:' . $lastCol . '1')->applyFromArray($headerStyle);
+      $worksheet->getRowDimension(1)->setRowHeight(25);
+
+      $rowIndex++;
+    }
+
+    // Ghi dữ liệu
+    $lastColIndex = 1;
+    if (!empty($data)) {
+      $dataValues = [];
+      foreach ($data as $row) {
+        if (is_array($row)) {
+          $dataValues[] = array_values($row);
+        } else {
+          $dataValues[] = (array) $row;
+        }
+      }
+
+      $itemCountRow = !empty($dataValues[0]) ? count($dataValues[0]) : 1;
+      $lastColIndex = max(!empty($headers) ? count($headers) : 1, $itemCountRow);
+
+      // Từ dòng A2 trở đi...
+      $worksheet->fromArray($dataValues, null, 'A' . $rowIndex, true);
+
+      $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
+      $lastRow = $rowIndex + count($dataValues) - 1;
+
+      // Kẻ viền cho dữ liệu, alignment vertical center
+      $dataStyle = [
+        'borders' => [
+          'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']],
+        ],
+        'alignment' => [
+          'vertical' => Alignment::VERTICAL_CENTER,
+          'wrapText' => true
+        ],
+      ];
+      $worksheet->getStyle('A' . $rowIndex . ':' . $lastCol . $lastRow)->applyFromArray($dataStyle);
+    } // empty($data) == false
+
+    // Auto-size các cột để vừa nội dung và không dính chữ
+    for ($i = 1; $i <= $lastColIndex; $i++) {
+      $colText = Coordinate::stringFromColumnIndex($i);
+      $worksheet->getColumnDimension($colText)->setAutoSize(true);
+    }
+
+    return $spreadsheet;
   }
 
   /**
@@ -125,8 +293,6 @@ class FileHelpers
     if (empty($value)) {
       return null;
     }
-
-    // Excel serial number (numeric)
     if (is_numeric($value) && (int) $value > 30000) {
       try {
         $date = ExcelDate::excelToDateTimeObject((int) $value);

@@ -17,8 +17,6 @@ class Book extends BaseModel
     protected $fillable = [
         'type',
         'title',
-        'isbn',
-        'isbn13',
         'classification_code',
         'classification_detail',
         'category_id',
@@ -26,33 +24,20 @@ class Book extends BaseModel
         'publisher_id',
         'publication_place',
         'published_year',
-        'edition',
-        'series',
         'total_pages',
         'book_size',
-        'dimensions',
-        'weight',
         'volume_number',
-        'language',
         'price',
         'notes',
         'status',
         'total_copies',
         'available_copies',
-        'loan_count',
-        'reservation_count',
-        'average_rating',
-        'keywords',
-        'summary',
-        'cover_image',
-        'thumbnail',
         'params',
     ];
 
     protected $casts = [
         'params' => 'array',
         'price' => 'decimal:2',
-        'average_rating' => 'decimal:2',
         'type' => \App\Enums\BookType::class,
     ];
 
@@ -74,6 +59,7 @@ class Book extends BaseModel
     public function authors(): BelongsToMany
     {
         return $this->belongsToMany(Author::class, 'book_author')
+            ->using(BookAuthor::class)
             ->withPivot('role', 'order')
             ->orderBy('order')
             ->withTimestamps();

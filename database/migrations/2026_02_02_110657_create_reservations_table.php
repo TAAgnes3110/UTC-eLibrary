@@ -20,6 +20,7 @@ return new class extends Migration
             $table->text('notes')->nullable()->comment('Ghi chú');
             $table->json('params')->nullable()->comment('Tham số bổ sung');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

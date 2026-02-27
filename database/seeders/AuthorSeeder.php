@@ -19,31 +19,31 @@ class AuthorSeeder extends Seeder
         'name' => 'Nguyễn Nhật Ánh',
         'tieu_su' => 'Nhà văn Việt Nam nổi tiếng với các tác phẩm viết cho thanh thiếu niên.',
         'birth_date' => '1955-05-07',
-        'avatar' => null,
+        'nationality' => 'Việt Nam',
       ],
       [
         'name' => 'Tô Hoài',
         'tieu_su' => 'Một trong những nhà văn lớn của nền văn học Việt Nam hiện đại.',
         'birth_date' => '1920-09-27',
-        'avatar' => null,
+        'nationality' => 'Việt Nam',
       ],
       [
         'name' => 'Nam Cao',
         'tieu_su' => 'Nhà văn hiện thực xuất sắc trước Cách mạng Tháng Tám.',
         'birth_date' => '1917-10-29',
-        'avatar' => null,
+        'nationality' => 'Việt Nam',
       ],
       [
         'name' => 'Xuân Diệu',
         'tieu_su' => 'Nhà thơ lớn, "ông hoàng thơ tình" của Việt Nam.',
         'birth_date' => '1916-02-02',
-        'avatar' => null,
+        'nationality' => 'Việt Nam',
       ],
       [
         'name' => 'Vũ Trọng Phụng',
         'tieu_su' => 'Nhà văn nổi tiếng với phong cách trào phúng sắc sảo.',
         'birth_date' => '1912-10-20',
-        'avatar' => null,
+        'nationality' => 'Việt Nam',
       ],
     ];
 

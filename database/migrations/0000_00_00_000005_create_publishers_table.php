@@ -10,16 +10,16 @@ return new class extends Migration
     {
         Schema::create('publishers', function (Blueprint $table) {
             $table->increments('id');
-            $table->string('name')->comment('Tên nhà xuất bản');
-            $table->string('code')->unique()->nullable()->comment('Mã NXB');
-            $table->text('address')->nullable()->comment('Địa chỉ');
-            $table->string('phone')->nullable()->comment('Số điện thoại');
-            $table->string('email')->nullable()->comment('Email');
-            $table->string('website')->nullable()->comment('Website');
-            $table->string('contact_person')->nullable()->comment('Người liên hệ');
-            $table->string('country')->default('Việt Nam')->comment('Quốc gia');
-            $table->boolean('is_active')->default(true)->comment('Trạng thái hoạt động');
-            $table->json('params')->nullable()->comment('Tham số bổ sung');
+            $table->string('name');
+            $table->string('code')->unique()->nullable();
+            $table->text('address')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('email')->nullable();
+            $table->string('website')->nullable();
+            $table->string('contact_person')->nullable();
+            $table->string('country')->default('Việt Nam');
+            $table->boolean('is_active')->default(true);
+            $table->json('params')->nullable();
             $table->timestamps();
         });
     }

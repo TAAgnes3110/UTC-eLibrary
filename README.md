@@ -1,120 +1,333 @@
-[text](README.md)# UTC-eLibrary - Đồ án Quản lý thư viện
+# 📚 UTC-eLibrary
 
-Hệ thống quản lý thư viện trường Đại học Giao thông Vận tải (UTC).
+> Hệ thống quản lý thư viện trường **Đại học Giao thông Vận tải (UTC)** — Đồ án Quản lý thư viện.
+
+[![Laravel](https://img.shields.io/badge/Laravel-12-FF2D20?logo=laravel)](https://laravel.com)
+[![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vue.js)](https://vuejs.org)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38B2AC?logo=tailwind-css)](https://tailwindcss.com)
 
 ---
 
-## 👨‍💻 Thông tin tác giả
+## 📋 Mục lục
 
-- **Tác giả:** Vũ Tuấn Kiệt
-- **Bút danh:** TAAgnes
-- **Email:** [taagnes3110@gmail.com](mailto:taagnes3110@gmail.com)
-- **Số điện thoại:** 0936992346
+- [Giới thiệu](#-giới-thiệu)
+- [Ảnh màn hình](#-ảnh-màn-hình)
+- [Chức năng hệ thống](#-chức-năng-hệ-thống)
+- [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
+- [Cài đặt & Chạy](#-cài-đặt--chạy)
+- [Docker](#-docker)
+- [Tác giả](#-tác-giả)
 
 ---
 
 ## ℹ️ Giới thiệu
 
-Dự án này là Đồ án Quản lý thư viện, được xây dựng nhằm mục đích quản lý sách, độc giả, và quy trình mượn trả sách một cách hiệu quả và hiện đại.
+Dự án **UTC-eLibrary** là Đồ án Quản lý thư viện, xây dựng nhằm quản lý sách, độc giả và quy trình mượn–trả sách một cách hiệu quả và hiện đại.
 
-### Công nghệ sử dụng
-- **Backend:** Laravel
-- **Frontend:** Vue.js
-- **Database:** MySQL
-- **Styling:** TailwindCSS
+---
+
+## 🖼️ Ảnh màn hình
+
+Ảnh chụp màn hình đặt trong **`docs/screenshots/`** với đúng tên file (xem danh sách trong [`docs/screenshots/README.txt`](docs/screenshots/README.txt)). Nếu bạn có một thư mục ảnh theo thứ tự, đặt vào `docs/screenshots/incoming/` rồi chạy `copy-screenshots.bat` (Windows) hoặc `copy-screenshots.sh` (Bash) để tự động đặt tên.
+
+### Đăng nhập, Đăng ký & Xác thực OTP
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Đăng nhập | Trang đăng nhập — tài khoản/mật khẩu, Ghi nhớ, Quên mật khẩu, Đăng nhập Microsoft 365 |
+| Đăng ký | Form đăng ký — họ tên, email, CCCD/CMND, SĐT, giới tính, ngày sinh, địa chỉ, mật khẩu |
+| Xác thực OTP (đăng ký) | Nhập mã 6 số gửi tới email sau khi đăng ký, có nút gửi lại và quay lại đăng ký |
+| Email OTP | Mẫu email gửi mã xác thực OTP từ UTC-eLibrary (hiệu lực 5 phút) |
+| Quên mật khẩu | Nhập email đăng ký để nhận mã OTP khôi phục tài khoản |
+| Xác thực OTP (đặt lại MK) | Bước xác minh OTP trước khi thiết lập mật khẩu mới |
+| Đặt mật khẩu | Bước 2: Thiết lập mật khẩu mới và xác nhận, nút Quay lại / Hoàn tất |
+
+| |
+|:--:|
+| ![Đăng nhập](docs/screenshots/login.png) |
+| *Đăng nhập — Cổng thông tin UTC eLibrary* |
+
+| |
+|:--:|
+| ![Đăng ký](docs/screenshots/register.png) |
+| *Đăng ký — Hệ thống thư viện điện tử UTC* |
+
+| |
+|:--:|
+| ![Xác thực OTP đăng ký](docs/screenshots/verify-otp-register.png) |
+| *Xác thực OTP sau đăng ký* |
+
+| |
+|:--:|
+| ![Email OTP](docs/screenshots/otp-email.png) |
+| *Email gửi mã OTP* |
+
+| |
+|:--:|
+| ![Quên mật khẩu](docs/screenshots/forgot-password.png) |
+| *Quên mật khẩu — Khôi phục tài khoản* |
+
+| |
+|:--:|
+| ![Xác thực OTP đặt lại mật khẩu](docs/screenshots/verify-otp-reset.png) |
+| *Xác thực OTP — Bước 1: Xác minh (đặt lại mật khẩu)* |
+
+| |
+|:--:|
+| ![Đặt mật khẩu](docs/screenshots/set-password.png) |
+| *Đặt mật khẩu — Bước 2: Bảo mật* |
+
+**Tên file gợi ý:** `login.png`, `register.png`, `verify-otp-register.png`, `otp-email.png`, `forgot-password.png`, `verify-otp-reset.png`, `set-password.png`
+
+---
+
+### Trang chủ & Bảng điều khiển
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Dashboard | Tổng quan: chào mừng, phiếu mượn cần xử lý, thống kê sách/người mượn/sách quá hạn, biểu đồ mượn-trả, hoạt động gần đây |
+
+| |
+|:--:|
+| ![Dashboard](docs/screenshots/dashboard.png) |
+| *Bảng điều khiển — Tổng quan UTC eLibrary* |
+
+### Quản lý người dùng
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Danh sách Bạn đọc | Tab Học sinh/Sinh viên: mã thẻ, ngày cấp/hết hạn, lớp/đơn vị, trạng thái; Thêm mới, Xuất/Nhập excel, Cập nhật ảnh thẻ |
+| Danh sách Tài khoản | Danh sách tài khoản theo phân quyền (Admin, Thủ thư, Sinh viên...), trạng thái Hoạt động/Tạm khóa, Thêm mới, Xuất/Nhập excel |
+
+| |
+|:--:|
+| ![Danh sách Bạn đọc](docs/screenshots/readers.png) |
+| *Quản lý người dùng — Danh sách Học sinh / Sinh viên* |
+
+| |
+|:--:|
+| ![Danh sách Tài khoản](docs/screenshots/accounts.png) |
+| *Quản lý người dùng — Danh sách tài khoản* |
+
+### Quản lý Danh mục (Thể loại, Ngôn ngữ)
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Quản lý Thể loại | Danh sách thể loại: ID, tên, mô tả chi tiết, số lượng sách; Tìm kiếm, Nhập/Xuất excel, Thêm thể loại |
+| Quản lý Ngôn ngữ | Danh sách ngôn ngữ: ID, tên ngôn ngữ, mô tả, số lượng sách; Tìm kiếm, Nhập/Xuất excel, Thêm ngôn ngữ |
+
+| |
+|:--:|
+| ![Quản lý Thể loại](docs/screenshots/categories.png) |
+| *Quản lý Phân loại — Thể loại* |
+
+| |
+|:--:|
+| ![Quản lý Ngôn ngữ](docs/screenshots/languages.png) |
+| *Quản lý Phân loại — Ngôn ngữ* |
+
+### Quản lý Tác giả
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Quản lý Tác giả | Danh sách tác giả: mã, họ tên, quốc tịch, ngày sinh, tiểu sử, số tác phẩm; Tìm kiếm, Nhập/Xuất excel, Thêm tác giả, Thùng rác |
+
+| |
+|:--:|
+| ![Quản lý Tác giả](docs/screenshots/authors.png) |
+| *Quản lý Tác giả — Dữ liệu thư viện* |
+
+### Quản lý Nhà xuất bản
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Quản lý Nhà xuất bản | Danh sách NXB: ID, tên, địa chỉ trụ sở, SĐT, email, số sách; Tìm kiếm, Nhập/Xuất excel, Thêm Nhà xuất bản |
+
+| |
+|:--:|
+| ![Quản lý Nhà xuất bản](docs/screenshots/publishers.png) |
+| *Quản lý Nhà xuất bản — Dữ liệu thư viện* |
+
+### Quản lý Sách & Tài liệu
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Danh sách sách / tài liệu | STT, mã sách, tên sách (tác giả), thông tin xuất bản, số lượng, trạng thái; Thêm mới, Xuất/Nhập excel, Cập nhật ảnh bìa, Thùng rác |
+| Form sách | Thêm/sửa sách, tác giả, NXB, bản in (có thể bổ sung ảnh sau) |
+
+| |
+|:--:|
+| ![Danh sách sách](docs/screenshots/books-index.png) |
+| *Quản lý Sách & Tài liệu — Danh sách sách / tài liệu* |
+
+### Quản lý phiếu
+
+| Màn hình | Mô tả |
+|----------|--------|
+| Phiếu nhập | Tab Phiếu nhập: số phiếu, nguồn nhập, ngày lập, đầu sách, số lượng, giá trị, trạng thái; Tạo phiếu mới, Xuất excel |
+| Phiếu xuất | Tab Phiếu xuất (phiếu xuất kho) |
+
+| |
+|:--:|
+| ![Quản lý phiếu](docs/screenshots/bills.png) |
+| *Quản lý phiếu — Phiếu nhập* |
+
+### Mượn trả & Báo cáo
+
+| Màn hình        | Mô tả                    |
+|-----------------|---------------------------|
+| Mượn / Trả      | Giao diện mượn sách, trả sách, gia hạn |
+| Thống kê        | Báo cáo mượn trả, tổng quan kho       |
+
+<!-- ![Mượn trả](docs/screenshots/loans.png) -->
+<!-- ![Thống kê](docs/screenshots/stats.png) -->
+
+> **Cách thêm ảnh:** Đặt file ảnh vào `docs/screenshots/` với đúng tên file (xem gợi ý trong từng mục hoặc `docs/screenshots/README.txt`).
 
 ---
 
 ## 🌟 Chức năng Hệ thống
 
-Hệ thống được thiết kế với đầy đủ các nghiệp vụ quản lý thư viện chuyên nghiệp:
-
 ### 📚 Quản lý Sách (Tài nguyên)
-- **Quản lý đa dạng:** Hỗ trợ quản lý cả sách bản cứng và tài liệu số (bản mềm).
-- **Nghiệp vụ chi tiết:**
-  - Nhập sách và phân loại sách khoa học.
-  - Hỗ trợ in nhãn sách, in phích, và in sổ quản lý.
-  - Quy trình thanh lý sách cũ/hỏng.
+
+- **Đa dạng loại tài liệu:** Sách bản cứng và tài liệu số (bản mềm).
+- **Nghiệp vụ:** Nhập sách, phân loại khoa học, in nhãn sách, in phích, in sổ quản lý, thanh lý sách cũ/hỏng.
 
 ### 👤 Quản lý Độc giả
-- Quản lý thông tin chi tiết của độc giả.
-- Tích hợp chức năng **in thẻ thư viện**.
 
-### 🔄 Quản lý Mượn - Trả
-- Theo dõi chặt chẽ quy trình mượn trả tài liệu.
-- Quản lý quá trình gia hạn, phạt quá hạn (nếu có).
+- Quản lý thông tin độc giả.
+- In thẻ thư viện.
 
-### 📊 Báo cáo & Thống kê - Kiểm kê
-- **Kiểm kê:** Chức năng kiểm kê tài sản định kỳ nhanh chóng chính xác.
-- **Hệ thống báo cáo mạnh mẽ:**
-  - Báo cáo tổng quan về số lượng sách và đầu sách hiện có.
-  - Thống kê hoạt động mượn trả chi tiết theo thời gian (ngày, tháng, năm).
-  - Phân tích dữ liệu mượn trả theo từng lớp học, từng nhóm độc giả cụ thể.
+### 🔄 Mượn – Trả
+
+- Theo dõi mượn/trả tài liệu.
+- Gia hạn, xử lý phạt quá hạn.
+
+### 📊 Báo cáo & Kiểm kê
+
+- Kiểm kê tài sản định kỳ.
+- Báo cáo tổng quan sách, đầu sách.
+- Thống kê mượn trả theo thời gian (ngày/tháng/năm), theo lớp, nhóm độc giả.
 
 ---
 
-## 🚀 Cài đặt và Triển khai
+## 🛠️ Công nghệ sử dụng
 
-1. **Clone repository:**
-   ```bash
-   git clone https://github.com/TAAgnes3110/UTC-eLibrary.git
-   cd UTC-eLibrary
-   ```
+| Thành phần | Công nghệ |
+|------------|-----------|
+| **Backend** | Laravel 12, PHP 8.x |
+| **Frontend** | Vue 3, Inertia.js |
+| **Styling** | Tailwind CSS |
+| **Database** | MySQL / SQLite |
+| **Cache** | Redis (tùy chọn) / Database |
+| **Auth** | JWT (API), Session (Web), OAuth (Microsoft) |
 
-2. **Cài đặt dependencies:**
-   ```bash
-   composer install
-   npm install
-   ```
+---
 
-3. **Cấu hình môi trường:**
-   - Copy file `.env.example` thành `.env`
-   - Cấu hình database và các biến môi trường khác.
+## 🚀 Cài đặt & Chạy
 
-4. **Chạy migration và seeder:**
-   ```bash
-   php artisan migrate --seed
-   ```
+### Yêu cầu
 
-5. **Chạy ứng dụng:**
-   ```bash
-   npm run dev
-   php artisan serve
-   ```
+- PHP 8.2+
+- Composer, Node.js & npm
+- MySQL hoặc SQLite
 
-6. **Chạy Ngrok (tùy chọn — để truy cập từ bên ngoài):**
+### Các bước
 
-   Ngrok tạo một đường hầm (tunnel) để expose localhost ra internet, hữu ích khi:
-   - Test trên điện thoại / thiết bị khác
-   - Demo cho người khác xem
-   - Test callback từ bên thứ 3 (Microsoft OAuth, Webhook...)
+**1. Clone repository**
 
-   **Bước 1:** Đăng ký tài khoản tại [ngrok.com](https://ngrok.com) và lấy Authtoken.
+```bash
+git clone https://github.com/TAAgnes3110/UTC-eLibrary.git
+cd UTC-eLibrary
+```
 
-   **Bước 2:** Thêm vào file `.env`:
+**2. Cài đặt dependencies**
+
+```bash
+composer install
+npm install
+```
+
+**3. Cấu hình môi trường**
+
+- Copy `.env.example` thành `.env`
+- Cấu hình database và các biến môi trường (xem mục Redis/OAuth trong `.env.example` nếu cần)
+
+**4. Chạy migration và seeder**
+
+```bash
+php artisan key:generate
+php artisan migrate --seed
+```
+
+**5. Chạy ứng dụng**
+
+```bash
+# Terminal 1: frontend
+npm run dev
+
+# Terminal 2: backend
+php artisan serve
+```
+
+Truy cập: **http://localhost:8000**
+
+---
+
+## 🐳 Docker
+
+Chạy toàn bộ ứng dụng (app + MySQL + Redis) bằng Docker:
+
+```bash
+docker compose up -d
+docker compose exec app php artisan migrate --seed --force
+```
+
+- Ứng dụng: http://localhost:8000  
+- MySQL: port 3306  
+- Redis: port 6379  
+
+Chi tiết: xem `docker-compose.yml` và `Dockerfile`.
+
+---
+
+## 🌐 Ngrok (truy cập từ bên ngoài)
+
+Để test trên điện thoại, demo từ xa hoặc test OAuth/Webhook:
+
+1. Đăng ký [ngrok.com](https://ngrok.com) và lấy Authtoken.
+2. Thêm vào `.env`:
    ```env
    NGROK_AUTHTOKEN=your_ngrok_authtoken_here
    ```
-
-   **Bước 3:** Chạy ngrok:
-
-   - **Windows (CMD / PowerShell):**
-     ```cmd
-     start-ngrok.bat
-     ```
-
-   - **Git Bash / WSL:**
-     ```bash
-     # Cách 1: Gọi trực tiếp file .bat
-     cmd //c start-ngrok.bat
-
-     # Cách 2: Chạy ngrok thủ công
-     ngrok http 8000
-     ```
-
-   **Bước 4:** Copy URL ngrok (ví dụ: `https://xxxx.ngrok-free.dev`) và cập nhật `APP_URL` trong `.env`:
+3. Chạy ngrok:
+   - **Windows:** `start-ngrok.bat`
+   - **Hoặc:** `ngrok http 8000`
+4. Copy URL ngrok (vd: `https://xxxx.ngrok-free.dev`) và cập nhật trong `.env`:
    ```env
    APP_URL=https://xxxx.ngrok-free.dev
    ```
 
-   > ⚠️ **Lưu ý:** Mỗi lần restart ngrok sẽ tạo URL mới (trừ khi dùng gói trả phí với domain cố định). Nhớ cập nhật lại `APP_URL` sau mỗi lần restart.
+> ⚠️ Mỗi lần restart ngrok URL thường đổi (trừ gói trả phí). Nhớ cập nhật lại `APP_URL`.
+
+---
+
+## 📁 Tài liệu thêm
+
+- **API:** [docs/API.md](docs/API.md) — Mô tả API v1, endpoint, rate limit.
+- **Kiến trúc:** [ARCHITECTURE.md](ARCHITECTURE.md) — REST API, Auth, Cache, Docker, Health.
+
+---
+
+## 👨‍💻 Tác giả
+
+| | |
+|---|---|
+| **Tác giả** | Vũ Tuấn Kiệt |
+| **Bút danh** | TAAgnes |
+| **Email** | [taagnes3110@gmail.com](mailto:taagnes3110@gmail.com) |
+| **SĐT** | 0936992346 |
+
+---
+
+*Đồ án Quản lý thư viện — Trường Đại học Giao thông Vận tải.*

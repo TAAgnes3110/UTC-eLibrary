@@ -4,20 +4,29 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Icon } from '@iconify/vue';
 
+const DEFAULT_PUBLISHER_LABEL = 'Trường đại học Giao thông vận tải';
+
 const props = defineProps({
     show: Boolean,
     form: Object,
     isEditing: Boolean,
     categories: { type: Array, default: () => [] },
+    publishers: { type: Array, default: () => [] },
     bookTypes: { type: Array, default: () => [
         { value: 'book', label: 'Sách' },
-        { value: 'thesis', label: 'Khóa luận/Đồ án' },
-        { value: 'dissertation', label: 'Luận văn/Luận án' },
-        { value: 'research', label: 'Nghiên cứu khoa học' },
+        { value: 'textbook', label: 'Giáo trình' },
+        { value: 'thesis', label: 'Bài luận / Khóa luận / Đồ án' },
+        { value: 'dissertation', label: 'Luận văn / Luận án' },
+        { value: 'research', label: 'Báo cáo khoa học' },
         { value: 'magazine', label: 'Tạp chí' },
         { value: 'other', label: 'Tài liệu khác' },
     ]},
 });
+
+const useDefaultPublisherTypes = ['textbook', 'research', 'thesis', 'dissertation'];
+const showDefaultPublisherHint = computed(() =>
+    props.form?.type && useDefaultPublisherTypes.includes(props.form.type)
+);
 
 const emit = defineEmits(['close', 'submit']);
 
@@ -179,40 +188,28 @@ const cancelConfirm = () => {
                                             <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nhan đề tài liệu / Sách <span class="text-rose-500">*</span></label>
                                             <span v-if="form.title.length > 0" class="text-[10px] font-bold text-blue-500 uppercase">{{ form.title.length }} ký tự</span>
                                         </div>
-                                        <Input v-model="form.title" placeholder="Nhập tên chính xác của tài liệu..." class="h-14 rounded-[22px] text-[16px] border-slate-200 dark:border-slate-800 dark:bg-slate-900/80 shadow-sm focus:ring-8 focus:ring-blue-500/10 transition-all font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600" />
+                                        <Input v-model="form.title" placeholder="Nhập tên chính xác của tài liệu..." class="h-12 rounded-[16px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-slate-900/80 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600" />
                                     </div>
 
                                     <!-- Author -->
                                     <div class="space-y-3">
-                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tác giả biên soạn chính</label>
+                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tác giả biên soạn chính <span class="text-rose-500">*</span></label>
                                         <div class="relative group">
-                                            <div class="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-[16px] bg-slate-100/80 dark:bg-slate-800 flex items-center justify-center transition-all group-focus-within:bg-blue-600 group-focus-within:text-white group-focus-within:rotate-3 shadow-sm">
-                                                <Icon icon="lucide:user-check" class="w-6 h-6 text-slate-500 group-focus-within:text-white" />
+                                            <div class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-[12px] bg-slate-100/80 dark:bg-slate-800 flex items-center justify-center transition-all group-focus-within:bg-blue-600 group-focus-within:text-white group-focus-within:rotate-3 shadow-sm">
+                                                <Icon icon="lucide:user-check" class="w-5 h-5 text-slate-500 group-focus-within:text-white" />
                                             </div>
-                                            <Input v-model="form.author" placeholder="Họ tên (Ví dụ: Nguyễn Nhật Ánh)" class="h-14 pl-18 rounded-[22px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-slate-900/80 shadow-sm font-bold transition-all focus:ring-8 focus:ring-blue-500/10" />
+                                            <Input v-model="form.author" placeholder="Họ tên (Ví dụ: Nguyễn Nhật Ánh)" class="h-12 pl-14 rounded-[16px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-slate-900/80 shadow-sm font-bold transition-all focus:ring-4 focus:ring-blue-500/10" />
                                         </div>
                                     </div>
 
-                                    <!-- Type + Category -->
-                                    <div class="grid grid-cols-2 gap-6">
-                                        <div class="space-y-3">
-                                            <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Hình thức</label>
-                                            <div class="relative group">
-                                                <select v-model="form.type" class="w-full h-14 pl-6 pr-12 text-[15px] font-bold bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-[22px] focus:ring-8 focus:ring-blue-500/10 dark:text-white outline-none appearance-none transition-all cursor-pointer hover:bg-white dark:hover:bg-slate-800">
+                                    <!-- Type -->
+                                    <div class="space-y-3">
+                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Loại tài liệu <span class="text-rose-500">*</span></label>
+                                        <div class="relative group">
+                                            <select v-model="form.type" class="w-full h-12 pl-6 pr-12 text-[15px] font-bold bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-[16px] focus:ring-4 focus:ring-blue-500/10 dark:text-white outline-none appearance-none transition-all cursor-pointer hover:bg-white dark:hover:bg-slate-800">
                                                     <option v-for="t in bookTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
-                                                </select>
-                                                <Icon icon="lucide:layers" class="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors" />
-                                            </div>
-                                        </div>
-                                        <div class="space-y-3">
-                                            <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Lĩnh vực quản lý</label>
-                                            <div class="relative group">
-                                                <select v-model="form.category_id" class="w-full h-14 pl-6 pr-12 text-[15px] font-bold bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-[22px] focus:ring-8 focus:ring-blue-500/10 dark:text-white outline-none appearance-none transition-all cursor-pointer hover:bg-white dark:hover:bg-slate-800">
-                                                    <option value="">-- Chọn lĩnh vực --</option>
-                                                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                                                </select>
-                                                <Icon icon="lucide:tag" class="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors" />
-                                            </div>
+                                            </select>
+                                            <Icon icon="lucide:layers" class="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors" />
                                         </div>
                                     </div>
                                 </div>
@@ -232,15 +229,16 @@ const cancelConfirm = () => {
                         <div class="grid grid-cols-2 lg:grid-cols-3 gap-5">
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nhà xuất bản</label>
-                                <Input v-model="form.publisher" placeholder="Ví dụ: NXB Giáo dục..." class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
+                                <Input v-model="form.publisher" placeholder="Để trống: mặc định Trường ĐH Giao thông vận tải (giáo trình, BCKH, bài luận)" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
+                                <p v-if="showDefaultPublisherHint" class="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Mặc định: {{ DEFAULT_PUBLISHER_LABEL }}</p>
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nơi xuất bản</label>
-                                <Input v-model="form.publication_place" placeholder="Ví dụ: Hà Nội..." class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
+                                <Input v-model="form.publication_place" placeholder="Ví dụ: Hà Nội..." class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Năm xuất bản</label>
-                                <Input v-model="form.published_year" type="number" min="0" placeholder="2024" @blur="validateNonNegative('published_year')" class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                                <Input v-model="form.published_year" type="number" min="0" placeholder="2024" @blur="validateNonNegative('published_year')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                             </div>
                         </div>
                     </div>
@@ -257,24 +255,24 @@ const cancelConfirm = () => {
                         <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số trang</label>
-                                <Input v-model="form.total_pages" type="number" min="0" placeholder="0" @blur="validateNonNegative('total_pages')" class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold" />
+                                <Input v-model="form.total_pages" type="number" min="0" placeholder="0" @blur="validateNonNegative('total_pages')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Khổ sách</label>
-                                <Input v-model="form.book_size" placeholder="Ví dụ: 24cm" class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
+                                <Input v-model="form.book_size" placeholder="Ví dụ: 24cm" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Tập số</label>
-                                <Input v-model="form.volume_number" type="number" min="0" placeholder="0" @blur="validateNonNegative('volume_number')" class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold" />
+                                <Input v-model="form.volume_number" type="number" min="0" placeholder="0" @blur="validateNonNegative('volume_number')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                             </div>
                             <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số lượng</label>
-                                <Input v-model="form.quantity" type="number" min="0" placeholder="0" @blur="validateNonNegative('quantity')" class="h-11 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold text-blue-600 dark:text-blue-400" />
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số lượng <span class="text-rose-500">*</span></label>
+                                <Input v-model="form.quantity" type="number" min="0" placeholder="0" @blur="validateNonNegative('quantity')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold text-blue-600 dark:text-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                             </div>
                             <div class="space-y-2">
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Giá tài liệu</label>
                                 <div class="relative group">
-                                    <Input v-model="form.price" type="number" min="0" placeholder="0" @blur="validateNonNegative('price')" class="h-11 pr-12 rounded-[16px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold text-emerald-600 dark:text-emerald-400" />
+                                    <Input v-model="form.price" type="number" min="0" placeholder="0" @blur="validateNonNegative('price')" class="h-10 pr-12 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold text-emerald-600 dark:text-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                                     <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-extrabold text-slate-400 uppercase">vnđ</span>
                                 </div>
                             </div>

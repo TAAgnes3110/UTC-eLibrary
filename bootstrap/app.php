@@ -7,6 +7,7 @@ use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\CheckRoleOrPermission;
 use App\Http\Middleware\Init;
+use App\Http\Middleware\LogApiRequests;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -31,6 +32,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'init' => Init::class,
             'login' => CheckLogin::class,
             'role_or_permission' => CheckRoleOrPermission::class,
+            'log.api' => LogApiRequests::class,
+        ]);
+        $middleware->api(append: [
+            'throttle:api',
+            LogApiRequests::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

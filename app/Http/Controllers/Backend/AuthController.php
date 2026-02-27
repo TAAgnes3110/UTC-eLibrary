@@ -2,33 +2,30 @@
 
 namespace App\Http\Controllers\Backend;
 
-use App\Enums\RoleType;
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Backend\EmailOTPController;
 use App\Http\Requests\AuthRequests\ForgotPasswordRequest;
 use App\Http\Requests\AuthRequests\LoginRequest;
 use App\Http\Requests\AuthRequests\RegisterRequest;
-use App\Http\Requests\OtpRequests\SendOTPRequest;
 use App\Http\Requests\OtpRequests\VerifyOTPRequest;
 use App\Http\Resources\UserResource;
-use App\Models\User;
 use App\Models\Customer;
+use App\Models\User;
+use App\Services\OtpService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
-use App\Http\Controllers\Backend\UserController;
-use App\Services\OtpService;
-
 class AuthController extends Controller
 {
     /**
+     * Đăng nhập (email/mã/SĐT/số thẻ + mật khẩu), trả về token và thông tin user.
+     *
      * @param LoginRequest $request
      * @return JsonResponse
-     * @todo Đăng nhập
      */
     public function login(LoginRequest $request): JsonResponse
     {
@@ -58,7 +55,7 @@ class AuthController extends Controller
                 'messages' => __('messages.invalid_credentials')
             ], 401);
         }
-        auth('web')->login($user, $request->boolean('remember'));
+        Auth::guard('web')->login($user, $request->boolean('remember'));
         return $this->jsonResponse([
             'status' => 'success',
             'messages' => __('messages.success_login'),
@@ -68,9 +65,10 @@ class AuthController extends Controller
     }
 
     /**
+     * Đăng ký tài khoản: gửi OTP qua email, lưu dữ liệu tạm vào cache.
+     *
      * @param RegisterRequest $request
      * @return JsonResponse
-     * @todo Đăng ký
      */
     public function register(RegisterRequest $request): JsonResponse
     {
@@ -84,7 +82,7 @@ class AuthController extends Controller
                 $data['name'] = $customer ? $customer->name : 'Người dùng';
             }
             Cache::put('register_' . $data['email'], $data, now()->addMinutes(15));
-            $otpService = app(\App\Services\OtpService::class);
+            $otpService = app(OtpService::class);
             $result = $otpService->sendOtp($data['email'], $data['name']);
             if (!$result['status']) {
                 $statusCode = isset($result['seconds_left']) ? 429 : 500;
@@ -103,9 +101,10 @@ class AuthController extends Controller
     }
 
     /**
+     * Xác nhận mã OTP và hoàn tất tạo tài khoản (kèm thẻ thư viện mặc định).
+     *
      * @param VerifyOTPRequest $request
      * @return JsonResponse
-     * @todo Xác nhận OTP
      */
     public function verifyRegister(VerifyOTPRequest $request): JsonResponse
     {
@@ -158,23 +157,38 @@ class AuthController extends Controller
         }
     }
 
-
     /**
-     * @param ForgotPasswordRequest $request
+     * Đặt lại mật khẩu (sau khi xác thực OTP).
+     *
+     * @param Request $request
      * @return JsonResponse
-     * @todo Đặt lại mật khẩu
      */
-    public function resetPassword(ForgotPasswordRequest $request): JsonResponse
+    public function resetPassword(Request $request): JsonResponse
     {
-        $data = $request->validated();
-        $user = User::where('email', $data['email'])->first();
+        $request->validate([
+            'email' => 'required|email',
+            'otp' => 'required|string|size:6',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $otpService = app(OtpService::class);
+        $otpCheck = $otpService->verifyOtp($request->email, $request->otp);
+
+        if (!$otpCheck['status']) {
+            return $this->jsonResponse([
+                'status' => 'error',
+                'messages' => $otpCheck['message']
+            ], 400);
+        }
+
+        $user = User::where('email', $request->email)->first();
         if (!$user) {
             return $this->jsonResponse([
                 'status' => 'error',
-                'messages' => __('messages.user_not_found')
+                'messages' => __('Tài khoản không tồn tại.')
             ], 404);
         }
-        $user->password = bcrypt($data['password']);
+        $user->password = bcrypt($request->password);
         $user->save();
         return $this->jsonResponse([
             'status' => 'success',
@@ -183,8 +197,10 @@ class AuthController extends Controller
     }
 
     /**
+     * Đăng xuất: vô hiệu hóa token JWT và hủy phiên web.
+     *
+     * @param Request $request
      * @return JsonResponse
-     * @todo Đăng xuất
      */
     public function logout(Request $request): JsonResponse
     {
@@ -194,7 +210,7 @@ class AuthController extends Controller
             // Token đã hết hạn hoặc không tồn tại — bỏ qua
         }
 
-        auth('web')->logout();
+        Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
@@ -205,9 +221,10 @@ class AuthController extends Controller
     }
 
     /**
+     * Lấy thông tin user đang đăng nhập.
+     *
      * @param Request $request
      * @return JsonResponse
-     * @todo Lấy thông tin người dùng
      */
     public function user(Request $request): JsonResponse
     {

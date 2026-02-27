@@ -10,6 +10,12 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
+    /**
+     * Danh sách người dùng có phân trang, tìm theo từ khóa (tên, mã, email, SĐT, số thẻ).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $keyword = $request->input('keyword');
@@ -36,6 +42,8 @@ class UserController extends Controller
     }
 
     /**
+     * Thêm người dùng mới (có thể kèm thẻ thư viện).
+     *
      * @param UserRequest $request
      * @return JsonResponse
      */
@@ -65,8 +73,10 @@ class UserController extends Controller
     }
 
     /**
+     * Cập nhật thông tin người dùng (có thể cập nhật thẻ thư viện).
+     *
      * @param Request $request
-     * @param $id
+     * @param int $id
      * @return JsonResponse
      */
     public function update(Request $request, $id): JsonResponse
@@ -115,28 +125,8 @@ class UserController extends Controller
     }
 
     /**
-     * @param $id
-     * @return JsonResponse
-     */
-    public function destroy($id): JsonResponse
-    {
-        $item = User::query()->find($id);
-        if ($item) {
-            $item->delete();
-            return $this->jsonResponse([
-                'status' => 'success',
-                'messages' => __('messages.success_delete')
-            ]);
-        } else {
-            return $this->jsonResponse([
-                'status' => 'error',
-                'messages' => __('messages.error_410'),
-                'data' => [],
-            ], 410);
-        }
-    }
-
-    /**
+     * Cập nhật trạng thái hàng loạt cho danh sách user (theo ids và status).
+     *
      * @param Request $request
      * @return JsonResponse
      */
@@ -154,10 +144,78 @@ class UserController extends Controller
     }
 
     /**
+     * Xóa người dùng theo id.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function destroy($id): JsonResponse
+    {
+        $item = User::query()->find($id);
+        if ($item) {
+            $item->delete();
+            return $this->jsonResponse([
+                'status' => 'success',
+                'messages' => __('messages.success_delete')
+            ]);
+        }
+        return $this->jsonResponse([
+            'status' => 'error',
+            'messages' => __('messages.error_410'),
+            'data' => [],
+        ], 410);
+    }
+
+    /**
+     * Danh sách người dùng đã xóa mềm (thùng rác).
+     */
+    public function trash(Request $request): JsonResponse
+    {
+        $items = User::onlyTrashed()
+            ->orderByDesc('deleted_at')
+            ->get()
+            ->map(fn ($u) => [
+                'id' => $u->id,
+                'name' => $u->name,
+                'email' => $u->email,
+                'code' => $u->code,
+                'deleted_at' => $u->deleted_at?->toIso8601String(),
+            ]);
+        return $this->jsonResponse(['data' => $items]);
+    }
+
+    /**
+     * Khôi phục người dùng từ thùng rác.
+     */
+    public function restore($id): JsonResponse
+    {
+        $user = User::onlyTrashed()->find($id);
+        if (!$user) {
+            return $this->jsonResponse(['status' => 'error', 'messages' => __('messages.error_410')], 410);
+        }
+        $user->restore();
+        return $this->jsonResponse(['status' => 'success', 'messages' => __('Đã khôi phục.')]);
+    }
+
+    /**
+     * Xóa vĩnh viễn người dùng.
+     */
+    public function forceDelete($id): JsonResponse
+    {
+        $user = User::onlyTrashed()->find($id);
+        if (!$user) {
+            return $this->jsonResponse(['status' => 'error', 'messages' => __('messages.error_410')], 410);
+        }
+        $user->forceDelete();
+        return $this->jsonResponse(['status' => 'success', 'messages' => __('Đã xóa vĩnh viễn.')]);
+    }
+
+    /**
+     * Trả về phản hồi khi thông tin người dùng (email/mã/SĐT) đã tồn tại trong hệ thống.
+     *
      * @param User $user
      * @param array $data
      * @return JsonResponse
-     * @todo Trả về phản hồi khi thông tin đã tồn tại
      */
     public function existingUserResponse(User $user, array $data): JsonResponse
     {

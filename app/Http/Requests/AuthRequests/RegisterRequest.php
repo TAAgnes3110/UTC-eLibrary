@@ -27,6 +27,9 @@ class RegisterRequest extends FormRequest
 
             'organization' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:100',
+            'date_of_birth' => 'nullable|date',
+            'gender' => 'nullable|string|in:male,female,other',
+            'address' => 'nullable|string|max:1000',
 
             'params' => 'nullable|array',
         ];

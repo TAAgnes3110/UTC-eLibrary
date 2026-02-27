@@ -53,14 +53,14 @@ const tdBorder = 'border-r border-gray-100 dark:border-slate-800';
         <div class="overflow-x-auto">
             <table class="w-full text-sm table-fixed">
                 <colgroup>
-                    <col class="w-[40px]" />   <!-- checkbox -->
-                    <col class="w-[50px]" />   <!-- STT -->
-                    <col class="w-[120px]" />  <!-- Mã ấn phẩm -->
-                    <col />                     <!-- Tên ấn phẩm (flex) -->
-                    <col class="w-[220px]" />  <!-- Thông tin xuất bản -->
-                    <col class="w-[60px]" />   <!-- Số lượng -->
-                    <col class="w-[85px]" />   <!-- Trạng thái -->
-                    <col class="w-[85px]" />   <!-- Hành động -->
+                    <col class="w-[40px]" />
+                    <col class="w-[50px]" />
+                    <col class="w-[120px]" />
+                    <col />
+                    <col class="w-[220px]" />
+                    <col class="w-[60px]" />
+                    <col class="w-[85px]" />
+                    <col class="w-[85px]" />
                 </colgroup>
                 <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                     <tr>
@@ -73,8 +73,8 @@ const tdBorder = 'border-r border-gray-100 dark:border-slate-800';
                             />
                         </th>
                         <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center', thBorder]">STT</th>
-                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Mã ấn phẩm</th>
-                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Tên ấn phẩm</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Mã sách</th>
+                        <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Tên sách</th>
                         <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400', thBorder]">Thông tin xuất bản</th>
                         <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center', thBorder]">SL</th>
                         <th :class="['px-2 py-2.5 text-xs font-bold text-gray-500 dark:text-slate-400 text-center', thBorder]">Trạng thái</th>
@@ -86,10 +86,9 @@ const tdBorder = 'border-r border-gray-100 dark:border-slate-800';
                         v-for="(book, index) in books"
                         :key="book.id"
                         :class="[
-                            'transition-colors',
                             isSelected(book.id)
                                 ? 'bg-blue-50 dark:bg-blue-900/15'
-                                : 'hover:bg-gray-50 dark:hover:bg-slate-800/40'
+                                : 'admin-table-row'
                         ]"
                     >
                         <td :class="['px-2 py-2.5 text-center', tdBorder]">

@@ -8,35 +8,37 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BookCopy extends BaseModel
 {
-  use SoftDeletes;
+    use SoftDeletes;
 
-  protected $fillable = [
-    'book_id',
-    'barcode',
-    'call_number',
-    'condition',
-    'status',
-    'location',
-    'notes',
-    'params',
-  ];
+    protected $table = 'book_copies';
 
-  protected $casts = [
-    'params' => 'array',
-  ];
+      protected $fillable = [
+        'book_id',
+        'barcode',
+        'call_number',
+        'condition',
+        'status',
+        'location',
+        'notes',
+        'params',
+    ];
 
-  public function book(): BelongsTo
-  {
-    return $this->belongsTo(Book::class);
-  }
+    protected $casts = [
+        'params' => 'array',
+    ];
 
-  public function loans(): HasMany
-  {
-    return $this->hasMany(Loan::class);
-  }
+    public function book(): BelongsTo
+    {
+        return $this->belongsTo(Book::class);
+    }
 
-  public function activeLoan(): ?Loan
-  {
-    return $this->loans()->where('status', 'active')->first();
-  }
+    public function loans(): HasMany
+    {
+        return $this->hasMany(Loan::class);
+    }
+
+    public function activeLoan(): ?Loan
+    {
+        return $this->loans()->where('status', 'active')->first();
+    }
 }

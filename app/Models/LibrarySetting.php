@@ -2,20 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
-
 class LibrarySetting extends BaseModel
 {
+    protected $table = 'library_settings';
 
+    protected $fillable = [
+        'key',
+        'value',
+        'type',
+        'group',
+        'description',
+        'params',
+    ];
 
-  protected $fillable = [
-    'key',
-    'value',
-    'type',
-    'group',
-    'description',
-  ];
+    protected $casts = [
+        'params' => 'array',
+    ];
 
   /**
    * Get a setting value by key.

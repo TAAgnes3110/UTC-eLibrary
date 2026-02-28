@@ -16,5 +16,12 @@ class Period extends BaseModel
         'start_date',
         'end_date',
         'status',
+        'params',
+    ];
+
+    protected $casts = [
+        'start_date' => 'date',
+        'end_date' => 'date',
+        'params' => 'array',
     ];
 }

@@ -1,9 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Helpers;
 
 use App\Enums\RoleType;
+use App\Models\User;
 
+/**
+ * DTO/helper cho user đang đăng nhập: lấy từ bảng `users` (user_type), Spatie roles/permissions chỉ load khi cần.
+ *
+ * - Phân quyền chính dựa trên cột `users.user_type` (không query thêm).
+ * - Gọi hasRole / hasPermission / hasRoleOrPermission mới load roles & permissions từ Spatie (lazy).
+ *
+ * @todo Nếu sau này bỏ Spatie, chỉ cần bỏ ensureRolesAndPermissions() và luôn return false cho hasRole/hasPermission.
+ */
 class CurrentUser
 {
     public int $id = 0;
@@ -16,35 +27,47 @@ class CurrentUser
     public int $is_admin = 0;
     public array $roles = [];
     public array $permissions = [];
+    private User $user;
+    private bool $rolesAndPermissionsLoaded = false;
 
-    public function __construct($user)
+    public function __construct(User $user)
     {
-        $this->id = $user->id;
-        $this->name = $user->name ?? '';
-        $this->email = $user->email ?? '';
-        $this->phone = $user->phone ?? '';
-        $this->code = $user->code ?? '';
-        $this->avatar = $user->avatar ?? '';
+        $this->user = $user;
 
-        $userType = $user->user_type ?? '';
-        $this->user_type = $userType instanceof RoleType ? $userType->value : (string)$userType;
+        $this->id = $user->id;
+        $this->name = (string) ($user->name ?? '');
+        $this->email = (string) ($user->email ?? '');
+        $this->phone = (string) ($user->phone ?? '');
+        $this->code = (string) ($user->code ?? '');
+        $this->avatar = (string) ($user->avatar ?? '');
+
+        $userType = $user->user_type ?? null;
+        $this->user_type = $userType instanceof RoleType ? $userType->value : (string) $userType;
 
         $this->is_admin = match ($this->user_type) {
             RoleType::SUPER_ADMIN->value => 9,
-            RoleType::ADMIN->value       => 1,
-            default                      => 0,
+            RoleType::ADMIN->value => 1,
+            default => 0,
         };
+    }
 
-        if (method_exists($user, 'getRoleNames')) {
-            $this->roles = $user->getRoleNames()->toArray();
-        } elseif (isset($user->roles)) {
-            $this->roles = is_array($user->roles) ? $user->roles : (array)$user->roles;
+    /**
+     * Load Spatie roles & permissions một lần khi cần (tránh query mỗi request nếu không dùng).
+     *
+     * @return void
+     */
+    private function ensureRolesAndPermissions(): void
+    {
+        if ($this->rolesAndPermissionsLoaded) {
+            return;
         }
+        $this->rolesAndPermissionsLoaded = true;
 
-        if (method_exists($user, 'getAllPermissions')) {
-            $this->permissions = $user->getAllPermissions()->pluck('name')->toArray();
-        } elseif (isset($user->permissions)) {
-            $this->permissions = is_array($user->permissions) ? $user->permissions : (array)$user->permissions;
+        if (method_exists($this->user, 'getRoleNames')) {
+            $this->roles = $this->user->getRoleNames()->toArray();
+        }
+        if (method_exists($this->user, 'getPermissionNames')) {
+            $this->permissions = $this->user->getPermissionNames()->toArray();
         }
     }
 
@@ -60,54 +83,92 @@ class CurrentUser
 
     public function isLibrarian(): bool
     {
-        return $this->user_type === RoleType::LIBRARIAN->value || $this->hasRole(RoleType::LIBRARIAN->value);
+        if ($this->user_type === RoleType::LIBRARIAN->value) {
+            return true;
+        }
+        return $this->hasRole(RoleType::LIBRARIAN->value);
     }
-
     public function isMember(): bool
     {
         return $this->user_type === RoleType::MEMBER->value;
     }
 
-    /**
-     * Nhân viên thư viện (Thủ thư, Admin, SuperAdmin)
-     */
+    /** Nhân viên thư viện: Thủ thư, Admin, SuperAdmin (theo user_type, không query). */
     public function isStaff(): bool
     {
-        return in_array($this->user_type, RoleType::staffRoles());
+        return in_array($this->user_type, RoleType::staffRoles(), true);
     }
 
+    /**
+     * Kiểm tra có một trong các role hoặc permission (chuỗi dạng "ROLE_A|permission_b").
+     * SuperAdmin luôn true. Gọi lần đầu sẽ load roles/permissions từ DB.
+     *
+     * @param string $rolesOrPermission Danh sách role hoặc permission, phân tách bằng |.
+     * @return bool
+     */
     public function hasRoleOrPermission(string $rolesOrPermission): bool
     {
-        if (empty($rolesOrPermission)) return false;
-        if ($this->isSuperAdmin()) return true;
-
+        if ($rolesOrPermission === '') {
+            return false;
+        }
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        $this->ensureRolesAndPermissions();
         $items = explode('|', $rolesOrPermission);
         foreach ($items as $item) {
-            if (in_array($item, $this->roles) || in_array($item, $this->permissions)) {
+            $item = trim($item);
+            if ($item !== '' && (in_array($item, $this->roles, true) || in_array($item, $this->permissions, true))) {
                 return true;
             }
         }
         return false;
     }
 
+    /**
+     * Kiểm tra có một trong các role (chuỗi dạng "ROLE_A|ROLE_B"). SuperAdmin luôn true.
+     *
+     * @param string $role Danh sách role phân tách bằng |.
+     * @return bool
+     */
     public function hasRole(string $role): bool
     {
-        if (empty($role)) return false;
-        if ($this->isSuperAdmin()) return true;
-
+        if ($role === '') {
+            return false;
+        }
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        $this->ensureRolesAndPermissions();
+        $allowed = explode('|', $role);
         foreach ($this->roles as $r) {
-            if (in_array($r, explode('|', $role))) return true;
+            if (in_array($r, $allowed, true)) {
+                return true;
+            }
         }
         return false;
     }
 
+    /**
+     * Kiểm tra có một trong các permission (chuỗi dạng "a|b|c"). SuperAdmin luôn true.
+     *
+     * @param string $permission Danh sách permission phân tách bằng |.
+     * @return bool
+     */
     public function hasPermission(string $permission): bool
     {
-        if (empty($permission)) return false;
-        if ($this->isSuperAdmin()) return true;
-
+        if ($permission === '') {
+            return false;
+        }
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+        $this->ensureRolesAndPermissions();
+        $allowed = explode('|', $permission);
         foreach ($this->permissions as $p) {
-            if (in_array($p, explode('|', $permission))) return true;
+            if (in_array($p, $allowed, true)) {
+                return true;
+            }
         }
         return false;
     }

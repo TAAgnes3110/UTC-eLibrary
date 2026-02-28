@@ -2,21 +2,26 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\ApiResponse;
 use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\AuthorRequest;
+use App\Http\Requests\Api\AuthorRequest;
 use App\Imports\AuthorsImport;
 use App\Models\Author;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Controller CRUD tác giả, import Excel, thùng rác.
+ *
+ * @todo Thêm phân trang cấu hình (per_page) từ request.
+ */
 class AuthorController extends Controller
 {
-
     /**
      * Danh sách tác giả có phân trang, tìm theo từ khóa (tên hoặc id).
      *
-     * @param Request $request
+     * @param Request $request Query: keyword (optional).
      * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
@@ -32,7 +37,7 @@ class AuthorController extends Controller
             ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
-        return $this->jsonResponse($items->toArray());
+        return ApiResponse::success($items->toArray());
     }
 
     /**
@@ -43,17 +48,17 @@ class AuthorController extends Controller
      */
     public function show(Author $author): JsonResponse
     {
-        return $this->jsonResponse(['status' => 'success', 'data' => $author]);
+        return ApiResponse::success($author);
     }
 
     /**
      * Thống kê tổng số tác giả.
      *
-     * @return JsonResponse
+     * @return JsonResponse { total: int }
      */
     public function countAuthor(): JsonResponse
     {
-        return $this->jsonResponse(['total' => Author::query()->count()]);
+        return ApiResponse::success(['total' => Author::query()->count()]);
     }
 
     /**
@@ -63,54 +68,51 @@ class AuthorController extends Controller
      */
     public function countBookByAuthor(): JsonResponse
     {
-        return $this->jsonResponse(['data' => Author::query()->withCount('books')->get()]);
+        return ApiResponse::success(Author::query()->withCount('books')->get());
     }
 
     /**
      * Thêm tác giả mới.
      *
      * @param AuthorRequest $request
-     * @return JsonResponse
+     * @return JsonResponse 201 + data author, 400 nếu trùng.
      */
     public function store(AuthorRequest $request): JsonResponse
     {
         $data = $request->validated();
         if (Author::duplicate($data)->exists()) {
-            return $this->jsonResponse(['status' => 'error', 'message' => __('messages.error_duplicate')], 400);
+            return ApiResponse::error(__('messages.error_duplicate'), 400);
         }
         $author = Author::create($data);
-        return $this->jsonResponse([
-            'status' => 'success',
-            'message' => __('messages.success_create'),
-            'data' => $author,
-        ], 201);
+        return ApiResponse::success($author, __('messages.success_create'), 201);
     }
 
     /**
      * Import danh sách tác giả từ file Excel/CSV.
      *
-     * @param Request $request
-     * @return JsonResponse
+     * @param Request $request file (required).
+     * @return JsonResponse status, messages, data (summary + errors).
      */
     public function import(Request $request): JsonResponse
     {
         $request->validate(['file' => 'required|file|max:10240']);
         $file = $request->file('file');
         if (!FileHelpers::isExcelFile($file)) {
-            return $this->jsonResponse([
-                'status' => 'error',
-                'message' => 'File phải có định dạng: ' . implode(', ', FileHelpers::EXCEL_EXTENSIONS),
-            ], 422);
+            return ApiResponse::error(
+                'File phải có định dạng: ' . implode(', ', FileHelpers::EXCEL_EXTENSIONS),
+                422
+            );
         }
         $result = (new AuthorsImport())->import($file);
         $code = match ($result['status']) {
             'success' => 200,
             'partial' => 207,
-            default => 422
+            default => 422,
         };
-        return $this->jsonResponse([
+        $message = "Import: {$result['summary']['success']} thành công, {$result['summary']['skipped']} bỏ qua, {$result['summary']['errors']} lỗi.";
+        return ApiResponse::json([
             'status' => $result['status'],
-            'message' => "Import: {$result['summary']['success']} thành công, {$result['summary']['skipped']} bỏ qua, {$result['summary']['errors']} lỗi.",
+            'messages' => $message,
             'data' => $result,
         ], $code);
     }
@@ -126,18 +128,14 @@ class AuthorController extends Controller
     {
         $data = $request->validated();
         if (Author::duplicate($data, $author->id)->exists()) {
-            return $this->jsonResponse(['status' => 'error', 'message' => __('messages.error_duplicate')], 400);
+            return ApiResponse::error(__('messages.error_duplicate'), 400);
         }
         $author->update($data);
-        return $this->jsonResponse([
-            'status' => 'success',
-            'message' => __('messages.success_update'),
-            'data' => $author->fresh(),
-        ]);
+        return ApiResponse::success($author->fresh(), __('messages.success_update'));
     }
 
     /**
-     * Xóa tác giả (xóa mềm nếu model dùng SoftDeletes).
+     * Xóa tác giả (xóa mềm).
      *
      * @param Author $author
      * @return JsonResponse
@@ -145,14 +143,13 @@ class AuthorController extends Controller
     public function destroy(Author $author): JsonResponse
     {
         $author->delete();
-        return $this->jsonResponse([
-            'status' => 'success',
-            'message' => __('messages.success_delete'),
-        ]);
+        return ApiResponse::success(null, __('messages.success_delete'));
     }
 
     /**
      * Danh sách tác giả đã xóa mềm (thùng rác).
+     *
+     * @return JsonResponse
      */
     public function trash(): JsonResponse
     {
@@ -165,32 +162,38 @@ class AuthorController extends Controller
                 'nationality' => $a->nationality,
                 'deleted_at' => $a->deleted_at?->toIso8601String(),
             ]);
-        return $this->jsonResponse(['data' => $items]);
+        return ApiResponse::success($items->toArray());
     }
 
     /**
      * Khôi phục tác giả từ thùng rác.
+     *
+     * @param int|string $id
+     * @return JsonResponse 200 hoặc 410.
      */
     public function restore($id): JsonResponse
     {
         $author = Author::onlyTrashed()->find($id);
         if (!$author) {
-            return $this->jsonResponse(['status' => 'error', 'message' => __('messages.error_410')], 410);
+            return ApiResponse::notFound();
         }
         $author->restore();
-        return $this->jsonResponse(['status' => 'success', 'message' => __('Đã khôi phục.')]);
+        return ApiResponse::success(null, __('Đã khôi phục.'));
     }
 
     /**
      * Xóa vĩnh viễn tác giả.
+     *
+     * @param int|string $id
+     * @return JsonResponse 200 hoặc 410.
      */
     public function forceDelete($id): JsonResponse
     {
         $author = Author::onlyTrashed()->find($id);
         if (!$author) {
-            return $this->jsonResponse(['status' => 'error', 'message' => __('messages.error_410')], 410);
+            return ApiResponse::notFound();
         }
         $author->forceDelete();
-        return $this->jsonResponse(['status' => 'success', 'message' => __('Đã xóa vĩnh viễn.')]);
+        return ApiResponse::success(null, __('Đã xóa vĩnh viễn.'));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AuthRequests\ForgotPasswordRequest;
 use App\Http\Requests\AuthRequests\LoginRequest;
@@ -40,7 +41,7 @@ class AuthController extends Controller
             })
             ->first();
         if (!$user) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => __('messages.invalid_credentials')
             ], 401);
@@ -50,13 +51,13 @@ class AuthController extends Controller
             'password' => $password
         ];
         if (!$token = JWTAuth::attempt($credentials)) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => __('messages.invalid_credentials')
             ], 401);
         }
         Auth::guard('web')->login($user, $request->boolean('remember'));
-        return $this->jsonResponse([
+        return ApiResponse::json([
             'status' => 'success',
             'messages' => __('messages.success_login'),
             'token' => $token,
@@ -86,14 +87,14 @@ class AuthController extends Controller
             $result = $otpService->sendOtp($data['email'], $data['name']);
             if (!$result['status']) {
                 $statusCode = isset($result['seconds_left']) ? 429 : 500;
-                return $this->jsonResponse(['status' => 'error', 'messages' => $result['message']], $statusCode);
+                return ApiResponse::json(['status' => 'error', 'messages' => $result['message']], $statusCode);
             }
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'success',
                 'messages' => $result['message']
             ], 200);
         } catch (Exception $e) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => 'Lỗi hệ thống: ' . $e->getMessage()
             ], 500);
@@ -112,14 +113,14 @@ class AuthController extends Controller
         $otpCheck = $otpService->verifyOtp($request->email, $request->otp);
 
         if (!$otpCheck['status']) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => $otpCheck['message']
             ], 400);
         }
         $pendingUser = Cache::get('register_' . $request->email);
         if (!$pendingUser) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => __('Phiên đăng ký đã hết hạn hoặc không tồn tại.')
             ], 404);
@@ -142,7 +143,7 @@ class AuthController extends Controller
             DB::commit();
             Cache::forget('register_' . $request->email);
             $token = JWTAuth::fromUser($user);
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'success',
                 'messages' => __('Đăng ký tài khoản thành công!'),
                 'token' => $token,
@@ -150,7 +151,7 @@ class AuthController extends Controller
             ], 200);
         } catch (Exception $e) {
             DB::rollBack();
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => 'Lỗi tạo tài khoản: ' . $e->getMessage()
             ], 500);
@@ -175,7 +176,7 @@ class AuthController extends Controller
         $otpCheck = $otpService->verifyOtp($request->email, $request->otp);
 
         if (!$otpCheck['status']) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => $otpCheck['message']
             ], 400);
@@ -183,14 +184,14 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
         if (!$user) {
-            return $this->jsonResponse([
+            return ApiResponse::json([
                 'status' => 'error',
                 'messages' => __('Tài khoản không tồn tại.')
             ], 404);
         }
         $user->password = bcrypt($request->password);
         $user->save();
-        return $this->jsonResponse([
+        return ApiResponse::json([
             'status' => 'success',
             'messages' => __('messages.success_reset_password')
         ], 200);
@@ -214,7 +215,7 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return $this->jsonResponse([
+        return ApiResponse::json([
             'status' => 'success',
             'messages' => __('messages.success_logout')
         ], 200);
@@ -228,6 +229,46 @@ class AuthController extends Controller
      */
     public function user(Request $request): JsonResponse
     {
-        return $this->jsonResponse(new UserResource($request->user()));
+        return ApiResponse::json(new UserResource($request->user()));
+    }
+
+    /**
+     * Refresh access token (gửi Authorization: Bearer <access_token>).
+     * Token cũ có thể đã hết hạn nhưng vẫn trong cửa sổ refresh (JWT_REFRESH_TTL).
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $bearer = $request->bearerToken();
+        if (!$bearer) {
+            return ApiResponse::json([
+                'status' => 'error',
+                'messages' => __('Vui lòng gửi token.'),
+            ], 401);
+        }
+
+        try {
+            $token = JWTAuth::setToken($bearer)->refresh();
+        } catch (\PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException $e) {
+            return ApiResponse::json([
+                'status' => 'error',
+                'messages' => __('Token đã hết hạn, vui lòng đăng nhập lại.'),
+            ], 401);
+        } catch (\Exception $e) {
+            return ApiResponse::json([
+                'status' => 'error',
+                'messages' => __('Token không hợp lệ.'),
+            ], 401);
+        }
+
+        $ttl = (int) config('jwt.ttl', 60);
+        return ApiResponse::json([
+            'status' => 'success',
+            'messages' => __('Cấp lại token thành công.'),
+            'token' => $token,
+            'expires_in' => $ttl * 60,
+        ], 200);
     }
 }

@@ -77,7 +77,7 @@ const submit = () => {
                 <div class="px-5 py-6 sm:px-8">
                     <AuthCardTitle
                         title="Đăng nhập"
-                        subtitle="Cổng thông tin UTC eLibrary"
+                        subtitle="Đăng nhập để sử dụng Thư viện số – tra cứu sách, mượn sách, gia hạn"
                     >
                         <template #icon
                             ><LogIn :size="24" class="animate-pulse"
@@ -282,6 +282,12 @@ const submit = () => {
                                     >Tạo tài khoản ngay</span
                                 >
                                 <ArrowRight :size="16" class="text-blue-400" />
+                            </Link>
+                            <Link
+                                :href="route('library.search')"
+                                class="mt-2 text-xs text-slate-400 hover:text-blue-400 underline"
+                            >
+                                Vào thư viện (Tra cứu sách)
                             </Link>
                         </div>
                     </div>

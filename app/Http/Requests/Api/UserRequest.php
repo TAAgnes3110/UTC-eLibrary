@@ -1,22 +1,28 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Api;
 
 use App\Enums\RoleType;
+use App\Http\Requests\BaseRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Form request validate tạo/cập nhật người dùng (API).
+ */
 class UserRequest extends BaseRequest
 {
     protected function prepareForValidation(): void
     {
+        $userType = $this->input('user_type') ?? $this->input('role');
         $this->merge([
-            'role' => $this->role ?? RoleType::GUEST->value,
+            'user_type' => $userType ?? RoleType::MEMBER->value,
         ]);
     }
 
     public function rules(): array
     {
         $userId = $this->route('user');
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
 
         return [
             'code' => [
@@ -38,9 +44,12 @@ class UserRequest extends BaseRequest
                 'max:20',
                 Rule::unique('users', 'phone')->ignore($userId),
             ],
-            'password' => 'nullable|string|min:8',
-            'role' => ['required', Rule::in(array_column(RoleType::cases(), 'value'))],
-
+            'password' => [$isUpdate ? 'nullable' : 'required', 'string', 'min:8'],
+            'user_type' => ['required', Rule::in(array_column(RoleType::cases(), 'value'))],
+            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+            'card_number' => 'nullable|string|max:50',
+            'is_active' => 'sometimes|boolean',
         ];
     }
 
@@ -54,8 +63,9 @@ class UserRequest extends BaseRequest
             'email.email' => 'Email không hợp lệ',
             'email.unique' => 'Email đã tồn tại',
             'phone.unique' => 'Số điện thoại đã tồn tại',
+            'password.required' => 'Mật khẩu không được để trống',
             'password.min' => 'Mật khẩu phải có ít nhất 8 ký tự',
-            'role.in' => 'Vai trò không hợp lệ',
+            'user_type.in' => 'Vai trò không hợp lệ',
         ];
     }
 }

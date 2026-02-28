@@ -18,6 +18,6 @@ class Customer extends BaseModel
     ];
 
     protected $casts = [
-        'params' => 'object',
+        'params' => 'array',
     ];
 }

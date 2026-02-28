@@ -19,8 +19,9 @@ return new class extends Migration
             $table->string('contact_person')->nullable();
             $table->string('country')->default('Việt Nam');
             $table->boolean('is_active')->default(true);
-            $table->json('params')->nullable();
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

@@ -355,6 +355,12 @@ const submit = () => {
                         >
                             <span class="leading-none">ĐĂNG NHẬP NGAY</span>
                         </Link>
+                        <Link
+                            :href="route('library.search')"
+                            class="mt-2 block text-xs text-slate-400 hover:text-blue-400 underline"
+                        >
+                            Vào thư viện (Tra cứu sách không cần đăng nhập)
+                        </Link>
                     </div>
                 </div>
             </div>

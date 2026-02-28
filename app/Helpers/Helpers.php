@@ -3,7 +3,9 @@
 namespace App\Helpers;
 
 /**
- * Helper utilities class
+ * Helper tiện ích: sinh số ngẫu nhiên (OTP), merge mảng không trùng.
+ *
+ * @todo generateRandomNumber: dùng random_int() thay rand() cho bảo mật.
  */
 class Helpers
 {

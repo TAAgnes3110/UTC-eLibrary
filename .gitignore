@@ -39,7 +39,6 @@ Homestead.yaml
 Thumbs.db
 
 ngrok.exe
-start-ngrok.bat
 
 # Local env overrides
 .env.local

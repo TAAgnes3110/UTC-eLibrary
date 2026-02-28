@@ -14,6 +14,11 @@ use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
+/**
+ * Helper đọc/ghi Excel, parse ngày/số, build kết quả import, getValueByAliases.
+ *
+ * @todo Hỗ trợ định dạng ODS nếu cần.
+ */
 class FileHelpers
 {
   /**
@@ -23,6 +28,9 @@ class FileHelpers
 
   /**
    * Lấy extension của file.
+   *
+   * @param UploadedFile|string $file
+   * @return string
    */
   public static function getFileExtension(UploadedFile|string $file): string
   {
@@ -34,6 +42,9 @@ class FileHelpers
 
   /**
    * Kiểm tra file có phải Excel không.
+   *
+   * @param UploadedFile|string $file
+   * @return bool
    */
   public static function isExcelFile(UploadedFile|string $file): bool
   {

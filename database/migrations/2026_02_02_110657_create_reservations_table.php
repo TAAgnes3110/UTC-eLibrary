@@ -14,13 +14,17 @@ return new class extends Migration
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->unsignedInteger('book_id');
             $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
-            $table->enum('status', ['pending', 'fulfilled', 'cancelled', 'expired'])->default('pending')->comment('Trạng thái');
+            $table->enum('status', ['pending', 'fulfilled', 'cancelled', 'expired'])->default('pending')->comment('TT');
             $table->date('reservation_date')->comment('Ngày đặt');
-            $table->date('expiry_date')->nullable()->comment('Ngày hết hạn đặt');
+            $table->date('expiry_date')->nullable()->comment('Hạn đặt');
             $table->text('notes')->nullable()->comment('Ghi chú');
-            $table->json('params')->nullable()->comment('Tham số bổ sung');
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
             $table->softDeletes();
+            $table->index('status');
+            $table->index(['user_id', 'status']);
+            $table->index(['book_id', 'status']);
+            $table->index('created_at');
         });
     }
 

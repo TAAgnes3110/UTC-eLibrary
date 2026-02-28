@@ -4,8 +4,16 @@ namespace App\Http\Requests\OtpRequests;
 
 use App\Http\Requests\BaseRequest;
 
+/**
+ * Form request validate gửi OTP (email).
+ */
 class SendOTPRequest extends BaseRequest
 {
+  /**
+   * Rule validation.
+   *
+   * @return array<string, mixed>
+   */
   public function rules(): array
   {
     return [
@@ -13,6 +21,11 @@ class SendOTPRequest extends BaseRequest
     ];
   }
 
+  /**
+   * Thông báo lỗi.
+   *
+   * @return array<string, string>
+   */
   public function messages(): array
   {
     return [

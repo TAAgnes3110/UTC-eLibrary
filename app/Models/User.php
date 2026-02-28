@@ -28,6 +28,8 @@ class User extends Authenticatable implements JWTSubject
         'date_of_birth',
         'gender',
         'address',
+        'faculty_id',
+        'department_id',
         'is_active',
     ];
 
@@ -40,19 +42,42 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
+            'date_of_birth' => 'date',
             'password' => 'hashed',
             'user_type' => RoleType::class,
             'is_active' => 'boolean',
         ];
     }
-    public function libraryCard()
+    public function faculty(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Faculty::class);
+    }
+
+    public function department(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function libraryCard(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(LibraryCard::class);
     }
-    public function fines()
+
+    public function loans(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Loan::class);
+    }
+
+    public function fines(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Fine::class);
     }
+
+    public function reservations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Reservation::class);
+    }
+
     public function scopeDuplicate($query, array $data, ?int $excludeId = null)
     {
         return $query->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))

@@ -11,14 +11,16 @@ class Book extends BaseModel
 {
     use SoftDeletes;
 
-    public static string $tableName = 'books';
     protected $table = 'books';
 
     protected $fillable = [
         'type',
         'title',
+        'isbn',
         'classification_code',
         'classification_detail',
+        'language',
+        'edition',
         'category_id',
         'faculty_id',
         'publisher_id',
@@ -73,6 +75,11 @@ class Book extends BaseModel
     public function availableCopies(): HasMany
     {
         return $this->hasMany(BookCopy::class)->where('status', 'available');
+    }
+
+    public function reservations(): HasMany
+    {
+        return $this->hasMany(Reservation::class);
     }
 
     public function updateStatistics(): void

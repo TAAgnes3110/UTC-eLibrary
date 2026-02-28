@@ -3,10 +3,17 @@
 namespace App\Http\Requests\OtpRequests;
 
 use App\Http\Requests\BaseRequest;
-use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Form request validate xác thực OTP (email + otp).
+ */
 class VerifyOTPRequest extends BaseRequest
 {
+    /**
+     * Rule validation.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
@@ -15,6 +22,11 @@ class VerifyOTPRequest extends BaseRequest
         ];
     }
 
+    /**
+     * Thông báo lỗi.
+     *
+     * @return array<string, string>
+     */
     public function messages(): array
     {
         return [

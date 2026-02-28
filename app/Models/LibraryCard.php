@@ -8,61 +8,62 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LibraryCard extends Model
 {
-  use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
-  protected $fillable = [
-    'card_number',
-    'user_id',
-    'issue_date',
-    'expiry_date',
-    'status',
-    'is_active',
-    'card_type',
-    'note',
-    'metadata',
-  ];
+    protected $table = 'library_cards';
 
-  protected $casts = [
-    'issue_date' => 'date',
-    'expiry_date' => 'date',
-    'is_active' => 'boolean',
-    'metadata' => 'array',
-  ];
+      protected $fillable = [
+        'card_number',
+        'user_id',
+        'issue_date',
+        'expiry_date',
+        'status',
+        'is_active',
+        'card_type',
+        'note',
+        'metadata',
+    ];
 
-  public function user()
-  {
-    return $this->belongsTo(User::class);
-  }
+    protected $casts = [
+        'issue_date' => 'date',
+        'expiry_date' => 'date',
+        'is_active' => 'boolean',
+        'metadata' => 'array',
+    ];
 
-  public function loans()
-  {
-    return $this->hasMany(Loan::class, 'user_id', 'user_id');
-  }
-
-  public function canBorrow(int $maxBooks = 5): bool
-  {
-    if (!$this->is_active) {
-      return false;
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
-    if ($this->status !== 'active') {
-      return false;
+    public function loans(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Loan::class, 'user_id', 'user_id');
     }
 
-    if ($this->expiry_date && $this->expiry_date->isPast()) {
-      return false;
-    }
+    public function canBorrow(int $maxBooks = 5): bool
+    {
+        if (!$this->is_active) {
+            return false;
+        }
 
-    $activeLoansCount = $this->loans()->where('status', 'active')->count();
-    if ($activeLoansCount >= $maxBooks) {
-      return false;
-    }
+        if ($this->status !== 'active') {
+            return false;
+        }
 
-    // Check for unpaid fines via user
-    if ($this->user && $this->user->fines && $this->user->fines()->where('status', 'unpaid')->exists()) {
-      return false;
-    }
+        if ($this->expiry_date && $this->expiry_date->isPast()) {
+            return false;
+        }
 
-    return true;
-  }
+        $activeLoansCount = $this->loans()->where('status', 'active')->count();
+        if ($activeLoansCount >= $maxBooks) {
+            return false;
+        }
+
+        if ($this->user && $this->user->fines()->where('status', 'unpaid')->exists()) {
+            return false;
+        }
+
+        return true;
+    }
 }

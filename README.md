@@ -260,6 +260,16 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
+**Tài khoản mặc định (sau khi chạy seed):**
+
+| Vai trò      | Email                 | Mật khẩu  |
+|-------------|------------------------|-----------|
+| Admin       | `admin@example.com`    | `password` |
+| Thủ thư     | `librarian@example.com`| `password` |
+| Người dùng  | `user@example.com`     | `password` |
+
+Chỉ tạo tài khoản nếu chưa tồn tại (theo email). Nên đổi mật khẩu sau lần đăng nhập đầu.
+
 **5. Chạy ứng dụng**
 
 ```bash
@@ -295,15 +305,25 @@ Chi tiết: xem `docker-compose.yml` và `Dockerfile`.
 
 Để test trên điện thoại, demo từ xa hoặc test OAuth/Webhook:
 
-1. Đăng ký [ngrok.com](https://ngrok.com) và lấy Authtoken.
-2. Thêm vào `.env`:
+1. **Cài đặt ngrok** (nếu chưa có):
+   - Tải [ngrok](https://ngrok.com/download) (Windows), giải nén và đặt `ngrok.exe` vào thư mục (vd: `C:\ngrok\ngrok.exe`).
+   - Hoặc dùng Chocolatey: `choco install ngrok` (chạy CMD/PowerShell **Run as Administrator**).
+2. Đăng ký [ngrok.com](https://ngrok.com) và lấy Authtoken.
+3. Thêm vào `.env`:
    ```env
    NGROK_AUTHTOKEN=your_ngrok_authtoken_here
    ```
-3. Chạy ngrok:
-   - **Windows:** `start-ngrok.bat`
-   - **Hoặc:** `ngrok http 8000`
-4. Copy URL ngrok (vd: `https://xxxx.ngrok-free.dev`) và cập nhật trong `.env`:
+4. Chạy ngrok:
+   - **Git Bash / Terminal:** `ngrok http 8000` (chỉ chạy được nếu `ngrok` đã nằm trong PATH).
+   - **Nếu báo "command not found":** dùng đường dẫn đầy đủ, ví dụ:
+     ```bash
+     /c/ngrok/ngrok.exe http 8000
+     ```
+     (đổi `C:\ngrok\ngrok.exe` theo nơi bạn đặt file; trong Git Bash dùng `/c/ngrok/ngrok.exe`).
+   - **Windows CMD:** `start-ngrok.bat` hoặc `ngrok http 8000` (file `start-ngrok.bat` nằm ở thư mục gốc project).
+   - **Git Bash:** `./start-ngrok.sh` hoặc `./ngrok.exe http 8000` (nếu đặt `ngrok.exe` trong thư mục project).
+   - (Đổi `8000` nếu app chạy ở port khác.)
+5. Copy URL ngrok (vd: `https://xxxx.ngrok-free.dev`) và cập nhật trong `.env`:
    ```env
    APP_URL=https://xxxx.ngrok-free.dev
    ```

@@ -25,7 +25,7 @@ class AuthApiTest extends TestCase
 
   public function test_user_can_register()
   {
-    $response = $this->postJson('/api/auth/register', [
+    $response = $this->postJson('/api/v1/auth/register', [
       'name' => 'Test Student',
       'code' => '12345678',
       'email' => 'teststudent@example.com',
@@ -47,7 +47,7 @@ class AuthApiTest extends TestCase
   public function test_user_can_verify_otp_and_complete_registration()
   {
     // 1. Register first to generate OTP
-    $response = $this->postJson('/api/auth/register', [
+    $response = $this->postJson('/api/v1/auth/register', [
       'name' => 'Test Student',
       'code' => '12345678',
       'email' => 'teststudent@example.com',
@@ -59,7 +59,7 @@ class AuthApiTest extends TestCase
     // 2. Get OTP from DB
     $otpRecord = EmailOtp::where('email', 'teststudent@example.com')->first();
     $this->assertNotNull($otpRecord);
-    $response = $this->postJson('/api/auth/verify-otp', [
+    $response = $this->postJson('/api/v1/auth/verify-otp', [
       'email' => 'teststudent@example.com',
       'otp' => $otpRecord->otp
     ]);
@@ -97,7 +97,7 @@ class AuthApiTest extends TestCase
       'issue_date' => now(),
     ]);
 
-    $response = $this->postJson('/api/auth/login', [
+    $response = $this->postJson('/api/v1/auth/login', [
       'login' => 'loginuser@example.com',
       'password' => 'password'
     ]);
@@ -113,7 +113,7 @@ class AuthApiTest extends TestCase
 
   public function test_otp_throttling()
   {
-    $this->postJson('/api/auth/register', [
+    $this->postJson('/api/v1/auth/register', [
       'name' => 'Test Student',
       'code' => '12345678',
       'email' => 'teststudent@example.com',
@@ -122,7 +122,7 @@ class AuthApiTest extends TestCase
       'password_confirmation' => 'password',
     ]);
 
-    $response = $this->postJson('/api/auth/register', [
+    $response = $this->postJson('/api/v1/auth/register', [
       'name' => 'Test Student',
       'code' => '12345678',
       'email' => 'teststudent@example.com',

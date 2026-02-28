@@ -6,8 +6,16 @@ use App\Enums\RoleType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Form request validate đăng ký tài khoản (code, name, email, password, ...).
+ */
 class RegisterRequest extends FormRequest
 {
+    /**
+     * Chuẩn hóa user_type mặc định MEMBER.
+     *
+     * @return void
+     */
     protected function prepareForValidation(): void
     {
         $this->merge([
@@ -15,6 +23,11 @@ class RegisterRequest extends FormRequest
         ]);
     }
 
+    /**
+     * Rule validation.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
@@ -35,6 +48,11 @@ class RegisterRequest extends FormRequest
         ];
     }
 
+    /**
+     * Thông báo lỗi.
+     *
+     * @return array<string, string>
+     */
     public function messages(): array
     {
         return [

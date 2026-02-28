@@ -11,9 +11,12 @@ return new class extends Migration
         Schema::create('email_otp', function (Blueprint $table) {
             $table->id();
             $table->string('email')->unique();
-            $table->string('otp');
+            $table->string('otp', 10);
             $table->timestamp('expired_at')->nullable();
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
+
+            $table->index('expired_at');
         });
     }
 

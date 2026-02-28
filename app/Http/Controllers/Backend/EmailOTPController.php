@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\OtpRequests\SendOTPRequest;
 use App\Services\OtpService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * Controller gửi OTP qua email (đăng ký, quên mật khẩu).
+ *
+ * @todo Giới hạn số lần gửi OTP theo email/ngày.
+ */
 class EmailOTPController extends Controller
 {
     /**
@@ -27,12 +33,12 @@ class EmailOTPController extends Controller
 
             if (!$result['status']) {
                 $statusCode = isset($result['seconds_left']) ? 429 : 500;
-                return $this->jsonResponse(['status' => 'error', 'messages' => $result['message']], $statusCode);
+                return ApiResponse::json(['status' => 'error', 'messages' => $result['message']], $statusCode);
             }
 
-            return $this->jsonResponse(['status' => 'success', 'messages' => $result['message'], 'otp' => $result['otp']], 200);
+            return ApiResponse::json(['status' => 'success', 'messages' => $result['message'], 'otp' => $result['otp']], 200);
         } catch (Exception $e) {
-            return $this->jsonResponse(['status' => 'error', 'messages' => $e->getMessage()], 500);
+            return ApiResponse::json(['status' => 'error', 'messages' => $e->getMessage()], 500);
         }
     }
 

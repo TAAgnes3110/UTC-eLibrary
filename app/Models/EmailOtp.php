@@ -13,8 +13,11 @@ class EmailOtp extends Model
         'email',
         'otp',
         'expired_at',
+        'params',
     ];
+
     protected $casts = [
         'expired_at' => 'datetime',
+        'params' => 'array',
     ];
 }

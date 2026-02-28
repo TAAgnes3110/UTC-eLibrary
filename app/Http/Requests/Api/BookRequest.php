@@ -1,23 +1,30 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Api;
 
 use App\Enums\BookType;
+use App\Http\Requests\BaseRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Form request validate tạo/cập nhật sách (API).
+ */
 class BookRequest extends BaseRequest
 {
     public function rules(): array
     {
-        $typeValues = array_map(fn ($c) => $c->value, BookType::cases());
+        $typeValues = BookType::values();
 
         return [
             'title' => ['required', 'string', 'max:500'],
             'type' => ['required', 'string', Rule::in($typeValues)],
-            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
+            'isbn' => ['nullable', 'string', 'max:20'],
             'classification_code' => ['nullable', 'string', 'max:100'],
             'classification_detail' => ['nullable', 'string', 'max:255'],
+            'language' => ['nullable', 'string', 'max:10'],
+            'edition' => ['nullable', 'string', 'max:50'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
             'author' => ['required', 'string', 'max:255'],
             'co_authors' => ['nullable', 'string', 'max:500'],
             'publisher_id' => ['nullable', 'integer', 'exists:publishers,id'],

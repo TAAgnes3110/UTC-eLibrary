@@ -1,7 +1,12 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Api;
 
+use App\Http\Requests\BaseRequest;
+
+/**
+ * Form request validate tạo/cập nhật tác giả (API).
+ */
 class AuthorRequest extends BaseRequest
 {
     public function rules(): array

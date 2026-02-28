@@ -4,8 +4,16 @@ namespace App\Http\Requests\AuthRequests;
 
 use App\Http\Requests\BaseRequest;
 
+/**
+ * Form request validate đăng nhập (login + password).
+ */
 class LoginRequest extends BaseRequest
 {
+    /**
+     * Rule validation.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
@@ -14,6 +22,11 @@ class LoginRequest extends BaseRequest
         ];
     }
 
+    /**
+     * Thông báo lỗi.
+     *
+     * @return array<string, string>
+     */
     public function messages(): array
     {
         return [

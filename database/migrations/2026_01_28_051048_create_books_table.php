@@ -16,8 +16,11 @@ return new class extends Migration
             $table->increments('id');
             $table->enum('type', $types)->default('book')->index();
             $table->string('title');
+            $table->string('isbn', 20)->nullable()->comment('ISBN');
             $table->string('classification_code')->nullable();
             $table->string('classification_detail', 255)->nullable();
+            $table->string('language', 10)->nullable()->comment('Ngôn ngữ (vi, en...)');
+            $table->string('edition', 50)->nullable()->comment('Lần XB');
             $table->unsignedInteger('category_id')->nullable();
             $table->unsignedInteger('faculty_id')->nullable();
             $table->unsignedInteger('publisher_id')->nullable();
@@ -29,10 +32,17 @@ return new class extends Migration
             $table->decimal('price', 10, 2)->nullable();
             $table->text('notes')->nullable();
             $table->enum('status', $statuses)->default('available');
-            $table->json('params')->nullable();
+            $table->unsignedInteger('total_copies')->default(0)->comment('Tổng bản in');
+            $table->unsignedInteger('available_copies')->default(0)->comment('Bản có sẵn');
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
             $table->softDeletes();
 
+            $table->index('title');
+            $table->index('isbn');
+            $table->index('status');
+            $table->index('published_year');
+            $table->index('classification_code');
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null');
             $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('set null');
             $table->foreign('publisher_id')->references('id')->on('publishers')->onDelete('set null');

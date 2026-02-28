@@ -6,8 +6,18 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Middleware kiểm tra đã đăng nhập (global $currentUser).
+ */
 class CheckLogin
 {
+    /**
+     * Cho qua nếu $currentUser->id > 0, ngược lại trả 401.
+     *
+     * @param Request $request
+     * @param Closure $next
+     * @return Response
+     */
     public function handle(Request $request, Closure $next): Response
     {
         global $currentUser;

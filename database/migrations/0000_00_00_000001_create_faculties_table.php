@@ -12,8 +12,8 @@ return new class extends Migration
             $table->increments('id');
             $table->string('code')->unique()->comment('Mã khoa');
             $table->string('name')->comment('Tên khoa');
-            $table->boolean('is_active')->default(true)->comment('Trạng thái hoạt động');
-            $table->json('params')->nullable()->comment('Tham số bổ sung');
+            $table->boolean('is_active')->default(true)->comment('TT hoạt động');
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
         });
     }

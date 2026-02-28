@@ -3,9 +3,10 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Enums\BookType;
+use App\Helpers\ApiResponse;
 use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\BookRequest;
+use App\Http\Requests\Api\BookRequest;
 use App\Imports\BooksImport;
 use App\Models\Author;
 use App\Models\Book;
@@ -20,7 +21,7 @@ class BookController extends Controller
   /**
    * Danh sách sách có phân trang, tìm theo từ khóa.
    *
-   * @param Request $request
+   * @param Request $request Query: keyword (optional).
    * @return JsonResponse
    */
   public function index(Request $request): JsonResponse
@@ -31,20 +32,21 @@ class BookController extends Controller
       ->when($keyword, function ($query) use ($keyword) {
         $query->where(function ($q) use ($keyword) {
           $q->where('title', 'like', "%$keyword%")
-            ->orWhere('classification_code', 'like', "%$keyword%");
+            ->orWhere('classification_code', 'like', "%$keyword%")
+            ->orWhere('isbn', 'like', "%$keyword%");
         });
       })
       ->orderBy('id', 'desc')
       ->paginate(10)
       ->withQueryString();
-    return $this->jsonResponse($items->toArray());
+    return ApiResponse::success($items->toArray());
   }
 
   /**
    * Thêm sách mới (kèm tác giả, NXB, bản in).
    *
    * @param BookRequest $request
-   * @return JsonResponse
+   * @return JsonResponse 201 + data book.
    */
   public function store(BookRequest $request): JsonResponse
   {
@@ -55,8 +57,11 @@ class BookController extends Controller
     $book = Book::create([
       'type' => $data['type'],
       'title' => $data['title'],
+      'isbn' => $data['isbn'] ?? null,
       'classification_code' => $data['classification_code'] ?? null,
       'classification_detail' => $data['classification_detail'] ?? null,
+      'language' => $data['language'] ?? null,
+      'edition' => $data['edition'] ?? null,
       'category_id' => $data['category_id'] ?? null,
       'faculty_id' => $data['faculty_id'] ?? null,
       'publisher_id' => $publisherId,
@@ -77,18 +82,18 @@ class BookController extends Controller
     }
     $book->updateStatistics();
 
-    return $this->jsonResponse([
-      'status' => 'success',
-      'message' => __('messages.success'),
-      'data' => $book->load(['category', 'publisher', 'authors']),
-    ], 201);
+    return ApiResponse::success(
+      $book->load(['category', 'publisher', 'authors']),
+      __('messages.success_create'),
+      201
+    );
   }
 
   /**
    * Import danh sách sách từ file Excel/CSV.
    *
-   * @param Request $request
-   * @return JsonResponse
+   * @param Request $request file (required).
+   * @return JsonResponse status, messages, data.
    */
   public function import(Request $request): JsonResponse
   {
@@ -99,10 +104,10 @@ class BookController extends Controller
     $file = $request->file('file');
 
     if (!FileHelpers::isExcelFile($file)) {
-      return $this->jsonResponse([
-        'status' => 'error',
-        'messages' => 'File phải có định dạng: ' . implode(', ', FileHelpers::EXCEL_EXTENSIONS),
-      ], 422);
+      return ApiResponse::error(
+        'File phải có định dạng: ' . implode(', ', FileHelpers::EXCEL_EXTENSIONS),
+        422
+      );
     }
 
     $importer = new BooksImport();
@@ -111,12 +116,13 @@ class BookController extends Controller
     $code = match ($result['status']) {
       'success' => 200,
       'partial' => 207,
-      default   => 422,
+      default => 422,
     };
 
-    return $this->jsonResponse([
+    $message = "Import hoàn tất: {$result['summary']['success']} thành công, {$result['summary']['skipped']} bỏ qua, {$result['summary']['errors']} lỗi.";
+    return ApiResponse::json([
       'status' => $result['status'],
-      'messages' => "Import hoàn tất: {$result['summary']['success']} thành công, {$result['summary']['skipped']} bỏ qua, {$result['summary']['errors']} lỗi.",
+      'messages' => $message,
       'data' => $result,
     ], $code);
   }
@@ -137,8 +143,11 @@ class BookController extends Controller
     $book->update([
       'type' => $data['type'],
       'title' => $data['title'],
+      'isbn' => $data['isbn'] ?? null,
       'classification_code' => $data['classification_code'] ?? null,
       'classification_detail' => $data['classification_detail'] ?? null,
+      'language' => $data['language'] ?? null,
+      'edition' => $data['edition'] ?? null,
       'category_id' => $data['category_id'] ?? null,
       'faculty_id' => $data['faculty_id'] ?? null,
       'publisher_id' => $publisherId,
@@ -161,11 +170,10 @@ class BookController extends Controller
     }
     $book->updateStatistics();
 
-    return $this->jsonResponse([
-      'status' => 'success',
-      'message' => __('messages.success'),
-      'data' => $book->load(['category', 'publisher', 'authors']),
-    ]);
+    return ApiResponse::success(
+      $book->load(['category', 'publisher', 'authors']),
+      __('messages.success_update')
+    );
   }
 
   /**
@@ -177,14 +185,13 @@ class BookController extends Controller
   public function destroy(Book $book): JsonResponse
   {
     $book->delete();
-    return $this->jsonResponse([
-      'status' => 'success',
-      'message' => __('messages.success_delete'),
-    ]);
+    return ApiResponse::success(null, __('messages.success_delete'));
   }
 
   /**
    * Danh sách sách đã xóa mềm (thùng rác).
+   *
+   * @return JsonResponse
    */
   public function trash(): JsonResponse
   {
@@ -192,39 +199,45 @@ class BookController extends Controller
       ->with(['category', 'publisher', 'authors'])
       ->orderByDesc('deleted_at')
       ->get()
-      ->map(fn ($b) => [
+      ->map(fn($b) => [
         'id' => $b->id,
         'title' => $b->title,
         'classification_code' => $b->classification_code,
         'deleted_at' => $b->deleted_at?->toIso8601String(),
       ]);
-    return $this->jsonResponse(['data' => $items]);
+    return ApiResponse::success($items->toArray());
   }
 
   /**
    * Khôi phục sách từ thùng rác.
+   *
+   * @param int|string $id
+   * @return JsonResponse 200 hoặc 410.
    */
   public function restore($id): JsonResponse
   {
     $book = Book::onlyTrashed()->find($id);
     if (!$book) {
-      return $this->jsonResponse(['status' => 'error', 'message' => __('messages.error_410')], 410);
+      return ApiResponse::notFound();
     }
     $book->restore();
-    return $this->jsonResponse(['status' => 'success', 'message' => __('Đã khôi phục.')]);
+    return ApiResponse::success(null, __('Đã khôi phục.'));
   }
 
   /**
    * Xóa vĩnh viễn sách.
+   *
+   * @param int|string $id
+   * @return JsonResponse 200 hoặc 410.
    */
   public function forceDelete($id): JsonResponse
   {
     $book = Book::onlyTrashed()->find($id);
     if (!$book) {
-      return $this->jsonResponse(['status' => 'error', 'message' => __('messages.error_410')], 410);
+      return ApiResponse::notFound();
     }
     $book->forceDelete();
-    return $this->jsonResponse(['status' => 'success', 'message' => __('Đã xóa vĩnh viễn.')]);
+    return ApiResponse::success(null, __('Đã xóa vĩnh viễn.'));
   }
 
   /**

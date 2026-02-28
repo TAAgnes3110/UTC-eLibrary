@@ -3,10 +3,17 @@
 namespace App\Http\Requests\AuthRequests;
 
 use App\Http\Requests\BaseRequest;
-use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Form request validate quên mật khẩu / đặt lại mật khẩu (email, password).
+ */
 class ForgotPasswordRequest extends BaseRequest
 {
+    /**
+     * Rule validation.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
@@ -15,6 +22,11 @@ class ForgotPasswordRequest extends BaseRequest
         ];
     }
 
+    /**
+     * Thông báo lỗi.
+     *
+     * @return array<string, string>
+     */
     public function messages(): array
     {
         return [

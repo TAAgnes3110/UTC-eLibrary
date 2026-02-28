@@ -21,13 +21,14 @@ return new class extends Migration
         'lost',
         'damaged',
         'cancelled'
-      ])->comment('Hành động');
+      ])->comment('Hành động (loan, return, renew...)');
 
       $table->unsignedInteger('performed_by')->nullable();
       $table->foreign('performed_by')->references('id')->on('users')->onDelete('set null');
 
       $table->text('notes')->nullable();
-      $table->json('metadata')->nullable()->comment('Dữ liệu bổ sung');
+      $table->json('metadata')->nullable()->comment('Metadata');
+      $table->json('params')->nullable()->comment('Tham số');
 
       $table->timestamp('performed_at')->useCurrent();
 

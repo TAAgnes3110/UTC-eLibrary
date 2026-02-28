@@ -8,37 +8,37 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends BaseModel
 {
-  use SoftDeletes;
+    use SoftDeletes;
 
-  protected $fillable = [
-    'code',
-    'name',
-    'description',
-    'parent_id',
-    'order',
-    'is_active',
-    'icon',
-    'color',
-    'params',
-  ];
+    protected $table = 'categories';
 
-  protected $casts = [
-    'is_active' => 'boolean',
-    'params' => 'array',
-  ];
+      protected $fillable = [
+        'code',
+        'name',
+        'description',
+        'parent_id',
+        'order',
+        'is_active',
+        'params',
+    ];
 
-  public function parent(): BelongsTo
-  {
-    return $this->belongsTo(Category::class, 'parent_id');
-  }
+    protected $casts = [
+        'is_active' => 'boolean',
+        'params' => 'array',
+    ];
 
-  public function children(): HasMany
-  {
-    return $this->hasMany(Category::class, 'parent_id');
-  }
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
 
-  public function books(): HasMany
-  {
-    return $this->hasMany(Book::class);
-  }
+    public function children(): HasMany
+    {
+        return $this->hasMany(Category::class, 'parent_id');
+    }
+
+    public function books(): HasMany
+    {
+        return $this->hasMany(Book::class);
+    }
 }

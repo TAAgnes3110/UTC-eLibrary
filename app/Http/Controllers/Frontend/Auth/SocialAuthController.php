@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Frontend\Auth;
 
 use App\Enums\RoleType;
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\RedirectResponse;
@@ -12,17 +13,11 @@ use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
 {
-    /**
-     * Redirect to Microsoft authentication page
-     */
     public function redirectToMicrosoft(): RedirectResponse
     {
         return Socialite::driver('microsoft-azure')->redirect();
     }
 
-    /**
-     * Handle Microsoft authentication callback
-     */
     public function handleMicrosoftCallback(): RedirectResponse
     {
         try {
@@ -34,7 +29,8 @@ class SocialAuthController extends Controller
         }
         $email = $microsoftUser->getEmail();
         $name = $microsoftUser->getName();
-        $code = $this->extractCodeFromEmail($email) ?? $microsoftUser->getId();
+        $msId = $microsoftUser->getId();
+        $code = $this->extractCodeFromEmail($email) ?? ('MS' . $msId);
         $userTypeData = $this->determineUserType($email, $microsoftUser);
 
         $user = User::where('email', $email)->first();
@@ -43,14 +39,14 @@ class SocialAuthController extends Controller
                 'name' => $name,
                 'email' => $email,
                 'code' => $code,
-                'password' => Hash::make($code),
+                'password' => Hash::make($msId),
                 'email_verified_at' => now(),
                 'user_type' => RoleType::MEMBER,
                 'avatar' => $microsoftUser->getAvatar(),
             ], $userTypeData);
             $user = User::create($userData);
             $user->libraryCard()->create([
-                'card_number' => $code,
+                'card_number' => 'TV-MS-' . $msId,
                 'status' => 'active',
                 'is_active' => true,
                 'issue_date' => now(),
@@ -58,17 +54,21 @@ class SocialAuthController extends Controller
         }
         Auth::login($user);
         request()->session()->regenerate();
-        return redirect()->intended(route('admin.dashboard'));
+        $staffRoles = RoleType::staffRoles();
+        $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : ($user->user_type ?? null);
+        $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
+        return redirect()->intended(route($isStaff ? 'admin.dashboard' : 'library.dashboard'));
     }
+
     private function extractCodeFromEmail(string $email): ?string
     {
         $username = explode('@', $email)[0];
-
         if (preg_match('/^[a-zA-Z]*(\d+)$/', $username, $matches)) {
             return $matches[1];
         }
         return null;
     }
+
     private function determineUserType(string $email, $microsoftUser): array
     {
         return [

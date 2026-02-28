@@ -1,10 +1,12 @@
 <?php
 
-use App\Http\Controllers\Backend\UserController;
 use App\Http\Controllers\Backend\AuthController;
 use App\Http\Controllers\Backend\AuthorController;
 use App\Http\Controllers\Backend\BookController;
 use App\Http\Controllers\Backend\EmailOTPController;
+use App\Http\Controllers\Backend\PermissionController;
+use App\Http\Controllers\Backend\RoleController;
+use App\Http\Controllers\Backend\UserController;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -12,22 +14,31 @@ use Illuminate\Support\Facades\Route;
 
 use App\Enums\RoleType;
 
-// Health check: GET /api/health (no auth, no throttle) - for monitoring
+// Health check: GET /api/health (no auth, no throttle) - Logging & Monitoring
 Route::get('health', function () {
-    $checks = ['database' => false, 'cache' => false];
+    $checks = ['database' => false, 'cache' => false, 'redis' => null];
     try {
         DB::connection()->getPdo();
         $checks['database'] = true;
     } catch (\Throwable) {
         //
     }
+    $driver = config('cache.default');
     try {
-        Cache::store(config('cache.default'))->put('health_ping', true, 10);
-        $checks['cache'] = Cache::store(config('cache.default'))->get('health_ping') === true;
+        Cache::store($driver)->put('health_ping', true, 10);
+        $checks['cache'] = Cache::store($driver)->get('health_ping') === true;
     } catch (\Throwable) {
         //
     }
-    $ok = $checks['database'] && $checks['cache'];
+    if ($driver === 'redis') {
+        try {
+            \Illuminate\Support\Facades\Redis::connection()->ping();
+            $checks['redis'] = true;
+        } catch (\Throwable) {
+            $checks['redis'] = false;
+        }
+    }
+    $ok = $checks['database'] && $checks['cache'] && ($checks['redis'] !== false);
     return response()->json([
         'status' => $ok ? 'ok' : 'degraded',
         'checks' => $checks,
@@ -45,6 +56,8 @@ Route::prefix('v1')->group(function () {
             Route::post('reset-password', [AuthController::class, 'resetPassword']);
         });
     });
+
+    Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
 
     Route::group(['prefix' => 'auth', 'middleware' => ['init']], function () {
         Route::post('logout', [AuthController::class, 'logout']);
@@ -84,6 +97,21 @@ Route::prefix('v1')->group(function () {
                 Route::post('/import', [BookController::class, 'import']);
                 Route::post('/restore/{id}', [BookController::class, 'restore']);
                 Route::delete('/force/{id}', [BookController::class, 'forceDelete']);
+            });
+
+            Route::group(['prefix' => '/roles'], function () {
+                Route::get('/', [RoleController::class, 'index']);
+                Route::post('/', [RoleController::class, 'store']);
+                Route::get('/{id}', [RoleController::class, 'show']);
+                Route::put('/{id}', [RoleController::class, 'update']);
+                Route::delete('/{id}', [RoleController::class, 'destroy']);
+                Route::post('/{id}/permissions', [RoleController::class, 'addPermission']);
+                Route::delete('/{id}/permissions', [RoleController::class, 'removePermission']);
+            });
+
+            Route::group(['prefix' => '/permissions'], function () {
+                Route::get('/', [PermissionController::class, 'index']);
+                Route::post('/', [PermissionController::class, 'store']);
             });
         });
     });

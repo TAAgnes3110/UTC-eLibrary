@@ -14,17 +14,19 @@ return new class extends Migration
             $table->foreign('loan_id')->references('id')->on('loans')->onDelete('cascade');
             $table->unsignedInteger('user_id');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->decimal('amount', 10, 2)->comment('Số tiền phạt');
+            $table->decimal('amount', 10, 2)->comment('Tiền phạt');
             $table->enum('reason', ['overdue', 'lost', 'damaged', 'other'])->comment('Lý do');
-            $table->text('description')->nullable()->comment('Mô tả chi tiết');
-            $table->enum('status', ['unpaid', 'paid', 'waived'])->default('unpaid')->comment('Trạng thái');
-            $table->date('paid_date')->nullable()->comment('Ngày thanh toán');
-            $table->string('payment_method')->nullable()->comment('Phương thức thanh toán');
+            $table->text('description')->nullable()->comment('Mô tả');
+            $table->enum('status', ['unpaid', 'paid', 'waived'])->default('unpaid')->comment('TT')->index();
+            $table->date('paid_date')->nullable()->comment('Ngày TT');
+            $table->string('payment_method')->nullable()->comment('PT thanh toán');
             $table->unsignedInteger('processed_by')->nullable();
             $table->foreign('processed_by')->references('id')->on('users')->onDelete('set null');
             $table->text('notes')->nullable()->comment('Ghi chú');
-            $table->json('params')->nullable()->comment('Tham số bổ sung');
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
+
+            $table->index(['user_id', 'status']);
         });
     }
 

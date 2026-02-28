@@ -1,36 +1,67 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Backend;
 
+use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 
+/**
+ * Controller quản lý vai trò (Spatie Permission) và gán permission cho role.
+ *
+ * @todo Dùng FormRequest riêng cho store/update; thống nhất format response (status/messages).
+ */
 class RoleController extends Controller
 {
-    public function index()
+    /**
+     * Danh sách tất cả role.
+     *
+     * @return JsonResponse
+     */
+    public function index(): JsonResponse
     {
-        return $this->jsonResponse(Role::all());
+        return ApiResponse::success(Role::all());
     }
 
-    public function store(Request $request)
+    /**
+     * Tạo role mới.
+     *
+     * @param Request $request Body: name (string, unique).
+     * @return JsonResponse 201 + role.
+     */
+    public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name' => 'required|string|unique:roles,name',
         ]);
 
         $role = Role::create(['name' => $validated['name'], 'guard_name' => 'api']);
-        return $this->jsonResponse($role, 201);
+        return ApiResponse::success($role, __('Thêm vai trò thành công.'), 201);
     }
 
-    public function show($id)
+    /**
+     * Chi tiết role kèm permissions.
+     *
+     * @param int|string $id ID role.
+     * @return JsonResponse
+     */
+    public function show($id): JsonResponse
     {
         $role = Role::findOrFail($id);
         $role->load('permissions');
-        return $this->jsonResponse($role);
+        return ApiResponse::success($role);
     }
 
-    public function update(Request $request, $id)
+    /**
+     * Cập nhật tên role.
+     *
+     * @param Request $request Body: name (string, unique trừ role hiện tại).
+     * @param int|string $id ID role.
+     * @return JsonResponse
+     */
+    public function update(Request $request, $id): JsonResponse
     {
         $role = Role::findOrFail($id);
 
@@ -39,18 +70,30 @@ class RoleController extends Controller
         ]);
 
         $role->update(['name' => $validated['name']]);
-        return $this->jsonResponse($role);
+        return ApiResponse::success($role);
     }
 
-    public function destroy($id)
+    /**
+     * Xóa role.
+     *
+     * @param int|string $id ID role.
+     * @return JsonResponse
+     */
+    public function destroy($id): JsonResponse
     {
         $role = Role::findOrFail($id);
         $role->delete();
-
-        return $this->jsonResponse(['message' => 'Role deleted successfully']);
+        return ApiResponse::success(null, __('Xóa vai trò thành công.'));
     }
 
-    public function addPermission(Request $request, $id)
+    /**
+     * Gán permission cho role.
+     *
+     * @param Request $request Body: permission (name, exists:permissions,name).
+     * @param int|string $id ID role.
+     * @return JsonResponse role + permissions.
+     */
+    public function addPermission(Request $request, $id): JsonResponse
     {
         $request->validate([
             'permission' => 'required|exists:permissions,name',
@@ -58,11 +101,17 @@ class RoleController extends Controller
 
         $role = Role::findOrFail($id);
         $role->givePermissionTo($request->permission);
-
-        return $this->jsonResponse(['message' => 'Permission added to role', 'role' => $role->load('permissions')]);
+        return ApiResponse::success($role->load('permissions'), __('Đã gán quyền cho vai trò.'));
     }
 
-    public function removePermission(Request $request, $id)
+    /**
+     * Thu hồi permission khỏi role.
+     *
+     * @param Request $request Body: permission (name).
+     * @param int|string $id ID role.
+     * @return JsonResponse role + permissions.
+     */
+    public function removePermission(Request $request, $id): JsonResponse
     {
         $request->validate([
             'permission' => 'required|exists:permissions,name',
@@ -70,7 +119,6 @@ class RoleController extends Controller
 
         $role = Role::findOrFail($id);
         $role->revokePermissionTo($request->permission);
-
-        return $this->jsonResponse(['message' => 'Permission removed from role', 'role' => $role->load('permissions')]);
+        return ApiResponse::success($role->load('permissions'), __('Đã thu hồi quyền khỏi vai trò.'));
     }
 }

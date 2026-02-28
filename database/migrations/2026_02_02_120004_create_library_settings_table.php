@@ -12,9 +12,10 @@ return new class extends Migration
       $table->increments('id');
       $table->string('key')->unique();
       $table->text('value')->nullable();
-      $table->string('type')->default('string')->comment('string, integer, boolean, json');
+      $table->string('type')->default('string')->comment('Kiểu: string, int, bool, json');
       $table->string('group')->default('general');
       $table->text('description')->nullable();
+      $table->json('params')->nullable()->comment('Tham số');
       $table->timestamps();
 
       $table->index(['group', 'key']);

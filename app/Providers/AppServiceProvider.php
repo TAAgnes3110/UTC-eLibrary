@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use App\Enums\RoleType;
+use Inertia\Inertia;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +31,24 @@ class AppServiceProvider extends ServiceProvider
         if (str_contains(config('app.url'), 'https')) {
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
+
+        Inertia::share('auth', function () {
+            $user = request()->user();
+            if (!$user) {
+                return ['user' => null, 'is_staff' => false];
+            }
+            $staffRoles = RoleType::staffRoles();
+            $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : ($user->user_type ?? null);
+            $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
+            return [
+                'user' => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'is_staff' => $isStaff,
+            ];
+        });
 
         Vite::prefetch(concurrency: 3);
         $this->bootMicrosoftAzureSocialite();
@@ -53,6 +73,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth', function (Request $request) {
             return Limit::perMinute(5)->by($request->ip());
         });
+
+        RateLimiter::for('refresh', function (Request $request) {
+            return Limit::perMinute(10)->by($request->ip());
+        });
     }
 
     protected function bootMicrosoftAzureSocialite()
@@ -60,7 +84,7 @@ class AppServiceProvider extends ServiceProvider
         $socialite = $this->app->make(\Laravel\Socialite\Contracts\Factory::class);
 
         $socialite->extend('microsoft-azure', function ($app) use ($socialite) {
-            $config = $app['config']['services.azure'];
+            $config = config('services.azure');
             return $socialite->buildProvider(\SocialiteProviders\Azure\Provider::class, $config);
         });
     }

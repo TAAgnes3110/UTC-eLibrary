@@ -13,23 +13,26 @@ return new class extends Migration
   {
     Schema::create('library_cards', function (Blueprint $table) {
       $table->increments('id');
-      $table->string('card_number')->unique()->comment('Số thẻ thư viện');
+      $table->string('card_number')->unique()->comment('Số thẻ');
       $table->unsignedInteger('user_id');
       $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
 
       $table->date('issue_date')->default(now())->comment('Ngày cấp');
-      $table->date('expiry_date')->nullable()->comment('Ngày hết hạn');
+      $table->date('expiry_date')->nullable()->comment('Hạn thẻ');
 
-      $table->enum('status', ['active', 'locked', 'expired', 'lost'])->default('active')->comment('Trạng thái thẻ');
-      $table->boolean('is_active')->default(true)->comment('Có đang hoạt động không');
+      $table->enum('status', ['active', 'locked', 'expired', 'lost'])->default('active')->comment('TT thẻ');
+      $table->boolean('is_active')->default(true)->comment('Đang hoạt động');
 
-      $table->string('card_type')->default('STANDARD')->comment('Loại thẻ (VIP, Normal, Student...)');
+      $table->string('card_type')->default('STANDARD')->comment('Loại thẻ');
 
       $table->text('note')->nullable()->comment('Ghi chú');
-      $table->json('metadata')->nullable()->comment('Thông tin bổ sung');
+      $table->json('metadata')->nullable()->comment('Metadata');
 
       $table->timestamps();
       $table->softDeletes();
+
+      $table->index('user_id');
+      $table->index('status');
     });
   }
 

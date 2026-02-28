@@ -28,10 +28,16 @@ return new class extends Migration
             $table->unsignedTinyInteger('max_renewals')->default(2);
             $table->date('last_renewal_date')->nullable();
             $table->text('notes')->nullable();
-            $table->json('params')->nullable();
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
             $table->softDeletes();
 
+            $table->index('status');
+            $table->index('due_date');
+            $table->index('loan_date');
+            $table->index('return_date');
+            $table->index(['user_id', 'status']);
+            $table->index('book_copy_id');
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('book_copy_id')->references('id')->on('book_copies')->onDelete('cascade');
             $table->foreign('librarian_id')->references('id')->on('users')->onDelete('set null');

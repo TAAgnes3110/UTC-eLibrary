@@ -20,9 +20,11 @@ return new class extends Migration
             $table->enum('status', $statuses)->default('available');
             $table->string('location')->nullable();
             $table->text('notes')->nullable();
-            $table->json('params')->nullable();
+            $table->json('params')->nullable()->comment('Tham số');
             $table->timestamps();
             $table->softDeletes();
+            $table->index('status');
+            $table->index(['book_id', 'status']);
             $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
         });
     }

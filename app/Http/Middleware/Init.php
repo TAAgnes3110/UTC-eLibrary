@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Helpers\ApiResponse;
 use App\Helpers\CurrentUser;
 use App\Models\Customer;
 use Closure;
@@ -11,6 +12,13 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 class Init
 {
+    /**
+     * Khởi tạo biến global và kiểm tra đăng nhập.
+     *
+     * @param Request $request
+     * @param Closure $next
+     * @return \Illuminate\Http\JsonResponse|mixed
+     */
     public function handle(Request $request, Closure $next)
     {
         global $currentSystem, $currentCustomer, $currentUser, $currentPerson, $role_prefix, $period, $domain, $bearer_token;
@@ -29,10 +37,7 @@ class Init
                 $user = Auth::guard('web')->user();
             }
             if (!$user) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Vui lòng đăng nhập để tiếp tục.',
-                ], 401);
+                return ApiResponse::error(__('Vui lòng đăng nhập để tiếp tục.'), 401);
             }
             $domain = $request->headers->get('domain', request()->getHost());
             $period = $request->headers->get('period', date('Y') . '-' . (date('Y') + 1));
@@ -47,10 +52,7 @@ class Init
 
             return $next($request);
         } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Lỗi xác thực: ' . $e->getMessage(),
-            ], 401);
+            return ApiResponse::error(__('Lỗi xác thực: ') . $e->getMessage(), 401);
         }
     }
 }

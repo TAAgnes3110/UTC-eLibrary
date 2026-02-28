@@ -29,11 +29,19 @@ return [
     
     'RoleType' => [
         'SUPER_ADMIN' => 'Administrator',
-        'SUPPORTER' => 'Hỗ trợ khách hàng',
         'ADMIN' => 'Quản trị đơn vị',
-        'MEMBER' => 'Thành viên',
-        'STUDENT' => 'Học sinh',
-        'USER' => 'Người dùng',
+        'LIBRARIAN' => 'Thủ thư',
+        'MEMBER' => 'Bạn đọc',
+        'GUEST' => 'Khách',
+    ],
+    'BookType' => [
+        'BOOK' => 'Sách',
+        'TEXTBOOK' => 'Giáo trình',
+        'THESIS' => 'Bài luận / Khóa luận / Đồ án',
+        'DISSERTATION' => 'Luận văn / Luận án',
+        'RESEARCH' => 'Báo cáo khoa học',
+        'MAGAZINE' => 'Tạp chí',
+        'OTHER' => 'Tài liệu khác',
     ],
     'Systems' => [
         'qlcm' => 'Chuyên môn giáo viên',

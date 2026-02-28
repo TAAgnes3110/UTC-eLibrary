@@ -9,10 +9,7 @@ class Publisher extends BaseModel
 {
   use SoftDeletes;
 
-  public static string $tableName = 'publishers';
   protected $table = 'publishers';
-
-  /** Tên NXB mặc định cho giáo trình, báo cáo KH, bài luận khi không nhập từ bên ngoài */
   public const DEFAULT_PUBLISHER_NAME = 'Trường đại học Giao thông vận tải';
 
   protected $fillable = [

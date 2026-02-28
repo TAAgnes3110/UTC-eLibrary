@@ -11,11 +11,6 @@ use App\Models\Author;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Controller CRUD tác giả, import Excel, thùng rác.
- *
- * @todo Thêm phân trang cấu hình (per_page) từ request.
- */
 class AuthorController extends Controller
 {
     /**
@@ -156,7 +151,7 @@ class AuthorController extends Controller
         $items = Author::onlyTrashed()
             ->orderByDesc('deleted_at')
             ->get(['id', 'name', 'nationality', 'deleted_at'])
-            ->map(fn ($a) => [
+            ->map(fn($a) => [
                 'id' => $a->id,
                 'name' => $a->name,
                 'nationality' => $a->nationality,

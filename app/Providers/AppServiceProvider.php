@@ -8,6 +8,7 @@ use App\Observers\TaxonomyCacheObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use App\Enums\RoleType;
@@ -40,11 +41,21 @@ class AppServiceProvider extends ServiceProvider
             $staffRoles = RoleType::staffRoles();
             $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : ($user->user_type ?? null);
             $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
+            $avatar = $user->avatar ?? '';
+            if ($avatar && !str_starts_with($avatar, 'http')) {
+                $avatar = Storage::disk('public')->exists($avatar)
+                    ? asset('storage/' . ltrim($avatar, '/'))
+                    : null;
+            }
+            if (empty($avatar)) {
+                $avatar = null;
+            }
             return [
                 'user' => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'avatar' => $avatar,
                 ],
                 'is_staff' => $isStaff,
             ];

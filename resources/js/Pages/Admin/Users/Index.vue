@@ -7,6 +7,7 @@ import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
+import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 
@@ -22,6 +23,8 @@ const userToToggle = ref(null);
 const showTrashDrawer = ref(false);
 const trashedUsers = ref([]);
 const loadingTrash = ref(false);
+const showAvatarModal = ref(false);
+const avatarUploadLoading = ref(false);
 const isEditing = ref(false);
 const selectedUser = ref(null);
 
@@ -208,6 +211,39 @@ const isLockAction = computed(() => userToToggle.value?.status === 'active');
 
 const exportExcel = () => { window.location.href = route('admin.users.export') || '#'; };
 const openImportModal = () => { /* TODO: modal nhập excel */ };
+
+const openAvatarModal = () => {
+    if (selectedIds.value.length !== 1) {
+        alert('Vui lòng chọn đúng 1 người để cập nhật ảnh đại diện.');
+        return;
+    }
+    showAvatarModal.value = true;
+};
+const uploadAvatar = async (file) => {
+    const userId = selectedIds.value[0];
+    if (!userId) return;
+    avatarUploadLoading.value = true;
+    try {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        const csrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1];
+        await window.axios.post(route('admin.users.update-avatar', { id: userId }), formData, {
+            baseURL: '',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(csrf && { 'X-XSRF-TOKEN': decodeURIComponent(csrf) }),
+            },
+        });
+        showAvatarModal.value = false;
+        router.reload();
+    } catch (err) {
+        const msg = err.response?.data?.message || err.message || 'Cập nhật ảnh thất bại.';
+        alert(msg);
+    } finally {
+        avatarUploadLoading.value = false;
+    }
+};
 </script>
 
 <template>
@@ -237,7 +273,7 @@ const openImportModal = () => { /* TODO: modal nhập excel */ };
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"
-                @update-file="() => {}"
+                @update-file="openAvatarModal"
                 @delete-selected="confirmBulkDelete"
                 @deselect-all="deselectAll"
             />
@@ -293,8 +329,9 @@ const openImportModal = () => { /* TODO: modal nhập excel */ };
                                 </td>
                                 <td class="p-4">
                                     <div class="flex items-center gap-2.5 min-w-0">
-                                        <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0">
-                                            {{ (user.name || '?').charAt(0).toUpperCase() }}
+                                        <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden">
+                                            <img v-if="user.avatar" :src="user.avatar" :alt="user.name" class="h-full w-full object-cover" />
+                                            <span v-else>{{ (user.name || '?').charAt(0).toUpperCase() }}</span>
                                         </div>
                                         <div class="min-w-0">
                                             <p class="font-semibold text-sm text-slate-900 dark:text-white truncate">{{ user.name }}</p>
@@ -405,6 +442,18 @@ const openImportModal = () => { /* TODO: modal nhập excel */ };
                 </div>
             </div>
         </Teleport>
+
+        <AdminFileModal
+            :show="showAvatarModal"
+            title="Cập nhật ảnh đại diện"
+            description="Kéo thả ảnh vào đây hoặc chọn file. Tên file không quan trọng, hệ thống tự đặt tên."
+            accept=".jpg,.jpeg,.png,.gif,.webp"
+            :max-size-mb="10"
+            submit-label="Lưu"
+            :loading="avatarUploadLoading"
+            @close="showAvatarModal = false"
+            @submit="(file) => uploadAvatar(file)"
+        />
 
         <!-- Modal xác nhận khóa / mở khóa tài khoản -->
         <Teleport to="body">

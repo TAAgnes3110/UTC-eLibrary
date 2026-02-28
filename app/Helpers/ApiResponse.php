@@ -6,15 +6,6 @@ namespace App\Helpers;
 
 use Illuminate\Http\JsonResponse;
 
-/**
- * Chuẩn hóa JSON response cho API Backend (status + messages/data).
- * Dùng khi muốn thống nhất format với frontend, tránh lặp và lệch key (message vs messages).
- *
- * Cách dùng trong Controller:
- *   return ApiResponse::success($user->load('libraryCard'), __('messages.success_create'), 201);
- *   return ApiResponse::error(__('messages.error_410'), 410);
- *   return ApiResponse::notFound();
- */
 final class ApiResponse
 {
     private const KEY_STATUS = 'status';

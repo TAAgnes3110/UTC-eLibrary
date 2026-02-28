@@ -36,10 +36,10 @@ const toggleSidebar = () => {
 
         <AdminSidebar :sidebar-open="sidebarOpen" :collapsed="collapsed" />
 
-        <div :class="[sidebarOpen ? 'lg:ml-60' : 'lg:ml-[56px]']" class="transition-all duration-300 min-h-screen flex flex-col">
+        <div :class="[sidebarOpen ? 'lg:ml-60' : 'lg:ml-[56px]']" class="transition-all duration-300 min-h-screen flex flex-col min-w-0">
             <AdminHeader :title="title" :sidebar-open="sidebarOpen" :user="user" @toggle-sidebar="toggleSidebar" />
             <AdminBreadcrumb :breadcrumbs="breadcrumbs" />
-            <main class="p-3 lg:p-5 max-w-[1600px] w-full mx-auto flex-1">
+            <main class="p-3 lg:p-5 max-w-[1600px] w-full min-w-0 mx-auto flex-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <slot />
             </main>
         </div>

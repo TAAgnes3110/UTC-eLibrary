@@ -8,11 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Permission;
 
-/**
- * Controller quản lý permission (Spatie Permission).
- *
- * @todo Thêm update/destroy nếu cần; dùng FormRequest.
- */
 class PermissionController extends Controller
 {
     /**

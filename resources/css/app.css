@@ -79,17 +79,29 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+  .safe-area-padding {
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  img, video, iframe {
+    max-width: 100%;
+    height: auto;
+  }
+  img, video {
+    object-fit: contain;
+  }
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-tight transition-colors;
+  }
+  .min-touch {
+    min-height: 44px;
+    min-width: 44px;
+    @apply inline-flex items-center justify-center;
   }
 }
 
 @layer components {
-  /* ==========================================================================
-     UI COMPONENTS - Dễ dàng debug và chỉnh sửa tại đây
-     ========================================================================== */
-
-  /* Nút Admin thống nhất: 1 kiểu chính (xanh), 1 kiểu phụ (xám) – kích cỡ vừa như ảnh 3 */
   .btn-admin-primary {
     @apply h-8 min-h-8 px-3 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center justify-center gap-1.5 transition-all dark:bg-blue-600 dark:hover:bg-blue-700;
   }
@@ -113,7 +125,6 @@
     @apply h-8 min-h-8 px-3 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center justify-center gap-1.5 transition-all dark:bg-blue-600 dark:hover:bg-blue-700;
   }
 
-  /* ========== Thanh lọc + Tìm kiếm thống nhất (mọi màn hình admin) ========== */
   .admin-filter-bar {
     @apply flex flex-wrap items-center gap-3 p-3 rounded-xl border shadow-sm;
     @apply bg-white border-slate-200;
@@ -154,7 +165,6 @@
     @apply dark:bg-slate-800 dark:border-slate-700 dark:text-white dark:placeholder-slate-400 dark:focus:ring-blue-500/30;
   }
 
-  /* Link Sidebar – hover/active màu xanh đậm #2C3A4F như ảnh mẫu */
   .nav-sidebar-link {
     @apply flex items-center gap-2.5 rounded-lg transition-all duration-200 text-[13px] font-medium;
   }
@@ -169,13 +179,10 @@
     @apply dark:text-slate-300 dark:hover:bg-[#2C3A4F] dark:hover:text-white;
   }
 
-  /* Hover dòng bảng admin – cùng màu #2C3A4F khi đưa chuột vào */
   .admin-table-row {
     @apply transition-colors;
     @apply hover:bg-slate-50 dark:hover:bg-[#2C3A4F];
   }
-
-  /* -------------------------------------------------------------------------- */
 
   .premium-shadow {
     @apply shadow-[0_20px_25px_-5px_rgba(0,0,0,0.05),0_8px_10px_-6px_rgba(0,0,0,0.05)];

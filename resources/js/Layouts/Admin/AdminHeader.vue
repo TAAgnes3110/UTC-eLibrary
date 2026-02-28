@@ -74,7 +74,8 @@ const getNotifIconBg = (type) => {
 </script>
 
 <template>
-    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 px-4 lg:px-6 h-12 flex items-center justify-between">
+    <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/95 backdrop-blur-md border-b border-gray-200 dark:border-slate-800 pt-[env(safe-area-inset-top)]">
+        <div class="px-4 lg:px-6 h-12 flex items-center justify-between">
         <div class="flex items-center gap-2">
             <button
                 type="button"
@@ -228,6 +229,7 @@ const getNotifIconBg = (type) => {
                     </div>
                 </DropdownMenuContent>
             </DropdownMenu>
+        </div>
         </div>
     </header>
 </template>

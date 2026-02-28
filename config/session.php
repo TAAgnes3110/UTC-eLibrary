@@ -30,8 +30,6 @@ return [
     | to expire immediately when the browser is closed then you may
     | indicate that via the expire_on_close configuration option.
     |
-    | Default 2880 = 2 ngày. Có thể tăng (vd: 43200 = 30 ngày) để "ghi nhớ đăng nhập" lâu hơn.
-    |
     */
 
     'lifetime' => (int) env('SESSION_LIFETIME', 2880),

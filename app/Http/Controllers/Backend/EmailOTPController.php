@@ -9,11 +9,6 @@ use App\Services\OtpService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 
-/**
- * Controller gửi OTP qua email (đăng ký, quên mật khẩu).
- *
- * @todo Giới hạn số lần gửi OTP theo email/ngày.
- */
 class EmailOTPController extends Controller
 {
     /**

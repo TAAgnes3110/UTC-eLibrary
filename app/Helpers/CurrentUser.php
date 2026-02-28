@@ -7,14 +7,6 @@ namespace App\Helpers;
 use App\Enums\RoleType;
 use App\Models\User;
 
-/**
- * DTO/helper cho user đang đăng nhập: lấy từ bảng `users` (user_type), Spatie roles/permissions chỉ load khi cần.
- *
- * - Phân quyền chính dựa trên cột `users.user_type` (không query thêm).
- * - Gọi hasRole / hasPermission / hasRoleOrPermission mới load roles & permissions từ Spatie (lazy).
- *
- * @todo Nếu sau này bỏ Spatie, chỉ cần bỏ ensureRolesAndPermissions() và luôn return false cho hasRole/hasPermission.
- */
 class CurrentUser
 {
     public int $id = 0;

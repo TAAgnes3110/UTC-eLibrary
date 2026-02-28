@@ -70,9 +70,8 @@ const submit = () => {
 
             <BrandHeader />
 
-            <!-- Login Card -->
             <div
-                class="w-full max-w-[440px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[2rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700"
+                class="w-full min-w-0 max-w-[440px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-2xl sm:rounded-[2rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700"
             >
                 <div class="px-5 py-6 sm:px-8">
                     <AuthCardTitle

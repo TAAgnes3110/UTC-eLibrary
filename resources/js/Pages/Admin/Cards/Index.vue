@@ -243,7 +243,9 @@ const downloadTemplate = () => {
 
 const openImportModal = () => { showImportModal.value = true; };
 const importExcel = (file) => { /* TODO: gửi file lên API nhập excel */ };
-const updatePhoto = (file) => { /* TODO: gửi file zip ảnh thẻ lên API */ };
+const updatePhoto = () => {
+    alert('Chức năng đang được phát triển. API upload ảnh thẻ sẽ có trong bản cập nhật sau.');
+};
 const openPhotoModal = () => { showPhotoModal.value = true; };
 const openPrintModal = () => {
     if (!hasSelection.value) return;
@@ -586,15 +588,15 @@ function readerStatusClass(r) {
             <AdminFileModal
                 :show="showPhotoModal"
                 title="Cập nhật ảnh thẻ"
-                description="Tải lên file .zip chứa ảnh (tên ảnh = mã thẻ, định dạng .jpg, .png). Tối đa 50MB."
+                description="Chọn một file .zip chứa các ảnh thẻ. Mỗi ảnh đặt tên đúng mã thẻ + .jpg hoặc .png. Tối đa 50MB."
                 accept=".zip"
                 :max-size-mb="50"
                 submit-label="Lưu"
                 @close="showPhotoModal = false"
-                @submit="(file) => { updatePhoto(file); showPhotoModal = false; }"
+                @submit="() => { updatePhoto(); showPhotoModal = false; }"
             >
                 <template #hint>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Tên ảnh trong file .zip phải trùng mã thẻ (vd: 034204009633.jpg).</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Ví dụ tên file trong zip: 034204009633.jpg hoặc 034204009633.png (tên = mã thẻ).</p>
                 </template>
             </AdminFileModal>
 

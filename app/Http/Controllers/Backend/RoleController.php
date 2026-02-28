@@ -8,11 +8,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Role;
 
-/**
- * Controller quản lý vai trò (Spatie Permission) và gán permission cho role.
- *
- * @todo Dùng FormRequest riêng cho store/update; thống nhất format response (status/messages).
- */
 class RoleController extends Controller
 {
     /**

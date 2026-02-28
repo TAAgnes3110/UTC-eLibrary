@@ -9,13 +9,6 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Controller quản lý người dùng (CRUD, thùng rác, cập nhật trạng thái).
- * Đối với user chỉ có xuất Excel (export), không có nhập Excel (import).
- *
- * @todo Thêm filter theo user_type (ADMIN, LIBRARIAN, MEMBER) trong index.
- * @todo Thêm export danh sách người dùng ra Excel/CSV (chỉ xuất, không nhập).
- */
 class UserController extends Controller
 {
     private const PER_PAGE = 50;

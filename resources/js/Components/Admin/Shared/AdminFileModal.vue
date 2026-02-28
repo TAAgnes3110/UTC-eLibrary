@@ -125,7 +125,7 @@ const submit = () => {
                             </div>
                             <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">(Tối đa {{ maxSizeMb }}MB)</p>
                         </div>
-                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">(Định dạng: {{ accept }})</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-2">{{ accept === '.zip' ? 'File chọn: .zip (bên trong: ảnh .jpg hoặc .png)' : '(Định dạng: ' + accept + ')' }}</p>
                     </div>
 
                     <slot name="hint" />

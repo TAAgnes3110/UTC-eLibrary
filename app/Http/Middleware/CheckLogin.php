@@ -6,9 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Middleware kiểm tra đã đăng nhập (global $currentUser).
- */
 class CheckLogin
 {
     /**

@@ -24,8 +24,7 @@ const currentUrl = computed(() => page.url);
 
 <template>
     <div class="min-h-screen bg-gray-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300">
-        <!-- Header: cùng phong cách admin -->
-        <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95">
+        <header class="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-900/95 pt-[env(safe-area-inset-top)]">
             <div class="mx-auto max-w-6xl px-4 py-3 sm:px-6">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                     <div class="flex min-w-0 flex-1 items-center gap-3">
@@ -39,7 +38,6 @@ const currentUrl = computed(() => page.url);
                                 <span class="hidden text-xs font-medium text-slate-500 dark:text-slate-400 sm:inline">Thư viện số</span>
                             </div>
                         </Link>
-                        <!-- end logo -->
                         <form :action="route('library.search')" method="get" class="hidden min-w-0 flex-1 max-w-sm lg:block">
                             <div class="relative w-full">
                                 <Icon icon="lucide:search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -56,7 +54,6 @@ const currentUrl = computed(() => page.url);
                             </div>
                         </form>
                     </div>
-                    <!-- nav -->
                     <nav class="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <Link
                             :href="route('library.search')"
@@ -65,7 +62,7 @@ const currentUrl = computed(() => page.url);
                                     ? 'bg-slate-200 text-slate-900 dark:bg-slate-700/80 dark:text-amber-400'
                                     : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
                             ]"
-                            class="rounded-lg px-3 py-2 text-sm font-medium transition"
+                            class="rounded-lg px-3 py-2.5 min-h-[44px] sm:py-2 text-sm font-medium transition inline-flex items-center"
                         >
                             Tra cứu sách
                         </Link>
@@ -74,27 +71,27 @@ const currentUrl = computed(() => page.url);
                             :class="[
                                 currentUrl.includes('/saved') ? 'bg-slate-200 text-slate-900 dark:bg-slate-700/80 dark:text-amber-400' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
                             ]"
-                            class="rounded-lg px-3 py-2 text-sm font-medium transition"
+                            class="rounded-lg px-3 py-2.5 min-h-[44px] sm:py-2 text-sm font-medium transition inline-flex items-center"
                         >
                             Sách đã lưu
                         </Link>
                         <Link
                             v-if="user && isStaff"
                             :href="route('admin.dashboard')"
-                            class="rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                            class="rounded-lg px-3 py-2.5 min-h-[44px] sm:py-2 text-sm text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white inline-flex items-center"
                         >
                             Quản trị
                         </Link>
                         <template v-if="!user">
                             <Link
                                 :href="route('register')"
-                                class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+                                class="rounded-lg px-3 py-2.5 min-h-[44px] sm:py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white inline-flex items-center"
                             >
                                 Đăng ký
                             </Link>
                             <Link
                                 :href="route('login')"
-                                class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-amber-500 dark:text-slate-900 dark:hover:bg-amber-400"
+                                class="rounded-lg bg-slate-800 px-4 py-2.5 min-h-[44px] sm:py-2 text-sm font-semibold text-white hover:bg-slate-700 dark:bg-amber-500 dark:text-slate-900 dark:hover:bg-amber-400 inline-flex items-center"
                             >
                                 Đăng nhập
                             </Link>
@@ -129,7 +126,6 @@ const currentUrl = computed(() => page.url);
             </div>
         </header>
 
-        <!-- Gợi ý đăng nhập cho khách -->
         <div
             v-if="!user"
             class="relative z-40 border-b border-slate-200 bg-slate-50 px-4 py-2 dark:border-slate-800/60 dark:bg-slate-800/40 sm:px-6"
@@ -144,7 +140,7 @@ const currentUrl = computed(() => page.url);
             </p>
         </div>
 
-        <main class="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <main class="relative z-10 mx-auto max-w-6xl w-full min-w-0 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-8">
             <slot />
         </main>
     </div>

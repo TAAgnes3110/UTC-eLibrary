@@ -6,9 +6,6 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Middleware kiểm tra role hoặc permission (chuỗi dạng "ROLE_A|permission_b").
- */
 class CheckRoleOrPermission
 {
     /**

@@ -11,12 +11,14 @@ return new class extends Migration
         Schema::create('departments', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('faculty_id');
-            $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('cascade');
-            $table->string('code')->unique()->comment('Mã lớp/BM');
-            $table->string('name')->comment('Tên lớp/BM');
-            $table->boolean('is_active')->default(true)->comment('TT hoạt động');
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->string('code')->unique();
+            $table->string('name');
+            $table->boolean('is_active')->default(true);
+            $table->json('params')->nullable();
             $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('cascade');
         });
     }
 

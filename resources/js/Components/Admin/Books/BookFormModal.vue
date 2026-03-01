@@ -1,8 +1,17 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, nextTick, onUnmounted } from 'vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { Icon } from '@iconify/vue';
+import { RESOURCE_GROUPS } from '@/config/enums';
+
+function useDebounce(fn, ms) {
+    let timeout = null;
+    return (...args) => {
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => fn(...args), ms);
+    };
+}
 
 const DEFAULT_PUBLISHER_LABEL = 'Trường đại học Giao thông vận tải';
 
@@ -12,15 +21,20 @@ const props = defineProps({
     isEditing: Boolean,
     categories: { type: Array, default: () => [] },
     publishers: { type: Array, default: () => [] },
-    bookTypes: { type: Array, default: () => [
-        { value: 'book', label: 'Sách' },
-        { value: 'textbook', label: 'Giáo trình' },
-        { value: 'thesis', label: 'Bài luận / Khóa luận / Đồ án' },
-        { value: 'dissertation', label: 'Luận văn / Luận án' },
-        { value: 'research', label: 'Báo cáo khoa học' },
-        { value: 'magazine', label: 'Tạp chí' },
-        { value: 'other', label: 'Tài liệu khác' },
-    ]},
+    faculties: { type: Array, default: () => [] },
+    departments: { type: Array, default: () => [] },
+    cohorts: { type: Array, default: () => [] },
+    bookTypes: { type: Array, default: () => [] },
+});
+
+const groupOptions = computed(() =>
+    Object.entries(RESOURCE_GROUPS).map(([value, label]) => ({ value, label }))
+);
+
+const departmentsByFaculty = computed(() => {
+    const fid = props.form?.faculty_id;
+    if (!fid) return [];
+    return props.departments.filter((d) => Number(d.faculty_id) === Number(fid));
 });
 
 const useDefaultPublisherTypes = ['textbook', 'research', 'thesis', 'dissertation'];
@@ -32,26 +46,155 @@ const emit = defineEmits(['close', 'submit']);
 
 const showConfirm = ref(false);
 const validationError = ref('');
-
-// Field labels for error messages
-const fieldLabels = {
-    published_year: 'Năm xuất bản',
-    total_pages: 'Số trang',
-    volume_number: 'Tập số',
-    quantity: 'Số lượng',
-    price: 'Giá',
-};
-
-watch(() => props.show, (val) => {
-    if (val) {
-        coverPreview.value = null;
-        showConfirm.value = false;
-        validationError.value = '';
-    }
-});
-
 const coverPreview = ref(null);
 
+// ——— Upload file tài liệu số ———
+const documentUploading = ref(false);
+const uploadedFileName = ref('');
+const documentFileInput = ref(null);
+
+function clearDocumentFile() {
+    props.form.file_url = '';
+    uploadedFileName.value = '';
+    if (documentFileInput.value) documentFileInput.value.value = '';
+}
+
+async function onDocumentFileChange(e) {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    documentUploading.value = true;
+    validationError.value = '';
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await window.axios.post('/books/upload-document', formData, {
+            headers: { 'Content-Type': 'multipart/form-data', 'Accept': 'application/json' },
+        });
+        const resData = data?.data ?? data;
+        if (resData?.url) {
+            props.form.file_url = resData.url;
+            uploadedFileName.value = file.name;
+        }
+    } catch (err) {
+        const msg = err.response?.data?.message || err.response?.data?.errors?.file?.[0] || 'Không thể tải file.';
+        validationError.value = msg;
+    }
+    documentUploading.value = false;
+}
+
+// ——— Autocomplete Nhà xuất bản ———
+const publisherOpen = ref(false);
+const publisherQuery = ref('');
+const publisherSuggestions = ref([]);
+const publisherLoading = ref(false);
+let publisherBlurTimer = null;
+
+const publisherDisplay = computed(() => {
+    if (props.form?.publisher_id && props.publishers?.length) {
+        const p = props.publishers.find(x => Number(x.id) === Number(props.form.publisher_id));
+        if (p) return p.name;
+    }
+    return props.form?.publisher || '';
+});
+
+async function fetchPublisherSuggestions() {
+    const q = (publisherQuery.value || '').trim().toLowerCase();
+    publisherLoading.value = true;
+    try {
+        const { data } = await window.axios.get('/books/search-publishers', { params: { q: q || '' } });
+        publisherSuggestions.value = data?.data ?? [];
+    } catch {
+        publisherSuggestions.value = [];
+    }
+    publisherLoading.value = false;
+}
+const debouncedFetchPublishers = useDebounce(fetchPublisherSuggestions, 300);
+
+function onPublisherInputVal(v) {
+    props.form.publisher = v;
+    props.form.publisher_id = null;
+    publisherQuery.value = v;
+    publisherOpen.value = true;
+    debouncedFetchPublishers();
+}
+
+function onPublisherFocus() {
+    publisherQuery.value = publisherDisplay.value;
+    publisherOpen.value = true;
+    fetchPublisherSuggestions();
+}
+
+function onPublisherBlur() {
+    publisherBlurTimer = setTimeout(() => { publisherOpen.value = false; }, 180);
+}
+
+function selectPublisher(p) {
+    if (!p || p.__new) {
+        props.form.publisher_id = null;
+        props.form.publisher = (publisherQuery.value || '').trim();
+    } else {
+        props.form.publisher_id = p.id;
+        props.form.publisher = p.name;
+    }
+    publisherOpen.value = false;
+}
+
+const publisherDropdownOptions = computed(() => {
+    const q = (publisherQuery.value || '').trim();
+    const list = publisherSuggestions.value.slice();
+    if (q && !list.some(p => (p.name || '').toLowerCase() === q.toLowerCase())) {
+        list.push({ __new: true, name: `+ Thêm mới: "${q}"` });
+    }
+    return list;
+});
+
+// ——— Autocomplete Tác giả ———
+const authorOpen = ref(false);
+const authorQuery = ref('');
+const authorSuggestions = ref([]);
+const authorLoading = ref(false);
+
+async function fetchAuthorSuggestions() {
+    const q = (authorQuery.value || '').trim();
+    authorLoading.value = true;
+    try {
+        const { data } = await window.axios.get('/books/search-authors', { params: { q } });
+        authorSuggestions.value = data?.data ?? [];
+    } catch {
+        authorSuggestions.value = [];
+    }
+    authorLoading.value = false;
+}
+const debouncedFetchAuthors = useDebounce(fetchAuthorSuggestions, 300);
+
+function onAuthorInputVal(v) {
+    props.form.author = v;
+    authorQuery.value = v;
+    authorOpen.value = true;
+    debouncedFetchAuthors();
+}
+
+function onAuthorFocus() {
+    authorQuery.value = props.form?.author ?? '';
+    authorOpen.value = true;
+    fetchAuthorSuggestions();
+}
+
+function onAuthorBlur() {
+    setTimeout(() => { authorOpen.value = false; }, 180);
+}
+
+function selectAuthor(a) {
+    if (a?.id != null) {
+        props.form.author = a.name;
+    } else {
+        const q = (authorQuery.value || '').trim() || (a?.name || '');
+        if (q) props.form.author = q;
+    }
+    authorOpen.value = false;
+}
+
+// ——— Ảnh bìa ———
 const onCoverChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -60,48 +203,67 @@ const onCoverChange = (e) => {
     }
 };
 
-// Validate non-negative on blur — show error if negative
+const fieldLabels = { published_year: 'Năm xuất bản', total_pages: 'Số trang', volume_number: 'Tập số', quantity: 'Số lượng', price: 'Giá' };
 const validateNonNegative = (field) => {
     const val = parseFloat(props.form[field]);
-    if (!isNaN(val) && val < 0) {
-        validationError.value = `${fieldLabels[field] || field} không được nhập giá trị âm!`;
-    } else {
-        // Clear error if this field is now valid
-        if (validationError.value.includes(fieldLabels[field] || field)) {
-            validationError.value = '';
-        }
-    }
+    if (!isNaN(val) && val < 0) validationError.value = `${fieldLabels[field] || field} không được âm.`;
+    else if (validationError.value?.includes(fieldLabels[field])) validationError.value = '';
 };
 
-// Check all numeric fields for negative values
 const hasNegativeValues = computed(() => {
-    const numericFields = ['published_year', 'total_pages', 'volume_number', 'quantity', 'price'];
-    return numericFields.some(f => {
+    return ['published_year', 'total_pages', 'volume_number', 'quantity', 'price'].some(f => {
         const val = parseFloat(props.form[f]);
         return !isNaN(val) && val < 0;
     });
 });
 
-const inputClass = 'h-9 rounded-lg text-sm border-gray-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
+const modalPanelRef = ref(null);
+let savedActiveElement = null;
 
-// Handle submit with validation + confirmation
+function onEscape(e) {
+    if (e.key !== 'Escape' || !props.show || showConfirm.value) return;
+    e.preventDefault();
+    emit('close');
+}
+
+watch(() => props.show, (val) => {
+    if (val) {
+        coverPreview.value = null;
+        showConfirm.value = false;
+        validationError.value = '';
+        uploadedFileName.value = '';
+        publisherOpen.value = false;
+        authorOpen.value = false;
+        savedActiveElement = document.activeElement;
+        document.body.classList.add('overflow-hidden');
+        nextTick(() => modalPanelRef.value?.focus());
+        document.addEventListener('keydown', onEscape);
+    } else {
+        document.body.classList.remove('overflow-hidden');
+        document.removeEventListener('keydown', onEscape);
+        if (savedActiveElement && typeof savedActiveElement.focus === 'function') {
+            savedActiveElement.focus();
+        }
+        savedActiveElement = null;
+    }
+});
+
 const handleSubmit = () => {
     if (hasNegativeValues.value) {
-        validationError.value = 'Vui lòng kiểm tra lại! Các trường số không được nhập giá trị âm.';
+        validationError.value = 'Các trường số không được nhập giá trị âm.';
         return;
     }
     validationError.value = '';
     showConfirm.value = true;
 };
 
-const confirmSubmit = () => {
-    showConfirm.value = false;
-    emit('submit');
-};
+const confirmSubmit = () => { showConfirm.value = false; emit('submit'); };
+const cancelConfirm = () => { showConfirm.value = false; };
 
-const cancelConfirm = () => {
-    showConfirm.value = false;
-};
+onUnmounted(() => {
+    document.removeEventListener('keydown', onEscape);
+    document.body.classList.remove('overflow-hidden');
+});
 </script>
 
 <template>
@@ -109,22 +271,21 @@ const cancelConfirm = () => {
         <div v-if="show" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div @click="emit('close')" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
 
-            <div class="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            <div
+                ref="modalPanelRef"
+                tabindex="-1"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="book-form-title"
+                class="relative bg-white dark:bg-slate-900 rounded-xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-700 outline-none"
+            >
                 <!-- Header -->
-                <div class="px-8 py-5 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-20">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-[18px] bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-blue-500/20">
-                            <Icon :icon="isEditing ? 'lucide:file-text' : 'lucide:book-plus'" class="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
-                                {{ isEditing ? 'Cấu hình tài liệu' : 'Thêm tài liệu mới' }}
-                            </h3>
-                            <p class="text-[12px] text-slate-400 font-semibold uppercase tracking-widest mt-0.5">Hệ thống quản lý thư viện số</p>
-                        </div>
-                    </div>
-                    <button @click="emit('close')" class="w-10 h-10 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full flex items-center justify-center transition-all group active:scale-90">
-                        <Icon icon="lucide:x" class="w-5 h-5 text-slate-400 group-hover:text-rose-500 transition-colors" />
+                <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shrink-0 bg-white dark:bg-slate-900 sticky top-0 z-20">
+                    <h3 id="book-form-title" class="text-base font-semibold text-slate-800 dark:text-white">
+                        {{ isEditing ? 'Cập nhật tài liệu' : 'Thêm tài liệu mới' }}
+                    </h3>
+                    <button type="button" @click="emit('close')" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 min-touch" aria-label="Đóng">
+                        <Icon icon="lucide:x" class="w-5 h-5" />
                     </button>
                 </div>
 
@@ -143,102 +304,161 @@ const cancelConfirm = () => {
                     </Transition>
 
                     <!-- Section 1: Thông tin cơ bản -->
-                    <div class="bg-white dark:bg-slate-900/40 relative group/section">
-                        <!-- Subtle Background Glow -->
-                        <div class="absolute -inset-4 bg-blue-500/5 rounded-[40px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
-
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-5">
+                        <h4 class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-4">Thông tin định danh</h4>
                         <div class="relative">
-                            <div class="flex items-center gap-3 mb-8">
-                                <div class="w-1.5 h-6 bg-gradient-to-b from-blue-400 to-blue-600 rounded-full shadow-[0_0_15px_rgba(37,99,235,0.4)]"></div>
-                                <h4 class="text-[14px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em]">Thông tin định danh</h4>
-                            </div>
 
                             <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
                                 <!-- Cover upload -->
                                 <div class="lg:col-span-4 flex flex-col items-center lg:items-start">
-                                    <label class="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 ml-1">Ảnh đại diện tài liệu</label>
-                                    <div class="relative group/upload w-full max-w-[240px]">
-                                        <div class="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-[32px] p-2 text-center hover:border-blue-500 hover:bg-blue-50/20 dark:hover:bg-blue-900/10 transition-all cursor-pointer relative aspect-[3/4.2] flex flex-col items-center justify-center bg-slate-50/50 dark:bg-slate-800/20 group-hover/upload:shadow-[0_20px_40px_-15px_rgba(59,130,246,0.3)] transition-all duration-700 overflow-hidden group-hover/upload:-translate-y-2">
-                                             <input type="file" @change="onCoverChange" class="absolute inset-0 opacity-0 cursor-pointer z-20" accept="image/*" />
-                                             <img v-if="coverPreview || form.image_url" :src="coverPreview || form.image_url" class="absolute inset-0 w-full h-full rounded-[28px] object-cover shadow-2xl transition-transform duration-1000 group-hover/upload:scale-110" />
-                                             <template v-else>
-                                                 <div class="w-20 h-20 rounded-[28px] bg-white dark:bg-slate-800 shadow-2xl shadow-blue-500/10 flex items-center justify-center mb-5 transition-all duration-500 group-hover/upload:bg-blue-600 group-hover/upload:text-white group-hover/upload:scale-110 group-hover/upload:rotate-3">
-                                                     <Icon icon="lucide:cloud-upload" class="w-8 h-8 text-blue-500 group-hover/upload:text-white" />
-                                                 </div>
-                                                 <p class="text-[12px] font-black uppercase text-slate-600 dark:text-slate-400 tracking-widest">Tải ảnh lên</p>
-                                                 <p class="text-[10px] text-slate-400 mt-2 font-bold px-4 leading-tight">Click hoặc kéo thả file vào đây</p>
-                                             </template>
-
-                                             <!-- Glassmorphism Overlay -->
-                                             <div v-if="coverPreview || form.image_url" class="absolute inset-0 bg-gradient-to-t from-blue-900/90 via-blue-900/20 to-transparent opacity-0 group-hover/upload:opacity-100 transition-all duration-500 flex flex-col items-center justify-end pb-10 z-10">
-                                                <div class="w-14 h-14 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center mb-4 transform translate-y-4 group-hover/upload:translate-y-0 transition-transform duration-500">
-                                                     <Icon icon="lucide:refresh-cw" class="w-7 h-7 text-white" />
-                                                </div>
-                                                <span class="text-[11px] font-black text-white uppercase tracking-widest transform translate-y-4 group-hover/upload:translate-y-0 transition-transform duration-500">Thay đổi hình ảnh</span>
-                                             </div>
-                                         </div>
+                                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Ảnh bìa</label>
+                                    <div class="relative w-full max-w-[200px]">
+                                        <div class="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-2 text-center hover:border-slate-400 dark:hover:border-slate-500 cursor-pointer relative aspect-[3/4] flex flex-col items-center justify-center bg-white dark:bg-slate-800/50 overflow-hidden">
+                                            <input type="file" @change="onCoverChange" class="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" />
+                                            <img v-if="coverPreview || form.image_url" :src="coverPreview || form.image_url" class="absolute inset-0 w-full h-full object-cover rounded-lg" />
+                                            <template v-else>
+                                                <Icon icon="lucide:image-plus" class="w-10 h-10 text-slate-400 mb-2" />
+                                                <p class="text-xs text-slate-500">Ảnh bìa</p>
+                                            </template>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <!-- Basic fields -->
                                 <div class="lg:col-span-8 space-y-7">
                                     <!-- Title -->
-                                    <div class="space-y-3">
-                                        <div class="flex justify-between items-end px-1">
-                                            <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nhan đề tài liệu / Sách <span class="text-rose-500">*</span></label>
-                                            <span v-if="form.title.length > 0" class="text-[10px] font-bold text-blue-500 uppercase">{{ form.title.length }} ký tự</span>
-                                        </div>
-                                        <Input v-model="form.title" placeholder="Nhập tên chính xác của tài liệu..." class="h-12 rounded-[16px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-slate-900/80 shadow-sm focus:ring-4 focus:ring-blue-500/10 transition-all font-bold placeholder:text-slate-300 dark:placeholder:text-slate-600" />
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Nhan đề <span class="text-rose-500">*</span></label>
+                                        <Input v-model="form.title" placeholder="Nhập tên tài liệu / sách..." class="h-10 rounded-lg text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
                                     </div>
 
-                                    <!-- Author -->
-                                    <div class="space-y-3">
-                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Tác giả biên soạn chính <span class="text-rose-500">*</span></label>
-                                        <div class="relative group">
-                                            <div class="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-[12px] bg-slate-100/80 dark:bg-slate-800 flex items-center justify-center transition-all group-focus-within:bg-blue-600 group-focus-within:text-white group-focus-within:rotate-3 shadow-sm">
-                                                <Icon icon="lucide:user-check" class="w-5 h-5 text-slate-500 group-focus-within:text-white" />
+                                    <!-- Tác giả (autocomplete: gõ để gợi ý hoặc thêm mới) -->
+                                    <div class="space-y-1.5">
+                                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Tác giả chính <span class="text-rose-500">*</span></label>
+                                        <div class="relative">
+                                            <Input
+                                                :model-value="form.author"
+                                                @update:model-value="onAuthorInputVal"
+                                                @focus="onAuthorFocus"
+                                                @blur="onAuthorBlur"
+                                                placeholder="Gõ tên để tìm hoặc thêm tác giả mới..."
+                                                class="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                                            />
+                                            <div v-if="authorOpen" class="absolute top-full left-0 right-0 mt-0.5 z-50 max-h-48 overflow-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+                                                <div v-if="authorLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-slate-500 text-sm">
+                                                    <Icon icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
+                                                    Đang tải...
+                                                </div>
+                                                <template v-else-if="authorSuggestions.length > 0 || (authorQuery && authorQuery.trim())">
+                                                    <button
+                                                        v-for="a in authorSuggestions"
+                                                        :key="a.id"
+                                                        type="button"
+                                                        class="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                        @mousedown.prevent="selectAuthor(a)"
+                                                    >
+                                                        {{ a.name }}
+                                                    </button>
+                                                    <button
+                                                        v-if="authorQuery && authorQuery.trim() && !authorSuggestions.some(x => (x.name || '').toLowerCase() === authorQuery.trim().toLowerCase())"
+                                                        type="button"
+                                                        class="w-full px-3 py-2 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                        @mousedown.prevent="selectAuthor({ name: authorQuery.trim() })"
+                                                    >
+                                                        + Thêm mới: "{{ authorQuery.trim() }}"
+                                                    </button>
+                                                </template>
                                             </div>
-                                            <Input v-model="form.author" placeholder="Họ tên (Ví dụ: Nguyễn Nhật Ánh)" class="h-12 pl-14 rounded-[16px] text-[15px] border-slate-200 dark:border-slate-800 dark:bg-slate-900/80 shadow-sm font-bold transition-all focus:ring-4 focus:ring-blue-500/10" />
+                                        </div>
+                                        <div class="flex gap-2 mt-1">
+                                            <Input v-model="form.co_authors" placeholder="Đồng tác giả (cách nhau bởi dấu phẩy)" class="h-9 flex-1 rounded-lg text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
                                         </div>
                                     </div>
 
-                                    <!-- Type -->
-                                    <div class="space-y-3">
-                                        <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest ml-1">Loại tài liệu <span class="text-rose-500">*</span></label>
-                                        <div class="relative group">
-                                            <select v-model="form.type" class="w-full h-12 pl-6 pr-12 text-[15px] font-bold bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-[16px] focus:ring-4 focus:ring-blue-500/10 dark:text-white outline-none appearance-none transition-all cursor-pointer hover:bg-white dark:hover:bg-slate-800">
-                                                    <option v-for="t in bookTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div class="space-y-1.5">
+                                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Danh mục</label>
+                                            <select v-model="form.category_id" class="w-full h-10 pl-3 pr-9 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white outline-none">
+                                                <option :value="null">-- Chọn --</option>
+                                                <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                                             </select>
-                                            <Icon icon="lucide:layers" class="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none group-focus-within:text-blue-500 transition-colors" />
                                         </div>
+                                        <div class="space-y-1.5">
+                                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Mã phân loại</label>
+                                            <Input v-model="form.classification_code" placeholder="VD: VH-001" class="h-10 rounded-lg text-sm" />
+                                        </div>
+                                    </div>
+                                    <!-- Nhóm + Loại (chỉ khi thêm mới) -->
+                                    <div v-if="!isEditing" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div class="space-y-1.5">
+                                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Nhóm tài liệu <span class="text-rose-500">*</span></label>
+                                            <select v-model="form.group" class="w-full h-10 pl-3 pr-9 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white outline-none">
+                                                <option v-for="opt in groupOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                                            </select>
+                                        </div>
+                                        <div class="space-y-1.5">
+                                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Loại <span class="text-rose-500">*</span></label>
+                                            <select v-model="form.type" class="w-full h-10 pl-3 pr-9 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white outline-none">
+                                                <option v-for="t in bookTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Tài liệu số: upload file -->
+                                    <div v-if="form.group === 'digital'" class="space-y-1.5">
+                                        <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">File tài liệu <span class="text-rose-500">*</span></label>
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <input
+                                                ref="documentFileInput"
+                                                type="file"
+                                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.epub"
+                                                class="hidden"
+                                                @change="onDocumentFileChange"
+                                            />
+                                            <Button type="button" variant="outline" size="sm" class="rounded-lg" :disabled="documentUploading" @click="documentFileInput?.click()">
+                                                <Icon v-if="documentUploading" icon="lucide:loader-2" class="w-4 h-4 animate-spin mr-1.5" />
+                                                <Icon v-else icon="lucide:upload" class="w-4 h-4 mr-1.5" />
+                                                {{ documentUploading ? 'Đang tải lên...' : 'Chọn file tải lên' }}
+                                            </Button>
+                                            <span v-if="uploadedFileName" class="text-sm text-slate-600 dark:text-slate-300 truncate max-w-[200px]">{{ uploadedFileName }}</span>
+                                            <Button v-if="form.file_url || uploadedFileName" type="button" variant="ghost" size="sm" class="text-rose-500 hover:text-rose-600" @click="clearDocumentFile">
+                                                <Icon icon="lucide:x" class="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                        <p class="text-[11px] text-slate-400">PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT, EPUB — tối đa 50MB</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Divider -->
-                    <div class="border-t border-gray-100 dark:border-slate-800"></div>
-
-                    <!-- Section 2: Xuất bản -->
-                    <div class="bg-slate-50/50 dark:bg-slate-800/20 p-6 rounded-[24px] border border-slate-100 dark:border-slate-800/60">
-                         <div class="flex items-center gap-2 mb-5">
-                            <Icon icon="lucide:building-2" class="w-5 h-5 text-indigo-500" />
-                            <h4 class="text-[12px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-widest">Xuất bản & Phân phối</h4>
+                    <!-- Luận văn: Khóa, Khoa, Lớp -->
+                    <div v-if="form.group === 'thesis'" class="bg-amber-50/50 dark:bg-amber-900/10 p-6 rounded-[24px] border border-amber-200/50 dark:border-amber-800/30">
+                        <div class="flex items-center gap-2 mb-4">
+                            <Icon icon="lucide:graduation-cap" class="w-5 h-5 text-amber-600 shrink-0" />
+                            <h4 class="text-[12px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-widest">Khóa · Khoa · Lớp</h4>
                         </div>
-                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-5">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nhà xuất bản</label>
-                                <Input v-model="form.publisher" placeholder="Để trống: mặc định Trường ĐH Giao thông vận tải (giáo trình, BCKH, bài luận)" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
-                                <p v-if="showDefaultPublisherHint" class="text-[10px] text-amber-600 dark:text-amber-400 mt-1">Mặc định: {{ DEFAULT_PUBLISHER_LABEL }}</p>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Khóa <span class="text-rose-500">*</span></label>
+                                <select v-model="form.cohort" class="w-full h-11 px-4 rounded-xl text-[14px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500/20">
+                                    <option value="">-- Chọn khóa --</option>
+                                    <option v-for="c in cohorts" :key="c" :value="c">{{ c }}</option>
+                                </select>
                             </div>
                             <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nơi xuất bản</label>
-                                <Input v-model="form.publication_place" placeholder="Ví dụ: Hà Nội..." class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Khoa <span class="text-rose-500">*</span></label>
+                                <select v-model="form.faculty_id" class="w-full h-11 px-4 rounded-xl text-[14px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500/20" @change="form.department_id = null">
+                                    <option :value="null">-- Chọn khoa --</option>
+                                    <option v-for="f in faculties" :key="f.id" :value="f.id">{{ f.name }}</option>
+                                </select>
                             </div>
                             <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Năm xuất bản</label>
-                                <Input v-model="form.published_year" type="number" min="0" placeholder="2024" @blur="validateNonNegative('published_year')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Lớp <span class="text-rose-500">*</span></label>
+                                <select v-model="form.department_id" class="w-full h-11 px-4 rounded-xl text-[14px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium focus:ring-2 focus:ring-amber-500/20">
+                                    <option :value="null">-- Chọn lớp --</option>
+                                    <option v-for="d in departmentsByFaculty" :key="d.id" :value="d.id">{{ d.name }}</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -246,36 +466,62 @@ const cancelConfirm = () => {
                     <!-- Divider -->
                     <div class="border-t border-gray-100 dark:border-slate-800"></div>
 
-                    <!-- Section 3: Mô tả vật lý & Giá -->
-                    <div class="bg-indigo-50/20 dark:bg-indigo-900/5 p-6 rounded-[24px] border border-indigo-100/50 dark:border-indigo-900/10">
-                        <div class="flex items-center gap-2 mb-5">
-                            <Icon icon="lucide:file-text" class="w-5 h-5 text-blue-500" />
-                            <h4 class="text-[12px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-widest">Đặc điểm vật lý & Giá thành</h4>
-                        </div>
-                        <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                            <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số trang</label>
-                                <Input v-model="form.total_pages" type="number" min="0" placeholder="0" @blur="validateNonNegative('total_pages')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Khổ sách</label>
-                                <Input v-model="form.book_size" placeholder="Ví dụ: 24cm" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-medium" />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Tập số</label>
-                                <Input v-model="form.volume_number" type="number" min="0" placeholder="0" @blur="validateNonNegative('volume_number')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Số lượng <span class="text-rose-500">*</span></label>
-                                <Input v-model="form.quantity" type="number" min="0" placeholder="0" @blur="validateNonNegative('quantity')" class="h-10 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold text-blue-600 dark:text-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                            </div>
-                            <div class="space-y-2">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Giá tài liệu</label>
-                                <div class="relative group">
-                                    <Input v-model="form.price" type="number" min="0" placeholder="0" @blur="validateNonNegative('price')" class="h-10 pr-12 rounded-[14px] text-[14px] border-slate-200 dark:border-slate-800 dark:bg-slate-900 font-bold text-emerald-600 dark:text-emerald-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                                    <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-extrabold text-slate-400 uppercase">vnđ</span>
+                    <!-- Nhà xuất bản + Năm (nơi XB gộp: nhà xuất bản đã bao gồm thông tin địa điểm) -->
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-5">
+                        <h4 class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-3">Nhà xuất bản</h4>
+                        <div class="relative mb-3">
+                            <Input
+                                :model-value="publisherDisplay"
+                                @update:model-value="onPublisherInputVal"
+                                @focus="onPublisherFocus"
+                                @blur="onPublisherBlur"
+                                placeholder="Gõ tên để chọn hoặc thêm nhà xuất bản mới..."
+                                class="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                            />
+                            <div v-if="publisherOpen" class="absolute top-full left-0 right-0 mt-0.5 z-50 max-h-48 overflow-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+                                <div v-if="publisherLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-slate-500 text-sm">
+                                    <Icon icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
+                                    Đang tải...
                                 </div>
+                                <template v-else>
+                                    <button
+                                        v-for="(p, idx) in publisherDropdownOptions"
+                                        :key="p.__new ? 'new' : (p.id || idx)"
+                                        type="button"
+                                        class="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                                        :class="p.__new ? 'text-blue-600 dark:text-blue-400' : ''"
+                                        @mousedown.prevent="selectPublisher(p)"
+                                    >
+                                        {{ p.name }}
+                                    </button>
+                                </template>
                             </div>
+                        </div>
+                        <p v-if="showDefaultPublisherHint && !form.publisher_id && !form.publisher" class="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Để trống: mặc định {{ DEFAULT_PUBLISHER_LABEL }}</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Năm xuất bản</label>
+                                <Input v-model="form.published_year" type="number" min="0" placeholder="2024" @blur="validateNonNegative('published_year')" class="h-9 rounded-lg text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Nơi XB (tùy chọn)</label>
+                                <Input v-model="form.publication_place" placeholder="VD: Hà Nội" class="h-9 rounded-lg text-sm" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="border-t border-gray-100 dark:border-slate-800"></div>
+
+                    <!-- Đặc điểm vật lý & Giá -->
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 p-5">
+                        <h4 class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-3">Số trang · Khổ · Tập · Số lượng · Giá</h4>
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <div><label class="block text-[11px] text-slate-500 mb-1">Số trang</label><Input v-model="form.total_pages" type="number" min="0" placeholder="0" @blur="validateNonNegative('total_pages')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
+                            <div><label class="block text-[11px] text-slate-500 mb-1">Khổ</label><Input v-model="form.book_size" placeholder="24cm" class="h-9 rounded-lg text-sm w-full" /></div>
+                            <div><label class="block text-[11px] text-slate-500 mb-1">Tập</label><Input v-model="form.volume_number" type="number" min="0" placeholder="0" @blur="validateNonNegative('volume_number')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
+                            <div><label class="block text-[11px] text-slate-500 mb-1">Số lượng <span class="text-rose-500">*</span></label><Input v-model="form.quantity" type="number" min="0" placeholder="0" @blur="validateNonNegative('quantity')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
+                            <div><label class="block text-[11px] text-slate-500 mb-1">Giá (vnđ)</label><Input v-model="form.price" type="number" min="0" placeholder="0" @blur="validateNonNegative('price')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
                         </div>
                     </div>
 
@@ -295,20 +541,11 @@ const cancelConfirm = () => {
                 </div>
 
                 <!-- Footer -->
-                <div class="px-8 py-6 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 shrink-0">
-                    <div class="hidden sm:flex items-center gap-2 opacity-50">
-                        <div class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
-                        <p class="text-[10px] font-extrabold text-slate-500 uppercase tracking-[0.2em]">Live Editor Sync</p>
-                    </div>
-                    <div class="flex gap-4 ml-auto w-full sm:w-auto">
-                        <Button @click="emit('close')" variant="ghost" class="flex-1 sm:flex-none h-12 rounded-[20px] px-8 text-[14px] font-extrabold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                            Hủy bỏ
-                        </Button>
-                        <Button @click="handleSubmit" class="flex-1 sm:flex-none h-12 rounded-[20px] px-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-[14px] font-extrabold shadow-xl shadow-blue-500/30 transition-all hover:scale-[1.03] active:scale-95 flex items-center justify-center gap-2">
-                            <Icon :icon="isEditing ? 'lucide:save-all' : 'lucide:plus-circle'" class="w-5 h-5" />
-                            {{ isEditing ? 'Cập nhật tài liệu' : 'Xác nhận thêm mới' }}
-                        </Button>
-                    </div>
+                <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-white dark:bg-slate-900 shrink-0">
+                    <Button @click="emit('close')" variant="outline" size="sm" class="rounded-lg">Hủy</Button>
+                    <Button @click="handleSubmit" size="sm" class="rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
+                        {{ isEditing ? 'Lưu thay đổi' : 'Thêm tài liệu' }}
+                    </Button>
                 </div>
             </div>
 
@@ -358,6 +595,15 @@ const cancelConfirm = () => {
 </template>
 
 <style scoped>
+.error-slide-enter-active,
+.error-slide-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.error-slide-enter-from,
+.error-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-6px);
+}
 .confirm-fade-enter-active,
 .confirm-fade-leave-active {
     transition: opacity 0.15s ease;
@@ -365,5 +611,14 @@ const cancelConfirm = () => {
 .confirm-fade-enter-from,
 .confirm-fade-leave-to {
     opacity: 0;
+}
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+    transition: all 0.2s ease-out;
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-4px);
 }
 </style>

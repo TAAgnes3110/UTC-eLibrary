@@ -11,15 +11,12 @@ import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 
-// Props: readers từ backend (User + LibraryCard). Cấu trúc tương thích DB:
-// id, name, code, card_number?, issue_date?, expiry_date?, faculty?, class?, type (student|teacher), status (active|blocked), gender, email, phone
+// Props: readers, faculties, cohorts, departments từ backend
 const props = defineProps({
-    readers: { type: Array, default: () => [
-        { id: 1, name: 'Lê Văn Tùng', code: '2021601234', card_number: 'UTC-2024-001', issue_date: '2024-01-01', expiry_date: '2025-12-31', faculty: 'CNTT', class: 'CNTT1-K62', type: 'student', status: 'active', gender: 'Nam', email: 'tung.lv@student.utc.edu.vn', phone: '0987654321' },
-        { id: 2, name: 'Nguyễn Thị Mai', code: '2022605678', card_number: 'UTC-2024-002', issue_date: '2024-01-15', expiry_date: '2026-06-30', faculty: 'KT', class: 'KT-K63', type: 'student', status: 'active', gender: 'Nữ', email: 'mai.nt@student.utc.edu.vn', phone: '0123456789' },
-        { id: 3, name: 'Trần Minh Quân', code: 'GV0012', card_number: 'UTC-2024-003', issue_date: '2024-01-20', expiry_date: '2028-12-31', faculty: 'Cơ khí', class: 'Khoa Cơ khí', type: 'teacher', status: 'active', gender: 'Nam', email: 'quan.tm@utc.edu.vn', phone: '0345678901' },
-        { id: 4, name: 'Phạm Hồng Nam', code: '2020600111', card_number: 'UTC-2024-004', issue_date: '2023-09-01', expiry_date: '2024-05-20', faculty: 'ĐTVT', class: 'ĐTVT-K61', type: 'student', status: 'blocked', gender: 'Nam', email: 'nam.ph@student.utc.edu.vn', phone: '0567890123' },
-    ]}
+    readers: { type: Array, default: () => [] },
+    faculties: { type: Array, default: () => [] },
+    cohorts: { type: Array, default: () => ['K60', 'K61', 'K62', 'K63', 'K64', 'K65', 'K66'] },
+    departments: { type: Array, default: () => [] },
 });
 
 const activeTab = ref('students'); // students | teachers | other
@@ -111,12 +108,18 @@ const form = useForm({
     card_number: '',
     issue_date: '',
     expiry_date: '',
-    faculty: '',
-    class: '',
+    faculty_id: null,
+    cohort: '',
+    department_id: null,
     type: 'student',
     gender: 'Nam',
     email: '',
     phone: '',
+});
+
+const departmentsFilteredByFaculty = computed(() => {
+    if (!form.faculty_id) return props.departments;
+    return props.departments.filter((d) => d.faculty_id === form.faculty_id);
 });
 
 const renewForm = useForm({
@@ -140,8 +143,9 @@ const editReader = (r) => {
     form.card_number = r.card_number || r.code || '';
     form.issue_date = (r.issue_date || '').toString().slice(0, 10);
     form.expiry_date = (r.expiry_date || '').toString().slice(0, 10);
-    form.faculty = r.faculty || '';
-    form.class = r.class || '';
+    form.faculty_id = r.faculty_id ?? null;
+    form.cohort = r.cohort || '';
+    form.department_id = r.department_id ?? null;
     form.type = r.type;
     form.gender = r.gender || 'Nam';
     form.email = r.email || '';
@@ -156,9 +160,31 @@ const openRenew = (r) => {
     showRenewModal.value = true;
 };
 
-const save = () => {
-    // TODO: form.post(route('admin.readers.store')) hoặc put
-    showModal.value = false;
+const genderToBackend = (v) => (v === 'Nữ' ? 'female' : v === 'Nam' ? 'male' : 'other');
+
+const save = async () => {
+    if (!form.id) return;
+    const payload = {
+        name: form.name,
+        code: form.code,
+        email: form.email,
+        phone: form.phone || null,
+        gender: genderToBackend(form.gender),
+        faculty_id: form.faculty_id || null,
+        cohort: form.cohort || null,
+        department_id: form.department_id || null,
+        card_number: form.card_number || null,
+        issue_date: form.issue_date || null,
+        expiry_date: form.expiry_date || null,
+        user_type: 'MEMBER',
+    };
+    try {
+        await window.axios.put(`/users/${form.id}`, payload);
+        showModal.value = false;
+        router.reload();
+    } catch (e) {
+        form.setErrors(e.response?.data?.errors || {});
+    }
 };
 
 const saveRenew = () => {
@@ -209,7 +235,7 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get(route('admin.users.trash'));
+        const { data } = await window.axios.get('/users/trash');
         trashedReaders.value = data.data || [];
     } catch {
         trashedReaders.value = [];
@@ -218,7 +244,7 @@ const fetchTrash = async () => {
 };
 const onRestoreReader = async (id) => {
     try {
-        await window.axios.post(route('admin.users.restore', { id }));
+        await window.axios.post(`/users/restore/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -226,7 +252,7 @@ const onRestoreReader = async (id) => {
 const onForceDeleteReader = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
-        await window.axios.delete(route('admin.users.force', { id }));
+        await window.axios.delete(`/users/force/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -306,7 +332,6 @@ function readerStatusClass(r) {
         title="Quản lý người dùng"
         :breadcrumbs="[
             { label: 'Trang chủ' },
-            { label: 'Thư viện số' },
             { label: 'Quản lý người dùng' },
             { label: 'Bạn đọc' },
         ]"
@@ -477,12 +502,25 @@ function readerStatusClass(r) {
                             <Input v-model="form.expiry_date" type="date" class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800 [color-scheme:light] dark:[color-scheme:dark]" />
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Khoa / Lớp, đơn vị</label>
-                            <Input v-model="form.faculty" placeholder="Khoa" class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Khoa</label>
+                            <select v-model="form.faculty_id" class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]" @change="form.department_id = null">
+                                <option :value="null">-- Chọn khoa --</option>
+                                <option v-for="f in faculties" :key="f.id" :value="f.id">{{ f.name }}</option>
+                            </select>
                         </div>
                         <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Khóa học</label>
+                            <select v-model="form.cohort" class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
+                                <option value="">-- Chọn khóa --</option>
+                                <option v-for="c in cohorts" :key="c" :value="c">{{ c }}</option>
+                            </select>
+                        </div>
+                        <div class="space-y-1.5 sm:col-span-2">
                             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Lớp</label>
-                            <Input v-model="form.class" placeholder="Lớp / Đơn vị" class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
+                            <select v-model="form.department_id" class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark]">
+                                <option :value="null">-- Chọn lớp --</option>
+                                <option v-for="d in departmentsFilteredByFaculty" :key="d.id" :value="d.id">{{ d.name }}</option>
+                            </select>
                         </div>
                         <div class="space-y-1.5">
                             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Giới tính</label>

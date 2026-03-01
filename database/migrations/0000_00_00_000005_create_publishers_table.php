@@ -12,14 +12,14 @@ return new class extends Migration
             $table->increments('id');
             $table->string('name');
             $table->string('code')->unique()->nullable();
-            $table->text('address')->nullable();
+            $table->string('address')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
             $table->string('website')->nullable();
             $table->string('contact_person')->nullable();
             $table->string('country')->default('Việt Nam');
             $table->boolean('is_active')->default(true);
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->json('params')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

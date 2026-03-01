@@ -7,7 +7,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
- * Test các route API hiện có: health (public), resource routes (yêu cầu auth).
+ * Test route API: health (public), refresh 401, các route bảo vệ trả 401 khi không có token.
  */
 class ApiRoutesTest extends TestCase
 {
@@ -28,16 +28,21 @@ class ApiRoutesTest extends TestCase
             'Accept' => 'application/json',
         ]);
 
-        $response->assertStatus(401)
-            ->assertJsonPath('status', 'error');
+        $response->assertStatus(401)->assertJsonPath('status', 'error');
     }
 
     #[DataProvider('protectedRoutesProvider')]
-    public function test_protected_routes_return_401_without_auth(string $method, string $uri): void
+    public function test_protected_routes_return_401_without_auth(string $method, string $uri, array $data = []): void
     {
-        $response = $method === 'GET'
-            ? $this->getJson($uri)
-            : $this->postJson($uri, []);
+        if ($method === 'GET') {
+            $response = $this->getJson($uri);
+        } elseif ($method === 'POST') {
+            $response = $this->postJson($uri, $data);
+        } elseif ($method === 'PUT') {
+            $response = $this->putJson($uri, $data);
+        } else {
+            $response = $this->deleteJson($uri);
+        }
 
         $response->assertStatus(401);
     }
@@ -46,6 +51,14 @@ class ApiRoutesTest extends TestCase
     {
         $base = '/api/v1';
         return [
+            'auth user' => ['GET', "{$base}/auth/user"],
+            'master-data' => ['GET', "{$base}/master-data"],
+            'me profile' => ['GET', "{$base}/me/profile"],
+            'me profile put' => ['PUT', "{$base}/me/profile", ['name' => 'x', 'email' => 'x@x.com']],
+            'me dashboard' => ['GET', "{$base}/me/dashboard"],
+            'me loans' => ['GET', "{$base}/me/loans"],
+            'me card' => ['GET', "{$base}/me/card"],
+            'me profile-change-requests page-data' => ['GET', "{$base}/me/profile-change-requests/page-data"],
             'users index' => ['GET', "{$base}/users"],
             'users trash' => ['GET', "{$base}/users/trash"],
             'authors index' => ['GET', "{$base}/authors"],
@@ -54,7 +67,10 @@ class ApiRoutesTest extends TestCase
             'books trash' => ['GET', "{$base}/books/trash"],
             'roles index' => ['GET', "{$base}/roles"],
             'permissions index' => ['GET', "{$base}/permissions"],
-            'auth user' => ['GET', "{$base}/auth/user"],
+            'faculties index' => ['GET', "{$base}/faculties"],
+            'categories index' => ['GET', "{$base}/categories"],
+            'publishers index' => ['GET', "{$base}/publishers"],
+            'profile-change-requests index' => ['GET', "{$base}/profile-change-requests"],
         ];
     }
 }

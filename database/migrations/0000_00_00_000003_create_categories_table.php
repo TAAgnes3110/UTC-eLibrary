@@ -16,11 +16,10 @@ return new class extends Migration
             $table->unsignedInteger('parent_id')->nullable();
             $table->unsignedSmallInteger('order')->default(0);
             $table->boolean('is_active')->default(true);
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->json('params')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index('is_active');
             $table->index(['parent_id', 'order']);
             $table->foreign('parent_id')->references('id')->on('categories')->onDelete('cascade');
         });

@@ -11,22 +11,22 @@ return new class extends Migration
         Schema::create('fines', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('loan_id');
-            $table->foreign('loan_id')->references('id')->on('loans')->onDelete('cascade');
             $table->unsignedInteger('user_id');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->decimal('amount', 10, 2)->comment('Tiền phạt');
-            $table->enum('reason', ['overdue', 'lost', 'damaged', 'other'])->comment('Lý do');
-            $table->text('description')->nullable()->comment('Mô tả');
-            $table->enum('status', ['unpaid', 'paid', 'waived'])->default('unpaid')->comment('TT')->index();
-            $table->date('paid_date')->nullable()->comment('Ngày TT');
-            $table->string('payment_method')->nullable()->comment('PT thanh toán');
+            $table->decimal('amount', 10, 2);
+            $table->string('reason', 20);
+            $table->text('description')->nullable();
+            $table->string('status', 20)->default('unpaid')->index();
+            $table->date('paid_date')->nullable();
+            $table->string('payment_method')->nullable();
             $table->unsignedInteger('processed_by')->nullable();
-            $table->foreign('processed_by')->references('id')->on('users')->onDelete('set null');
-            $table->text('notes')->nullable()->comment('Ghi chú');
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->text('notes')->nullable();
+            $table->json('params')->nullable();
             $table->timestamps();
 
             $table->index(['user_id', 'status']);
+            $table->foreign('loan_id')->references('id')->on('loans')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('processed_by')->references('id')->on('users')->onDelete('set null');
         });
     }
 

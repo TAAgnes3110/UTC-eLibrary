@@ -6,39 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-  public function up(): void
-  {
-    Schema::create('loan_histories', function (Blueprint $table) {
-      $table->increments('id');
-      $table->unsignedInteger('loan_id');
-      $table->foreign('loan_id')->references('id')->on('loans')->onDelete('cascade');
+    public function up(): void
+    {
+        Schema::create('loan_histories', function (Blueprint $table) {
+            $table->increments('id');
+            $table->unsignedInteger('loan_id');
+            $table->string('action', 30)->index();
+            $table->unsignedInteger('performed_by')->nullable();
+            $table->text('notes')->nullable();
+            $table->json('metadata')->nullable();
+            $table->json('params')->nullable();
+            $table->timestamp('performed_at')->useCurrent();
 
-      $table->enum('action', [
-        'created',
-        'renewed',
-        'returned',
-        'overdue',
-        'lost',
-        'damaged',
-        'cancelled'
-      ])->comment('Hành động (loan, return, renew...)');
+            $table->index(['loan_id', 'performed_at']);
+            $table->foreign('loan_id')->references('id')->on('loans')->onDelete('cascade');
+            $table->foreign('performed_by')->references('id')->on('users')->onDelete('set null');
+        });
+    }
 
-      $table->unsignedInteger('performed_by')->nullable();
-      $table->foreign('performed_by')->references('id')->on('users')->onDelete('set null');
-
-      $table->text('notes')->nullable();
-      $table->json('metadata')->nullable()->comment('Metadata');
-      $table->json('params')->nullable()->comment('Tham số');
-
-      $table->timestamp('performed_at')->useCurrent();
-
-      $table->index(['loan_id', 'performed_at']);
-      $table->index('action');
-    });
-  }
-
-  public function down(): void
-  {
-    Schema::dropIfExists('loan_histories');
-  }
+    public function down(): void
+    {
+        Schema::dropIfExists('loan_histories');
+    }
 };

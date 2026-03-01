@@ -52,12 +52,15 @@ const isParentActive = (item) => {
 
 const isChildActive = (child) => {
     if (!isActive(child.active)) return false;
-    if (!child.query || !child.query.tab) return true;
+    if (!child.query || (Object.keys(child.query).length === 0)) return true;
     const url = page.url || '';
-    const tabParam = new URLSearchParams(url.split('?')[1] || '').get('tab');
-    const defaultTab = route().current('admin.library.slips') ? 'import' : 'category';
-    const tab = tabParam || defaultTab;
-    return child.query.tab === tab;
+    const params = new URLSearchParams(url.split('?')[1] || '');
+    for (const [key, value] of Object.entries(child.query)) {
+        const urlVal = params.get(key);
+        const defaultVal = key === 'tab' && route().current('admin.library.slips') ? 'import' : (key === 'tab' ? 'category' : '');
+        if ((urlVal || defaultVal) !== (value ?? '')) return false;
+    }
+    return true;
 };
 
 // Tự mở "Quản lý người dùng" khi vào Bạn đọc hoặc Tài khoản

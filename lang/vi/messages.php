@@ -12,7 +12,7 @@
 */
 
 return [
-    'data_input_error'   => 'Dữ liệu không hơp lệ.',
+    'data_input_error'   => 'Dữ liệu không hợp lệ.',
     'error_203' => 'Thông tin không có thẩm quyền.',
     'error_204' => 'Không có nội dung.',
     'error_400' => "Đường dẫn không đúng.",
@@ -23,7 +23,7 @@ return [
     'error_406' => 'Không được chấp nhận.',
     'error_408' => 'Hết thời gian yêu cầu.',
     'error_410' => 'Không tìm thấy dữ liệu phù hợp',
-    'error_412' => 'Dữ liệu không hơp lệ.',
+    'error_412' => 'Dữ liệu không hợp lệ.',
     'error_insert' => 'Thêm mới dữ liệu không thành công.',
     'error_update' => 'Cập nhật dữ liệu không thành công.',
     'error_delete' => 'Xóa dữ liệu không thành công.',

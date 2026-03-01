@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('nationality')->nullable();
             $table->text('tieu_su')->nullable();
             $table->date('birth_date')->nullable();
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->json('params')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

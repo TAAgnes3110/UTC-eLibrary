@@ -14,6 +14,7 @@ enum BookType: string
     case DISSERTATION = 'dissertation';
     case RESEARCH = 'research';
     case MAGAZINE = 'magazine';
+    case NEWSPAPER = 'newspaper';
     case OTHER = 'other';
 
     /** Nhãn hiển thị (đa ngôn ngữ, fallback tiếng Việt). */
@@ -34,6 +35,7 @@ enum BookType: string
             self::DISSERTATION => 'Luận văn / Luận án',
             self::RESEARCH => 'Báo cáo khoa học',
             self::MAGAZINE => 'Tạp chí',
+            self::NEWSPAPER => 'Báo',
             self::OTHER => 'Tài liệu khác',
         };
     }
@@ -62,5 +64,30 @@ enum BookType: string
             'id' => $c->value,
             'text' => $c->label(),
         ], self::cases());
+    }
+
+    /**
+     * Nhóm tài nguyên (Tài nguyên thông tin): printed | newspaper_magazine | thesis.
+     * Tài liệu số lọc theo is_digital, không theo type.
+     */
+    public function resourceGroup(): string
+    {
+        return match ($this) {
+            self::BOOK, self::TEXTBOOK, self::OTHER => 'printed',
+            self::NEWSPAPER, self::MAGAZINE => 'newspaper_magazine',
+            self::THESIS, self::DISSERTATION, self::RESEARCH => 'thesis',
+        };
+    }
+
+    /** Trả về danh sách value (type) thuộc nhóm. */
+    public static function getTypesByGroup(string $group): array
+    {
+        if ($group === 'digital') {
+            return []; // Tài liệu số: lọc theo is_digital, không theo type
+        }
+        return array_values(array_map(
+            fn (self $c) => $c->value,
+            array_filter(self::cases(), fn (self $c) => $c->resourceGroup() === $group)
+        ));
     }
 }

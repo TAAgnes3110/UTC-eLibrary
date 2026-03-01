@@ -9,14 +9,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('email_otp', function (Blueprint $table) {
-            $table->id();
+            $table->increments('id');
             $table->string('email')->unique();
             $table->string('otp', 10);
-            $table->timestamp('expired_at')->nullable();
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->timestamp('expired_at')->nullable()->index();
+            $table->json('params')->nullable();
             $table->timestamps();
-
-            $table->index('expired_at');
         });
     }
 

@@ -10,9 +10,10 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import { getRoleInfo, getStatusInfo } from '@/config/enums';
 
 const props = defineProps({
-    users: { type: Object, default: () => ({ data: [] }) },
+    users: { type: Object, default: () => ({ data: [], current_page: 1, last_page: 1, per_page: 20, total: 0, from: 0, to: 0 }) },
     roles: { type: Array, default: () => [] },
 });
 
@@ -34,21 +35,12 @@ const form = useForm({
     email: '',
     phone: '',
     code: '',
-    role: 'STUDENT',
+    role: 'MEMBER',
     password: '',
     password_confirmation: '',
 });
 
-const sampleUsers = ref([
-    { id: 1, name: 'Nguyễn Văn Admin', email: 'admin@utc.edu.vn', phone: '0901234567', code: 'AD001', role: 'ADMIN', status: 'active', created_at: '01/01/2024' },
-    { id: 2, name: 'Trần Thị Thủ Thư', email: 'thuthu@utc.edu.vn', phone: '0912345678', code: 'LB001', role: 'LIBRARIAN', status: 'active', created_at: '15/01/2024' },
-    { id: 3, name: 'Sinh Viên A', email: 'sva@student.utc.edu.vn', phone: '0923456789', code: '2024001', role: 'STUDENT', status: 'active', created_at: '01/09/2024' },
-    { id: 4, name: 'Sinh Viên B', email: 'svb@student.utc.edu.vn', phone: '0934567890', code: '2024002', role: 'STUDENT', status: 'active', created_at: '01/09/2024' },
-    { id: 5, name: 'Giảng Viên C', email: 'gvc@utc.edu.vn', phone: '0945678901', code: 'GV001', role: 'TEACHER', status: 'active', created_at: '01/02/2024' },
-    { id: 6, name: 'Khách D', email: 'khachd@gmail.com', phone: '0956789012', code: 'KH001', role: 'GUEST', status: 'inactive', created_at: '01/12/2024' },
-]);
-
-const usersList = computed(() => props.users?.data?.length ? props.users.data : sampleUsers.value);
+const usersList = computed(() => props.users?.data ?? []);
 
 const searchQuery = ref('');
 const roleFilter = ref('');
@@ -70,21 +62,7 @@ const filteredUsers = computed(() => {
     return result;
 });
 
-const roleLabels = {
-    'SUPER_ADMIN': { label: 'Super Admin', class: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300' },
-    'ADMIN': { label: 'Admin', class: 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200' },
-    'LIBRARIAN': { label: 'Thủ thư', class: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300' },
-    'TEACHER': { label: 'Giảng viên', class: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' },
-    'STUDENT': { label: 'Sinh viên', class: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
-    'GUEST': { label: 'Khách', class: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' },
-};
-const getRoleInfo = (role) => roleLabels[role] || { label: role, class: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' };
-
-const statusLabels = {
-    active: { label: 'Hoạt động', class: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' },
-    inactive: { label: 'Tạm khóa', class: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300' },
-};
-const getStatusInfo = (status) => statusLabels[status] || statusLabels.active;
+const roleOptions = computed(() => props.roles?.length ? props.roles : []);
 
 // Selection (giống Quản lý sách)
 const selectedIds = ref([]);
@@ -105,7 +83,7 @@ const deselectAll = () => { selectedIds.value = []; };
 const openAddModal = () => {
     isEditing.value = false;
     form.reset();
-    form.role = 'STUDENT';
+    form.role = 'MEMBER';
     showModal.value = true;
 };
 
@@ -139,10 +117,10 @@ const saveUser = () => {
 const deleteUser = async () => {
     try {
         if (selectedUser.value) {
-            await window.axios.delete(route('admin.users.destroy', { id: selectedUser.value.id }));
+            await window.axios.delete(`/users/${selectedUser.value.id}`);
         } else if (selectedIds.value.length > 0) {
             for (const id of selectedIds.value) {
-                await window.axios.delete(route('admin.users.destroy', { id }));
+                await window.axios.delete(`/users/${id}`);
             }
         }
         router.reload();
@@ -161,7 +139,7 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get(route('admin.users.trash'));
+        const { data } = await window.axios.get('/users/trash');
         trashedUsers.value = data.data || [];
     } catch {
         trashedUsers.value = [];
@@ -170,7 +148,7 @@ const fetchTrash = async () => {
 };
 const onRestoreUser = async (id) => {
     try {
-        await window.axios.post(route('admin.users.restore', { id }));
+        await window.axios.post(`/users/restore/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -178,7 +156,7 @@ const onRestoreUser = async (id) => {
 const onForceDeleteUser = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
-        await window.axios.delete(route('admin.users.force', { id }));
+        await window.axios.delete(`/users/force/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -196,10 +174,11 @@ const toggleStatus = async () => {
     const user = userToToggle.value;
     if (!user) return;
     try {
-        const { data } = await window.axios.post(route('admin.users.toggle-status', { id: user.id }));
-        if (data?.is_active !== undefined) {
-            user.is_active = data.is_active;
-            user.status = data.is_active ? 'active' : 'inactive';
+        const { data } = await window.axios.post(`/users/${user.id}/toggle-status`);
+        const res = data?.data ?? data;
+        if (res?.is_active !== undefined) {
+            user.is_active = res.is_active;
+            user.status = res.is_active ? 'active' : 'inactive';
         }
         closeToggleConfirm();
         router.reload();
@@ -226,13 +205,10 @@ const uploadAvatar = async (file) => {
     try {
         const formData = new FormData();
         formData.append('avatar', file);
-        const csrf = document.cookie.split('; ').find(r => r.startsWith('XSRF-TOKEN='))?.split('=')[1];
-        await window.axios.post(route('admin.users.update-avatar', { id: userId }), formData, {
-            baseURL: '',
+        await window.axios.post(`/users/${userId}/avatar`, formData, {
             headers: {
+                'Content-Type': 'multipart/form-data',
                 'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                ...(csrf && { 'X-XSRF-TOKEN': decodeURIComponent(csrf) }),
             },
         });
         showAvatarModal.value = false;
@@ -252,7 +228,6 @@ const uploadAvatar = async (file) => {
         title="Quản lý người dùng"
         :breadcrumbs="[
             { label: 'Trang chủ' },
-            { label: 'Thư viện số' },
             { label: 'Quản lý người dùng' },
             { label: 'Tài khoản' },
         ]"
@@ -287,7 +262,7 @@ const uploadAvatar = async (file) => {
                 <template #filters>
                     <select v-model="roleFilter" class="admin-filter-select">
                         <option value="">-- Phân quyền --</option>
-                        <option v-for="(info, role) in roleLabels" :key="role" :value="role">{{ info.label }}</option>
+                        <option v-for="r in roleOptions" :key="r.id" :value="r.id">{{ r.text }}</option>
                     </select>
                 </template>
             </AdminFilterSearch>
@@ -421,7 +396,7 @@ const uploadAvatar = async (file) => {
                         <div class="space-y-1.5">
                             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Phân quyền</label>
                             <select v-model="form.role" class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm">
-                                <option v-for="(info, role) in roleLabels" :key="role" :value="role">{{ info.label }}</option>
+                                <option v-for="r in roleOptions" :key="r.id" :value="r.id">{{ r.text }}</option>
                             </select>
                         </div>
                         <template v-if="!isEditing">

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Frontend\Auth;
 
-use App\Http\Controllers\Backend\EmailOTPController;
+use App\Http\Controllers\Api\EmailOTPController;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\AuthRequests\RegisterRequest;
-use App\Http\Requests\OtpRequests\VerifyOTPRequest;
+use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\VerifyOTPRequest;
 use App\Models\User;
 use App\Services\OtpService;
 use Exception;

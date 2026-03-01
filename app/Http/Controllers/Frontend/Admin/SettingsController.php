@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/** Chỉ render trang / redirect. */
 class SettingsController extends Controller
 {
     public function index(): RedirectResponse

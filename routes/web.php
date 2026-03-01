@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\RoleType;
-use App\Http\Controllers\Backend\AuthController as BackendAuthController;
+use App\Http\Controllers\Api\AuthController as BackendAuthController;
 use App\Http\Controllers\Frontend\Admin\AuthorController;
 use App\Http\Controllers\Frontend\Admin\BookController;
 use App\Http\Controllers\Frontend\Admin\CardController;
@@ -26,6 +26,9 @@ use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
 use App\Http\Controllers\Frontend\Reader\DashboardController as ReaderDashboardController;
 use App\Http\Controllers\Frontend\Reader\LoanController as ReaderLoanController;
 use App\Http\Controllers\Frontend\Reader\PageController;
+use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
+use App\Http\Controllers\Frontend\Reader\ProfileController as ReaderProfileController;
+use App\Http\Controllers\Frontend\Admin\ProfileChangeRequestController as AdminProfileChangeRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
@@ -58,6 +61,8 @@ Route::prefix('library')->name('library.')->group(function () {
         Route::get('/dashboard', ReaderDashboardController::class)->name('dashboard');
         Route::get('/card', ReaderCardController::class)->name('card');
         Route::get('/loans', ReaderLoanController::class)->name('loans');
+        Route::get('/profile/change-request', [ReaderProfileChangeRequestController::class, 'index'])->name('profile.change-request');
+        Route::get('/profile/edit', [ReaderProfileController::class, 'edit'])->name('profile.edit');
     });
 });
 
@@ -75,15 +80,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::get('/search', [SearchController::class, 'index'])->name('search');
         Route::get('/books', [BookController::class, 'index'])->name('books.index');
-        Route::get('/books/trash', [BookController::class, 'trash'])->name('books.trash');
-        Route::post('/books/restore/{id}', [BookController::class, 'restore'])->name('books.restore');
-        Route::delete('/books/force/{id}', [BookController::class, 'forceDelete'])->name('books.force');
-        Route::get('/books/export', [BookController::class, 'export'])->name('books.export');
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::get('/authors', [AuthorController::class, 'index'])->name('authors.index');
-        Route::get('/authors/trash', [AuthorController::class, 'trash'])->name('authors.trash');
-        Route::post('/authors/restore/{id}', [AuthorController::class, 'restore'])->name('authors.restore');
-        Route::delete('/authors/force/{id}', [AuthorController::class, 'forceDelete'])->name('authors.force');
         Route::get('/publishers', [PublisherController::class, 'index'])->name('publishers.index');
         Route::get('/readers', [ReaderController::class, 'index'])->name('readers.index');
         Route::get('/readers/export', [ReaderController::class, 'export'])->name('readers.export');
@@ -101,13 +99,8 @@ Route::middleware('auth')->group(function () {
         });
         Route::get('/stats', [StatsController::class, 'index'])->name('stats.index');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
-        Route::get('/users/trash', [UserController::class, 'trash'])->name('users.trash');
-        Route::post('/users/restore/{id}', [UserController::class, 'restore'])->name('users.restore');
-        Route::delete('/users/force/{id}', [UserController::class, 'forceDelete'])->name('users.force');
-        Route::post('/users/toggle-status/{id}', [UserController::class, 'toggleStatus'])->name('users.toggle-status');
-        Route::post('/users/{id}/avatar', [UserController::class, 'updateAvatar'])->name('users.update-avatar');
-        Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::get('/profile', ProfileController::class)->name('profile');
+        Route::get('/profile-change-requests', [AdminProfileChangeRequestController::class, 'index'])->name('profile-change-requests.index');
         Route::prefix('settings')->name('settings.')->group(function () {
             Route::get('/', [SettingsController::class, 'index'])->name('index');
             Route::get('/rules', [SettingsController::class, 'rules'])->name('rules');

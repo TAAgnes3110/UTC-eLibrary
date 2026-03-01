@@ -24,15 +24,30 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'user_type' => $this->user_type,
-            'user_type_label' => $this->user_type->name ?? $this->user_type,
+            'user_type' => $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type,
+            'user_type_label' => $this->user_type?->name ?? null,
+            'faculty_id' => $this->faculty_id,
+            'department_id' => $this->department_id,
+            'cohort' => $this->cohort,
+            'is_active' => $this->is_active,
             'avatar' => $avatar ?: null,
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
 
-            'roles' => $this->whenLoaded('roles', fn() => $this->getRoleNames(), $this->getRoleNames()),
-            'permissions' => $this->whenLoaded('permissions', fn() => $this->getAllPermissions()->pluck('name'), $this->getAllPermissions()->pluck('name')),
+            'faculty' => $this->whenLoaded('faculty', fn () => $this->faculty ? ['id' => $this->faculty->id, 'name' => $this->faculty->name, 'code' => $this->faculty->code] : null),
+            'department' => $this->whenLoaded('department', fn () => $this->department ? ['id' => $this->department->id, 'name' => $this->department->name, 'faculty_id' => $this->department->faculty_id] : null),
+            'roles' => $this->whenLoaded('roles', fn () => $this->getRoleNames()),
+            'permissions' => $this->whenLoaded('permissions', fn () => $this->getAllPermissions()->pluck('name')),
 
-            'library_card' => $this->libraryCard,
-            'params' => $this->params,
+            'library_card' => $this->whenLoaded('libraryCard', fn () => $this->libraryCard ? [
+                'id' => $this->libraryCard->id,
+                'card_number' => $this->libraryCard->card_number,
+                'status' => $this->libraryCard->status,
+                'issue_date' => $this->libraryCard->issue_date?->toIso8601String(),
+                'expiry_date' => $this->libraryCard->expiry_date?->toIso8601String(),
+                'metadata' => $this->libraryCard->metadata,
+            ] : null),
+            'params' => $this->params ?? [],
         ];
     }
 }

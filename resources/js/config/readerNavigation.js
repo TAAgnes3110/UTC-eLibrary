@@ -7,6 +7,7 @@ export const readerNavigation = [
     { name: 'Tra cứu sách', href: 'library.search', icon: 'lucide:search', active: 'library.search' },
     { name: 'Sách đã lưu', href: 'library.saved', icon: 'lucide:bookmark', active: 'library.saved' },
     { name: 'Xem thẻ / Quản lý thẻ', href: 'library.card', icon: 'lucide:credit-card', active: 'library.card', auth: true },
+    { name: 'Yêu cầu chỉnh sửa thông tin', href: 'library.profile.change-request', icon: 'lucide:user-cog', active: 'library.profile.change-request', auth: true },
     { name: 'Sách mượn', href: 'library.loans', icon: 'lucide:clipboard-list', active: 'library.loans', auth: true },
     { name: 'Giới thiệu', href: 'library.intro', icon: 'lucide:info', active: 'library.intro' },
     { name: 'Nội quy', href: 'library.rules', icon: 'lucide:file-text', active: 'library.rules' },

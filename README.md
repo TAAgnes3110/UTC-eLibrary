@@ -14,6 +14,7 @@
 - [Ảnh màn hình](#-ảnh-màn-hình)
 - [Chức năng hệ thống](#-chức-năng-hệ-thống)
 - [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
+- [Cấu trúc dự án](#-cấu-trúc-dự-án)
 - [Cài đặt & Chạy](#-cài-đặt--chạy)
 - [Docker](#-docker)
 - [Tác giả](#-tác-giả)
@@ -22,7 +23,37 @@
 
 ## ℹ️ Giới thiệu
 
-Dự án **UTC-eLibrary** là Đồ án Quản lý thư viện, xây dựng nhằm quản lý sách, độc giả và quy trình mượn–trả sách một cách hiệu quả và hiện đại.
+Dự án **UTC-eLibrary** là Đồ án Quản lý thư viện, xây dựng nhằm quản lý sách, độc giả và quy trình mượn–trả sách một cách hiệu quả và hiện đại. Hệ thống phản ánh **Thư viện Trường Đại học Giao thông Vận tải (UTC)** — không gian, tài nguyên, đối tượng phục vụ, quy định mượn–trả và dịch vụ theo mô hình thực tế của thư viện.
+
+---
+
+## 📚 Thư viện UTC (mô hình trong hệ thống)
+
+### 2. Tài nguyên thư viện
+
+- **2.1. Tài liệu in:** Giáo trình các khoa, sách tham khảo (giao thông, xây dựng, cơ khí, CNTT, kinh tế – vận tải), sách ngoại ngữ, sách kỹ năng.
+- **2.2. Báo – tạp chí:** Báo trong nước, tạp chí khoa học – kỹ thuật, tạp chí chuyên ngành giao thông, tạp chí tiếng Anh. Trong hệ thống: loại **Sách** (`book`), **Giáo trình** (`textbook`), **Báo** (`newspaper`), **Tạp chí** (`magazine`), **Luận văn / Luận án** (`thesis`, `dissertation`), **Báo cáo khoa học** (`research`), **Tài liệu khác** (`other`).
+- **2.3. Tài liệu học thuật nội sinh:** Luận văn thạc sĩ, luận án tiến sĩ, đề tài NCKH (sinh viên, giảng viên).
+- **2.4. Thư viện điện tử:** Giáo trình PDF, luận văn – luận án số, tài liệu nội sinh dạng số; tra cứu OPAC. Sách/tài liệu số được đánh dấu `is_digital` và lưu `file_url` (đọc online, hạn chế tải về).
+
+### 3. Đối tượng phục vụ
+
+Sinh viên đại học, Học viên cao học, Nghiên cứu sinh, Giảng viên, Cán bộ nhà trường. Trong hệ thống: `users.cohort` lưu khóa (K60–K66); vai trò qua `user_type` (MEMBER, LIBRARIAN, ADMIN…).
+
+### 4. Quy định mượn – trả (mô hình chung)
+
+- Mượn tối đa: **3–5 cuốn** (cấu hình: `max_books_per_reader`).
+- Thời gian mượn: **7–14 ngày** (cấu hình: `loan_duration_days`).
+- Có thể **gia hạn** (cấu hình: `max_renewals`).
+- Quá hạn: nhắc nhở, có thể bị phạt, ảnh hưởng quyền mượn tiếp (cấu hình nhóm `fine`, thông báo `notify_due_soon_days`).
+
+### 5. Dịch vụ thư viện
+
+Mượn – trả sách, Gia hạn mượn, Đặt trước tài liệu, Tra cứu tài liệu, Hướng dẫn sử dụng thư viện, Sao chụp / scan tài liệu (theo quy định). Hệ thống hỗ trợ nghiệp vụ mượn/trả, gia hạn, đặt trước qua API và giao diện quản lý.
+
+### 6. Thời gian hoạt động (tham khảo)
+
+Thứ 2 – Thứ 6: giờ hành chính. Giai đoạn thi, làm đồ án: có thể mở thêm ca. Giờ cụ thể lưu trong cấu hình (`library_opening_time`, `library_closing_time`, `library_hours_notes`).
 
 ---
 
@@ -234,6 +265,40 @@ Giao diện hỗ trợ **điện thoại, tablet và desktop**:
 
 ---
 
+## 📁 Cấu trúc dự án
+
+### Backend (Laravel) — `app/`
+
+| Thư mục | Vai trò |
+|--------|--------|
+| **Helpers/** | Hàm tiện ích (Upload, String, Date, ApiResponse) |
+| **Http/Controllers/Api/** | Chỉ điều hướng và gọi Service — không chứa logic nghiệp vụ |
+| **Http/Middleware/** | Bộ lọc (CheckRole, ForceJson, Init) |
+| **Http/Requests/** | Validation dữ liệu đầu vào |
+| **Http/Resources/** | Định dạng JSON đầu ra |
+| **Services/** | **Logic nghiệp vụ** (AuthService, UserService, BookService, AuthorService, OtpService, TaxonomyCacheService) |
+| **Enums/** | Hằng số (RoleType, BookType) |
+| **Models/** | Đại diện bảng DB |
+
+Laravel mặc định: Exports/, Imports/, Mail/, Observers/, Providers/. Trang web Inertia: **Http/Controllers/Frontend/** (Admin, Reader, Auth) — chỉ render và gọi Api.
+
+### Frontend (Vue 3 + Inertia) — `resources/js/`
+
+| Thư mục | Vai trò |
+|--------|--------|
+| **api/** | Axios + gọi API theo module (users, books, auth, masterData) |
+| **components/** | UI dùng chung (Table, Modal, Button, Admin/*) |
+| **composables/** | Logic tái sử dụng (useAuth, useTable) |
+| **config/** | Nav, enums (adminNavigation, readerNavigation, enums) |
+| **Layouts/** | Layout Inertia (Admin, Reader, Auth) |
+| **Pages/** | Màn hình (Admin/*, Reader/*, Auth/*) |
+| **store/** | Trạng thái (auth, masterData) |
+| **utils/** | cn(), format, hằng số FE |
+
+**API:** `routes/api.php` → prefix `/api/v1`, controller `Api\*`. **Web:** `routes/web.php` → Frontend controllers.
+
+---
+
 ## 🚀 Cài đặt & Chạy
 
 ### Yêu cầu
@@ -303,9 +368,9 @@ docker compose up -d
 docker compose exec app php artisan migrate --seed --force
 ```
 
-- Ứng dụng: http://localhost:8000  
-- MySQL: port 3306  
-- Redis: port 6379  
+- Ứng dụng: http://localhost:8000
+- MySQL: port 3306
+- Redis: port 6379
 
 Chi tiết: xem `docker-compose.yml` và `Dockerfile`.
 
@@ -324,7 +389,7 @@ Chi tiết: xem `docker-compose.yml` và `Dockerfile`.
    NGROK_AUTHTOKEN=your_ngrok_authtoken_here
    ```
 4. Chạy ngrok:
-   - **Git Bash / Terminal:** `ngrok http 8000` (chỉ chạy được nếu `ngrok` đã nằm trong PATH).
+   - **Terminal:** `ngrok http 8000` (chỉ chạy được nếu `ngrok` đã nằm trong PATH).
    - **Nếu báo "command not found":** dùng đường dẫn đầy đủ, ví dụ:
      ```bash
      /c/ngrok/ngrok.exe http 8000

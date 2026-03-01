@@ -10,11 +10,12 @@ return new class extends Migration
     {
         Schema::create('faculties', function (Blueprint $table) {
             $table->increments('id');
-            $table->string('code')->unique()->comment('Mã khoa');
-            $table->string('name')->comment('Tên khoa');
-            $table->boolean('is_active')->default(true)->comment('TT hoạt động');
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->string('code')->unique();
+            $table->string('name');
+            $table->boolean('is_active')->default(true);
+            $table->json('params')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

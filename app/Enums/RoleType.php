@@ -63,4 +63,10 @@ enum RoleType: string
     {
         return [self::LIBRARIAN->value, self::ADMIN->value, self::SUPER_ADMIN->value];
     }
+
+    /** Vai trò bạn đọc (độc giả). */
+    public static function readerTypes(): array
+    {
+        return [self::MEMBER->value, self::GUEST->value];
+    }
 }

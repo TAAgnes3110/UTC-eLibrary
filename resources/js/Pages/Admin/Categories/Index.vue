@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -10,18 +10,16 @@ import ImportExcelModal from '@/Components/Admin/Books/ImportExcelModal.vue';
 
 const props = defineProps({
     tab: { type: String, default: 'category' },
-    categories: { type: Array, default: () => [
-        { id: 1, name: 'Công nghệ thông tin', description: 'Sách về lập trình, mạng, bảo mật, AI và Khoa học máy tính.', count: 125, type: 'category' },
-        { id: 2, name: 'Kinh tế & Quản trị', description: 'Quản trị kinh doanh, marketing, tài chính, kế toán.', count: 84, type: 'category' },
-        { id: 3, name: 'Khoa học cơ bản', description: 'Toán học, vật lý, hóa học, sinh học đại cương.', count: 210, type: 'category' },
-        { id: 4, name: 'Kỹ thuật Cơ khí', description: 'Cơ khí chế tạo, tự động hóa, kỹ thuật nhiệt.', count: 67, type: 'category' },
-        { id: 5, name: 'Tiếng Việt', description: 'Tài liệu bằng ngôn ngữ Tiếng Việt', count: 1200, type: 'language' },
-        { id: 6, name: 'Tiếng Anh', description: 'Tài liệu bằng ngôn ngữ Tiếng Anh (English)', count: 450, type: 'language' },
-    ]}
+    categories: { type: Array, default: () => [] },
 });
 
 const activeTab = ref(props.tab || 'category');
 watch(() => props.tab, (t) => { if (t) activeTab.value = t; });
+
+function setTab(tab) {
+    activeTab.value = tab;
+    router.get(route('admin.categories.index'), { tab }, { preserveState: true });
+}
 const searchQuery = ref('');
 const showModal = ref(false);
 const showImportModal = ref(false);
@@ -115,17 +113,18 @@ const exportExcel = () => {
 <template>
     <Head :title="(activeTab === 'category' ? 'Thể loại' : 'Ngôn ngữ') + ' - Admin'" />
     <AdminLayout
-        title="Quản lý Phân loại"
+        title="Danh mục"
         :breadcrumbs="[
-            { label: 'Dữ liệu Thư viện' },
-            { label: activeTab === 'category' ? 'Quản lý Thể loại' : 'Quản lý Ngôn ngữ' },
+            { label: 'Trang chủ' },
+            { label: 'Danh mục' },
+            { label: activeTab === 'category' ? 'Thể loại' : 'Ngôn ngữ' },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <!-- Tab Thể loại / Ngôn ngữ -->
+            <!-- Tab Thể loại / Ngôn ngữ (đồng bộ với URL ?tab=) -->
             <div class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-800 w-fit">
                 <button
-                    @click="activeTab = 'category'"
+                    @click="setTab('category')"
                     :class="[
                         'px-4 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-tight transition-all',
                         activeTab === 'category' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
@@ -134,7 +133,7 @@ const exportExcel = () => {
                     Thể loại
                 </button>
                 <button
-                    @click="activeTab = 'language'"
+                    @click="setTab('language')"
                     :class="[
                         'px-4 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-tight transition-all',
                         activeTab === 'language' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white'
@@ -168,7 +167,7 @@ const exportExcel = () => {
 
             <!-- Table (Consistent with Book Management) -->
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                <div class="overflow-x-auto text-nowrap">
+                <div v-if="filtered.length > 0" class="overflow-x-auto text-nowrap">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
@@ -212,6 +211,9 @@ const exportExcel = () => {
                         </tbody>
                     </table>
                 </div>
+                <p v-else class="py-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                    Chưa có {{ activeTab === 'category' ? 'thể loại' : 'ngôn ngữ' }} nào. Bấm "Thêm" để tạo.
+                </p>
             </div>
         </div>
 

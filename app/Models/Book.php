@@ -19,10 +19,11 @@ class Book extends BaseModel
         'isbn',
         'classification_code',
         'classification_detail',
-        'language',
         'edition',
         'category_id',
         'faculty_id',
+        'department_id',
+        'cohort',
         'publisher_id',
         'publication_place',
         'published_year',
@@ -35,12 +36,15 @@ class Book extends BaseModel
         'total_copies',
         'available_copies',
         'params',
+        'is_digital',
+        'file_url',
     ];
 
     protected $casts = [
         'params' => 'array',
         'price' => 'decimal:2',
         'type' => \App\Enums\BookType::class,
+        'is_digital' => 'boolean',
     ];
 
     public function category(): BelongsTo
@@ -51,6 +55,11 @@ class Book extends BaseModel
     public function faculty(): BelongsTo
     {
         return $this->belongsTo(Faculty::class);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
     }
 
     public function publisher(): BelongsTo

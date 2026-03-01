@@ -107,7 +107,7 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get(route('admin.authors.trash'));
+        const { data } = await window.axios.get('/authors/trash');
         trashedAuthors.value = data.data || [];
     } catch {
         trashedAuthors.value = [];
@@ -116,7 +116,7 @@ const fetchTrash = async () => {
 };
 const onRestoreAuthor = async (id) => {
     try {
-        await window.axios.post(route('admin.authors.restore', { id }));
+        await window.axios.post(`/authors/restore/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -124,7 +124,7 @@ const onRestoreAuthor = async (id) => {
 const onForceDeleteAuthor = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
-        await window.axios.delete(route('admin.authors.force', { id }));
+        await window.axios.delete(`/authors/force/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}

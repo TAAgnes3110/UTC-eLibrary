@@ -6,41 +6,28 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-  /**
-   * Run the migrations.
-   */
-  public function up(): void
-  {
-    Schema::create('library_cards', function (Blueprint $table) {
-      $table->increments('id');
-      $table->string('card_number')->unique()->comment('Số thẻ');
-      $table->unsignedInteger('user_id');
-      $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+    public function up(): void
+    {
+        Schema::create('library_cards', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('card_number')->unique();
+            $table->unsignedInteger('user_id');
+            $table->date('issue_date');
+            $table->date('expiry_date')->nullable();
+            $table->string('status', 20)->default('active')->index();
+            $table->boolean('is_active')->default(true);
+            $table->string('card_type', 30)->default('STANDARD');
+            $table->text('note')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
 
-      $table->date('issue_date')->default(now())->comment('Ngày cấp');
-      $table->date('expiry_date')->nullable()->comment('Hạn thẻ');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+        });
+    }
 
-      $table->enum('status', ['active', 'locked', 'expired', 'lost'])->default('active')->comment('TT thẻ');
-      $table->boolean('is_active')->default(true)->comment('Đang hoạt động');
-
-      $table->string('card_type')->default('STANDARD')->comment('Loại thẻ');
-
-      $table->text('note')->nullable()->comment('Ghi chú');
-      $table->json('metadata')->nullable()->comment('Metadata');
-
-      $table->timestamps();
-      $table->softDeletes();
-
-      $table->index('user_id');
-      $table->index('status');
-    });
-  }
-
-  /**
-   * Reverse the migrations.
-   */
-  public function down(): void
-  {
-    Schema::dropIfExists('library_cards');
-  }
+    public function down(): void
+    {
+        Schema::dropIfExists('library_cards');
+    }
 };

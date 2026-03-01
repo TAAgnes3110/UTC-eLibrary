@@ -31,6 +31,7 @@ class SocialAuthController extends Controller
         $name = $microsoftUser->getName();
         $msId = $microsoftUser->getId();
         $code = $this->extractCodeFromEmail($email) ?? ('MS' . $msId);
+        $cohort = $this->extractCohortFromStudentCode($code);
         $userTypeData = $this->determineUserType($email, $microsoftUser);
 
         $user = User::where('email', $email)->first();
@@ -43,10 +44,11 @@ class SocialAuthController extends Controller
                 'email_verified_at' => now(),
                 'user_type' => RoleType::MEMBER,
                 'avatar' => $microsoftUser->getAvatar(),
+                'cohort' => $cohort,
             ], $userTypeData);
             $user = User::create($userData);
             $user->libraryCard()->create([
-                'card_number' => 'TV-MS-' . $msId,
+                'card_number' => $code,
                 'status' => 'active',
                 'is_active' => true,
                 'issue_date' => now(),
@@ -65,6 +67,21 @@ class SocialAuthController extends Controller
         $username = explode('@', $email)[0];
         if (preg_match('/^[a-zA-Z]*(\d+)$/', $username, $matches)) {
             return $matches[1];
+        }
+        return null;
+    }
+
+    /**
+     * Lấy khóa học từ mã sinh viên UTC: 3 chữ số đầu là "223", 2 chữ số tiếp theo là khóa.
+     * Ví dụ: 223630694 → K63, 2236322378 → K63.
+     */
+    private function extractCohortFromStudentCode(?string $code): ?string
+    {
+        if ($code === null || strlen($code) < 5) {
+            return null;
+        }
+        if (str_starts_with($code, '223')) {
+            return 'K' . substr($code, 3, 2);
         }
         return null;
     }

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Frontend\Auth;
 
+use App\Http\Controllers\Api\EmailOTPController;
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Backend\EmailOTPController;
 use App\Models\User;
+use App\Services\OtpService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -30,7 +31,7 @@ class PasswordResetLinkController extends Controller
                 'email' => 'Email không tồn tại trong hệ thống.',
             ]);
         }
-        $otpService = app(\App\Services\OtpService::class);
+        $otpService = app(OtpService::class);
         $result = $otpService->sendOtp($user->email, $user->name);
 
         if (!$result['status']) {

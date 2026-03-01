@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import ReaderDashboardLayout from '@/Layouts/ReaderDashboardLayout.vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
+import { BOOK_TYPES } from '@/config/enums';
 
 const props = defineProps({
     books: { type: Object, default: () => ({ data: [], links: [] }) },
@@ -11,15 +12,6 @@ const props = defineProps({
     publishers: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
 });
-
-const BOOK_TYPES = [
-    { value: '', label: 'Tất cả loại' },
-    { value: 'book', label: 'Sách' },
-    { value: 'textbook', label: 'Giáo trình' },
-    { value: 'thesis', label: 'Khóa luận / Đồ án' },
-    { value: 'magazine', label: 'Tạp chí' },
-    { value: 'other', label: 'Khác' },
-];
 
 const form = ref({
     q: props.filters.q ?? '',

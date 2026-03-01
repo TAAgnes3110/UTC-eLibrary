@@ -6,24 +6,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-  public function up(): void
-  {
-    Schema::create('library_settings', function (Blueprint $table) {
-      $table->increments('id');
-      $table->string('key')->unique();
-      $table->text('value')->nullable();
-      $table->string('type')->default('string')->comment('Kiểu: string, int, bool, json');
-      $table->string('group')->default('general');
-      $table->text('description')->nullable();
-      $table->json('params')->nullable()->comment('Tham số');
-      $table->timestamps();
+    public function up(): void
+    {
+        Schema::create('library_settings', function (Blueprint $table) {
+            $table->increments('id');
+            $table->string('key')->unique();
+            $table->text('value')->nullable();
+            $table->string('type', 20)->default('string');
+            $table->string('group', 50)->default('general');
+            $table->text('description')->nullable();
+            $table->json('params')->nullable();
+            $table->timestamps();
 
-      $table->index(['group', 'key']);
-    });
-  }
+            $table->index(['group', 'key']);
+        });
+    }
 
-  public function down(): void
-  {
-    Schema::dropIfExists('library_settings');
-  }
+    public function down(): void
+    {
+        Schema::dropIfExists('library_settings');
+    }
 };

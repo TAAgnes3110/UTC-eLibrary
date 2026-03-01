@@ -6,6 +6,7 @@ use App\Helpers\FileHelpers;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\Category;
+use App\Models\Publisher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
@@ -22,6 +23,7 @@ class BooksImport
     'category'            => ['danh mục', 'thể loại', 'category', 'loại sách', 'chủ đề'],
     'published_year'      => ['năm xuất bản', 'năm xb', 'nam xb', 'year', 'published year', 'năm'],
     'publication_place'   => ['nơi xuất bản', 'nơi xb', 'noi xb', 'publication place', 'nxb'],
+    'publisher'           => ['nhà xuất bản', 'nha xuat ban', 'publisher'],
     'total_pages'         => ['số trang', 'so trang', 'pages', 'total pages', 'trang'],
     'book_size'           => ['khổ sách', 'kho sach', 'size', 'book size', 'kích thước'],
     'price'               => ['giá', 'gia', 'price', 'giá tiền', 'giá sách', 'đơn giá'],
@@ -73,12 +75,24 @@ class BooksImport
           $categoryId = $category->id;
         }
 
+        // Tìm hoặc tạo Nhà xuất bản (so sánh database: có thì chọn, chưa có thì thêm)
+        $publisherId = null;
+        $publisherName = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['publisher']);
+        if ($publisherName && trim((string) $publisherName) !== '') {
+          $publisher = Publisher::firstOrCreate(
+            ['name' => trim((string) $publisherName)],
+            ['country' => 'Việt Nam', 'is_active' => true]
+          );
+          $publisherId = $publisher->id;
+        }
+
         // Tạo sách
         $book = Book::create([
           'title'                 => $title,
           'classification_code'   => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['classification_code']),
           'classification_detail' => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['classification_detail']),
           'category_id'           => $categoryId,
+          'publisher_id'          => $publisherId,
           'publication_place'     => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['publication_place']),
           'published_year'        => FileHelpers::parseYear(
             FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['published_year'])

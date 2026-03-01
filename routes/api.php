@@ -1,12 +1,19 @@
 <?php
 
-use App\Http\Controllers\Backend\AuthController;
-use App\Http\Controllers\Backend\AuthorController;
-use App\Http\Controllers\Backend\BookController;
-use App\Http\Controllers\Backend\EmailOTPController;
-use App\Http\Controllers\Backend\PermissionController;
-use App\Http\Controllers\Backend\RoleController;
-use App\Http\Controllers\Backend\UserController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AuthorController;
+use App\Http\Controllers\Api\BookController;
+use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\EmailOTPController;
+use App\Http\Controllers\Api\FacultyController;
+use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\ProfileChangeRequestController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PublisherController;
+use App\Http\Controllers\Api\ReaderController;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -64,12 +71,29 @@ Route::prefix('v1')->group(function () {
         Route::get('user', [AuthController::class, 'user']);
     });
 
+    Route::group(['prefix' => 'me', 'middleware' => ['init']], function () {
+        Route::get('profile', [ProfileController::class, 'show']);
+        Route::put('profile', [ProfileController::class, 'update']);
+        Route::get('dashboard', [ReaderController::class, 'dashboardData']);
+        Route::get('loans', [ReaderController::class, 'loansData']);
+        Route::get('card', [ReaderController::class, 'cardData']);
+        Route::get('profile-change-requests/page-data', [ProfileChangeRequestController::class, 'pageData']);
+        Route::post('profile-change-requests', [ProfileChangeRequestController::class, 'store']);
+    });
+
+    Route::get('master-data', [MasterDataController::class, 'index'])->middleware(['init']);
+
     Route::group(['middleware' => ['init']], function () {
         Route::middleware(['role_or_permission:' . RoleType::SUPER_ADMIN->value . '|role_prefix_' . RoleType::ADMIN->value . '|role_prefix_' . RoleType::LIBRARIAN->value])->group(function () {
+            Route::apiResource('faculties', FacultyController::class);
+
             Route::group(['prefix' => '/users'], function () {
                 Route::get('/', [UserController::class, 'index']);
                 Route::get('/trash', [UserController::class, 'trash']);
                 Route::post('/', [UserController::class, 'store']);
+                Route::post('/{id}/toggle-status', [UserController::class, 'toggleStatus']);
+                Route::post('/{id}/avatar', [UserController::class, 'updateAvatar']);
+                Route::get('/{user}', [UserController::class, 'show']);
                 Route::put('/{user}', [UserController::class, 'update']);
                 Route::delete('/{user}', [UserController::class, 'destroy']);
                 Route::post('/restore/{id}', [UserController::class, 'restore']);
@@ -91,7 +115,12 @@ Route::prefix('v1')->group(function () {
             Route::group(['prefix' => '/books'], function () {
                 Route::get('/', [BookController::class, 'index']);
                 Route::get('/trash', [BookController::class, 'trash']);
+                Route::post('/upload-document', [BookController::class, 'uploadDocument']);
+                Route::get('/search-publishers', [BookController::class, 'searchPublishers']);
+                Route::get('/search-authors', [BookController::class, 'searchAuthors']);
+                Route::get('/export', [BookController::class, 'export']);
                 Route::post('/', [BookController::class, 'store']);
+                Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}', [BookController::class, 'update']);
                 Route::delete('/{book}', [BookController::class, 'destroy']);
                 Route::post('/import', [BookController::class, 'import']);
@@ -112,6 +141,15 @@ Route::prefix('v1')->group(function () {
             Route::group(['prefix' => '/permissions'], function () {
                 Route::get('/', [PermissionController::class, 'index']);
                 Route::post('/', [PermissionController::class, 'store']);
+            });
+
+            Route::get('/categories', [CategoryController::class, 'index']);
+            Route::get('/publishers', [PublisherController::class, 'index']);
+
+            Route::group(['prefix' => '/profile-change-requests'], function () {
+                Route::get('/', [ProfileChangeRequestController::class, 'index']);
+                Route::post('/{id}/approve', [ProfileChangeRequestController::class, 'approve']);
+                Route::post('/{id}/reject', [ProfileChangeRequestController::class, 'reject']);
             });
         });
     });

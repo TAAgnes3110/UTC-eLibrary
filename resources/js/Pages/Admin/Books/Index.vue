@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
@@ -12,30 +12,31 @@ import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/Components/ui/dropdown-menu';
+import { BOOK_TYPES, BOOK_TYPE_OPTIONS, BOOK_STATUS_OPTIONS, BOOK_TYPES_BY_GROUP, getResourceGroupLabel, getResourceGroupByType } from '@/config/enums';
 
 const props = defineProps({
     books: { type: Object, default: () => ({ data: [] }) },
     categories: { type: Array, default: () => [] },
     publishers: { type: Array, default: () => [] },
+    faculties: { type: Array, default: () => [] },
+    departments: { type: Array, default: () => [] },
+    cohorts: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
 });
 
-const BOOK_TYPES = [
-    { value: '', label: 'Tất cả loại tài liệu' },
-    { value: 'book', label: 'Sách' },
-    { value: 'textbook', label: 'Giáo trình' },
-    { value: 'thesis', label: 'Bài luận / Khóa luận / Đồ án' },
-    { value: 'dissertation', label: 'Luận văn / Luận án' },
-    { value: 'research', label: 'Báo cáo khoa học' },
-    { value: 'magazine', label: 'Tạp chí' },
-    { value: 'other', label: 'Tài liệu khác' },
-];
-const STATUS_OPTIONS = [
-    { value: '', label: 'Tất cả trạng thái' },
-    { value: 'available', label: 'Sẵn có' },
-    { value: 'unavailable', label: 'Ẩn' },
-    { value: 'processing', label: 'Đang xử lý' },
-];
+const currentGroupLabel = computed(() => getResourceGroupLabel(props.filters?.group));
+
+const bookTypesForGroup = computed(() => {
+    const g = form.group || 'printed';
+    return BOOK_TYPES_BY_GROUP[g] || BOOK_TYPE_OPTIONS;
+});
+
+watch(() => form.group, (g) => {
+    const types = BOOK_TYPES_BY_GROUP[g];
+    if (types?.length && !types.some((t) => t.value === form.type)) {
+        form.type = types[0].value;
+    }
+});
 
 const showFormModal = ref(false);
 const showDeleteModal = ref(false);
@@ -66,17 +67,18 @@ const deselectAll = () => { selectedIds.value = []; };
 
 const form = useForm({
     id: null,
+    group: 'printed',
     title: '',
     type: 'book',
     category_id: '',
     parallel_title: '',
-    language: '',
     responsibility_info: '',
     description: '',
     author: '',
     co_authors: '',
     org_author: '',
     publication_place: '',
+    publisher_id: null,
     publisher: '',
     published_year: '',
     classification_code: '',
@@ -87,8 +89,12 @@ const form = useForm({
     price: '',
     notes: '',
     digital_url: '',
+    file_url: '',
     image: null,
     image_url: null,
+    faculty_id: null,
+    department_id: null,
+    cohort: '',
 });
 
 const sampleBooks = ref([
@@ -143,6 +149,10 @@ const filteredBooks = computed(() => {
 const openAddModal = () => {
     isEditing.value = false;
     form.reset();
+    const group = props.filters?.group || 'printed';
+    form.group = group;
+    const types = BOOK_TYPES_BY_GROUP[group];
+    form.type = types?.length ? types[0].value : 'book';
     showFormModal.value = true;
 };
 
@@ -150,29 +160,78 @@ const openEditModal = (book) => {
     isEditing.value = true;
     selectedBook.value = book;
     form.id = book.id;
+    form.group = getResourceGroupByType(book.type || 'book', book.is_digital);
     form.title = book.title || '';
     form.type = book.type || 'book';
     form.category_id = book.category_id || '';
     form.classification_code = book.classification_code || '';
     form.author = book.authors?.[0]?.name || book.author || '';
     form.co_authors = (book.authors?.slice(1) || []).map(a => a.name).join(', ');
+    form.publisher_id = book.publisher?.id ?? book.publisher_id ?? null;
     form.publisher = book.publisher_name || book.publisher?.name || '';
     form.publication_place = book.publication_place || '';
     form.published_year = book.published_year || '';
     form.total_pages = book.total_pages || '';
     form.book_size = book.book_size || '';
     form.volume_number = book.volume_number || '';
+    form.quantity = book.quantity ?? 0;
     form.price = book.price || '';
     form.notes = book.notes || '';
     form.description = book.description || '';
-    form.language = book.language || '';
     form.image_url = book.image_url || null;
+    form.file_url = book.file_url || '';
+    form.faculty_id = book.faculty_id ?? null;
+    form.department_id = book.department_id ?? null;
+    form.cohort = book.cohort || '';
     showFormModal.value = true;
 };
 
-const saveBook = () => {
-    showFormModal.value = false;
-    form.reset();
+const buildBookPayload = () => {
+    const p = form;
+    const payload = {
+        title: p.title,
+        type: p.type,
+        category_id: p.category_id || null,
+        author: p.author,
+        co_authors: p.co_authors || null,
+        publication_place: p.publication_place || null,
+        published_year: p.published_year ? Number(p.published_year) : null,
+        classification_code: p.classification_code || null,
+        total_pages: p.total_pages ? Number(p.total_pages) : null,
+        book_size: p.book_size || null,
+        volume_number: p.volume_number ? Number(p.volume_number) : null,
+        quantity: p.quantity ? Number(p.quantity) : 0,
+        price: p.price !== '' && p.price != null ? Number(p.price) : null,
+        notes: p.notes || null,
+        faculty_id: p.faculty_id ? Number(p.faculty_id) : null,
+        department_id: p.department_id ? Number(p.department_id) : null,
+        cohort: p.cohort && String(p.cohort).trim() ? String(p.cohort).trim() : null,
+        is_digital: p.group === 'digital',
+        file_url: p.group === 'digital' && p.file_url ? String(p.file_url).trim() : null,
+    };
+    const pubId = p.publisher_id;
+    if (pubId != null && pubId !== '' && pubId !== '__new__' && !Number.isNaN(Number(pubId))) {
+        payload.publisher_id = Number(pubId);
+    } else if (p.publisher && String(p.publisher).trim()) {
+        payload.publisher = String(p.publisher).trim();
+    }
+    return payload;
+};
+
+const saveBook = async () => {
+    try {
+        const payload = buildBookPayload();
+        if (isEditing.value && form.id) {
+            await window.axios.put(`/books/${form.id}`, payload);
+        } else {
+            await window.axios.post('/books', payload);
+        }
+        showFormModal.value = false;
+        form.reset();
+        router.reload();
+    } catch (e) {
+        if (e.response?.data?.errors) form.setErrors(e.response.data.errors);
+    }
 };
 
 const confirmDelete = (book) => {
@@ -211,7 +270,7 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get(route('admin.books.trash'));
+        const { data } = await window.axios.get('/books/trash');
         trashedBooks.value = data.data || [];
     } catch {
         trashedBooks.value = [];
@@ -220,7 +279,7 @@ const fetchTrash = async () => {
 };
 const onRestoreBook = async (id) => {
     try {
-        await window.axios.post(route('admin.books.restore', { id }));
+        await window.axios.post(`/books/restore/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -228,7 +287,7 @@ const onRestoreBook = async (id) => {
 const onForceDeleteBook = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
-        await window.axios.delete(route('admin.books.force', { id }));
+        await window.axios.delete(`/books/force/${id}`);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -252,9 +311,9 @@ const onPhotoSubmit = (file) => {
 
 const exportExcel = () => {
     if (selectedIds.value.length > 0) {
-        window.location.href = route('admin.books.export') + '?ids=' + selectedIds.value.join(',');
+        window.location.href = window.axios.defaults.baseURL + '/books/export?ids=' + selectedIds.value.join(',');
     } else {
-        window.location.href = route('admin.books.export');
+        window.location.href = window.axios.defaults.baseURL + '/books/export';
     }
 };
 
@@ -275,15 +334,18 @@ const doSearch = () => {
 <template>
     <Head title="Quản lý Sách & Tài liệu - Admin" />
     <AdminLayout
-        title="Quản lý Sách & Tài liệu"
+        :title="currentGroupLabel !== 'Tất cả tài liệu' ? currentGroupLabel : 'Quản lý Sách & Tài liệu'"
         :breadcrumbs="[
-            { label: 'Dữ liệu thư viện' },
-            { label: 'Quản lý Sách & Tài liệu' },
+            { label: 'Trang chủ' },
+            { label: 'Danh mục tài liệu' },
+            ...(currentGroupLabel !== 'Tất cả tài liệu' ? [{ label: currentGroupLabel }] : []),
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách sách / tài liệu</h2>
+                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">
+                    {{ currentGroupLabel !== 'Tất cả tài liệu' ? currentGroupLabel : 'Danh sách sách / tài liệu' }}
+                </h2>
                 <div class="flex items-center gap-2">
                     <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
                         <Icon icon="lucide:trash-2" class="w-4 h-4" />
@@ -322,7 +384,20 @@ const doSearch = () => {
                 search-placeholder="Tên sách hoặc từ khóa..."
                 :show-filter-button="false"
                 @search="doSearch"
-            />
+            >
+                <template #filters>
+                    <select v-model="filterValues.type" class="admin-filter-select">
+                        <option v-for="opt in BOOK_TYPES" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                    </select>
+                    <select v-model="filterValues.category_id" class="admin-filter-select">
+                        <option value="">-- Thể loại --</option>
+                        <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                    <select v-model="filterValues.status" class="admin-filter-select">
+                        <option v-for="opt in BOOK_STATUS_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                    </select>
+                </template>
+            </AdminFilterSearch>
 
             <BooksTable
                 :books="filteredBooks"
@@ -343,7 +418,10 @@ const doSearch = () => {
             :is-editing="isEditing"
             :categories="categories"
             :publishers="publishers"
-            :book-types="BOOK_TYPES"
+            :faculties="faculties"
+            :departments="departments"
+            :cohorts="cohorts"
+            :book-types="bookTypesForGroup"
             @close="showFormModal = false"
             @submit="saveBook"
         />

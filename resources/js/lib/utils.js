@@ -1,6 +1,2 @@
-import { clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs) {
-  return twMerge(clsx(inputs))
-}
+/** Re-export từ utils (cấu trúc chuẩn). Import từ @/lib/utils hoặc @/utils đều được. */
+export { cn, formatDate } from '../utils/index.js';

@@ -11,20 +11,19 @@ return new class extends Migration
         Schema::create('reservations', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('user_id');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->unsignedInteger('book_id');
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
-            $table->enum('status', ['pending', 'fulfilled', 'cancelled', 'expired'])->default('pending')->comment('TT');
-            $table->date('reservation_date')->comment('Ngày đặt');
-            $table->date('expiry_date')->nullable()->comment('Hạn đặt');
-            $table->text('notes')->nullable()->comment('Ghi chú');
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->string('status', 20)->default('pending')->index();
+            $table->date('reservation_date');
+            $table->date('expiry_date')->nullable();
+            $table->text('notes')->nullable();
+            $table->json('params')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            $table->index('status');
+
             $table->index(['user_id', 'status']);
             $table->index(['book_id', 'status']);
-            $table->index('created_at');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
         });
     }
 

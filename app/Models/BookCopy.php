@@ -12,7 +12,7 @@ class BookCopy extends BaseModel
 
     protected $table = 'book_copies';
 
-      protected $fillable = [
+    protected $fillable = [
         'book_id',
         'barcode',
         'call_number',

@@ -8,22 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $conditions = ['new', 'good', 'fair', 'poor', 'damaged'];
-        $statuses = ['available', 'borrowed', 'reserved', 'maintenance', 'lost'];
-
-        Schema::create('book_copies', function (Blueprint $table) use ($conditions, $statuses) {
+        Schema::create('book_copies', function (Blueprint $table) {
             $table->increments('id');
             $table->unsignedInteger('book_id');
             $table->string('barcode')->unique();
             $table->string('call_number')->nullable();
-            $table->enum('condition', $conditions)->default('good');
-            $table->enum('status', $statuses)->default('available');
+            $table->string('condition', 20)->default('good');
+            $table->string('status', 20)->default('available')->index();
             $table->string('location')->nullable();
             $table->text('notes')->nullable();
-            $table->json('params')->nullable()->comment('Tham số');
+            $table->json('params')->nullable();
             $table->timestamps();
             $table->softDeletes();
-            $table->index('status');
+
             $table->index(['book_id', 'status']);
             $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
         });

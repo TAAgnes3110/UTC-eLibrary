@@ -9,6 +9,10 @@ class BookRequest extends BaseRequest
 {
     public function rules(): array
     {
+        $type = $this->input('type');
+        $thesisTypes = BookType::getTypesByGroup('thesis');
+        $isThesis = $type && in_array($type, $thesisTypes, true);
+
         return [
             'title' => ['required', 'string', 'max:500'],
             'type' => ['required', 'string', Rule::in(BookType::values())],
@@ -17,12 +21,25 @@ class BookRequest extends BaseRequest
             'classification_detail' => ['nullable', 'string', 'max:255'],
             'edition' => ['nullable', 'string', 'max:50'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
-            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
-            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
-            'cohort' => ['nullable', 'string', 'max:20'],
+            'faculty_id' => [
+                $isThesis ? 'required' : 'nullable',
+                'integer',
+                'exists:faculties,id',
+            ],
+            'department_id' => [
+                $isThesis ? 'required' : 'nullable',
+                'integer',
+                'exists:departments,id',
+            ],
+            'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+            'shelf' => ['nullable', 'string', 'max:100'],
+            'cohort' => [
+                $isThesis ? 'required' : 'nullable',
+                'string',
+                'max:20',
+            ],
             'author' => ['required', 'string', 'max:255'],
             'co_authors' => ['nullable', 'string', 'max:500'],
-            'publisher_id' => ['nullable', 'integer', 'exists:publishers,id'],
             'publisher' => ['nullable', 'string', 'max:255'],
             'publication_place' => ['nullable', 'string', 'max:255'],
             'published_year' => ['nullable', 'integer', 'min:1000', 'max:2100'],

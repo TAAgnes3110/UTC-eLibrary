@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Frontend\Admin;
 
-use App\Http\Controllers\Api\ProfileChangeRequestController;
 use App\Http\Controllers\Frontend\Concerns\DecodesBackendResponse;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -16,7 +15,7 @@ class ProfileChangeRequestController extends Controller
 
     public function index(Request $request): Response
     {
-        $response = app(ProfileChangeRequestController::class)->index($request);
+        $response = app(\App\Http\Controllers\Api\ProfileChangeRequestController::class)->index($request);
         $data = $this->backendData($response);
 
         $requests = $data['data'] ?? [];

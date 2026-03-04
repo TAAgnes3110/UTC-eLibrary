@@ -25,12 +25,6 @@ export const booksApi = {
     forceDelete(id) {
         return client.delete(`/books/force/${id}`).then((r) => r.data);
     },
-    searchPublishers(q = '') {
-        return client.get('/books/search-publishers', { params: { q } }).then((r) => r.data);
-    },
-    searchAuthors(q = '') {
-        return client.get('/books/search-authors', { params: { q } }).then((r) => r.data);
-    },
     uploadDocument(formData) {
         return client
             .post('/books/upload-document', formData, { headers: { 'Content-Type': 'multipart/form-data' } })

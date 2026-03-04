@@ -9,14 +9,12 @@ import { BOOK_TYPES } from '@/config/enums';
 const props = defineProps({
     books: { type: Object, default: () => ({ data: [], links: [] }) },
     categories: { type: Array, default: () => [] },
-    publishers: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
 });
 
 const form = ref({
     q: props.filters.q ?? '',
     category_id: props.filters.category_id ?? '',
-    publisher_id: props.filters.publisher_id ?? '',
     type: props.filters.type ?? '',
     year: props.filters.year ?? '',
 });
@@ -66,7 +64,7 @@ const showPagination = computed(() => bookList.value.length > 0 && (props.books?
             <!-- Bộ lọc (card) - cùng style admin -->
             <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:p-6">
                 <h2 class="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Bộ lọc</h2>
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <div>
                         <label class="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Từ khóa</label>
                         <input
@@ -84,16 +82,6 @@ const showPagination = computed(() => bookList.value.length > 0 && (props.books?
                         >
                             <option value="">-- Tất cả --</option>
                             <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Nhà xuất bản</label>
-                        <select
-                            v-model="form.publisher_id"
-                            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-white dark:focus:border-amber-500/50 dark:focus:ring-amber-500/20"
-                        >
-                            <option value="">-- Tất cả --</option>
-                            <option v-for="p in publishers" :key="p.id" :value="p.id">{{ p.name }}</option>
                         </select>
                     </div>
                     <div>

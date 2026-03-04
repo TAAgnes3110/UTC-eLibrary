@@ -50,24 +50,6 @@ class AdminApiTest extends TestCase
         $response->assertStatus(200)->assertJsonStructure(['status', 'data']);
     }
 
-    public function test_publishers_index_returns_200_with_admin_token(): void
-    {
-        [, $token] = $this->createAdminUserAndToken();
-
-        $response = $this->getJson('/api/v1/publishers', $this->apiTokenHeaders($token));
-
-        $response->assertStatus(200)->assertJsonStructure(['status', 'data']);
-    }
-
-    public function test_authors_index_returns_200_with_admin_token(): void
-    {
-        [, $token] = $this->createAdminUserAndToken();
-
-        $response = $this->getJson('/api/v1/authors', $this->apiTokenHeaders($token));
-
-        $response->assertStatus(200)->assertJsonStructure(['status', 'data']);
-    }
-
     public function test_books_index_returns_200_with_admin_token(): void
     {
         [, $token] = $this->createAdminUserAndToken();

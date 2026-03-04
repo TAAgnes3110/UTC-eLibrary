@@ -31,16 +31,16 @@ const getRowIndex = (index) => (props.page - 1) * props.perPage + index + 1;
 const getPublisherInfo = (book) => {
     const parts = [];
     if (book.publication_place) parts.push(book.publication_place);
-    if (book.publisher_name || book.publisher?.name) parts.push(book.publisher_name || book.publisher?.name);
+    if (book.publisher_name) parts.push(book.publisher_name);
     if (book.published_year) parts.push(book.published_year);
     return parts.join(',') || '—';
 };
 
 const getAuthorNames = (book) => {
-    if (book.authors && book.authors.length > 0) {
-        return book.authors.map(a => a.name).join(', ');
-    }
-    return book.author || '';
+    const parts = [];
+    if (book.author) parts.push(book.author);
+    if (book.co_authors) parts.push(book.co_authors);
+    return parts.join(', ');
 };
 
 // Shared border class for column dividers

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
@@ -15,6 +15,47 @@ import { getRoleInfo, getStatusInfo } from '@/config/enums';
 const props = defineProps({
     users: { type: Object, default: () => ({ data: [], current_page: 1, last_page: 1, per_page: 20, total: 0, from: 0, to: 0 }) },
     roles: { type: Array, default: () => [] },
+});
+
+const usersData = ref(null);
+const rolesData = ref(null);
+const loadingFallback = ref(false);
+
+onMounted(async () => {
+    const fromProps = props.users?.data ?? [];
+    if (fromProps.length > 0) {
+        usersData.value = props.users;
+        rolesData.value = props.roles;
+        return;
+    }
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+    if (!token) return;
+    loadingFallback.value = true;
+    try {
+        const [usersRes, masterRes] = await Promise.all([
+            window.axios.get('/users'),
+            window.axios.get('/master-data'),
+        ]);
+        const payload = usersRes?.data?.data ?? usersRes?.data;
+        const items = Array.isArray(payload) ? payload : (payload?.data ?? []);
+        const meta = payload?.meta ?? {};
+        usersData.value = {
+            data: items,
+            current_page: meta?.current_page ?? 1,
+            last_page: meta?.last_page ?? 1,
+            per_page: meta?.per_page ?? 20,
+            total: meta?.total ?? 0,
+            from: meta?.from ?? null,
+            to: meta?.to ?? null,
+        };
+        const md = masterRes?.data?.data ?? masterRes?.data ?? {};
+        rolesData.value = md?.role_types ?? props.roles ?? [];
+    } catch {
+        usersData.value = props.users;
+        rolesData.value = props.roles;
+    } finally {
+        loadingFallback.value = false;
+    }
 });
 
 const showModal = ref(false);
@@ -40,7 +81,7 @@ const form = useForm({
     password_confirmation: '',
 });
 
-const usersList = computed(() => props.users?.data ?? []);
+const usersList = computed(() => (usersData.value ?? props.users)?.data ?? []);
 
 const searchQuery = ref('');
 const roleFilter = ref('');
@@ -62,7 +103,10 @@ const filteredUsers = computed(() => {
     return result;
 });
 
-const roleOptions = computed(() => props.roles?.length ? props.roles : []);
+const roleOptions = computed(() => {
+    const roles = rolesData.value ?? props.roles;
+    return roles?.length ? roles : [];
+});
 
 // Selection (giống Quản lý sách)
 const selectedIds = ref([]);
@@ -140,7 +184,8 @@ const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
         const { data } = await window.axios.get('/users/trash');
-        trashedUsers.value = data.data || [];
+        const payload = data?.data ?? data;
+        trashedUsers.value = Array.isArray(payload) ? payload : (payload?.data ?? []);
     } catch {
         trashedUsers.value = [];
     }
@@ -361,7 +406,8 @@ const uploadAvatar = async (file) => {
                         </tbody>
                     </table>
                 </div>
-                <p v-if="filteredUsers.length === 0" class="p-6 text-center text-slate-500 dark:text-slate-400 text-sm">Không có tài khoản nào.</p>
+                <p v-if="loadingFallback" class="p-6 text-center text-slate-500 dark:text-slate-400 text-sm">Đang tải...</p>
+                <p v-else-if="filteredUsers.length === 0" class="p-6 text-center text-slate-500 dark:text-slate-400 text-sm">Không có tài khoản nào.</p>
             </div>
         </div>
 

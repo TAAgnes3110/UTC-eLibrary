@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -16,6 +15,8 @@ class Book extends BaseModel
     protected $fillable = [
         'type',
         'title',
+        'author',
+        'co_authors',
         'isbn',
         'classification_code',
         'classification_detail',
@@ -23,8 +24,9 @@ class Book extends BaseModel
         'category_id',
         'faculty_id',
         'department_id',
+        'warehouse_id',
         'cohort',
-        'publisher_id',
+        'publisher_name',
         'publication_place',
         'published_year',
         'total_pages',
@@ -62,18 +64,9 @@ class Book extends BaseModel
         return $this->belongsTo(Department::class);
     }
 
-    public function publisher(): BelongsTo
+    public function warehouse(): BelongsTo
     {
-        return $this->belongsTo(Publisher::class);
-    }
-
-    public function authors(): BelongsToMany
-    {
-        return $this->belongsToMany(Author::class, 'book_author')
-            ->using(BookAuthor::class)
-            ->withPivot('role', 'order')
-            ->orderBy('order')
-            ->withTimestamps();
+        return $this->belongsTo(Warehouse::class);
     }
 
     public function copies(): HasMany

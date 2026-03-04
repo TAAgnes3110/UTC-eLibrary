@@ -2,37 +2,34 @@
 
 namespace App\Http\Controllers\Frontend\Admin;
 
-use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Frontend\Concerns\DecodesBackendResponse;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
-/** Chỉ render trang. Dữ liệu lấy từ Backend API. */
+/** Chỉ render trang. Dữ liệu lấy trực tiếp từ UserService (không qua API) để tránh lỗi decode. */
 class UserController extends Controller
 {
-    use DecodesBackendResponse;
-
     public function index(Request $request): Response
     {
-        $response = app(UserController::class)->adminPageData($request);
-        $data = $this->backendData($response);
-        $rawUsers = $data['users'] ?? [];
-        $meta = $rawUsers['meta'] ?? [];
+        $payload = app(UserService::class)->adminPageData(20);
+        $paginator = $payload['users'];
+        $items = UserResource::collection($paginator->getCollection())->resolve();
         $users = [
-            'data' => $rawUsers['data'] ?? [],
-            'current_page' => $meta['current_page'] ?? 1,
-            'last_page' => $meta['last_page'] ?? 1,
-            'per_page' => $meta['per_page'] ?? 20,
-            'total' => $meta['total'] ?? 0,
-            'from' => $meta['from'] ?? null,
-            'to' => $meta['to'] ?? null,
+            'data' => $items,
+            'current_page' => $paginator->currentPage(),
+            'last_page' => $paginator->lastPage(),
+            'per_page' => $paginator->perPage(),
+            'total' => $paginator->total(),
+            'from' => $paginator->firstItem(),
+            'to' => $paginator->lastItem(),
         ];
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
-            'roles' => $data['roles'] ?? [],
+            'roles' => $payload['roles'],
         ]);
     }
 }

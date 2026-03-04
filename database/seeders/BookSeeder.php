@@ -3,11 +3,9 @@
 namespace Database\Seeders;
 
 use App\Enums\BookType;
-use App\Models\Author;
 use App\Models\Book;
 use App\Models\BookCopy;
 use App\Models\Category;
-use App\Models\Publisher;
 use Illuminate\Database\Seeder;
 
 /** Dữ liệu mẫu: Sách + bản in (để test API loans). */
@@ -15,12 +13,8 @@ class BookSeeder extends Seeder
 {
     public function run(): void
     {
-        $publisher = Publisher::first();
         $categoryVH = Category::where('code', 'VH')->first();
         $categoryTK = Category::where('code', 'TK')->first();
-        $author1 = Author::where('name', 'Nguyễn Nhật Ánh')->first();
-        $author2 = Author::where('name', 'Tô Hoài')->first();
-        $author3 = Author::where('name', 'Nam Cao')->first();
 
         $books = [
             [
@@ -33,6 +27,7 @@ class BookSeeder extends Seeder
                 'total_pages' => 280,
                 'price' => 85000,
                 'author_name' => 'Nguyễn Nhật Ánh',
+                'publisher_name' => 'Giáo dục Việt Nam',
                 'copies' => 2,
             ],
             [
@@ -44,6 +39,7 @@ class BookSeeder extends Seeder
                 'total_pages' => 150,
                 'price' => 45000,
                 'author_name' => 'Tô Hoài',
+                'publisher_name' => 'Kim Đồng',
                 'copies' => 3,
             ],
             [
@@ -55,6 +51,7 @@ class BookSeeder extends Seeder
                 'total_pages' => 120,
                 'price' => 35000,
                 'author_name' => 'Nam Cao',
+                'publisher_name' => 'Văn Học',
                 'copies' => 2,
             ],
             [
@@ -66,7 +63,8 @@ class BookSeeder extends Seeder
                 'published_year' => 2023,
                 'total_pages' => 400,
                 'price' => 120000,
-                'author_name' => 'Nguyễn Nhật Ánh', // dùng tác giả có sẵn
+                'author_name' => 'Nguyễn Nhật Ánh',
+                'publisher_name' => 'Giáo dục Việt Nam',
                 'copies' => 5,
             ],
             [
@@ -78,17 +76,18 @@ class BookSeeder extends Seeder
                 'total_pages' => 350,
                 'price' => 95000,
                 'author_name' => 'Nguyễn Nhật Ánh',
+                'publisher_name' => 'Giáo dục Việt Nam',
                 'copies' => 4,
             ],
         ];
 
         foreach ($books as $i => $data) {
             $authorName = $data['author_name'];
-            unset($data['author_name']);
+            $publisherName = $data['publisher_name'] ?? null;
+            unset($data['author_name'], $data['publisher_name']);
             $copies = $data['copies'];
             unset($data['copies']);
 
-            $author = Author::where('name', $authorName)->first();
             $book = Book::firstOrCreate(
                 ['isbn' => $data['isbn']],
                 [
@@ -97,18 +96,15 @@ class BookSeeder extends Seeder
                     'classification_code' => $data['classification_code'],
                     'edition' => $data['edition'] ?? null,
                     'category_id' => ($data['classification_code'] ?? '')[0] === 'V' ? $categoryVH?->id : $categoryTK?->id,
-                    'publisher_id' => $publisher?->id,
+                    'publisher_name' => $publisherName,
                     'publication_place' => 'Hà Nội',
                     'published_year' => $data['published_year'],
                     'total_pages' => $data['total_pages'],
                     'price' => $data['price'],
                     'status' => 'available',
+                    'author' => $authorName,
                 ]
             );
-
-            if ($author && !$book->authors()->where('author_id', $author->id)->exists()) {
-                $book->authors()->attach($author->id, ['role' => 'author', 'order' => 1]);
-            }
 
             $existingCopies = $book->copies()->count();
             for ($j = $existingCopies; $j < $copies; $j++) {

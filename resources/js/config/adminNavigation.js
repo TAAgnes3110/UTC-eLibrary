@@ -24,8 +24,6 @@ export const adminNavigation = [
             { name: 'Luận văn – Luận án – Đề tài NCKH', href: 'admin.books.index', active: 'admin.books.*', query: { group: 'thesis' } },
         ],
     },
-    { name: 'Quản lý Tác giả', href: 'admin.authors.index', icon: 'lucide:user-pen', active: 'admin.authors.*' },
-    { name: 'Quản lý Nhà xuất bản', href: 'admin.publishers.index', icon: 'lucide:building-2', active: 'admin.publishers.*' },
     {
         name: 'Quản lý phiếu',
         icon: 'lucide:file-text',

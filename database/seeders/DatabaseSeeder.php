@@ -22,8 +22,6 @@ class DatabaseSeeder extends Seeder
             LibrarySettingsSeeder::class,
             DefaultUsersSeeder::class,
             LibraryCardsAndMembersSeeder::class,
-            AuthorSeeder::class,
-            PublisherSeeder::class,
             BookSeeder::class,
             LoanSeeder::class,
         ]);

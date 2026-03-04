@@ -61,15 +61,12 @@ class ApiRoutesTest extends TestCase
             'me profile-change-requests page-data' => ['GET', "{$base}/me/profile-change-requests/page-data"],
             'users index' => ['GET', "{$base}/users"],
             'users trash' => ['GET', "{$base}/users/trash"],
-            'authors index' => ['GET', "{$base}/authors"],
-            'authors trash' => ['GET', "{$base}/authors/trash"],
             'books index' => ['GET', "{$base}/books"],
             'books trash' => ['GET', "{$base}/books/trash"],
             'roles index' => ['GET', "{$base}/roles"],
             'permissions index' => ['GET', "{$base}/permissions"],
             'faculties index' => ['GET', "{$base}/faculties"],
             'categories index' => ['GET', "{$base}/categories"],
-            'publishers index' => ['GET', "{$base}/publishers"],
             'profile-change-requests index' => ['GET', "{$base}/profile-change-requests"],
         ];
     }

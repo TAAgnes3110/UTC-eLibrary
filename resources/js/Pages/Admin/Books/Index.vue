@@ -17,9 +17,9 @@ import { BOOK_TYPES, BOOK_TYPE_OPTIONS, BOOK_STATUS_OPTIONS, BOOK_TYPES_BY_GROUP
 const props = defineProps({
     books: { type: Object, default: () => ({ data: [] }) },
     categories: { type: Array, default: () => [] },
-    publishers: { type: Array, default: () => [] },
     faculties: { type: Array, default: () => [] },
     departments: { type: Array, default: () => [] },
+    warehouses: { type: Array, default: () => [] },
     cohorts: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({}) },
 });
@@ -78,7 +78,6 @@ const form = useForm({
     co_authors: '',
     org_author: '',
     publication_place: '',
-    publisher_id: null,
     publisher: '',
     published_year: '',
     classification_code: '',
@@ -94,6 +93,8 @@ const form = useForm({
     image_url: null,
     faculty_id: null,
     department_id: null,
+    warehouse_id: null,
+    shelf: '',
     cohort: '',
 });
 
@@ -165,10 +166,9 @@ const openEditModal = (book) => {
     form.type = book.type || 'book';
     form.category_id = book.category_id || '';
     form.classification_code = book.classification_code || '';
-    form.author = book.authors?.[0]?.name || book.author || '';
-    form.co_authors = (book.authors?.slice(1) || []).map(a => a.name).join(', ');
-    form.publisher_id = book.publisher?.id ?? book.publisher_id ?? null;
-    form.publisher = book.publisher_name || book.publisher?.name || '';
+    form.author = book.author || '';
+    form.co_authors = book.co_authors || '';
+    form.publisher = book.publisher_name || '';
     form.publication_place = book.publication_place || '';
     form.published_year = book.published_year || '';
     form.total_pages = book.total_pages || '';
@@ -182,6 +182,8 @@ const openEditModal = (book) => {
     form.file_url = book.file_url || '';
     form.faculty_id = book.faculty_id ?? null;
     form.department_id = book.department_id ?? null;
+    form.warehouse_id = book.warehouse_id ?? null;
+    form.shelf = book.shelf ?? '';
     form.cohort = book.cohort || '';
     showFormModal.value = true;
 };
@@ -205,14 +207,13 @@ const buildBookPayload = () => {
         notes: p.notes || null,
         faculty_id: p.faculty_id ? Number(p.faculty_id) : null,
         department_id: p.department_id ? Number(p.department_id) : null,
+        warehouse_id: p.warehouse_id ? Number(p.warehouse_id) : null,
+        shelf: p.shelf && String(p.shelf).trim() ? String(p.shelf).trim() : null,
         cohort: p.cohort && String(p.cohort).trim() ? String(p.cohort).trim() : null,
         is_digital: p.group === 'digital',
         file_url: p.group === 'digital' && p.file_url ? String(p.file_url).trim() : null,
     };
-    const pubId = p.publisher_id;
-    if (pubId != null && pubId !== '' && pubId !== '__new__' && !Number.isNaN(Number(pubId))) {
-        payload.publisher_id = Number(pubId);
-    } else if (p.publisher && String(p.publisher).trim()) {
+    if (p.publisher && String(p.publisher).trim()) {
         payload.publisher = String(p.publisher).trim();
     }
     return payload;
@@ -322,8 +323,18 @@ const updateCovers = (file) => {
     setTimeout(() => { showUpdateCoversModal.value = false; }, 1000);
 };
 
-const downloadTemplate = () => {
-    window.location.href = '/templates/01-sach-tai-lieu/Mau_nhap_sach.csv';
+const downloadTemplate = async () => {
+    try {
+        const { data } = await window.axios.get('/books/template', { responseType: 'blob' });
+        const url = URL.createObjectURL(new Blob([data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'file_mau_nhap_kho_sach.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (_) {
+        window.location.href = window.axios.defaults.baseURL + '/books/template';
+    }
 };
 
 const doSearch = () => {
@@ -417,9 +428,9 @@ const doSearch = () => {
             :form="form"
             :is-editing="isEditing"
             :categories="categories"
-            :publishers="publishers"
             :faculties="faculties"
             :departments="departments"
+            :warehouses="warehouses"
             :cohorts="cohorts"
             :book-types="bookTypesForGroup"
             @close="showFormModal = false"

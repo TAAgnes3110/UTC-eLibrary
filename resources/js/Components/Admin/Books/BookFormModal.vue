@@ -13,16 +13,14 @@ function useDebounce(fn, ms) {
     };
 }
 
-const DEFAULT_PUBLISHER_LABEL = 'Trường đại học Giao thông vận tải';
-
 const props = defineProps({
     show: Boolean,
     form: Object,
     isEditing: Boolean,
     categories: { type: Array, default: () => [] },
-    publishers: { type: Array, default: () => [] },
     faculties: { type: Array, default: () => [] },
     departments: { type: Array, default: () => [] },
+    warehouses: { type: Array, default: () => [] },
     cohorts: { type: Array, default: () => [] },
     bookTypes: { type: Array, default: () => [] },
 });
@@ -36,11 +34,6 @@ const departmentsByFaculty = computed(() => {
     if (!fid) return [];
     return props.departments.filter((d) => Number(d.faculty_id) === Number(fid));
 });
-
-const useDefaultPublisherTypes = ['textbook', 'research', 'thesis', 'dissertation'];
-const showDefaultPublisherHint = computed(() =>
-    props.form?.type && useDefaultPublisherTypes.includes(props.form.type)
-);
 
 const emit = defineEmits(['close', 'submit']);
 
@@ -82,118 +75,6 @@ async function onDocumentFileChange(e) {
     documentUploading.value = false;
 }
 
-// ——— Autocomplete Nhà xuất bản ———
-const publisherOpen = ref(false);
-const publisherQuery = ref('');
-const publisherSuggestions = ref([]);
-const publisherLoading = ref(false);
-let publisherBlurTimer = null;
-
-const publisherDisplay = computed(() => {
-    if (props.form?.publisher_id && props.publishers?.length) {
-        const p = props.publishers.find(x => Number(x.id) === Number(props.form.publisher_id));
-        if (p) return p.name;
-    }
-    return props.form?.publisher || '';
-});
-
-async function fetchPublisherSuggestions() {
-    const q = (publisherQuery.value || '').trim().toLowerCase();
-    publisherLoading.value = true;
-    try {
-        const { data } = await window.axios.get('/books/search-publishers', { params: { q: q || '' } });
-        publisherSuggestions.value = data?.data ?? [];
-    } catch {
-        publisherSuggestions.value = [];
-    }
-    publisherLoading.value = false;
-}
-const debouncedFetchPublishers = useDebounce(fetchPublisherSuggestions, 300);
-
-function onPublisherInputVal(v) {
-    props.form.publisher = v;
-    props.form.publisher_id = null;
-    publisherQuery.value = v;
-    publisherOpen.value = true;
-    debouncedFetchPublishers();
-}
-
-function onPublisherFocus() {
-    publisherQuery.value = publisherDisplay.value;
-    publisherOpen.value = true;
-    fetchPublisherSuggestions();
-}
-
-function onPublisherBlur() {
-    publisherBlurTimer = setTimeout(() => { publisherOpen.value = false; }, 180);
-}
-
-function selectPublisher(p) {
-    if (!p || p.__new) {
-        props.form.publisher_id = null;
-        props.form.publisher = (publisherQuery.value || '').trim();
-    } else {
-        props.form.publisher_id = p.id;
-        props.form.publisher = p.name;
-    }
-    publisherOpen.value = false;
-}
-
-const publisherDropdownOptions = computed(() => {
-    const q = (publisherQuery.value || '').trim();
-    const list = publisherSuggestions.value.slice();
-    if (q && !list.some(p => (p.name || '').toLowerCase() === q.toLowerCase())) {
-        list.push({ __new: true, name: `+ Thêm mới: "${q}"` });
-    }
-    return list;
-});
-
-// ——— Autocomplete Tác giả ———
-const authorOpen = ref(false);
-const authorQuery = ref('');
-const authorSuggestions = ref([]);
-const authorLoading = ref(false);
-
-async function fetchAuthorSuggestions() {
-    const q = (authorQuery.value || '').trim();
-    authorLoading.value = true;
-    try {
-        const { data } = await window.axios.get('/books/search-authors', { params: { q } });
-        authorSuggestions.value = data?.data ?? [];
-    } catch {
-        authorSuggestions.value = [];
-    }
-    authorLoading.value = false;
-}
-const debouncedFetchAuthors = useDebounce(fetchAuthorSuggestions, 300);
-
-function onAuthorInputVal(v) {
-    props.form.author = v;
-    authorQuery.value = v;
-    authorOpen.value = true;
-    debouncedFetchAuthors();
-}
-
-function onAuthorFocus() {
-    authorQuery.value = props.form?.author ?? '';
-    authorOpen.value = true;
-    fetchAuthorSuggestions();
-}
-
-function onAuthorBlur() {
-    setTimeout(() => { authorOpen.value = false; }, 180);
-}
-
-function selectAuthor(a) {
-    if (a?.id != null) {
-        props.form.author = a.name;
-    } else {
-        const q = (authorQuery.value || '').trim() || (a?.name || '');
-        if (q) props.form.author = q;
-    }
-    authorOpen.value = false;
-}
-
 // ——— Ảnh bìa ———
 const onCoverChange = (e) => {
     const file = e.target.files[0];
@@ -232,8 +113,6 @@ watch(() => props.show, (val) => {
         showConfirm.value = false;
         validationError.value = '';
         uploadedFileName.value = '';
-        publisherOpen.value = false;
-        authorOpen.value = false;
         savedActiveElement = document.activeElement;
         document.body.classList.add('overflow-hidden');
         nextTick(() => modalPanelRef.value?.focus());
@@ -332,44 +211,14 @@ onUnmounted(() => {
                                         <Input v-model="form.title" placeholder="Nhập tên tài liệu / sách..." class="h-10 rounded-lg text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
                                     </div>
 
-                                    <!-- Tác giả (autocomplete: gõ để gợi ý hoặc thêm mới) -->
+                                    <!-- Tác giả (nhập tay, có thể nhiều tên) -->
                                     <div class="space-y-1.5">
                                         <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Tác giả chính <span class="text-rose-500">*</span></label>
-                                        <div class="relative">
-                                            <Input
-                                                :model-value="form.author"
-                                                @update:model-value="onAuthorInputVal"
-                                                @focus="onAuthorFocus"
-                                                @blur="onAuthorBlur"
-                                                placeholder="Gõ tên để tìm hoặc thêm tác giả mới..."
-                                                class="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
-                                            />
-                                            <div v-if="authorOpen" class="absolute top-full left-0 right-0 mt-0.5 z-50 max-h-48 overflow-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
-                                                <div v-if="authorLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-slate-500 text-sm">
-                                                    <Icon icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
-                                                    Đang tải...
-                                                </div>
-                                                <template v-else-if="authorSuggestions.length > 0 || (authorQuery && authorQuery.trim())">
-                                                    <button
-                                                        v-for="a in authorSuggestions"
-                                                        :key="a.id"
-                                                        type="button"
-                                                        class="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                                                        @mousedown.prevent="selectAuthor(a)"
-                                                    >
-                                                        {{ a.name }}
-                                                    </button>
-                                                    <button
-                                                        v-if="authorQuery && authorQuery.trim() && !authorSuggestions.some(x => (x.name || '').toLowerCase() === authorQuery.trim().toLowerCase())"
-                                                        type="button"
-                                                        class="w-full px-3 py-2 text-left text-sm text-blue-600 dark:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-                                                        @mousedown.prevent="selectAuthor({ name: authorQuery.trim() })"
-                                                    >
-                                                        + Thêm mới: "{{ authorQuery.trim() }}"
-                                                    </button>
-                                                </template>
-                                            </div>
-                                        </div>
+                                        <Input
+                                            v-model="form.author"
+                                            placeholder="Nhập tên tác giả chính..."
+                                            class="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
+                                        />
                                         <div class="flex gap-2 mt-1">
                                             <Input v-model="form.co_authors" placeholder="Đồng tác giả (cách nhau bởi dấu phẩy)" class="h-9 flex-1 rounded-lg text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
                                         </div>
@@ -471,33 +320,11 @@ onUnmounted(() => {
                         <h4 class="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-3">Nhà xuất bản</h4>
                         <div class="relative mb-3">
                             <Input
-                                :model-value="publisherDisplay"
-                                @update:model-value="onPublisherInputVal"
-                                @focus="onPublisherFocus"
-                                @blur="onPublisherBlur"
-                                placeholder="Gõ tên để chọn hoặc thêm nhà xuất bản mới..."
+                                v-model="form.publisher"
+                                placeholder="Nhập tên nhà xuất bản..."
                                 class="h-10 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm"
                             />
-                            <div v-if="publisherOpen" class="absolute top-full left-0 right-0 mt-0.5 z-50 max-h-48 overflow-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
-                                <div v-if="publisherLoading" class="px-3 py-4 flex items-center justify-center gap-2 text-slate-500 text-sm">
-                                    <Icon icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
-                                    Đang tải...
-                                </div>
-                                <template v-else>
-                                    <button
-                                        v-for="(p, idx) in publisherDropdownOptions"
-                                        :key="p.__new ? 'new' : (p.id || idx)"
-                                        type="button"
-                                        class="w-full px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                                        :class="p.__new ? 'text-blue-600 dark:text-blue-400' : ''"
-                                        @mousedown.prevent="selectPublisher(p)"
-                                    >
-                                        {{ p.name }}
-                                    </button>
-                                </template>
-                            </div>
                         </div>
-                        <p v-if="showDefaultPublisherHint && !form.publisher_id && !form.publisher" class="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Để trống: mặc định {{ DEFAULT_PUBLISHER_LABEL }}</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
                                 <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Năm xuất bản</label>
@@ -521,7 +348,20 @@ onUnmounted(() => {
                             <div><label class="block text-[11px] text-slate-500 mb-1">Khổ</label><Input v-model="form.book_size" placeholder="24cm" class="h-9 rounded-lg text-sm w-full" /></div>
                             <div><label class="block text-[11px] text-slate-500 mb-1">Tập</label><Input v-model="form.volume_number" type="number" min="0" placeholder="0" @blur="validateNonNegative('volume_number')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
                             <div><label class="block text-[11px] text-slate-500 mb-1">Số lượng <span class="text-rose-500">*</span></label><Input v-model="form.quantity" type="number" min="0" placeholder="0" @blur="validateNonNegative('quantity')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
-                            <div><label class="block text-[11px] text-slate-500 mb-1">Giá (vnđ)</label><Input v-model="form.price" type="number" min="0" placeholder="0" @blur="validateNonNegative('price')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
+                            <div><label class="block text-[11px] text-slate-500 mb-1">Giá (VNĐ)</label><Input v-model="form.price" type="number" min="0" placeholder="0" @blur="validateNonNegative('price')" class="h-9 rounded-lg text-sm w-full [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                            <div class="space-y-1.5">
+                                <label class="block text-[11px] text-slate-500 dark:text-slate-400">Kho sách</label>
+                                <select v-model="form.warehouse_id" class="w-full h-10 pl-3 pr-9 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white outline-none">
+                                    <option :value="null">-- Chọn kho --</option>
+                                    <option v-for="w in warehouses" :key="w.id" :value="w.id">{{ w.code }} - {{ w.name }}</option>
+                                </select>
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="block text-[11px] text-slate-500 dark:text-slate-400">Vị trí kệ (VD: K1-A1)</label>
+                                <Input v-model="form.shelf" placeholder="VD: K1-A1" class="h-10 rounded-lg text-sm border-slate-200 dark:border-slate-700 dark:bg-slate-800" />
+                            </div>
                         </div>
                     </div>
 

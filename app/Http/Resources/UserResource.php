@@ -18,14 +18,17 @@ class UserResource extends JsonResource
                 $avatar = null;
             }
         }
+        $userType = $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type;
         return [
             'id' => $this->id,
             'code' => $this->code,
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'user_type' => $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type,
+            'user_type' => $userType,
             'user_type_label' => $this->user_type?->name ?? null,
+            'role' => $userType,
+            'status' => $this->is_active ? 'active' : 'inactive',
             'faculty_id' => $this->faculty_id,
             'department_id' => $this->department_id,
             'cohort' => $this->cohort,

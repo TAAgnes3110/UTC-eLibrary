@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Frontend\Reader;
 
-use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Frontend\Concerns\DecodesBackendResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Book;
@@ -16,20 +15,19 @@ class BookController extends Controller
 
     public function search(Request $request): Response
     {
-        $response = app(BookController::class)->readerSearchPageData($request);
+        $response = app(\App\Http\Controllers\Api\BookController::class)->readerSearchPageData($request);
         $data = $this->backendData($response);
 
         return Inertia::render('Reader/Search/Index', [
             'books' => $data['books'] ?? [],
             'categories' => $data['categories'] ?? [],
-            'publishers' => $data['publishers'] ?? [],
             'filters' => $data['filters'] ?? [],
         ]);
     }
 
     public function show(Book $book): Response
     {
-        $response = app(BookController::class)->readerBookShowData($book);
+        $response = app(\App\Http\Controllers\Api\BookController::class)->readerBookShowData($book);
         $bookData = $this->backendData($response);
 
         return Inertia::render('Reader/Books/Show', [

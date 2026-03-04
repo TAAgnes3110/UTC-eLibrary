@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\AuthorController;
 use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailOTPController;
@@ -10,7 +9,6 @@ use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileChangeRequestController;
 use App\Http\Controllers\Api\ProfileController;
-use App\Http\Controllers\Api\PublisherController;
 use App\Http\Controllers\Api\ReaderController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
@@ -100,25 +98,13 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/force/{id}', [UserController::class, 'forceDelete']);
             });
 
-            Route::group(['prefix' => '/authors'], function () {
-                Route::get('/', [AuthorController::class, 'index']);
-                Route::get('/trash', [AuthorController::class, 'trash']);
-                Route::post('/', [AuthorController::class, 'store']);
-                Route::get('/{author}', [AuthorController::class, 'show']);
-                Route::post('/import', [AuthorController::class, 'import']);
-                Route::put('/{author}', [AuthorController::class, 'update']);
-                Route::delete('/{author}', [AuthorController::class, 'destroy']);
-                Route::post('/restore/{id}', [AuthorController::class, 'restore']);
-                Route::delete('/force/{id}', [AuthorController::class, 'forceDelete']);
-            });
-
             Route::group(['prefix' => '/books'], function () {
                 Route::get('/', [BookController::class, 'index']);
                 Route::get('/trash', [BookController::class, 'trash']);
                 Route::post('/upload-document', [BookController::class, 'uploadDocument']);
-                Route::get('/search-publishers', [BookController::class, 'searchPublishers']);
-                Route::get('/search-authors', [BookController::class, 'searchAuthors']);
+                // Không còn API autocomplete tác giả/nhà xuất bản – nhập tay trực tiếp trong form sách
                 Route::get('/export', [BookController::class, 'export']);
+                Route::get('/template', [BookController::class, 'downloadTemplate']);
                 Route::post('/', [BookController::class, 'store']);
                 Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}', [BookController::class, 'update']);
@@ -144,7 +130,6 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::get('/categories', [CategoryController::class, 'index']);
-            Route::get('/publishers', [PublisherController::class, 'index']);
 
             Route::group(['prefix' => '/profile-change-requests'], function () {
                 Route::get('/', [ProfileChangeRequestController::class, 'index']);

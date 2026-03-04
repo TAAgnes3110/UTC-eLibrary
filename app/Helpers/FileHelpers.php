@@ -255,6 +255,55 @@ class FileHelpers
   }
 
   /**
+   * Tạo file Excel mẫu cho thủ thư nhập kho (4 sheet).
+   * Sheet 1: NhapSach (cột trùng file mẫu). Sheet 2–4: TheLoai, TheLoaiChiTiet, KhoSach.
+   *
+   * @return Spreadsheet
+   */
+  public static function createLibraryTemplate(): Spreadsheet
+  {
+    $spreadsheet = new Spreadsheet();
+    $styleHeader = [
+      'font' => ['bold' => true],
+      'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+      'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE0E0E0']],
+    ];
+
+    // Sheet 1: NhapSach
+    $ws1 = $spreadsheet->getActiveSheet();
+    $ws1->setTitle('NhapSach');
+    $headers1 = ['MaSach', 'TenSach', 'TacGia', 'NhaXuatBan', 'NamXuatBan', 'MaTheLoai', 'MaChiTiet', 'SoLuong', 'GiaTien', 'MaKho', 'ViTriKho', 'GhiChu'];
+    $col = 1;
+    foreach ($headers1 as $h) {
+      $ws1->setCellValueByColumnAndRow($col++, 1, $h);
+    }
+    $ws1->getStyle('A1:' . Coordinate::stringFromColumnIndex(count($headers1)) . '1')->applyFromArray($styleHeader);
+
+    // Sheet 2: TheLoai
+    $ws2 = $spreadsheet->createSheet();
+    $ws2->setTitle('TheLoai');
+    $ws2->fromArray(['MaTheLoai', 'TenTheLoai', 'MoTa'], null, 'A1');
+    $ws2->fromArray([['TL01', 'Toán học', 'Sách toán tiểu học'], ['TL02', 'Ngữ văn', 'Sách tiếng Việt – văn học'], ['TL03', 'Khoa học', 'Sách khoa học tự nhiên']], null, 'A2');
+    $ws2->getStyle('A1:C1')->applyFromArray($styleHeader);
+
+    // Sheet 3: TheLoaiChiTiet
+    $ws3 = $spreadsheet->createSheet();
+    $ws3->setTitle('TheLoaiChiTiet');
+    $ws3->fromArray(['MaChiTiet', 'MaTheLoai', 'TenChiTiet'], null, 'A1');
+    $ws3->fromArray([['CT01', 'TL01', 'Toán lớp 1'], ['CT02', 'TL01', 'Toán lớp 2'], ['CT03', 'TL02', 'Tiếng Việt lớp 1']], null, 'A2');
+    $ws3->getStyle('A1:C1')->applyFromArray($styleHeader);
+
+    // Sheet 4: KhoSach
+    $ws4 = $spreadsheet->createSheet();
+    $ws4->setTitle('KhoSach');
+    $ws4->fromArray(['MaKho', 'TenKho', 'ViTri', 'MoTa'], null, 'A1');
+    $ws4->fromArray([['K1', 'Kho A', 'Tầng 1', 'Khu sách giáo khoa'], ['K2', 'Kho B', 'Tầng 2', 'Khu sách tham khảo']], null, 'A2');
+    $ws4->getStyle('A1:D1')->applyFromArray($styleHeader);
+
+    return $spreadsheet;
+  }
+
+  /**
    * Normalize headers: trim, lowercase, bỏ dấu cách thừa.
    *
    * @param array $rawHeaders

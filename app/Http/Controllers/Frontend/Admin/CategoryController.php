@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Frontend\Admin;
 
-use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Frontend\Concerns\DecodesBackendResponse;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -16,7 +15,7 @@ class CategoryController extends Controller
 
     public function index(Request $request): Response
     {
-        $response = app(CategoryController::class)->adminPageData($request);
+        $response = app(\App\Http\Controllers\Api\CategoryController::class)->adminPageData($request);
         $data = $this->backendData($response);
 
         return Inertia::render('Admin/Categories/Index', [

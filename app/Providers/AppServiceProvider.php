@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use App\Models\Category;
-use App\Models\Publisher;
 use App\Observers\TaxonomyCacheObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -65,7 +64,6 @@ class AppServiceProvider extends ServiceProvider
         $this->bootMicrosoftAzureSocialite();
         $this->bootRateLimiting();
         Category::observe(TaxonomyCacheObserver::class);
-        Publisher::observe(TaxonomyCacheObserver::class);
     }
 
     /**

@@ -12,6 +12,8 @@ return new class extends Migration
             $table->increments('id');
             $table->string('type', 30)->default('book')->index();
             $table->string('title')->index();
+            $table->string('author', 255)->nullable();
+            $table->string('co_authors', 500)->nullable();
             $table->string('isbn', 20)->nullable();
             $table->string('classification_code')->nullable()->index();
             $table->string('classification_detail')->nullable();
@@ -20,7 +22,7 @@ return new class extends Migration
             $table->unsignedInteger('faculty_id')->nullable();
             $table->unsignedInteger('department_id')->nullable();
             $table->string('cohort', 20)->nullable();
-            $table->unsignedInteger('publisher_id')->nullable();
+            $table->string('publisher_name', 255)->nullable();
             $table->string('publication_place')->nullable();
             $table->year('published_year')->nullable()->index();
             $table->unsignedInteger('total_pages')->nullable();
@@ -40,26 +42,11 @@ return new class extends Migration
             $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null');
             $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('set null');
             $table->foreign('department_id')->references('id')->on('departments')->onDelete('set null');
-            $table->foreign('publisher_id')->references('id')->on('publishers')->onDelete('set null');
-        });
-
-        Schema::create('book_author', function (Blueprint $table) {
-            $table->increments('id');
-            $table->unsignedInteger('book_id');
-            $table->unsignedInteger('author_id');
-            $table->string('role', 20)->default('author');
-            $table->unsignedSmallInteger('order')->default(0);
-            $table->timestamps();
-            $table->softDeletes();
-
-            $table->foreign('book_id')->references('id')->on('books')->onDelete('cascade');
-            $table->foreign('author_id')->references('id')->on('authors')->onDelete('cascade');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('book_author');
         Schema::dropIfExists('books');
     }
 };

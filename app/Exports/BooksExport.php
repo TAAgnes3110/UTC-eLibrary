@@ -16,21 +16,29 @@ class BooksExport implements FromCollection, WithHeadings, WithMapping, ShouldAu
 
   public function collection()
   {
-    return Book::with(['authors', 'publisher', 'category'])->get();
+    return Book::with(['category'])->get();
   }
 
   public function map($book): array
   {
     $this->rowIndex++;
 
-    $authorNames = $book->authors->pluck('name')->join(', ');
+    // Ghép tên tác giả chính + đồng tác giả từ các cột text
+    $parts = [];
+    if (!empty($book->author)) {
+      $parts[] = $book->author;
+    }
+    if (!empty($book->co_authors)) {
+      $parts[] = $book->co_authors;
+    }
+    $authorNames = implode(', ', $parts);
 
     return [
       $this->rowIndex,
       $book->classification_code ?? '',
       $book->title ?? '',
       $authorNames,
-      $book->publisher ? $book->publisher->name : ($book->publication_place ?? ''),
+      $book->publisher_name ?? ($book->publication_place ?? ''),
       $book->published_year ?? '',
       $book->category ? $book->category->name : '',
       $book->language ?? '',

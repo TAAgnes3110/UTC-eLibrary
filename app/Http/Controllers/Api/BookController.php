@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Exports\BooksExport;
 use App\Helpers\ApiResponse;
+use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BookRequest;
 use App\Models\Book;
@@ -11,7 +12,9 @@ use App\Services\BookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Chỉ điều hướng: gọi BookService, trả ApiResponse / Resource.
@@ -35,20 +38,6 @@ class BookController extends Controller
         return ApiResponse::success($result);
     }
 
-    public function searchPublishers(Request $request): JsonResponse
-    {
-        $q = trim((string) $request->query('q', ''));
-        $items = $this->bookService->searchPublishers($q);
-        return ApiResponse::success($items);
-    }
-
-    public function searchAuthors(Request $request): JsonResponse
-    {
-        $q = trim((string) $request->query('q', ''));
-        $items = $this->bookService->searchAuthors($q);
-        return ApiResponse::success($items);
-    }
-
     public function adminPageData(Request $request): JsonResponse
     {
         $group = $request->query('group');
@@ -59,7 +48,7 @@ class BookController extends Controller
 
     public function show(Book $book): JsonResponse
     {
-        $book->load(['category', 'publisher', 'authors', 'copies']);
+        $book->load(['category', 'copies']);
         return ApiResponse::success($book);
     }
 
@@ -74,7 +63,7 @@ class BookController extends Controller
 
     public function readerSearchPageData(Request $request): JsonResponse
     {
-        $filters = $request->only(['q', 'category_id', 'publisher_id', 'type', 'year']);
+        $filters = $request->only(['q', 'category_id', 'type', 'year']);
         $payload = $this->bookService->readerSearchPageData($filters);
         return ApiResponse::success($payload);
     }
@@ -150,5 +139,23 @@ class BookController extends Controller
     public function export(): BinaryFileResponse
     {
         return Excel::download(new BooksExport(), 'danh_sach_sach_tai_lieu.xlsx');
+    }
+
+    /**
+     * Tải file Excel mẫu cho thủ thư nhập kho (4 sheet: NhapSach, TheLoai, TheLoaiChiTiet, KhoSach).
+     */
+    public function downloadTemplate(): StreamedResponse
+    {
+        $spreadsheet = FileHelpers::createLibraryTemplate();
+        $writer = new Xlsx($spreadsheet);
+        $filename = 'file_mau_nhap_kho_sach.xlsx';
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'max-age=0',
+        ]);
     }
 }

@@ -40,17 +40,6 @@ enum BookType: string
         };
     }
 
-    /** Các loại mặc định NXB = Trường ĐH Giao thông vận tải khi không nhập từ bên ngoài. */
-    public function useDefaultPublisher(): bool
-    {
-        return in_array($this, [
-            self::TEXTBOOK,
-            self::RESEARCH,
-            self::THESIS,
-            self::DISSERTATION,
-        ], true);
-    }
-
     /** Mảng giá trị value (cho validation Rule::in). */
     public static function values(): array
     {

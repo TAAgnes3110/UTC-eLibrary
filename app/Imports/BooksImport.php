@@ -2,33 +2,34 @@
 
 namespace App\Imports;
 
+use App\Helpers\BookHelper;
 use App\Helpers\FileHelpers;
-use App\Models\Author;
 use App\Models\Book;
 use App\Models\Category;
-use App\Models\Publisher;
+use App\Models\Warehouse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 class BooksImport
 {
-  /**
-   * Các alias cho tên cột (hỗ trợ cả tiếng Việt và tiếng Anh).
-   */
+
   protected const COLUMN_ALIASES = [
-    'title'               => ['tên sách', 'tên đề tài', 'ten sach', 'title', 'nhan đề', 'nhan de'],
-    'authors'             => ['tác giả', 'tac gia', 'author', 'authors', 'người viết'],
-    'classification_code' => ['mã phân loại', 'phân loại', 'ma phan loai', 'classification', 'code', 'mã sách', 'ký hiệu phân loại'],
-    'classification_detail' => ['phân loại chi tiết', 'chi tiết phân loại', 'classification detail'],
-    'category'            => ['danh mục', 'thể loại', 'category', 'loại sách', 'chủ đề'],
-    'published_year'      => ['năm xuất bản', 'năm xb', 'nam xb', 'year', 'published year', 'năm'],
-    'publication_place'   => ['nơi xuất bản', 'nơi xb', 'noi xb', 'publication place', 'nxb'],
-    'publisher'           => ['nhà xuất bản', 'nha xuat ban', 'publisher'],
-    'total_pages'         => ['số trang', 'so trang', 'pages', 'total pages', 'trang'],
-    'book_size'           => ['khổ sách', 'kho sach', 'size', 'book size', 'kích thước'],
-    'price'               => ['giá', 'gia', 'price', 'giá tiền', 'giá sách', 'đơn giá'],
-    'notes'               => ['ghi chú', 'ghi chu', 'notes', 'note', 'chú thích'],
-    'volume_number'       => ['tập số', 'tập', 'volume', 'vol', 'tập số'],
+    'title'                 => ['tên sách', 'tensach', 'tên đề tài', 'ten sach', 'title', 'nhan đề', 'nhan de'],
+    'authors'               => ['tác giả', 'tacgia', 'tac gia', 'author', 'authors', 'người viết'],
+    'classification_code'   => ['mã phân loại', 'matheloai', 'ma the loai', 'phân loại', 'ma phan loai', 'classification', 'code', 'mã sách', 'ký hiệu phân loại'],
+    'classification_detail' => ['phân loại chi tiết', 'machitiet', 'ma chi tiet', 'chi tiết phân loại', 'classification detail'],
+    'category'              => ['danh mục', 'thể loại', 'theloai', 'category', 'loại sách', 'chủ đề'],
+    'published_year'        => ['năm xuất bản', 'namxuatban', 'nam xuat ban', 'năm xb', 'nam xb', 'year', 'published year', 'năm'],
+    'publication_place'     => ['nơi xuất bản', 'nơi xb', 'noi xb', 'publication place', 'nxb'],
+    'publisher'             => ['nhà xuất bản', 'nhaxuatban', 'nha xuat ban', 'publisher'],
+    'total_pages'           => ['số trang', 'so trang', 'pages', 'total pages', 'trang'],
+    'book_size'             => ['khổ sách', 'kho sach', 'size', 'book size', 'kích thước'],
+    'price'                 => ['giá', 'gia', 'giatien', 'gia tien', 'price', 'giá tiền', 'giá sách', 'đơn giá'],
+    'notes'                 => ['ghi chú', 'ghichu', 'ghi chu', 'notes', 'note', 'chú thích'],
+    'volume_number'         => ['tập số', 'tập', 'volume', 'vol', 'tập số'],
+    'quantity'              => ['số lượng', 'soluong', 'so luong', 'quantity', 'số bản'],
+    'warehouse_code'        => ['mã kho', 'makho', 'ma kho', 'kho sách'],
+    'shelf'                 => ['vị trí kho', 'vitrikho', 'vi tri kho', 'shelf', 'kệ', 'ngăn'],
   ];
 
   /**
@@ -64,35 +65,59 @@ class BooksImport
 
         DB::beginTransaction();
 
-        // Tìm hoặc tạo Category
+        // Thể loại: ưu tiên mã (MaTheLoai), không có thì dùng tên (Thể loại)
         $categoryId = null;
-        $categoryName = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['category']);
-        if ($categoryName) {
+        $codeTheLoai = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['classification_code']);
+        $nameTheLoai = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['category']);
+        if ($codeTheLoai) {
           $category = Category::firstOrCreate(
-            ['name' => $categoryName],
-            ['name' => $categoryName]
+            ['code' => $codeTheLoai],
+            ['name' => $nameTheLoai ?: $codeTheLoai, 'code' => $codeTheLoai]
+          );
+          $categoryId = $category->id;
+        } elseif ($nameTheLoai) {
+          $slug = \Illuminate\Support\Str::slug($nameTheLoai);
+          $code = $slug ?: 'DM-' . substr(uniqid(), -6);
+          if (Category::where('code', $code)->exists()) {
+            $code = 'DM-' . substr(md5($nameTheLoai . uniqid()), 0, 10);
+          }
+          $category = Category::firstOrCreate(
+            ['name' => $nameTheLoai],
+            ['name' => $nameTheLoai, 'code' => $code]
           );
           $categoryId = $category->id;
         }
 
-        // Tìm hoặc tạo Nhà xuất bản (so sánh database: có thì chọn, chưa có thì thêm)
-        $publisherId = null;
-        $publisherName = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['publisher']);
-        if ($publisherName && trim((string) $publisherName) !== '') {
-          $publisher = Publisher::firstOrCreate(
-            ['name' => trim((string) $publisherName)],
-            ['country' => 'Việt Nam', 'is_active' => true]
+        // Kho: MaKho -> warehouse_id
+        $warehouseId = null;
+        $maKho = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['warehouse_code']);
+        if ($maKho) {
+          $warehouse = Warehouse::firstOrCreate(
+            ['code' => $maKho],
+            ['name' => $maKho, 'code' => $maKho]
           );
-          $publisherId = $publisher->id;
+          $warehouseId = $warehouse->id;
         }
 
-        // Tạo sách
+        $shelf = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['shelf']);
+        $params = $shelf ? ['shelf' => $shelf] : [];
+
+        $publisherName = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['publisher']);
+        $quantity = (int) (FileHelpers::parseNumber(
+          FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['quantity'])
+        ) ?? 0);
+        if ($quantity < 0) {
+          $quantity = 0;
+        }
+
         $book = Book::create([
+          'type'                  => 'book',
           'title'                 => $title,
-          'classification_code'   => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['classification_code']),
+          'classification_code'   => $codeTheLoai ?: FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['classification_code']),
           'classification_detail' => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['classification_detail']),
           'category_id'           => $categoryId,
-          'publisher_id'          => $publisherId,
+          'warehouse_id'          => $warehouseId,
+          'publisher_name'        => $publisherName,
           'publication_place'     => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['publication_place']),
           'published_year'        => FileHelpers::parseYear(
             FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['published_year'])
@@ -109,12 +134,24 @@ class BooksImport
           ),
           'notes'                 => FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['notes']),
           'status'                => 'available',
+          'params'                => $params,
         ]);
 
-        // Xử lý tác giả (có thể nhiều tác giả, cách nhau bởi dấu phẩy hoặc dấu chấm phẩy)
+        if ($quantity > 0) {
+          BookHelper::createCopies($book, $quantity);
+        }
+        $book->updateStatistics();
+
         $authorNames = FileHelpers::getValueByAliases($row, self::COLUMN_ALIASES['authors']);
         if ($authorNames) {
-          $this->attachAuthors($book, $authorNames);
+          $names = preg_split('/[,;;&]+/', (string) $authorNames);
+          $names = array_values(array_filter(array_map('trim', $names)));
+          $main = $names[0] ?? null;
+          $co = count($names) > 1 ? implode(', ', array_slice($names, 1)) : null;
+          $book->update([
+            'author' => $main,
+            'co_authors' => $co,
+          ]);
         }
 
         DB::commit();
@@ -128,33 +165,4 @@ class BooksImport
     return FileHelpers::buildImportResult($success, $skipped, $errors);
   }
 
-  /**
-   * Tách danh sách tác giả và liên kết vào sách.
-   * Tự động tạo Author mới nếu chưa tồn tại.
-   */
-  protected function attachAuthors(Book $book, string $authorNames): void
-  {
-    // Tách theo dấu phẩy, chấm phẩy, hoặc dấu "&"
-    $names = preg_split('/[,;;&]+/', $authorNames);
-    $order = 0;
-
-    foreach ($names as $name) {
-      $name = trim($name);
-      if (empty($name)) {
-        continue;
-      }
-
-      $author = Author::firstOrCreate(
-        ['name' => $name],
-        ['name' => $name]
-      );
-
-      $book->authors()->attach($author->id, [
-        'role'  => $order === 0 ? 'author' : 'co-author',
-        'order' => $order,
-      ]);
-
-      $order++;
-    }
-  }
 }

@@ -103,7 +103,7 @@ class CurrentUser
         if ($rolesOrPermission === '') {
             return false;
         }
-        if ($this->isSuperAdmin()) {
+        if ($this->isSuperAdmin() || $this->isStaff()) {
             return true;
         }
         $this->ensureRolesAndPermissions();

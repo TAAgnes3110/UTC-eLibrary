@@ -6,11 +6,10 @@ use App\Enums\BookType;
 use App\Helpers\BookHelper;
 use App\Helpers\FileHelpers;
 use App\Imports\BooksImport;
-use App\Models\Author;
 use App\Models\Book;
 use App\Models\Department;
 use App\Models\Faculty;
-use App\Models\Publisher;
+use App\Models\Warehouse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
@@ -27,28 +26,10 @@ class BookService
         return ['url' => $url, 'path' => $path];
     }
 
-    public function searchPublishers(string $q): \Illuminate\Support\Collection
-    {
-        $query = Publisher::where('is_active', true)->orderBy('name');
-        if ($q !== '') {
-            $query->where('name', 'like', '%' . $q . '%');
-        }
-        return $query->limit(20)->get(['id', 'name']);
-    }
-
-    public function searchAuthors(string $q): \Illuminate\Support\Collection
-    {
-        $query = Author::query()->orderBy('name');
-        if ($q !== '') {
-            $query->where('name', 'like', '%' . $q . '%');
-        }
-        return $query->limit(20)->get(['id', 'name']);
-    }
-
     public function adminPageData(?string $group, int $perPage): array
     {
         $taxonomy = app(TaxonomyCacheService::class);
-        $query = Book::with(['authors', 'publisher', 'category', 'faculty', 'department'])
+        $query = Book::with(['category', 'faculty', 'department', 'warehouse'])
             ->withCount('copies')
             ->orderBy('updated_at', 'desc');
 
@@ -67,6 +48,8 @@ class BookService
             return [
                 'id' => $book->id,
                 'title' => $book->title,
+                'author' => $book->author,
+                'co_authors' => $book->co_authors,
                 'type' => $book->type instanceof \BackedEnum ? $book->type->value : ($book->type ?? 'book'),
                 'is_digital' => (bool) ($book->is_digital ?? false),
                 'classification_code' => $book->classification_code,
@@ -85,9 +68,9 @@ class BookService
                 'notes' => $book->notes,
                 'status' => $book->status ?? 'available',
                 'quantity' => $book->copies_count ?? $book->total_copies ?? 0,
-                'publisher_name' => $book->publisher?->name,
-                'publisher' => $book->publisher ? ['id' => $book->publisher->id, 'name' => $book->publisher->name] : null,
-                'authors' => $book->authors->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->all(),
+                'warehouse_id' => $book->warehouse_id,
+                'shelf' => $book->params['shelf'] ?? null,
+                'publisher_name' => $book->publisher_name,
                 'image_url' => $book->params['image_url'] ?? null,
                 'file_url' => $book->file_url,
             ];
@@ -96,13 +79,14 @@ class BookService
 
         $faculties = Faculty::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']);
         $departments = Department::where('is_active', true)->orderBy('faculty_id')->orderBy('name')->get(['id', 'name', 'faculty_id']);
+        $warehouses = Warehouse::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'location']);
         $cohorts = $taxonomy->getCohorts();
 
         return [
             'books' => $paginator->toArray(),
             'categories' => $taxonomy->getCategories(),
-            'publishers' => $taxonomy->getPublishers(),
-            'authors' => Author::orderBy('name')->get(['id', 'name']),
+            'warehouses' => $warehouses,
+            // Không còn danh mục riêng cho tác giả/nhà xuất bản – nhập tay trong bảng sách
             'faculties' => $faculties,
             'departments' => $departments,
             'cohorts' => $cohorts ?? [],
@@ -114,7 +98,7 @@ class BookService
     public function index(?string $keyword, int $perPage = 10): array
     {
         $query = Book::query()
-            ->with(['category', 'publisher', 'authors'])
+            ->with(['category'])
             ->when($keyword !== null && $keyword !== '', function ($query) use ($keyword) {
                 $query->where(function ($q) use ($keyword) {
                     $q->where('title', 'like', "%$keyword%")
@@ -129,7 +113,7 @@ class BookService
 
     public function readerSearchPageData(array $filters): array
     {
-        $query = Book::with(['authors', 'publisher', 'category'])
+        $query = Book::with(['category'])
             ->withCount('copies')
             ->whereNull('deleted_at');
 
@@ -138,15 +122,14 @@ class BookService
             $query->where(function ($qry) use ($q) {
                 $qry->where('title', 'like', "%{$q}%")
                     ->orWhere('classification_code', 'like', "%{$q}%")
-                    ->orWhereHas('authors', fn ($a) => $a->where('name', 'like', "%{$q}%"));
+                    ->orWhere('author', 'like', "%{$q}%")
+                    ->orWhere('co_authors', 'like', "%{$q}%");
             });
         }
         if (!empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);
         }
-        if (!empty($filters['publisher_id'])) {
-            $query->where('publisher_id', $filters['publisher_id']);
-        }
+        // Không lọc theo publisher_id nữa – dùng text publisher_name trong bảng books
         if (!empty($filters['type'])) {
             $query->where('type', $filters['type']);
         }
@@ -158,13 +141,14 @@ class BookService
             return [
                 'id' => $book->id,
                 'title' => $book->title,
+                'author' => $book->author,
+                'co_authors' => $book->co_authors,
                 'type' => $book->type instanceof \BackedEnum ? $book->type->value : ($book->type ?? 'book'),
                 'classification_code' => $book->classification_code,
                 'category_name' => $book->category?->name,
                 'publication_place' => $book->publication_place,
                 'published_year' => $book->published_year,
-                'publisher_name' => $book->publisher?->name,
-                'authors' => $book->authors->map(fn ($a) => ['id' => $a->id, 'name' => $a->name]),
+                'publisher_name' => $book->publisher_name,
                 'quantity' => $book->copies_count ?? 0,
                 'image_url' => $book->params['image_url'] ?? null,
             ];
@@ -174,17 +158,19 @@ class BookService
         return [
             'books' => $books,
             'categories' => $taxonomy->getCategories(),
-            'publishers' => $taxonomy->getPublishers(),
+            // Không còn danh mục riêng cho nhà xuất bản – lấy từ dữ liệu sách
             'filters' => $filters,
         ];
     }
 
     public function readerBookShowData(Book $book): array
     {
-        $book->load(['authors', 'publisher', 'category', 'copies']);
+        $book->load(['category', 'copies']);
         return [
             'id' => $book->id,
             'title' => $book->title,
+            'author' => $book->author,
+            'co_authors' => $book->co_authors,
             'type' => $book->type instanceof \BackedEnum ? $book->type->value : ($book->type ?? 'book'),
             'classification_code' => $book->classification_code,
             'category_name' => $book->category?->name,
@@ -192,8 +178,7 @@ class BookService
             'publication_place' => $book->publication_place,
             'published_year' => $book->published_year,
             'total_pages' => $book->total_pages,
-            'publisher_name' => $book->publisher?->name,
-            'authors' => $book->authors->map(fn ($a) => ['id' => $a->id, 'name' => $a->name]),
+            'publisher_name' => $book->publisher_name,
             'quantity' => $book->copies->count(),
             'image_url' => $book->params['image_url'] ?? null,
             'ebook_url' => $book->params['ebook_url'] ?? null,
@@ -212,7 +197,7 @@ class BookService
     public function trash(int $perPage = self::TRASH_PER_PAGE): array
     {
         $paginator = Book::onlyTrashed()
-            ->with(['category', 'publisher', 'authors'])
+            ->with(['category'])
             ->orderByDesc('deleted_at')
             ->paginate($perPage)
             ->withQueryString();
@@ -249,12 +234,12 @@ class BookService
 
     public function create(array $data): Book
     {
-        $publisherId = BookHelper::resolvePublisherId($data);
-        $authorIds = BookHelper::resolveAuthorIds($data);
-
+        $params = isset($data['shelf']) ? ['shelf' => $data['shelf']] : [];
         $book = Book::create([
             'type' => $data['type'],
             'title' => $data['title'],
+            'author' => $data['author'] ?? null,
+            'co_authors' => $data['co_authors'] ?? null,
             'isbn' => $data['isbn'] ?? null,
             'classification_code' => $data['classification_code'] ?? null,
             'classification_detail' => $data['classification_detail'] ?? null,
@@ -262,8 +247,10 @@ class BookService
             'category_id' => $data['category_id'] ?? null,
             'faculty_id' => $data['faculty_id'] ?? null,
             'department_id' => $data['department_id'] ?? null,
+            'warehouse_id' => $data['warehouse_id'] ?? null,
             'cohort' => $data['cohort'] ?? null,
-            'publisher_id' => $publisherId,
+            'publisher_name' => $data['publisher'] ?? null,
+            'params' => $params,
             'publication_place' => $data['publication_place'] ?? null,
             'published_year' => $data['published_year'] ?? null,
             'total_pages' => $data['total_pages'] ?? null,
@@ -276,24 +263,26 @@ class BookService
             'file_url' => $data['file_url'] ?? null,
         ]);
 
-        BookHelper::syncAuthors($book, $authorIds);
         $quantity = (int) ($data['quantity'] ?? 0);
         if ($quantity > 0) {
             BookHelper::createCopies($book, $quantity);
         }
         $book->updateStatistics();
 
-        return $book->load(['category', 'publisher', 'authors']);
+        return $book->load(['category']);
     }
 
     public function update(Book $book, array $data): Book
     {
-        $publisherId = BookHelper::resolvePublisherId($data);
-        $authorIds = BookHelper::resolveAuthorIds($data);
-
+        $params = $book->params ?? [];
+        if (array_key_exists('shelf', $data)) {
+            $params['shelf'] = $data['shelf'];
+        }
         $book->update([
             'type' => $data['type'],
             'title' => $data['title'],
+            'author' => $data['author'] ?? $book->author,
+            'co_authors' => $data['co_authors'] ?? $book->co_authors,
             'isbn' => $data['isbn'] ?? null,
             'classification_code' => $data['classification_code'] ?? null,
             'classification_detail' => $data['classification_detail'] ?? null,
@@ -301,8 +290,10 @@ class BookService
             'category_id' => $data['category_id'] ?? null,
             'faculty_id' => $data['faculty_id'] ?? null,
             'department_id' => $data['department_id'] ?? null,
+            'warehouse_id' => $data['warehouse_id'] ?? $book->warehouse_id,
             'cohort' => $data['cohort'] ?? null,
-            'publisher_id' => $publisherId,
+            'publisher_name' => $data['publisher'] ?? $book->publisher_name,
+            'params' => $params,
             'publication_place' => $data['publication_place'] ?? null,
             'published_year' => $data['published_year'] ?? null,
             'total_pages' => $data['total_pages'] ?? null,
@@ -315,8 +306,6 @@ class BookService
             'file_url' => $data['file_url'] ?? $book->file_url,
         ]);
 
-        BookHelper::syncAuthors($book, $authorIds);
-
         $quantity = (int) ($data['quantity'] ?? 0);
         $currentCopies = $book->copies()->count();
         if ($quantity > $currentCopies) {
@@ -324,7 +313,7 @@ class BookService
         }
         $book->updateStatistics();
 
-        return $book->load(['category', 'publisher', 'authors']);
+        return $book->load(['category']);
     }
 
     public function import(UploadedFile $file): array

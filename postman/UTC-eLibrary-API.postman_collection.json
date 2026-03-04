@@ -2,12 +2,14 @@
 	"info": {
 		"_postman_id": "utc-elibrary-api-001",
 		"name": "UTC eLibrary API",
-		"description": "Collection API cho UTC eLibrary. Import vào Postman, cập nhật biến `base_url` (vd: http://localhost/api hoặc https://your-ngrok.ngrok-free.dev/api). Sau khi login, copy token vào biến `token`.",
+		"description": "Collection API cho UTC eLibrary.\n\n1. Biến: base_url, token (JWT sau Login), domain, period (vd: 2025-2026).\n2. Auth: Tab Authorization → Bearer Token → {{token}}.\n3. Headers: Vào Collection → Headers, thêm: domain = {{domain}}, period = {{period}}. (Accept, Content-Type thường đã có.)\n\nChuẩn request: Authorization: Bearer <token>; Accept: application/json; Content-Type: application/json; domain; period.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [
-		{"key": "base_url", "value": "http://localhost/api"},
-		{"key": "token", "value": ""}
+		{"key": "base_url", "value": "https://succinic-unshaped-nery.ngrok-free.dev/api"},
+		{"key": "token", "value": ""},
+		{"key": "domain", "value": "https://succinic-unshaped-nery.ngrok-free.dev"},
+		{"key": "period", "value": "2025-2026"}
 	],
 	"auth": {
 		"type": "bearer",

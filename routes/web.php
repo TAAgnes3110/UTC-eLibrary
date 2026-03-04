@@ -2,7 +2,6 @@
 
 use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController as BackendAuthController;
-use App\Http\Controllers\Frontend\Admin\AuthorController;
 use App\Http\Controllers\Frontend\Admin\BookController;
 use App\Http\Controllers\Frontend\Admin\CardController;
 use App\Http\Controllers\Frontend\Admin\CategoryController;
@@ -10,7 +9,6 @@ use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\LibraryController;
 use App\Http\Controllers\Frontend\Admin\LoanController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
-use App\Http\Controllers\Frontend\Admin\PublisherController;
 use App\Http\Controllers\Frontend\Admin\ReaderController;
 use App\Http\Controllers\Frontend\Admin\SearchController;
 use App\Http\Controllers\Frontend\Admin\SettingsController;
@@ -81,8 +79,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/search', [SearchController::class, 'index'])->name('search');
         Route::get('/books', [BookController::class, 'index'])->name('books.index');
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
-        Route::get('/authors', [AuthorController::class, 'index'])->name('authors.index');
-        Route::get('/publishers', [PublisherController::class, 'index'])->name('publishers.index');
         Route::get('/readers', [ReaderController::class, 'index'])->name('readers.index');
         Route::get('/readers/export', [ReaderController::class, 'export'])->name('readers.export');
         Route::get('/cards', [CardController::class, 'index'])->name('cards.index');

@@ -17,6 +17,50 @@ class BookService
 {
     private const TRASH_PER_PAGE = 50;
 
+    private const ADMIN_PER_PAGE_MIN = 5;
+
+    private const ADMIN_PER_PAGE_MAX = 100;
+
+    /** Chuẩn hóa enum type sang string. */
+    private static function enumToString(mixed $type): string
+    {
+        return $type instanceof \BackedEnum ? $type->value : ($type ?? 'book');
+    }
+
+    /** Map Book → mảng cho admin. */
+    private static function toAdminArray(Book $book): array
+    {
+        return [
+            'id' => $book->id,
+            'title' => $book->title,
+            'author' => $book->author,
+            'co_authors' => $book->co_authors,
+            'type' => self::enumToString($book->type),
+            'is_digital' => (bool) ($book->is_digital ?? false),
+            'classification_code' => $book->classification_code,
+            'category_id' => $book->category_id,
+            'faculty_id' => $book->faculty_id,
+            'department_id' => $book->department_id,
+            'cohort' => $book->cohort,
+            'faculty' => $book->faculty ? ['id' => $book->faculty->id, 'name' => $book->faculty->name] : null,
+            'department' => $book->department ? ['id' => $book->department->id, 'name' => $book->department->name] : null,
+            'publication_place' => $book->publication_place,
+            'published_year' => $book->published_year,
+            'total_pages' => $book->total_pages,
+            'book_size' => $book->book_size,
+            'volume_number' => $book->volume_number,
+            'price' => $book->price,
+            'notes' => $book->notes,
+            'status' => $book->status ?? 'available',
+            'quantity' => $book->copies_count ?? $book->total_copies ?? 0,
+            'warehouse_id' => $book->warehouse_id,
+            'shelf' => $book->params['shelf'] ?? null,
+            'publisher_name' => $book->publisher_name,
+            'image_url' => $book->params['image_url'] ?? null,
+            'file_url' => $book->file_url,
+        ];
+    }
+
     public function uploadDocument(UploadedFile $file): array
     {
         $ext = $file->getClientOriginalExtension() ?: 'pdf';
@@ -26,12 +70,42 @@ class BookService
         return ['url' => $url, 'path' => $path];
     }
 
-    public function adminPageData(?string $group, int $perPage): array
+    /**
+     * Danh sách sách cho admin (phân trang + master data).
+     *
+     * @param array{group?: string, q?: string, status?: string, search_in?: string, per_page?: int} $params
+     */
+    public function adminList(array $params): array
     {
+        $group = $params['group'] ?? null;
+        $perPage = min(max((int) ($params['per_page'] ?? 20), self::ADMIN_PER_PAGE_MIN), self::ADMIN_PER_PAGE_MAX);
+        $q = trim((string) ($params['q'] ?? ''));
+        $status = $params['status'] ?? null;
+        $searchIn = isset($params['search_in']) ? array_filter(explode(',', $params['search_in'])) : [];
+
+        $query = $this->buildAdminQuery($group, $q, $status, $searchIn);
+        $paginator = $query->paginate($perPage)->withQueryString();
+        $paginator->through(fn (Book $book) => self::toAdminArray($book));
+
         $taxonomy = app(TaxonomyCacheService::class);
-        $query = Book::with(['category', 'faculty', 'department', 'warehouse'])
+
+        return [
+            'books' => $paginator->toArray(),
+            'categories' => $taxonomy->getCategories(),
+            'warehouses' => Warehouse::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'location']),
+            'faculties' => Faculty::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']),
+            'departments' => Department::where('is_active', true)->orderBy('faculty_id')->orderBy('name')->get(['id', 'name', 'faculty_id']),
+            'cohorts' => $taxonomy->getCohorts() ?? [],
+            'filters' => ['group' => $group, 'q' => $q, 'status' => $status],
+        ];
+    }
+
+    /** Build query sách admin (group, keyword, status, search_in). */
+    private function buildAdminQuery(?string $group, string $q, ?string $status, array $searchIn): \Illuminate\Database\Eloquent\Builder
+    {
+        $query = Book::with(['category:id,name', 'faculty:id,name', 'department:id,name,faculty_id', 'warehouse:id,code,name,location'])
             ->withCount('copies')
-            ->orderBy('updated_at', 'desc');
+            ->orderByDesc('updated_at');
 
         if ($group === 'digital') {
             $query->where('is_digital', true);
@@ -42,108 +116,85 @@ class BookService
             }
         }
 
-        $perPage = min(max($perPage, 5), 100);
-        $paginator = $query->paginate($perPage)->withQueryString();
-        $books = $paginator->getCollection()->map(function ($book) {
-            return [
-                'id' => $book->id,
-                'title' => $book->title,
-                'author' => $book->author,
-                'co_authors' => $book->co_authors,
-                'type' => $book->type instanceof \BackedEnum ? $book->type->value : ($book->type ?? 'book'),
-                'is_digital' => (bool) ($book->is_digital ?? false),
-                'classification_code' => $book->classification_code,
-                'category_id' => $book->category_id,
-                'faculty_id' => $book->faculty_id,
-                'department_id' => $book->department_id,
-                'cohort' => $book->cohort,
-                'faculty' => $book->faculty ? ['id' => $book->faculty->id, 'name' => $book->faculty->name] : null,
-                'department' => $book->department ? ['id' => $book->department->id, 'name' => $book->department->name] : null,
-                'publication_place' => $book->publication_place,
-                'published_year' => $book->published_year,
-                'total_pages' => $book->total_pages,
-                'book_size' => $book->book_size,
-                'volume_number' => $book->volume_number,
-                'price' => $book->price,
-                'notes' => $book->notes,
-                'status' => $book->status ?? 'available',
-                'quantity' => $book->copies_count ?? $book->total_copies ?? 0,
-                'warehouse_id' => $book->warehouse_id,
-                'shelf' => $book->params['shelf'] ?? null,
-                'publisher_name' => $book->publisher_name,
-                'image_url' => $book->params['image_url'] ?? null,
-                'file_url' => $book->file_url,
-            ];
-        });
-        $paginator->setCollection($books);
+        if ($status) {
+            $query->where('status', $status);
+        }
 
-        $faculties = Faculty::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']);
-        $departments = Department::where('is_active', true)->orderBy('faculty_id')->orderBy('name')->get(['id', 'name', 'faculty_id']);
-        $warehouses = Warehouse::where('is_active', true)->orderBy('code')->get(['id', 'code', 'name', 'location']);
-        $cohorts = $taxonomy->getCohorts();
-
-        return [
-            'books' => $paginator->toArray(),
-            'categories' => $taxonomy->getCategories(),
-            'warehouses' => $warehouses,
-            // Không còn danh mục riêng cho tác giả/nhà xuất bản – nhập tay trong bảng sách
-            'faculties' => $faculties,
-            'departments' => $departments,
-            'cohorts' => $cohorts ?? [],
-            'filters' => ['group' => $group],
-        ];
-    }
-
-    /** @return array{data: mixed, current_page: int, last_page: int, per_page: int, total: int, ...} */
-    public function index(?string $keyword, int $perPage = 10): array
-    {
-        $query = Book::query()
-            ->with(['category'])
-            ->when($keyword !== null && $keyword !== '', function ($query) use ($keyword) {
-                $query->where(function ($q) use ($keyword) {
-                    $q->where('title', 'like', "%$keyword%")
-                        ->orWhere('classification_code', 'like', "%$keyword%")
-                        ->orWhere('isbn', 'like', "%$keyword%");
-                });
-            })
-            ->orderBy('id', 'desc');
-        $paginator = $query->paginate($perPage)->withQueryString();
-        return $paginator->toArray();
-    }
-
-    public function readerSearchPageData(array $filters): array
-    {
-        $query = Book::with(['category'])
-            ->withCount('copies')
-            ->whereNull('deleted_at');
-
-        if (!empty($filters['q'])) {
-            $q = $filters['q'];
-            $query->where(function ($qry) use ($q) {
-                $qry->where('title', 'like', "%{$q}%")
-                    ->orWhere('classification_code', 'like', "%{$q}%")
-                    ->orWhere('author', 'like', "%{$q}%")
-                    ->orWhere('co_authors', 'like', "%{$q}%");
+        if ($q !== '' && !empty($searchIn)) {
+            $keyword = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+            $query->where(function ($qb) use ($keyword, $searchIn) {
+                foreach ($searchIn as $i => $col) {
+                    $isFirst = $i === 0;
+                    $method = $isFirst ? 'where' : 'orWhere';
+                    $add = match ($col) {
+                        'title' => fn ($q) => $q->where('title', 'like', $keyword),
+                        'author' => fn ($q) => $q->where(fn ($s) => $s->where('author', 'like', $keyword)->orWhere('co_authors', 'like', $keyword)),
+                        'category' => fn ($q) => $q->whereHas('category', fn ($c) => $c->where('name', 'like', $keyword)),
+                        'classification_code' => fn ($q) => $q->where('classification_code', 'like', $keyword),
+                        'publisher' => fn ($q) => $q->where('publisher_name', 'like', $keyword),
+                        'type' => fn ($q) => $q->where('type', 'like', $keyword),
+                        default => null,
+                    };
+                    if ($add) {
+                        $qb->{$method}($add);
+                    }
+                }
+            });
+        } elseif ($q !== '') {
+            $keyword = '%' . str_replace(['%', '_'], ['\%', '\_'], $q) . '%';
+            $query->where(function ($qb) use ($keyword) {
+                $qb->where('title', 'like', $keyword)
+                    ->orWhere('author', 'like', $keyword)
+                    ->orWhere('co_authors', 'like', $keyword)
+                    ->orWhere('classification_code', 'like', $keyword)
+                    ->orWhere('publisher_name', 'like', $keyword);
             });
         }
-        if (!empty($filters['category_id'])) {
-            $query->where('category_id', $filters['category_id']);
-        }
-        // Không lọc theo publisher_id nữa – dùng text publisher_name trong bảng books
-        if (!empty($filters['type'])) {
-            $query->where('type', $filters['type']);
-        }
-        if (!empty($filters['year'])) {
-            $query->where('published_year', $filters['year']);
-        }
 
-        $books = $query->orderBy('updated_at', 'desc')->paginate(12)->through(function ($book) {
-            return [
+        return $query;
+    }
+
+    /** API index: tìm sách theo keyword (title, classification_code, isbn). */
+    public function index(?string $keyword, int $perPage = 10): array
+    {
+        $keyword = trim((string) ($keyword ?? ''));
+        $keywordEscaped = $keyword !== '' ? '%' . str_replace(['%', '_'], ['\%', '\_'], $keyword) . '%' : null;
+
+        $query = Book::with(['category:id,name'])
+            ->when($keywordEscaped, fn ($q) => $q->where(function ($sub) use ($keywordEscaped) {
+                $sub->where('title', 'like', $keywordEscaped)
+                    ->orWhere('classification_code', 'like', $keywordEscaped)
+                    ->orWhere('isbn', 'like', $keywordEscaped);
+            }))
+            ->orderByDesc('id');
+
+        return $query->paginate($perPage)->withQueryString()->toArray();
+    }
+
+    public function readerSearch(array $filters): array
+    {
+        $keyword = trim((string) ($filters['q'] ?? ''));
+        $keywordEscaped = $keyword !== '' ? '%' . str_replace(['%', '_'], ['\%', '\_'], $keyword) . '%' : null;
+
+        $books = Book::with(['category:id,name'])
+            ->withCount('copies')
+            ->when($keywordEscaped, fn ($q) => $q->where(function ($sub) use ($keywordEscaped) {
+                $sub->where('title', 'like', $keywordEscaped)
+                    ->orWhere('classification_code', 'like', $keywordEscaped)
+                    ->orWhere('author', 'like', $keywordEscaped)
+                    ->orWhere('co_authors', 'like', $keywordEscaped);
+            }))
+            ->when(!empty($filters['category_id']), fn ($q) => $q->where('category_id', $filters['category_id']))
+            ->when(!empty($filters['type']), fn ($q) => $q->where('type', $filters['type']))
+            ->when(!empty($filters['year']), fn ($q) => $q->where('published_year', $filters['year']))
+            ->orderByDesc('updated_at')
+            ->paginate(12)
+            ->through(fn (Book $book) => [
                 'id' => $book->id,
                 'title' => $book->title,
                 'author' => $book->author,
                 'co_authors' => $book->co_authors,
-                'type' => $book->type instanceof \BackedEnum ? $book->type->value : ($book->type ?? 'book'),
+                'type' => self::enumToString($book->type),
                 'classification_code' => $book->classification_code,
                 'category_name' => $book->category?->name,
                 'publication_place' => $book->publication_place,
@@ -151,27 +202,24 @@ class BookService
                 'publisher_name' => $book->publisher_name,
                 'quantity' => $book->copies_count ?? 0,
                 'image_url' => $book->params['image_url'] ?? null,
-            ];
-        });
+            ]);
 
-        $taxonomy = app(TaxonomyCacheService::class);
         return [
             'books' => $books,
-            'categories' => $taxonomy->getCategories(),
-            // Không còn danh mục riêng cho nhà xuất bản – lấy từ dữ liệu sách
+            'categories' => app(TaxonomyCacheService::class)->getCategories(),
             'filters' => $filters,
         ];
     }
 
-    public function readerBookShowData(Book $book): array
+    public function readerShow(Book $book): array
     {
-        $book->load(['category', 'copies']);
+        $book->load(['category:id,name', 'copies:id,book_id,barcode,status']);
         return [
             'id' => $book->id,
             'title' => $book->title,
             'author' => $book->author,
             'co_authors' => $book->co_authors,
-            'type' => $book->type instanceof \BackedEnum ? $book->type->value : ($book->type ?? 'book'),
+            'type' => self::enumToString($book->type),
             'classification_code' => $book->classification_code,
             'category_name' => $book->category?->name,
             'description' => $book->notes,
@@ -196,19 +244,18 @@ class BookService
 
     public function trash(int $perPage = self::TRASH_PER_PAGE): array
     {
-        $paginator = Book::onlyTrashed()
-            ->with(['category'])
+        return Book::onlyTrashed()
+            ->with(['category:id,name'])
             ->orderByDesc('deleted_at')
             ->paginate($perPage)
-            ->withQueryString();
-        $items = $paginator->getCollection()->map(fn ($b) => [
-            'id' => $b->id,
-            'title' => $b->title,
-            'classification_code' => $b->classification_code,
-            'deleted_at' => $b->deleted_at?->toIso8601String(),
-        ]);
-        $paginator->setCollection($items);
-        return $paginator->toArray();
+            ->withQueryString()
+            ->through(fn ($b) => [
+                'id' => $b->id,
+                'title' => $b->title,
+                'classification_code' => $b->classification_code,
+                'deleted_at' => $b->deleted_at?->toIso8601String(),
+            ])
+            ->toArray();
     }
 
     /** @return Book|null */

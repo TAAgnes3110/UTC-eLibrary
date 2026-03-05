@@ -15,7 +15,7 @@ const BOOK_TYPE_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-    { value: '', label: 'Tất cả trạng thái' },
+    { value: '', label: 'Trạng thái' },
     { value: 'available', label: 'Sẵn có' },
     { value: 'unavailable', label: 'Ẩn' },
     { value: 'processing', label: 'Đang xử lý' },

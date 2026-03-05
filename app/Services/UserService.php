@@ -165,7 +165,7 @@ class UserService
         return ['avatar' => $path];
     }
 
-    public function adminPageData(int $perPage = 20): array
+    public function adminList(int $perPage = 20): array
     {
         $users = User::query()
             ->with(['libraryCard', 'faculty:id,code,name', 'department:id,code,name,faculty_id'])
@@ -178,7 +178,7 @@ class UserService
     }
 
     /** @return \Illuminate\Database\Eloquent\Collection */
-    public function readersPageData(): \Illuminate\Database\Eloquent\Collection
+    public function readers(): \Illuminate\Database\Eloquent\Collection
     {
         return User::with(['libraryCard', 'faculty:id,code,name', 'department:id,name,faculty_id'])
             ->whereIn('user_type', RoleType::readerTypes())

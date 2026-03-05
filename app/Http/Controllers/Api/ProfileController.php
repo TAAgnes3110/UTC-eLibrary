@@ -8,9 +8,6 @@ use App\Services\ProfileService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Chỉ điều hướng: gọi ProfileService, trả ApiResponse.
- */
 class ProfileController extends Controller
 {
     public function __construct(

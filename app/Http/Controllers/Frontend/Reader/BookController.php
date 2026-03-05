@@ -15,7 +15,7 @@ class BookController extends Controller
 
     public function search(Request $request): Response
     {
-        $response = app(\App\Http\Controllers\Api\BookController::class)->readerSearchPageData($request);
+        $response = app(\App\Http\Controllers\Api\BookController::class)->readerSearch($request);
         $data = $this->backendData($response);
 
         return Inertia::render('Reader/Search/Index', [
@@ -27,7 +27,7 @@ class BookController extends Controller
 
     public function show(Book $book): Response
     {
-        $response = app(\App\Http\Controllers\Api\BookController::class)->readerBookShowData($book);
+        $response = app(\App\Http\Controllers\Api\BookController::class)->readerShow($book);
         $bookData = $this->backendData($response);
 
         return Inertia::render('Reader/Books/Show', [

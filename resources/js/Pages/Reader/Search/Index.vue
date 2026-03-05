@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ReaderDashboardLayout from '@/Layouts/ReaderDashboardLayout.vue';
 import { Icon } from '@iconify/vue';
@@ -18,6 +18,45 @@ const form = ref({
     type: props.filters.type ?? '',
     year: props.filters.year ?? '',
 });
+
+
+const categoryInput = ref('');
+const showCategorySuggestions = ref(false);
+const categorySuggestions = computed(() => {
+    const kw = (categoryInput.value || '').trim().toLowerCase();
+    if (!kw) return [];
+    return (props.categories || []).filter(
+        (c) =>
+            (c.name || '').toLowerCase().includes(kw) ||
+            (c.code || '').toLowerCase().includes(kw)
+    );
+});
+const selectCategory = (c) => {
+    form.value.category_id = String(c.id);
+    categoryInput.value = c.name;
+    showCategorySuggestions.value = false;
+};
+const clearCategory = () => {
+    form.value.category_id = '';
+    categoryInput.value = '';
+    showCategorySuggestions.value = false;
+};
+
+const selectedCategoryName = computed(() => {
+    const id = form.value.category_id;
+    if (!id) return '';
+    const c = (props.categories || []).find((x) => String(x.id) === String(id));
+    return c ? c.name : '';
+});
+watch(
+    [() => form.value.category_id, () => props.categories],
+    () => {
+        if (form.value.category_id && !showCategorySuggestions.value) {
+            categoryInput.value = selectedCategoryName.value;
+        }
+    },
+    { immediate: true }
+);
 
 const submitSearch = () => {
     router.get(route('library.search'), form.value, { preserveState: true });
@@ -74,15 +113,44 @@ const showPagination = computed(() => bookList.value.length > 0 && (props.books?
                             class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-white dark:placeholder-slate-500 dark:focus:border-amber-500/50 dark:focus:ring-amber-500/20"
                         />
                     </div>
-                    <div>
+                    <div class="relative">
                         <label class="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Thể loại</label>
-                        <select
-                            v-model="form.category_id"
-                            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-white dark:focus:border-amber-500/50 dark:focus:ring-amber-500/20"
+                        <div class="relative">
+                            <input
+                                v-model="categoryInput"
+                                type="text"
+                                placeholder="Nhập tên hoặc mã thể loại..."
+                                autocomplete="off"
+                                class="w-full rounded-xl border border-slate-300 bg-slate-50 pl-3 pr-9 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 dark:border-slate-600 dark:bg-slate-800/80 dark:text-white dark:placeholder-slate-500 dark:focus:border-amber-500/50 dark:focus:ring-amber-500/20"
+                                @input="showCategorySuggestions = true"
+                                @focus="showCategorySuggestions = true"
+                                @blur="setTimeout(() => { showCategorySuggestions = false; }, 200)"
+                            />
+                            <button
+                                v-if="form.category_id || categoryInput"
+                                type="button"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-600 dark:hover:text-slate-300"
+                                @click="clearCategory"
+                                aria-label="Xóa"
+                            >
+                                <Icon icon="lucide:x" class="h-4 w-4" />
+                            </button>
+                        </div>
+                        <div
+                            v-show="showCategorySuggestions && categorySuggestions.length > 0"
+                            class="absolute z-10 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800 max-h-48 overflow-y-auto"
+                            @click.stop
                         >
-                            <option value="">-- Tất cả --</option>
-                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-                        </select>
+                            <button
+                                v-for="c in categorySuggestions"
+                                :key="c.id"
+                                type="button"
+                                class="w-full px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700 first:rounded-t-xl last:rounded-b-xl"
+                                @click="selectCategory(c)"
+                            >
+                                {{ c.name }}<span v-if="c.code" class="ml-1.5 text-slate-400">({{ c.code }})</span>
+                            </button>
+                        </div>
                     </div>
                     <div>
                         <label class="mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400">Loại tài liệu</label>

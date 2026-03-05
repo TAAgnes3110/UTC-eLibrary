@@ -15,7 +15,7 @@ class DashboardController extends Controller
 
     public function __invoke(Request $request): Response
     {
-        $response = app(ReaderController::class)->dashboardData($request);
+        $response = app(ReaderController::class)->dashboard($request);
         $data = $this->backendData($response);
 
         return Inertia::render('Reader/Dashboard', [

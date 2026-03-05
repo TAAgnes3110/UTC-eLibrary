@@ -16,6 +16,7 @@
 - [Công nghệ sử dụng](#-công-nghệ-sử-dụng)
 - [Cấu trúc dự án](#-cấu-trúc-dự-án)
 - [Cài đặt & Chạy](#-cài-đặt--chạy)
+- [Test](#-test)
 - [Docker](#-docker)
 - [Tác giả](#-tác-giả)
 
@@ -276,7 +277,7 @@ Giao diện hỗ trợ **điện thoại, tablet và desktop**:
 | **Http/Middleware/** | Bộ lọc (CheckRole, ForceJson, Init) |
 | **Http/Requests/** | Validation dữ liệu đầu vào |
 | **Http/Resources/** | Định dạng JSON đầu ra |
-| **Services/** | **Logic nghiệp vụ** (AuthService, UserService, BookService, AuthorService, OtpService, TaxonomyCacheService) |
+| **Services/** | **Logic nghiệp vụ** (AuthService, UserService, BookService, OtpService, TaxonomyCacheService) |
 | **Enums/** | Hằng số (RoleType, BookType) |
 | **Models/** | Đại diện bảng DB |
 
@@ -356,6 +357,21 @@ php artisan serve
 ```
 
 Truy cập: **http://localhost:8000**
+
+---
+
+## 🧪 Test
+
+Chạy PHPUnit:
+
+```bash
+composer test
+# hoặc: php artisan test
+```
+
+- **Yêu cầu:** PHP có extension `pdo_sqlite` (mặc định dùng SQLite in-memory)
+- Nếu không có SQLite, tạo DB MySQL `elibrary_test` — bootstrap tự chuyển sang MySQL
+- Chi tiết: xem [`tests/README.md`](tests/README.md)
 
 ---
 

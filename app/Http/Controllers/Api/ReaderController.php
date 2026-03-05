@@ -17,21 +17,21 @@ class ReaderController extends Controller
         private ReaderService $readerService
     ) {}
 
-    public function dashboardData(Request $request): JsonResponse
+    public function dashboard(Request $request): JsonResponse
     {
-        $payload = $this->readerService->dashboardData($request->user());
+        $payload = $this->readerService->dashboard($request->user());
         return ApiResponse::success($payload);
     }
 
-    public function loansData(Request $request): JsonResponse
+    public function loans(Request $request): JsonResponse
     {
-        $payload = $this->readerService->loansData($request->user());
+        $payload = $this->readerService->loans($request->user());
         return ApiResponse::success($payload);
     }
 
-    public function cardData(Request $request): JsonResponse
+    public function card(Request $request): JsonResponse
     {
-        $payload = $this->readerService->cardData($request->user());
+        $payload = $this->readerService->card($request->user());
         return ApiResponse::success($payload);
     }
 }

@@ -6,6 +6,7 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
@@ -66,6 +67,7 @@ const showTrashDrawer = ref(false);
 const trashedUsers = ref([]);
 const loadingTrash = ref(false);
 const showAvatarModal = ref(false);
+const avatarTargetUserId = ref(null);
 const avatarUploadLoading = ref(false);
 const isEditing = ref(false);
 const selectedUser = ref(null);
@@ -83,29 +85,56 @@ const form = useForm({
 
 const usersList = computed(() => (usersData.value ?? props.users)?.data ?? []);
 
-const searchQuery = ref('');
-const roleFilter = ref('');
+const SEARCH_IN_OPTIONS = [
+    { key: 'name', label: 'Họ tên' },
+    { key: 'email', label: 'Email' },
+    { key: 'code', label: 'Mã số' },
+    { key: 'phone', label: 'Số điện thoại' },
+];
 
-const filteredUsers = computed(() => {
-    let result = usersList.value;
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        result = result.filter(user =>
-            (user.name || '').toLowerCase().includes(q) ||
-            (user.email || '').toLowerCase().includes(q) ||
-            (user.code || '').toLowerCase().includes(q) ||
-            (user.phone || '').toLowerCase().includes(q)
-        );
-    }
-    if (roleFilter.value) {
-        result = result.filter(user => user.role === roleFilter.value);
-    }
-    return result;
+const filterValues = ref({
+    status: '',
+    searchKeyword: '',
+    searchIn: { name: true, email: true, code: true, phone: true },
+    roleFilter: {},
 });
+const showFilterPanel = ref(false);
 
 const roleOptions = computed(() => {
     const roles = rolesData.value ?? props.roles;
     return roles?.length ? roles : [];
+});
+
+const ROLE_FILTER_OPTIONS = computed(() => ({
+    title: 'Phân quyền',
+    options: (roleOptions.value || []).map((r) => ({
+        key: r.id ?? r.value ?? r.role ?? '',
+        label: r.text ?? r.label ?? r.name ?? r.id ?? r.value ?? '',
+    })).filter((o) => o.key),
+}));
+
+const filteredUsers = computed(() => {
+    let result = usersList.value;
+    const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
+    const sin = filterValues.value.searchIn || {};
+    if (kw) {
+        const anyChecked = Object.values(sin).some(Boolean);
+        if (anyChecked) {
+            result = result.filter((u) => {
+                const m = [];
+                if (sin.name) m.push((u.name || '').toLowerCase().includes(kw));
+                if (sin.email) m.push((u.email || '').toLowerCase().includes(kw));
+                if (sin.code) m.push((u.code || '').toLowerCase().includes(kw));
+                if (sin.phone) m.push((u.phone || '').toLowerCase().includes(kw));
+                return m.some(Boolean);
+            });
+        }
+    }
+    if (filterValues.value.status) result = result.filter(u => u.status === filterValues.value.status);
+    const rf = filterValues.value.roleFilter || {};
+    const checkedRoles = Object.entries(rf).filter(([, v]) => v).map(([k]) => k);
+    if (checkedRoles.length) result = result.filter(u => checkedRoles.includes(u.role));
+    return result;
 });
 
 // Selection (giống Quản lý sách)
@@ -236,15 +265,25 @@ const isLockAction = computed(() => userToToggle.value?.status === 'active');
 const exportExcel = () => { window.location.href = route('admin.users.export') || '#'; };
 const openImportModal = () => { /* TODO: modal nhập excel */ };
 
-const openAvatarModal = () => {
-    if (selectedIds.value.length !== 1) {
+const closeAvatarModal = () => {
+    showAvatarModal.value = false;
+    avatarTargetUserId.value = null;
+};
+const openAvatarModal = (user = null) => {
+    const userId = user ? user.id : selectedIds.value[0];
+    if (!userId) {
         alert('Vui lòng chọn đúng 1 người để cập nhật ảnh đại diện.');
         return;
     }
+    if (!user && selectedIds.value.length !== 1) {
+        alert('Vui lòng chọn đúng 1 người để cập nhật ảnh đại diện.');
+        return;
+    }
+    avatarTargetUserId.value = userId;
     showAvatarModal.value = true;
 };
 const uploadAvatar = async (file) => {
-    const userId = selectedIds.value[0];
+    const userId = avatarTargetUserId.value ?? selectedIds.value[0];
     if (!userId) return;
     avatarUploadLoading.value = true;
     try {
@@ -256,7 +295,7 @@ const uploadAvatar = async (file) => {
                 'Accept': 'application/json',
             },
         });
-        showAvatarModal.value = false;
+        closeAvatarModal();
         router.reload();
     } catch (err) {
         const msg = err.response?.data?.message || err.message || 'Cập nhật ảnh thất bại.';
@@ -290,6 +329,7 @@ const uploadAvatar = async (file) => {
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.length"
                 update-file-label="Cập nhật ảnh đại diện"
+                :show-import="false"
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"
@@ -299,16 +339,27 @@ const uploadAvatar = async (file) => {
             />
 
             <AdminFilterSearch
-                v-model="searchQuery"
-                search-placeholder="Tìm theo tên, email, mã số, SĐT..."
+                v-model="filterValues.searchKeyword"
+                search-placeholder="Nhập từ khóa để tìm..."
                 :show-filter-button="false"
                 @search="() => {}"
             >
                 <template #filters>
-                    <select v-model="roleFilter" class="admin-filter-select">
-                        <option value="">-- Phân quyền --</option>
-                        <option v-for="r in roleOptions" :key="r.id" :value="r.id">{{ r.text }}</option>
-                    </select>
+                    <div class="flex items-center gap-3">
+                        <AdminFilterPanel
+                            :options="SEARCH_IN_OPTIONS"
+                            v-model:model-value="filterValues.searchIn"
+                            :filter-group="ROLE_FILTER_OPTIONS"
+                            v-model:filter-value="filterValues.roleFilter"
+                            :show="showFilterPanel"
+                            @update:show="showFilterPanel = $event"
+                        />
+                        <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
+                            <option value="">Trạng thái</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Tạm khóa</option>
+                        </select>
+                    </div>
                 </template>
             </AdminFilterSearch>
 
@@ -349,9 +400,12 @@ const uploadAvatar = async (file) => {
                                 </td>
                                 <td class="p-4">
                                     <div class="flex items-center gap-2.5 min-w-0">
-                                        <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden">
+                                        <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden relative group/avatar">
                                             <img v-if="user.avatar" :src="user.avatar" :alt="user.name" class="h-full w-full object-cover" />
                                             <span v-else>{{ (user.name || '?').charAt(0).toUpperCase() }}</span>
+                                            <button type="button" class="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center rounded-lg cursor-pointer" @click.stop="openAvatarModal(user)" title="Cập nhật ảnh đại diện">
+                                                <Icon icon="lucide:camera" class="w-4 h-4 text-white" />
+                                            </button>
                                         </div>
                                         <div class="min-w-0">
                                             <p class="font-semibold text-sm text-slate-900 dark:text-white truncate">{{ user.name }}</p>
@@ -472,7 +526,7 @@ const uploadAvatar = async (file) => {
             :max-size-mb="10"
             submit-label="Lưu"
             :loading="avatarUploadLoading"
-            @close="showAvatarModal = false"
+            @close="closeAvatarModal"
             @submit="(file) => uploadAvatar(file)"
         />
 

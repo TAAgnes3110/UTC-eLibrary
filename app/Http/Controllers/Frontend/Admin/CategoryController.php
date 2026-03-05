@@ -15,7 +15,7 @@ class CategoryController extends Controller
 
     public function index(Request $request): Response
     {
-        $response = app(\App\Http\Controllers\Api\CategoryController::class)->adminPageData($request);
+        $response = app(\App\Http\Controllers\Api\CategoryController::class)->adminList($request);
         $data = $this->backendData($response);
 
         return Inertia::render('Admin/Categories/Index', [

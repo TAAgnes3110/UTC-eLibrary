@@ -8,9 +8,6 @@ use App\Services\ProfileChangeRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Chỉ điều hướng: gọi ProfileChangeRequestService, trả ApiResponse.
- */
 class ProfileChangeRequestController extends Controller
 {
     public function __construct(

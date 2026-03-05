@@ -5,6 +5,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
 import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
@@ -115,13 +116,29 @@ const pagination = computed(() => ({
     to: props.books?.to || booksData.value.length,
 }));
 
+const SEARCH_IN_OPTIONS = [
+    { key: 'title', label: 'Tên sách' },
+    { key: 'author', label: 'Tác giả' },
+    { key: 'category', label: 'Thể loại' },
+    { key: 'type', label: 'Loại tài liệu' },
+    { key: 'publisher', label: 'Nhà xuất bản' },
+    { key: 'classification_code', label: 'Mã sách' },
+];
+
 const filterValues = ref({
     status: '',
-    type: '',
-    category_id: '',
-    classification_code: '',
-    title: '',
+    searchKeyword: '',
+    searchIn: {
+        title: true,
+        author: true,
+        category: true,
+        type: true,
+        publisher: true,
+        classification_code: true,
+    },
 });
+
+const showFilterPanel = ref(false);
 
 const selectedCodes = computed(() =>
     booksData.value
@@ -129,21 +146,39 @@ const selectedCodes = computed(() =>
         .map(b => b.classification_code || `SI${String(b.id).padStart(7, '0')}`)
 );
 
+const getCategoryName = (categoryId) => {
+    const c = (props.categories || []).find((x) => String(x.id) === String(categoryId));
+    return c ? (c.name || c.code || '') : '';
+};
+
+const getTypeLabel = (typeValue) => {
+    const t = BOOK_TYPES.find((x) => x.value === (typeValue || 'book'));
+    return t ? t.label : '';
+};
+
 const filteredBooks = computed(() => {
     let data = booksData.value;
-    if (filterValues.value.title) {
-        const q = filterValues.value.title.toLowerCase();
-        data = data.filter(b => (b.title || '').toLowerCase().includes(q));
-    }
-    if (filterValues.value.classification_code) {
-        data = data.filter(b => (b.classification_code || '').toLowerCase().includes(String(filterValues.value.classification_code).toLowerCase()));
+    const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
+    const sin = filterValues.value.searchIn || {};
+    if (kw) {
+        const anyChecked = Object.values(sin).some(Boolean);
+        if (anyChecked) {
+            data = data.filter((b) => {
+                const matches = [];
+                if (sin.title) matches.push((b.title || '').toLowerCase().includes(kw));
+                if (sin.author) matches.push(
+                    (b.author || '').toLowerCase().includes(kw) ||
+                    (b.co_authors || '').toLowerCase().includes(kw)
+                );
+                if (sin.category) matches.push(getCategoryName(b.category_id).toLowerCase().includes(kw));
+                if (sin.type) matches.push(getTypeLabel(b.type).toLowerCase().includes(kw));
+                if (sin.publisher) matches.push((b.publisher_name || '').toLowerCase().includes(kw));
+                if (sin.classification_code) matches.push((b.classification_code || '').toLowerCase().includes(kw));
+                return matches.some(Boolean);
+            });
+        }
     }
     if (filterValues.value.status) data = data.filter(b => b.status === filterValues.value.status);
-    if (filterValues.value.type) data = data.filter(b => (b.type || 'book') === filterValues.value.type);
-    if (filterValues.value.category_id) {
-        const cid = Number(filterValues.value.category_id);
-        data = data.filter(b => Number(b.category_id) === cid);
-    }
     return data;
 });
 
@@ -390,23 +425,24 @@ const doSearch = () => {
             />
 
             <AdminFilterSearch
-                :model-value="filterValues.title"
-                @update:model-value="(v) => (filterValues.title = v)"
-                search-placeholder="Tên sách hoặc từ khóa..."
+                :model-value="filterValues.searchKeyword"
+                @update:model-value="(v) => (filterValues.searchKeyword = v)"
+                search-placeholder="Nhập từ khóa để tìm..."
                 :show-filter-button="false"
                 @search="doSearch"
             >
                 <template #filters>
-                    <select v-model="filterValues.type" class="admin-filter-select">
-                        <option v-for="opt in BOOK_TYPES" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                    </select>
-                    <select v-model="filterValues.category_id" class="admin-filter-select">
-                        <option value="">-- Thể loại --</option>
-                        <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-                    </select>
-                    <select v-model="filterValues.status" class="admin-filter-select">
-                        <option v-for="opt in BOOK_STATUS_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-                    </select>
+                    <div class="flex items-center gap-3">
+                        <AdminFilterPanel
+                            :options="SEARCH_IN_OPTIONS"
+                            v-model:model-value="filterValues.searchIn"
+                            :show="showFilterPanel"
+                            @update:show="showFilterPanel = $event"
+                        />
+                        <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
+                            <option v-for="opt in BOOK_STATUS_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                        </select>
+                    </div>
                 </template>
             </AdminFilterSearch>
 

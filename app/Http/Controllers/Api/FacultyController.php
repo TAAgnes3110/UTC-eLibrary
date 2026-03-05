@@ -11,9 +11,6 @@ use App\Services\FacultyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Chỉ điều hướng: gọi FacultyService, trả Resource / ApiResponse.
- */
 class FacultyController extends Controller
 {
     public function __construct(

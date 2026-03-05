@@ -14,7 +14,7 @@ class UserController extends Controller
 {
     public function index(Request $request): Response
     {
-        $payload = app(UserService::class)->adminPageData(20);
+        $payload = app(UserService::class)->adminList(20);
         $paginator = $payload['users'];
         $items = UserResource::collection($paginator->getCollection())->resolve();
         $users = [

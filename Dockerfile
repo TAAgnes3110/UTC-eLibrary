@@ -1,6 +1,5 @@
 # UTC-eLibrary - Laravel app image
-# PHP 8.4+ (use 8.5 when official image available)
-FROM php:8.4-cli-alpine AS base
+FROM php:8.5-cli-alpine AS base
 
 RUN apk add --no-cache \
     libzip-dev \

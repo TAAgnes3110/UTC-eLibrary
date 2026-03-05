@@ -2,15 +2,22 @@
 import { Icon } from '@iconify/vue';
 
 /**
- * Định dạng chung theo mẫu: Thêm mới (xanh #2D72D9), còn lại nền xám đậm #282A2E, chữ trắng.
- * Xóa: nền xám đậm, icon + chữ đỏ. Đã chọn / Bỏ chọn: chữ trắng.
+ * Thanh thao tác thống nhất các trang admin (theo form Quản lý sách).
+ * Các trang không cần nhập/xuất excel hay cập nhật file có thể ẩn qua props.
  */
 defineProps({
     hasSelection: { type: Boolean, default: false },
     selectedCount: { type: Number, default: 0 },
+    addLabel: { type: String, default: 'Thêm mới' },
     updateFileLabel: { type: String, default: 'Cập nhật file / ảnh' },
-    /** dark = toàn bộ nền tối (Readers, Sách); light = giữ style tương tự trên nền sáng */
-    variant: { type: String, default: 'dark' },
+    /** Hiện nút Thêm mới */
+    showAdd: { type: Boolean, default: true },
+    /** Hiện nút Xuất excel */
+    showExport: { type: Boolean, default: true },
+    /** Hiện nút Nhập excel */
+    showImport: { type: Boolean, default: true },
+    /** Hiện nút Cập nhật file / ảnh */
+    showUpdateFile: { type: Boolean, default: true },
 });
 
 defineEmits([
@@ -25,15 +32,15 @@ defineEmits([
 
 <template>
     <div class="flex flex-wrap items-center gap-2">
-        <button type="button" @click="$emit('add')" class="btn-admin-primary">
+        <button v-if="showAdd" type="button" @click="$emit('add')" class="btn-admin-green">
             <Icon icon="lucide:plus" class="w-3.5 h-3.5" />
-            Thêm mới
+            {{ addLabel }}
         </button>
-        <button type="button" @click="$emit('export-excel')" class="btn-admin-secondary">
+        <button v-if="showExport" type="button" @click="$emit('export-excel')" class="btn-admin-green">
             <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
             Xuất excel
         </button>
-        <button type="button" @click="$emit('import-excel')" class="btn-admin-secondary">
+        <button v-if="showImport" type="button" @click="$emit('import-excel')" class="btn-admin-green">
             <Icon icon="lucide:file-up" class="w-3.5 h-3.5" />
             Nhập excel
         </button>
@@ -41,7 +48,7 @@ defineEmits([
             <button
                 type="button"
                 @click="$emit('delete-selected')"
-                class="btn-admin-secondary text-rose-400 hover:text-rose-300"
+                class="btn-admin-green"
             >
                 <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
                 Xóa
@@ -50,7 +57,7 @@ defineEmits([
             <button type="button" @click="$emit('deselect-all')" class="text-xs font-medium text-white dark:text-slate-400 hover:underline">Bỏ chọn</button>
         </template>
         <slot name="extra" />
-        <button type="button" @click="$emit('update-file')" class="btn-admin-secondary">
+        <button v-if="showUpdateFile" type="button" @click="$emit('update-file')" class="btn-admin-green">
             <Icon icon="lucide:image-plus" class="w-3.5 h-3.5" />
             {{ updateFileLabel }}
         </button>

@@ -9,9 +9,6 @@ use App\Services\OtpService;
 use Exception;
 use Illuminate\Http\JsonResponse;
 
-/**
- * Chỉ điều hướng: gọi OtpService, trả ApiResponse.
- */
 class EmailOTPController extends Controller
 {
     public function __construct(
@@ -42,9 +39,6 @@ class EmailOTPController extends Controller
         return $this->sendOTP($request);
     }
 
-    /**
-     * Kiểm tra mã OTP (dùng nội bộ, không phải API).
-     */
     public function checkOTP(string $email, string $otp): array
     {
         $result = $this->otpService->verifyOtp($email, $otp);

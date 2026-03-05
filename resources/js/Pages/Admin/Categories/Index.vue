@@ -2,6 +2,8 @@
 import { ref, computed, watch } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
+import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
@@ -21,6 +23,12 @@ function setTab(tab) {
     router.get(route('admin.categories.index'), { tab }, { preserveState: true });
 }
 const searchQuery = ref('');
+const showFilterPanel = ref(false);
+const SEARCH_IN_OPTIONS = [
+    { key: 'name', label: 'Tên' },
+    { key: 'description', label: 'Mô tả' },
+];
+const filterSearchIn = ref({ name: true, description: true });
 const showModal = ref(false);
 const showImportModal = ref(false);
 const showDeleteModal = ref(false);
@@ -29,10 +37,18 @@ const isEditing = ref(false);
 const selectedItemToDelete = ref(null);
 
 const filtered = computed(() => {
-    return props.categories.filter(item =>
-        item.type === activeTab.value &&
-        (item.name || '').toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
+    let list = props.categories.filter(item => item.type === activeTab.value);
+    const kw = (searchQuery.value || '').trim().toLowerCase();
+    const sin = filterSearchIn.value || {};
+    if (kw && (sin.name || sin.description)) {
+        list = list.filter(item => {
+            const m = [];
+            if (sin.name) m.push((item.name || '').toLowerCase().includes(kw));
+            if (sin.description) m.push((item.description || '').toLowerCase().includes(kw));
+            return m.some(Boolean);
+        });
+    }
+    return list;
 });
 
 const form = useForm({
@@ -143,25 +159,30 @@ const exportExcel = () => {
                 </button>
             </div>
 
-            <!-- Bộ lọc + Tìm kiếm thống nhất -->
+            <AdminImportExportBar
+                :add-label="'Thêm ' + (activeTab === 'category' ? 'thể loại' : 'ngôn ngữ')"
+                :show-update-file="false"
+                :has-selection="false"
+                @add="openAddModal"
+                @export-excel="exportExcel"
+                @import-excel="showImportModal = true"
+            />
+
             <AdminFilterSearch
                 v-model="searchQuery"
                 :search-placeholder="'Nhập tên ' + (activeTab === 'category' ? 'thể loại' : 'ngôn ngữ') + '...'"
+                :show-filter-button="false"
                 @search="() => {}"
             >
-                <template #actions>
-                    <button @click="showImportModal = true" class="btn-excel-import">
-                        <Icon icon="lucide:file-spreadsheet" class="w-3.5 h-3.5" />
-                        Nhập excel
-                    </button>
-                    <button @click="exportExcel" class="btn-excel-export">
-                        <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
-                        Xuất excel
-                    </button>
-                    <button @click="openAddModal" class="btn-action-primary">
-                        <Icon icon="lucide:plus" class="w-3.5 h-3.5" />
-                        Thêm {{ activeTab === 'category' ? 'thể loại' : 'ngôn ngữ' }}
-                    </button>
+                <template #filters>
+                    <div class="flex items-center gap-3">
+                        <AdminFilterPanel
+                            :options="SEARCH_IN_OPTIONS"
+                            v-model:model-value="filterSearchIn"
+                            :show="showFilterPanel"
+                            @update:show="showFilterPanel = $event"
+                        />
+                    </div>
                 </template>
             </AdminFilterSearch>
 

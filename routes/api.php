@@ -72,9 +72,9 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'me', 'middleware' => ['init']], function () {
         Route::get('profile', [ProfileController::class, 'show']);
         Route::put('profile', [ProfileController::class, 'update']);
-        Route::get('dashboard', [ReaderController::class, 'dashboardData']);
-        Route::get('loans', [ReaderController::class, 'loansData']);
-        Route::get('card', [ReaderController::class, 'cardData']);
+        Route::get('dashboard', [ReaderController::class, 'dashboard']);
+        Route::get('loans', [ReaderController::class, 'loans']);
+        Route::get('card', [ReaderController::class, 'card']);
         Route::get('profile-change-requests/page-data', [ProfileChangeRequestController::class, 'pageData']);
         Route::post('profile-change-requests', [ProfileChangeRequestController::class, 'store']);
     });
@@ -130,6 +130,7 @@ Route::prefix('v1')->group(function () {
             });
 
             Route::get('/categories', [CategoryController::class, 'index']);
+            Route::get('/categories/search', [CategoryController::class, 'search']);
 
             Route::group(['prefix' => '/profile-change-requests'], function () {
                 Route::get('/', [ProfileChangeRequestController::class, 'index']);

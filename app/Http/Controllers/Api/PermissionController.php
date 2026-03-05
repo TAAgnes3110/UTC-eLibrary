@@ -8,9 +8,6 @@ use App\Services\PermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Chỉ điều hướng: gọi PermissionService, trả ApiResponse.
- */
 class PermissionController extends Controller
 {
     public function __construct(

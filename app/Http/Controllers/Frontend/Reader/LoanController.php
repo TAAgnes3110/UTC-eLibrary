@@ -15,7 +15,7 @@ class LoanController extends Controller
 
     public function __invoke(Request $request): Response
     {
-        $response = app(ReaderController::class)->loansData($request);
+        $response = app(ReaderController::class)->loans($request);
         $data = $this->backendData($response);
 
         return Inertia::render('Reader/Loans/Index', [

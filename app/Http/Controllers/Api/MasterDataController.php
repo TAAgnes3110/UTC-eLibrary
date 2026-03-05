@@ -8,9 +8,6 @@ use App\Services\MasterDataService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Chỉ điều hướng: gọi MasterDataService, trả ApiResponse.
- */
 class MasterDataController extends Controller
 {
     public function __construct(

@@ -17,7 +17,7 @@ class CardController extends Controller
 
     public function index(Request $request): Response
     {
-        $userData = $this->backendData(app(UserController::class)->readersPageData());
+        $userData = $this->backendData(app(UserController::class)->readers());
         $readers = $userData['data'] ?? $userData['readers'] ?? [];
 
         $masterData = $this->backendData(app(MasterDataController::class)->index($request));

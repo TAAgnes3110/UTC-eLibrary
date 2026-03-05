@@ -11,6 +11,7 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
@@ -24,8 +25,21 @@ const props = defineProps({
 });
 
 const activeTab = ref('students');
-const searchQuery = ref('');
-const statusFilter = ref('');
+const SEARCH_IN_OPTIONS = [
+    { key: 'name', label: 'Họ tên' },
+    { key: 'code', label: 'Mã định danh' },
+    { key: 'card_number', label: 'Mã thẻ' },
+    { key: 'class', label: 'Lớp' },
+    { key: 'faculty', label: 'Đơn vị/Khoa' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Số điện thoại' },
+];
+const filterValues = ref({
+    status: '',
+    searchKeyword: '',
+    searchIn: { name: true, code: true, card_number: true, class: true, faculty: true, email: true, phone: true },
+});
+const showFilterPanel = ref(false);
 const showModal = ref(false);
 const showRenewModal = ref(false);
 const showDetailModal = ref(false);
@@ -52,33 +66,26 @@ const listByTab = computed(() => {
     return list;
 });
 
-const statusCounts = computed(() => {
-    const list = listByTab.value;
-    let valid = 0, inactive = 0, expired = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    list.forEach(r => {
-        if (r.status === 'blocked' || r.status === 'inactive') inactive++;
-        else if (r.expiry_date && new Date(r.expiry_date) < today) expired++;
-        else valid++;
-    });
-    return { valid, inactive, expired };
-});
-
 const filtered = computed(() => {
     let result = listByTab.value;
-    if (statusFilter.value) result = result.filter(r => r.status === statusFilter.value);
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        result = result.filter(r =>
-            (r.name || '').toLowerCase().includes(q) ||
-            (r.code || '').toLowerCase().includes(q) ||
-            (r.card_number || '').toLowerCase().includes(q) ||
-            (r.class || '').toLowerCase().includes(q) ||
-            (r.faculty || '').toLowerCase().includes(q) ||
-            (r.email || '').toLowerCase().includes(q) ||
-            (r.phone || '').toLowerCase().includes(q)
-        );
+    if (filterValues.value.status) result = result.filter(r => r.status === filterValues.value.status);
+    const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
+    const sin = filterValues.value.searchIn || {};
+    if (kw) {
+        const anyChecked = Object.values(sin).some(Boolean);
+        if (anyChecked) {
+            result = result.filter((r) => {
+                const m = [];
+                if (sin.name) m.push((r.name || '').toLowerCase().includes(kw));
+                if (sin.code) m.push((r.code || '').toLowerCase().includes(kw));
+                if (sin.card_number) m.push((r.card_number || '').toLowerCase().includes(kw));
+                if (sin.class) m.push((r.class || '').toLowerCase().includes(kw));
+                if (sin.faculty) m.push((r.faculty || '').toLowerCase().includes(kw));
+                if (sin.email) m.push((r.email || '').toLowerCase().includes(kw));
+                if (sin.phone) m.push((r.phone || '').toLowerCase().includes(kw));
+                return m.some(Boolean);
+            });
+        }
     }
     return result;
 });
@@ -363,32 +370,34 @@ function readerStatusClass(r) {
                 @deselect-all="deselectAll"
             >
                 <template v-if="hasSelection" #extra>
-                    <button type="button" @click="openPrintModal" class="btn-admin-secondary">
+                    <button type="button" @click="openPrintModal" class="btn-admin-green">
                         <Icon icon="lucide:credit-card" class="w-3.5 h-3.5" /> In thẻ
                     </button>
                 </template>
             </AdminImportExportBar>
 
-            <!-- Thống kê: Còn hạn | Chưa kích hoạt | Hết hạn -->
-            <div class="flex flex-wrap gap-2">
-                <span class="px-4 py-2 rounded-lg bg-emerald-500 dark:bg-emerald-600 text-white text-sm font-bold">{{ statusCounts.valid }} Còn hạn</span>
-                <span class="px-4 py-2 rounded-lg bg-slate-500 dark:bg-slate-600 text-white text-sm font-bold">{{ statusCounts.inactive }} Chưa kích hoạt</span>
-                <span class="px-4 py-2 rounded-lg bg-rose-500 dark:bg-rose-600 text-white text-sm font-bold">{{ statusCounts.expired }} Hết hạn</span>
-            </div>
-
-            <!-- Tìm kiếm / Bộ lọc (EDUi: Nhập chọn bộ lọc > Tìm kiếm) -->
+            <!-- Tìm kiếm / Bộ lọc -->
             <AdminFilterSearch
-                v-model="searchQuery"
-                search-placeholder="Tên, mã thẻ, mã định danh, lớp, email, SĐT..."
+                v-model="filterValues.searchKeyword"
+                search-placeholder="Nhập từ khóa để tìm..."
                 :show-filter-button="false"
                 @search="() => {}"
             >
                 <template #filters>
-                    <select v-model="statusFilter" class="admin-filter-select">
-                        <option value="">-- Chọn trạng thái --</option>
-                        <option value="active">Đang hoạt động</option>
-                        <option value="blocked">Đã khóa</option>
-                    </select>
+                    <div class="flex items-center gap-3">
+                        <AdminFilterPanel
+                            :options="SEARCH_IN_OPTIONS"
+                            v-model:model-value="filterValues.searchIn"
+                            :show="showFilterPanel"
+                            @update:show="showFilterPanel = $event"
+                        />
+                        <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
+                            <option value="">Trạng thái</option>
+                            <option value="active">Đang hoạt động</option>
+                            <option value="blocked">Đã khóa</option>
+                            <option value="inactive">Chưa kích hoạt</option>
+                        </select>
+                    </div>
                 </template>
             </AdminFilterSearch>
 

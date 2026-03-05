@@ -51,7 +51,7 @@ export const BOOK_TYPES_BY_GROUP = {
 };
 
 export const BOOK_STATUS_OPTIONS = [
-    { value: '', label: 'Tất cả trạng thái' },
+    { value: '', label: 'Trạng thái' },
     { value: 'available', label: 'Sẵn có' },
     { value: 'unavailable', label: 'Ẩn' },
     { value: 'processing', label: 'Đang xử lý' },

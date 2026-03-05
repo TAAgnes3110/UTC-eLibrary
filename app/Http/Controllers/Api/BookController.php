@@ -16,9 +16,6 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * Chỉ điều hướng: gọi BookService, trả ApiResponse / Resource.
- */
 class BookController extends Controller
 {
     public function __construct(
@@ -38,11 +35,10 @@ class BookController extends Controller
         return ApiResponse::success($result);
     }
 
-    public function adminPageData(Request $request): JsonResponse
+    public function adminList(Request $request): JsonResponse
     {
-        $group = $request->query('group');
-        $perPage = (int) $request->input('per_page', 20);
-        $payload = $this->bookService->adminPageData($group, $perPage);
+        $params = $request->only(['group', 'q', 'status', 'search_in', 'per_page']);
+        $payload = $this->bookService->adminList($params);
         return ApiResponse::success($payload);
     }
 
@@ -61,16 +57,16 @@ class BookController extends Controller
         return ApiResponse::success($payload);
     }
 
-    public function readerSearchPageData(Request $request): JsonResponse
+    public function readerSearch(Request $request): JsonResponse
     {
         $filters = $request->only(['q', 'category_id', 'type', 'year']);
-        $payload = $this->bookService->readerSearchPageData($filters);
+        $payload = $this->bookService->readerSearch($filters);
         return ApiResponse::success($payload);
     }
 
-    public function readerBookShowData(Book $book): JsonResponse
+    public function readerShow(Book $book): JsonResponse
     {
-        $data = $this->bookService->readerBookShowData($book);
+        $data = $this->bookService->readerShow($book);
         return ApiResponse::success($data);
     }
 
@@ -115,8 +111,8 @@ class BookController extends Controller
 
     public function trash(Request $request): JsonResponse
     {
-        $payload = $this->bookService->trash();
-        return ApiResponse::success($payload);
+        $perPage = min(max((int) $request->input('per_page', 50), 5), 100);
+        return ApiResponse::success($this->bookService->trash($perPage));
     }
 
     public function restore($id): JsonResponse
@@ -158,4 +154,5 @@ class BookController extends Controller
             'Cache-Control' => 'max-age=0',
         ]);
     }
+
 }

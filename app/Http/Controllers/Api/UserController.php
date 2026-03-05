@@ -134,9 +134,9 @@ class UserController extends Controller
     }
 
     /** @deprecated Dùng GET /users + GET /master-data */
-    public function adminPageData(Request $request): JsonResponse
+    public function adminList(Request $request): JsonResponse
     {
-        $payload = $this->userService->adminPageData(20);
+        $payload = $this->userService->adminList(20);
         return ApiResponse::success([
             'users' => UserResource::collection($payload['users']),
             'roles' => $payload['roles'],
@@ -144,9 +144,9 @@ class UserController extends Controller
     }
 
     /** @deprecated Dùng GET /users?type=reader + GET /master-data */
-    public function readersPageData(): JsonResponse
+    public function readers(): JsonResponse
     {
-        $readers = $this->userService->readersPageData();
+        $readers = $this->userService->readers();
         return ApiResponse::success(UserResource::collection($readers));
     }
 }

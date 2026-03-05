@@ -8,7 +8,7 @@ use Illuminate\Support\Arr;
 
 class ReaderService
 {
-    public function dashboardData(User $user): array
+    public function dashboard(User $user): array
     {
         $activeLoans = Loan::where('user_id', $user->id)->where('status', 'active')->count();
         $overdueCount = Loan::where('user_id', $user->id)->where('status', 'active')->where('due_date', '<', now()->toDateString())->count();
@@ -23,7 +23,7 @@ class ReaderService
         ];
     }
 
-    public function loansData(User $user): array
+    public function loans(User $user): array
     {
         $loans = Loan::where('user_id', $user->id)
             ->with(['bookCopy.book'])
@@ -48,7 +48,7 @@ class ReaderService
         return ['loans' => $loans];
     }
 
-    public function cardData(User $user): array
+    public function card(User $user): array
     {
         $card = $user->libraryCard;
         $cardData = null;

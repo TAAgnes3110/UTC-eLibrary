@@ -2,6 +2,8 @@
 import { ref, computed, watch } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
+import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
@@ -18,8 +20,19 @@ const props = defineProps({
     filters: { type: Object, default: () => ({}) },
 });
 
-const searchQuery = ref(props.filters?.q ?? '');
-const statusFilter = ref(props.filters?.status ?? '');
+const SEARCH_IN_OPTIONS = [
+    { key: 'reader_name', label: 'Tên bạn đọc' },
+    { key: 'reader_code', label: 'Mã bạn đọc' },
+    { key: 'book_title', label: 'Tên sách' },
+    { key: 'book_code', label: 'Mã sách' },
+];
+
+const filterValues = ref({
+    status: props.filters?.status ?? '',
+    searchKeyword: props.filters?.q ?? '',
+    searchIn: { reader_name: true, reader_code: true, book_title: true, book_code: true },
+});
+const showFilterPanel = ref(false);
 const showGuide = ref(false);
 const showCreateModal = ref(false);
 const showReturnModal = ref(false);
@@ -41,18 +54,27 @@ const returnForm = ref({
 const returnFormErrors = ref({});
 
 watch(() => props.filters, (f) => {
-    if (f?.q !== undefined) searchQuery.value = f.q ?? '';
-    if (f?.status !== undefined) statusFilter.value = f.status ?? '';
+    if (f?.q !== undefined) filterValues.value.searchKeyword = f.q ?? '';
+    if (f?.status !== undefined) filterValues.value.status = f.status ?? '';
 }, { deep: true });
 
 const filtered = computed(() => {
     return props.loans.filter(l => {
-        const q = searchQuery.value.toLowerCase();
-        const matchesSearch = (l.reader_name || '').toLowerCase().includes(q) ||
-                             (l.book_title || '').toLowerCase().includes(q) ||
-                             (l.reader_code || '').toLowerCase().includes(q) ||
-                             (l.book_code || '').toLowerCase().includes(q);
-        const matchesStatus = statusFilter.value ? (l.display_status || l.status) === statusFilter.value : true;
+        const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
+        const sin = filterValues.value.searchIn || {};
+        let matchesSearch = true;
+        if (kw) {
+            const anyChecked = Object.values(sin).some(Boolean);
+            if (anyChecked) {
+                const m = [];
+                if (sin.reader_name) m.push((l.reader_name || '').toLowerCase().includes(kw));
+                if (sin.reader_code) m.push((l.reader_code || '').toLowerCase().includes(kw));
+                if (sin.book_title) m.push((l.book_title || '').toLowerCase().includes(kw));
+                if (sin.book_code) m.push((l.book_code || '').toLowerCase().includes(kw));
+                matchesSearch = m.some(Boolean);
+            }
+        }
+        const matchesStatus = filterValues.value.status ? (l.display_status || l.status) === filterValues.value.status : true;
         return matchesSearch && matchesStatus;
     });
 });
@@ -265,18 +287,37 @@ const conditionOptions = [
 
             <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200">Danh sách phiếu mượn</h3>
 
-                <!-- Một ô tìm kiếm + Tìm kiếm (giống ảnh 1); filtered vẫn dùng searchQuery + statusFilter (từ props) đúng database -->
+            <AdminImportExportBar
+                add-label="Cho mượn sách"
+                :show-import="false"
+                :show-update-file="false"
+                :has-selection="false"
+                @add="openCreateModal"
+                @export-excel="exportExcel"
+            />
+
                 <AdminFilterSearch
-                    v-model="searchQuery"
-                    search-placeholder="Tìm tên bạn đọc, mã SV, tên sách, mã sách..."
+                    v-model="filterValues.searchKeyword"
+                    search-placeholder="Nhập từ khóa để tìm..."
                     :show-filter-button="false"
                     @search="() => {}"
                 >
-                    <template #actions>
-                        <button @click="exportExcel" class="btn-admin-secondary">
-                            <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
-                            Xuất Excel
-                        </button>
+                    <template #filters>
+                        <div class="flex items-center gap-3">
+                            <AdminFilterPanel
+                                :options="SEARCH_IN_OPTIONS"
+                                v-model:model-value="filterValues.searchIn"
+                                :show="showFilterPanel"
+                                @update:show="showFilterPanel = $event"
+                            />
+                            <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
+                                <option value="">Trạng thái</option>
+                                <option value="active">Đang mượn</option>
+                                <option value="overdue">Quá hạn</option>
+                                <option value="returned">Đã trả</option>
+                                <option value="lost">Mất</option>
+                            </select>
+                        </div>
                     </template>
                 </AdminFilterSearch>
 

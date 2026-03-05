@@ -106,6 +106,14 @@
     @apply h-8 min-h-8 px-3 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white inline-flex items-center justify-center gap-1.5 transition-all dark:bg-blue-600 dark:hover:bg-blue-700;
   }
 
+  .btn-admin-green {
+    @apply h-8 min-h-8 px-3 rounded-lg text-xs font-bold text-white inline-flex items-center justify-center gap-1.5 transition-all;
+    background-color: #2962FF;
+  }
+  .btn-admin-green:hover {
+    background-color: #1E53E8;
+  }
+
   .btn-admin-secondary {
     @apply h-8 min-h-8 px-3 rounded-lg text-xs font-bold text-white inline-flex items-center justify-center gap-1.5 transition-all;
     @apply bg-[#374151] hover:bg-[#4B5563] dark:bg-slate-700 dark:hover:bg-slate-600;
@@ -143,6 +151,14 @@
     @apply dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:focus:ring-blue-500/40;
   }
 
+  .admin-filter-select-centered {
+    text-align: center;
+    text-align-last: center;
+    line-height: 2.25rem;
+    padding-block: 0;
+    padding-inline: 0.5rem 1rem;
+  }
+
   .admin-search-input-wrap {
     @apply relative flex-1 min-w-[200px];
   }
@@ -154,9 +170,11 @@
   }
 
   .admin-search-btn {
-    @apply h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-2 shrink-0 transition-all;
-    @apply bg-blue-600 text-white hover:bg-blue-700;
-    @apply dark:bg-blue-600 dark:text-white dark:hover:bg-blue-700;
+    @apply h-9 px-4 rounded-lg text-xs font-bold inline-flex items-center justify-center gap-2 shrink-0 transition-all text-white;
+    background-color: #2962FF;
+  }
+  .admin-search-btn:hover {
+    background-color: #1E53E8;
   }
 
   .admin-filter-input {

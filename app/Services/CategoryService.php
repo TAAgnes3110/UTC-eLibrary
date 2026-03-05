@@ -24,7 +24,7 @@ class CategoryService
             ]);
     }
 
-    public function adminPageData(string $tab = 'category'): array
+    public function adminList(string $tab = 'category'): array
     {
         $items = Category::query()
             ->withCount('books')
@@ -39,5 +39,31 @@ class CategoryService
                 'count' => $c->books_count ?? 0,
             ]);
         return ['categories' => $items, 'tab' => $tab];
+    }
+    
+    /**
+     * Gợi ý thể loại theo từ khóa (autocomplete).
+     * Nhập 1 chữ hay bất kì → trả gợi ý ngay; không có kết quả → trả mảng rỗng.
+     *
+     * @return array<array{id: int, name: string, code: string}>
+     */
+    public function searchCategory(string $keyword): array
+    {
+        $keyword = trim($keyword);
+        if ($keyword === '') {
+            return [];
+        }
+        return Category::query()
+            ->where('is_active', true)
+            ->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                    ->orWhere('code', 'like', "%{$keyword}%");
+            })
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id', 'code', 'name'])
+            ->map(fn ($c) => ['id' => $c->id, 'name' => $c->name, 'code' => $c->code])
+            ->values()
+            ->toArray();
     }
 }

@@ -8,11 +8,18 @@ use Tests\TestCase;
 
 /**
  * Test route API: health (public), refresh 401, các route bảo vệ trả 401 khi không có token.
+ *
+ * @see routes/api.php
  */
 class ApiRoutesTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * GET /api/health trả 200 với status, checks, timestamp.
+     *
+     * @return void
+     */
     public function test_health_returns_ok(): void
     {
         $response = $this->getJson('/api/health');
@@ -22,6 +29,11 @@ class ApiRoutesTest extends TestCase
             ->assertJsonPath('checks.database', true);
     }
 
+    /**
+     * POST /api/v1/auth/refresh không có token trả 401.
+     *
+     * @return void
+     */
     public function test_refresh_without_token_returns_401(): void
     {
         $response = $this->postJson('/api/v1/auth/refresh', [], [
@@ -31,6 +43,14 @@ class ApiRoutesTest extends TestCase
         $response->assertStatus(401)->assertJsonPath('status', 'error');
     }
 
+    /**
+     * Các route bảo vệ trả 401 khi không có token.
+     *
+     * @param  string  $method  GET, POST, PUT, DELETE
+     * @param  string  $uri  URL route
+     * @param  array<string, mixed>  $data  Dữ liệu body (POST/PUT)
+     * @return void
+     */
     #[DataProvider('protectedRoutesProvider')]
     public function test_protected_routes_return_401_without_auth(string $method, string $uri, array $data = []): void
     {
@@ -47,6 +67,11 @@ class ApiRoutesTest extends TestCase
         $response->assertStatus(401);
     }
 
+    /**
+     * Danh sách route cần auth.
+     *
+     * @return array<string, array{0: string, 1: string, 2?: array<string, mixed>}>
+     */
     public static function protectedRoutesProvider(): array
     {
         $base = '/api/v1';

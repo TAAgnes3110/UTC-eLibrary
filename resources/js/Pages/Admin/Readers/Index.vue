@@ -6,6 +6,7 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
@@ -19,9 +20,27 @@ const props = defineProps({
     departments: { type: Array, default: () => [] },
 });
 
-const activeTab = ref('students'); // students | teachers | other
-const searchQuery = ref('');
-const statusFilter = ref('');
+const SEARCH_IN_OPTIONS = [
+    { key: 'name', label: 'Họ tên' },
+    { key: 'code', label: 'Mã định danh' },
+    { key: 'card_number', label: 'Mã thẻ' },
+    { key: 'class', label: 'Lớp' },
+    { key: 'faculty', label: 'Đơn vị/Khoa' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Số điện thoại' },
+];
+const TYPE_FILTER_OPTIONS = { title: 'Loại bạn đọc', options: [
+    { key: 'student', label: 'Học sinh / Sinh viên' },
+    { key: 'teacher', label: 'Giáo viên / Cán bộ' },
+    { key: 'other', label: 'Bạn đọc khác' },
+] };
+const filterValues = ref({
+    status: '',
+    searchKeyword: '',
+    searchIn: { name: true, code: true, card_number: true, class: true, faculty: true, email: true, phone: true },
+    typeFilter: { student: false, teacher: false, other: false },
+});
+const showFilterPanel = ref(false);
 const showModal = ref(false);
 const showRenewModal = ref(false);
 const showDetailModal = ref(false);
@@ -35,48 +54,55 @@ const trashedReaders = ref([]);
 const loadingTrash = ref(false);
 const isEditing = ref(false);
 const selectedIds = ref(new Set());
-const deleteTarget = ref(null); // single: reader | multi: 'multiple'
+const deleteTarget = ref(null); 
 const renewTarget = ref(null);
 const detailReader = ref(null);
 const historyReader = ref(null);
 
-// Lọc theo tab (Học sinh | Giáo viên | Bạn đọc khác)
-const listByTab = computed(() => {
+const listByType = computed(() => {
     let list = [...props.readers];
-    if (activeTab.value === 'students') list = list.filter(r => r.type === 'student');
-    else if (activeTab.value === 'teachers') list = list.filter(r => r.type === 'teacher');
-    else list = list.filter(r => !['student', 'teacher'].includes(r.type));
+    const tf = filterValues.value.typeFilter || {};
+    const anyChecked = tf.student || tf.teacher || tf.other;
+    if (anyChecked) {
+        const types = [];
+        if (tf.student) types.push('student');
+        if (tf.teacher) types.push('teacher');
+        if (tf.other) types.push('other');
+        list = list.filter(r => types.includes(r.type));
+    }
     return list;
 });
 
-// Thống kê trạng thái: Còn hạn | Chưa kích hoạt | Hết hạn
-const statusCounts = computed(() => {
-    const list = listByTab.value;
-    let valid = 0, inactive = 0, expired = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    list.forEach(r => {
-        if (r.status === 'blocked' || r.status === 'inactive') inactive++;
-        else if (r.expiry_date && new Date(r.expiry_date) < today) expired++;
-        else valid++;
-    });
-    return { valid, inactive, expired };
-});
-
 const filtered = computed(() => {
-    let result = listByTab.value;
-    if (statusFilter.value) result = result.filter(r => r.status === statusFilter.value);
-    if (searchQuery.value) {
-        const q = searchQuery.value.toLowerCase();
-        result = result.filter(r =>
-            (r.name || '').toLowerCase().includes(q) ||
-            (r.code || '').toLowerCase().includes(q) ||
-            (r.card_number || '').toLowerCase().includes(q) ||
-            (r.class || '').toLowerCase().includes(q) ||
-            (r.faculty || '').toLowerCase().includes(q) ||
-            (r.email || '').toLowerCase().includes(q) ||
-            (r.phone || '').toLowerCase().includes(q)
-        );
+    let result = listByType.value;
+    const sv = filterValues.value.status;
+    if (sv) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        result = result.filter(r => {
+            if (sv === 'active') return (r.status === 'active') && (!r.expiry_date || new Date(r.expiry_date) >= today);
+            if (sv === 'blocked') return r.status === 'blocked' || r.status === 'inactive';
+            if (sv === 'inactive') return r.status === 'inactive';
+            return true;
+        });
+    }
+    const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
+    const sin = filterValues.value.searchIn || {};
+    if (kw) {
+        const anyChecked = Object.values(sin).some(Boolean);
+        if (anyChecked) {
+            result = result.filter((r) => {
+                const m = [];
+                if (sin.name) m.push((r.name || '').toLowerCase().includes(kw));
+                if (sin.code) m.push((r.code || '').toLowerCase().includes(kw));
+                if (sin.card_number) m.push((r.card_number || '').toLowerCase().includes(kw));
+                if (sin.class) m.push((r.class || '').toLowerCase().includes(kw));
+                if (sin.faculty) m.push((r.faculty || '').toLowerCase().includes(kw));
+                if (sin.email) m.push((r.email || '').toLowerCase().includes(kw));
+                if (sin.phone) m.push((r.phone || '').toLowerCase().includes(kw));
+                return m.some(Boolean);
+            });
+        }
     }
     return result;
 });
@@ -130,7 +156,7 @@ const renewForm = useForm({
 const openAddModal = () => {
     isEditing.value = false;
     form.reset();
-    form.type = activeTab.value === 'teachers' ? 'teacher' : 'student';
+    form.type = 'student';
     form.issue_date = new Date().toISOString().slice(0, 10);
     showModal.value = true;
 };
@@ -340,30 +366,8 @@ function readerStatusClass(r) {
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Quản lý người dùng</h2>
 
-            <!-- Tab con: Học sinh / Sinh viên | Giáo viên / Cán bộ | Bạn đọc khác (theo EDUi) -->
-            <div class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 w-fit">
-                <button
-                    @click="activeTab = 'students'"
-                    :class="['px-4 py-1.5 rounded-md text-[13px] font-bold transition-all', activeTab === 'students' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-slate-700' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white']"
-                >
-                    Học sinh / Sinh viên
-                </button>
-                <button
-                    @click="activeTab = 'teachers'"
-                    :class="['px-4 py-1.5 rounded-md text-[13px] font-bold transition-all', activeTab === 'teachers' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-slate-700' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white']"
-                >
-                    Giáo viên / Cán bộ
-                </button>
-                <button
-                    @click="activeTab = 'other'"
-                    :class="['px-4 py-1.5 rounded-md text-[13px] font-bold transition-all', activeTab === 'other' ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200 dark:border-slate-700' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white']"
-                >
-                    Bạn đọc khác
-                </button>
-            </div>
-
             <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200">Danh sách {{ activeTab === 'students' ? 'Học sinh / Sinh viên' : activeTab === 'teachers' ? 'Giáo viên / Cán bộ' : 'Bạn đọc khác' }}</h3>
+                <h3 class="text-sm font-bold text-slate-700 dark:text-slate-200">Danh sách bạn đọc</h3>
                 <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
                     <Icon icon="lucide:trash-2" class="w-4 h-4" />
                     Thùng rác
@@ -383,32 +387,36 @@ function readerStatusClass(r) {
                 @deselect-all="deselectAll"
             >
                 <template v-if="hasSelection" #extra>
-                    <button type="button" @click="openPrintModal" class="btn-admin-secondary">
+                    <button type="button" @click="openPrintModal" class="btn-admin-green">
                         <Icon icon="lucide:credit-card" class="w-3.5 h-3.5" /> In thẻ
                     </button>
                 </template>
             </AdminImportExportBar>
 
-            <!-- Thống kê trạng thái: Còn hạn | Chưa kích hoạt | Hết hạn -->
-            <div class="flex flex-wrap gap-2">
-                <span class="px-4 py-2 rounded-lg bg-emerald-500 dark:bg-emerald-600 text-white text-sm font-bold">{{ statusCounts.valid }} Còn hạn</span>
-                <span class="px-4 py-2 rounded-lg bg-slate-500 dark:bg-slate-600 text-white text-sm font-bold">{{ statusCounts.inactive }} Chưa kích hoạt</span>
-                <span class="px-4 py-2 rounded-lg bg-rose-500 dark:bg-rose-600 text-white text-sm font-bold">{{ statusCounts.expired }} Hết hạn</span>
-            </div>
-
-            <!-- Bộ lọc + Tìm kiếm (chung kiểu admin-filter-bar, không viền đen) -->
+            <!-- Bộ lọc + Tìm kiếm -->
             <AdminFilterSearch
-                v-model="searchQuery"
-                search-placeholder="Tên, mã thẻ, mã định danh, lớp, email, SĐT..."
+                v-model="filterValues.searchKeyword"
+                search-placeholder="Nhập từ khóa để tìm..."
                 :show-filter-button="false"
                 @search="doSearch"
             >
                 <template #filters>
-                    <select v-model="statusFilter" class="admin-filter-select">
-                        <option value="">-- Chọn trạng thái --</option>
-                        <option value="active">Đang hoạt động</option>
-                        <option value="blocked">Đã khóa</option>
-                    </select>
+                    <div class="flex items-center gap-3">
+                        <AdminFilterPanel
+                            :options="SEARCH_IN_OPTIONS"
+                            v-model:model-value="filterValues.searchIn"
+                            :filter-group="TYPE_FILTER_OPTIONS"
+                            v-model:filter-value="filterValues.typeFilter"
+                            :show="showFilterPanel"
+                            @update:show="showFilterPanel = $event"
+                        />
+                        <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
+                            <option value="">Trạng thái</option>
+                            <option value="active">Đang hoạt động</option>
+                            <option value="blocked">Đã khóa</option>
+                            <option value="inactive">Chưa kích hoạt</option>
+                        </select>
+                    </div>
                 </template>
             </AdminFilterSearch>
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
+use App\Enums\RoleType;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,7 +50,10 @@ class AuthenticatedSessionController extends Controller
 
     $request->session()->regenerate();
 
-    return redirect()->intended(route('dashboard'));
+    $role = $user->user_type instanceof \BackedEnum ? $user->user_type->value : (string) $user->user_type;
+    $isStaff = in_array($role, RoleType::staffRoles(), true);
+
+    return redirect()->intended(route($isStaff ? 'admin.dashboard' : 'library.dashboard'));
   }
 
   public function destroy(Request $request): RedirectResponse

@@ -15,34 +15,35 @@ class BookSampleSeeder extends Seeder
 {
     public function run(): void
     {
-        // Phân loại chính 5 (Toán) + chi tiết 51 (Toán tiểu học)
+        // Phân loại mẫu cho sách chuyên ngành Giao thông vận tải tại UTC
         $class = Classification::firstOrCreate(
-            ['code' => '5'],
-            ['name' => 'Toán học tiểu học', 'params' => []]
+            ['code' => '624'],
+            ['name' => 'Kết cấu, cầu đường bộ', 'params' => ['note' => 'Mã phân loại kỹ thuật cầu đường (mẫu).']]
         );
 
         $classDetail = ClassificationDetail::firstOrCreate(
-            ['code' => '51'],
-            ['name' => 'Toán lớp 1', 'classification_id' => $class->id, 'params' => []]
+            ['code' => '624.2'],
+            ['name' => 'Cầu bê tông cốt thép', 'classification_id' => $class->id, 'params' => ['note' => 'Chi tiết cho cầu bê tông cốt thép.']]
         );
 
-        // Kho sách mẫu (từ file mẫu: cột Kho sách thường là mã 083 - ở đây dùng CNTT giả lập)
+        // Kho sách mẫu - Thư viện Trung tâm UTC
         $warehouse = Warehouse::firstOrCreate(
-            ['code' => 'CNTT'],
-            ['name' => 'Kho sách Công nghệ thông tin', 'params' => []]
+            ['code' => 'TV-CHINH'],
+            ['name' => 'Thư viện Trung tâm UTC', 'params' => ['campus' => 'Hà Nội']]
         );
 
-        // Một số tác giả và NXB xuất hiện trong file CSV
+        // Một số tác giả & NXB thường gặp trong sách chuyên ngành GTVT
         $authors = [
-            'Đỗ Tiến Đạt',
-            'Huỳnh Châu',
-            'Phạm Đình Thực',
+            'Nguyễn Viết Trung',
+            'Đỗ Bá Lâm',
+            'Phạm Hữu Vinh',
+            'Trần Thị Thanh',
         ];
 
         $publishers = [
-            'Giáo dục',
-            'Đại học Sư phạm',
-            'Tổng Hợp',
+            'Giao thông Vận tải',
+            'Xây dựng',
+            'Khoa học và Kỹ thuật',
         ];
 
         $authorModels = [];
@@ -61,79 +62,79 @@ class BookSampleSeeder extends Seeder
             );
         }
 
-        // Tạo một vài sách mẫu dựa trên các dòng đầu trong CSV
+        // Một vài đầu sách mẫu bám sát chuyên ngành của Trường ĐH Giao thông Vận tải
         $samples = [
             [
-                'registration_number' => 'DKCB0001',
-                'book_code' => '5-51-0001',
-                'title' => '100 trò chơi học toán lớp 1',
+                'registration_number' => 'UTC0001',
+                'book_code' => '624-UTC-0001',
+                'title' => 'Cơ sở thiết kế đường ô tô',
                 'sub_title' => null,
                 'language' => 'Tiếng Việt',
                 'edition' => null,
-                'published_year' => 2004,
-                'pages' => 105,
+                'published_year' => 2018,
+                'pages' => 350,
                 'illustration_pages' => null,
-                'book_size' => '17x21cm',
-                'price' => 7600,
+                'book_size' => '19x27cm',
+                'price' => 98000,
                 'quantity' => 1,
-                'summary' => 'Sách bài tập và trò chơi Toán lớp 1.',
+                'summary' => 'Giáo trình cơ sở cho sinh viên ngành Kỹ thuật xây dựng công trình giao thông, trình bày các nguyên lý thiết kế đường ô tô.',
+                'notes' => null,
+                'series_name' => 'Giáo trình ĐH GTVT',
+                'publisher_place' => 'Hà Nội',
+                'cabinet' => 'GT1',
+                'shelf' => 'A1',
+                'classification' => $class,
+                'detail' => $classDetail,
+                'authors' => ['Nguyễn Viết Trung'],
+                'publishers' => ['Giao thông Vận tải'],
+            ],
+            [
+                'registration_number' => 'UTC0002',
+                'book_code' => '624-UTC-0002',
+                'title' => 'Tổ chức vận tải và dịch vụ logistics',
+                'sub_title' => null,
+                'language' => 'Tiếng Việt',
+                'edition' => null,
+                'published_year' => 2019,
+                'pages' => 420,
+                'illustration_pages' => null,
+                'book_size' => '16x24cm',
+                'price' => 120000,
+                'quantity' => 1,
+                'summary' => 'Tài liệu phục vụ các ngành Vận tải – Kinh tế, trình bày nguyên lý tổ chức vận tải và quản lý chuỗi cung ứng, logistics.',
                 'notes' => null,
                 'series_name' => null,
                 'publisher_place' => 'Hà Nội',
-                'cabinet' => null,
-                'shelf' => null,
+                'cabinet' => 'VT1',
+                'shelf' => 'B2',
                 'classification' => $class,
                 'detail' => $classDetail,
-                'authors' => ['Đỗ Tiến Đạt'],
-                'publishers' => ['Giáo dục'],
+                'authors' => ['Đỗ Bá Lâm'],
+                'publishers' => ['Giao thông Vận tải'],
             ],
             [
-                'registration_number' => 'DKCB0002',
-                'book_code' => '5-51-0002',
-                'title' => '112 trò chơi Toán lớp 1, lớp 2',
+                'registration_number' => 'UTC0003',
+                'book_code' => '624-UTC-0003',
+                'title' => 'Kết cấu bê tông cốt thép – Cầu đường bộ',
                 'sub_title' => null,
                 'language' => 'Tiếng Việt',
                 'edition' => null,
-                'published_year' => 2003,
-                'pages' => 247,
+                'published_year' => 2017,
+                'pages' => 290,
                 'illustration_pages' => null,
-                'book_size' => '16x24cm',
-                'price' => 20000,
-                'quantity' => 1,
-                'summary' => '112 trò chơi giúp học sinh lớp 1,2 học tốt môn Toán.',
-                'notes' => null,
-                'series_name' => null,
-                'publisher_place' => 'Hà Nội',
-                'cabinet' => null,
-                'shelf' => null,
-                'classification' => $class,
-                'detail' => $classDetail,
-                'authors' => ['Huỳnh Châu'],
-                'publishers' => ['Đại học Sư phạm'],
-            ],
-            [
-                'registration_number' => 'DKCB0003',
-                'book_code' => '5-51-0003',
-                'title' => '500 bài tập Toán cơ bản và nâng cao lớp 1',
-                'sub_title' => null,
-                'language' => 'Tiếng Việt',
-                'edition' => null,
-                'published_year' => 2005,
-                'pages' => 127,
-                'illustration_pages' => null,
-                'book_size' => '16x24cm',
-                'price' => 13000,
+                'book_size' => '19x27cm',
+                'price' => 135000,
                 'quantity' => 2,
-                'summary' => '500 bài tập Toán lớp 1 từ cơ bản đến nâng cao.',
+                'summary' => 'Giáo trình chuyên sâu về thiết kế và kiểm toán kết cấu bê tông cốt thép trong công trình cầu đường bộ.',
                 'notes' => null,
                 'series_name' => null,
-                'publisher_place' => 'TP Hồ Chí Minh',
-                'cabinet' => null,
-                'shelf' => null,
+                'publisher_place' => 'Hà Nội',
+                'cabinet' => 'CT1',
+                'shelf' => 'C3',
                 'classification' => $class,
                 'detail' => $classDetail,
-                'authors' => ['Nguyễn Đức Tấn'],
-                'publishers' => ['Tổng Hợp'],
+                'authors' => ['Phạm Hữu Vinh', 'Trần Thị Thanh'],
+                'publishers' => ['Xây dựng'],
             ],
         ];
 

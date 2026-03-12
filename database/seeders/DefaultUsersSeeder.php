@@ -21,32 +21,32 @@ class DefaultUsersSeeder extends Seeder
      */
     public function run(): void
     {
-        $defaultPassword = 'password'; 
+        $defaultPassword = 'password';
 
         $accounts = [
             [
-                'code' => 'ADMIN001',
-                'name' => 'Administrator',
-                'email' => 'admin@example.com',
+                'code' => 'UTCADMIN',
+                'name' => 'Quản trị hệ thống UTC',
+                'email' => 'admin@utc.edu.vn',
                 'password' => $defaultPassword,
                 'user_type' => RoleType::ADMIN,
-                'phone' => '0900000001',
+                'phone' => '0912345001',
             ],
             [
-                'code' => 'LIBRARIAN001',
-                'name' => 'Thủ thư',
-                'email' => 'librarian@example.com',
+                'code' => 'UTCLIB001',
+                'name' => 'Thủ thư Thư viện UTC',
+                'email' => 'librarian@utc.edu.vn',
                 'password' => $defaultPassword,
                 'user_type' => RoleType::LIBRARIAN,
-                'phone' => '0900000002',
+                'phone' => '0912345002',
             ],
             [
-                'code' => 'MEMBER001',
-                'name' => 'Người dùng',
-                'email' => 'user@example.com',
+                'code' => 'UTCSTU001',
+                'name' => 'Sinh viên thử nghiệm UTC',
+                'email' => 'student@st.utc.edu.vn',
                 'password' => $defaultPassword,
                 'user_type' => RoleType::MEMBER,
-                'phone' => '0900000003',
+                'phone' => '0912345003',
             ],
         ];
 

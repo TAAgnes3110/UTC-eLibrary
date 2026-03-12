@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             FacultySeeder::class,
             DepartmentSeeder::class,
             DefaultUsersSeeder::class,
+            CmsAndContentSeeder::class,
             BookSampleSeeder::class,
         ]);
     }

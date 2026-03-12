@@ -13,24 +13,25 @@ class DepartmentSeeder extends Seeder
     {
         $byFaculty = [
             'CNTT' => [
-                ['code' => 'CNTT-K1', 'name' => 'Khoa học máy tính'],
-                ['code' => 'CNTT-K2', 'name' => 'Hệ thống thông tin'],
-                ['code' => 'CNTT-K3', 'name' => 'Mạng máy tính'],
+                ['code' => 'CNTT-KHMT', 'name' => 'Khoa học máy tính'],
+                ['code' => 'CNTT-HTTT', 'name' => 'Hệ thống thông tin'],
+                ['code' => 'CNTT-KTMT', 'name' => 'Kỹ thuật máy tính'],
             ],
-            'CKD' => [
-                ['code' => 'CKD-K1', 'name' => 'Động cơ đốt trong'],
-                ['code' => 'CKD-K2', 'name' => 'Ô tô'],
+            'CT_XDCTGT' => [
+                ['code' => 'CTGT-CauDuong', 'name' => 'Bộ môn Cầu đường bộ'],
+                ['code' => 'CTGT-DuongSat', 'name' => 'Bộ môn Đường sắt – Metro'],
             ],
-            'XD' => [
-                ['code' => 'XD-K1', 'name' => 'Cầu đường'],
-                ['code' => 'XD-K2', 'name' => 'Xây dựng dân dụng'],
+            'VT' => [
+                ['code' => 'VT-KTVT', 'name' => 'Bộ môn Kinh tế vận tải'],
+                ['code' => 'VT-Logistics', 'name' => 'Bộ môn Logistics & Quản lý chuỗi cung ứng'],
             ],
-            'KT' => [
-                ['code' => 'KT-K1', 'name' => 'Kinh tế vận tải đường bộ'],
-                ['code' => 'KT-K2', 'name' => 'Logistics'],
+            'KTXD' => [
+                ['code' => 'KTXD-DanDung', 'name' => 'Bộ môn Xây dựng dân dụng'],
+                ['code' => 'KTXD-CongNghiep', 'name' => 'Bộ môn Xây dựng công nghiệp'],
             ],
-            'CKVT' => [
-                ['code' => 'CKVT-K1', 'name' => 'Cơ khí đường sắt'],
+            'MT_ATGT' => [
+                ['code' => 'MTATGT-ATGT', 'name' => 'Bộ môn An toàn giao thông'],
+                ['code' => 'MTATGT-MoiTruong', 'name' => 'Bộ môn Môi trường giao thông'],
             ],
         ];
 

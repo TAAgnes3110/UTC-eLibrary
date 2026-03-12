@@ -12,7 +12,7 @@ import {
 } from '@/Components/ui/dropdown-menu';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
 
-defineProps({
+const props = defineProps({
     title: { type: String, default: 'Dashboard' },
     sidebarOpen: { type: Boolean, required: true },
     user: { type: Object, default: null },
@@ -100,6 +100,16 @@ const getNotifIconBg = (type) => {
             </div>
 
             <ThemeToggle />
+
+            <!-- Chuyển sang giao diện Bạn đọc (Reader) cho staff -->
+            <Link
+                v-if="user && hasRoute('library.dashboard')"
+                :href="route('library.dashboard')"
+                class="hidden sm:flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+                <Icon icon="lucide:book-open" class="w-3.5 h-3.5" />
+                Bạn đọc
+            </Link>
 
             <!-- Thông báo (chuông) -->
             <DropdownMenu>

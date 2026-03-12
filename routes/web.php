@@ -2,36 +2,22 @@
 
 use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController as BackendAuthController;
-use App\Http\Controllers\Frontend\Admin\BookController;
-use App\Http\Controllers\Frontend\Admin\CardController;
-use App\Http\Controllers\Frontend\Admin\CategoryController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
-use App\Http\Controllers\Frontend\Admin\LibraryController;
-use App\Http\Controllers\Frontend\Admin\LoanController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
-use App\Http\Controllers\Frontend\Admin\ReaderController;
-use App\Http\Controllers\Frontend\Admin\SearchController;
-use App\Http\Controllers\Frontend\Admin\SettingsController;
-use App\Http\Controllers\Frontend\Admin\StatsController;
 use App\Http\Controllers\Frontend\Admin\UserController;
+use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
+use App\Http\Controllers\Frontend\Reader\PageController as ReaderPageController;
+use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
+use App\Http\Controllers\Frontend\Reader\ProfileController as ReaderProfileController;
+use Inertia\Inertia;
 use App\Http\Controllers\Frontend\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Frontend\Auth\NewPasswordController;
 use App\Http\Controllers\Frontend\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Frontend\Auth\RegisteredUserController;
 use App\Http\Controllers\Frontend\Auth\SocialAuthController;
-use App\Http\Controllers\Frontend\Reader\BookController as ReaderBookController;
-use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
-use App\Http\Controllers\Frontend\Reader\DashboardController as ReaderDashboardController;
-use App\Http\Controllers\Frontend\Reader\LoanController as ReaderLoanController;
-use App\Http\Controllers\Frontend\Reader\PageController;
-use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
-use App\Http\Controllers\Frontend\Reader\ProfileController as ReaderProfileController;
-use App\Http\Controllers\Frontend\Admin\ProfileChangeRequestController as AdminProfileChangeRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'));
-
-// Auth (guest)
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [BackendAuthController::class, 'login']);
@@ -48,60 +34,50 @@ Route::middleware('guest')->group(function () {
 Route::get('/auth/microsoft', [SocialAuthController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [SocialAuthController::class, 'handleMicrosoftCallback']);
 
-// Reader (library) – public + auth
-Route::prefix('library')->name('library.')->group(function () {
-    Route::get('/', [ReaderBookController::class, 'search'])->name('search');
-    Route::get('/books/{book}', [ReaderBookController::class, 'show'])->name('books.show');
-    Route::get('/saved', [PageController::class, 'saved'])->name('saved')->middleware('auth');
-    Route::get('/intro', [PageController::class, 'intro'])->name('intro');
-    Route::get('/rules', [PageController::class, 'rules'])->name('rules');
-    Route::middleware('auth')->group(function () {
-        Route::get('/dashboard', ReaderDashboardController::class)->name('dashboard');
-        Route::get('/card', ReaderCardController::class)->name('card');
-        Route::get('/loans', ReaderLoanController::class)->name('loans');
-        Route::get('/profile/change-request', [ReaderProfileChangeRequestController::class, 'index'])->name('profile.change-request');
-        Route::get('/profile/edit', [ReaderProfileController::class, 'edit'])->name('profile.edit');
-    });
-});
-
-// Auth required: dashboard redirect + logout + admin
+// Auth required: dashboard redirect + logout + admin + reader area
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
-        $user = request()->user();
-        $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : ($user->user_type ?? null);
-        $isStaff = $roleValue && in_array($roleValue, RoleType::staffRoles(), true);
-        return redirect()->route($isStaff ? 'admin.dashboard' : 'library.dashboard');
+        return redirect()->route('admin.dashboard');
     })->name('dashboard');
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
-        Route::get('/search', [SearchController::class, 'index'])->name('search');
-        Route::get('/books', [BookController::class, 'index'])->name('books.index');
-        Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
-        Route::get('/readers', [ReaderController::class, 'index'])->name('readers.index');
-        Route::get('/readers/export', [ReaderController::class, 'export'])->name('readers.export');
-        Route::get('/cards', [CardController::class, 'index'])->name('cards.index');
-        Route::prefix('library')->name('library.')->group(function () {
-            Route::get('/slips', [LibraryController::class, 'slips'])->name('slips');
-            Route::get('/liquidation', [LibraryController::class, 'liquidation'])->name('liquidation');
-            Route::get('/inventory', [LibraryController::class, 'inventory'])->name('inventory');
-        });
-        Route::prefix('loans')->name('loans.')->group(function () {
-            Route::get('/', [LoanController::class, 'index'])->name('index');
-            Route::get('/extensions', [LoanController::class, 'extensions'])->name('extensions');
-            Route::get('/onsite', [LoanController::class, 'onsite'])->name('onsite');
-            Route::get('/penalties', [LoanController::class, 'penalties'])->name('penalties');
-        });
-        Route::get('/stats', [StatsController::class, 'index'])->name('stats.index');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/profile', ProfileController::class)->name('profile');
-        Route::get('/profile-change-requests', [AdminProfileChangeRequestController::class, 'index'])->name('profile-change-requests.index');
-        Route::prefix('settings')->name('settings.')->group(function () {
-            Route::get('/', [SettingsController::class, 'index'])->name('index');
-            Route::get('/rules', [SettingsController::class, 'rules'])->name('rules');
-            Route::get('/content', [SettingsController::class, 'content'])->name('content');
-            Route::get('/appearance', [SettingsController::class, 'appearance'])->name('appearance');
-        });
+    });
+
+    // Reader-facing "Thư viện số" area
+    Route::prefix('library')->name('library.')->group(function () {
+        // Dashboard (Tổng quan)
+        Route::get('/', function () {
+            return Inertia::render('Reader/Dashboard');
+        })->name('dashboard');
+
+        // Tra cứu sách - tạm thời là trang Dashboard; cập nhật sau khi có trang riêng
+        Route::get('/search', function () {
+            return Inertia::render('Reader/Dashboard');
+        })->name('search');
+
+        // Sách đã lưu
+        Route::get('/saved', [ReaderPageController::class, 'saved'])->name('saved');
+
+        // Xem thẻ / Quản lý thẻ
+        Route::get('/card', ReaderCardController::class)->name('card');
+
+        // Yêu cầu chỉnh sửa thông tin
+        Route::get('/profile/change-request', [ReaderProfileChangeRequestController::class, 'index'])->name('profile.change-request');
+
+        // Thông tin tài khoản (sử dụng cho các link khác nếu cần)
+        Route::get('/profile', [ReaderProfileController::class, 'edit'])->name('profile.edit');
+
+        // Sách mượn
+        Route::get('/loans', function () {
+            return Inertia::render('Reader/Loans/Index');
+        })->name('loans');
+
+        // Giới thiệu & Nội quy (có thể cho phép public sau này)
+        Route::get('/intro', [ReaderPageController::class, 'intro'])->name('intro');
+        Route::get('/rules', [ReaderPageController::class, 'rules'])->name('rules');
     });
 });

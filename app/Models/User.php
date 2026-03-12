@@ -49,6 +49,11 @@ class User extends Authenticatable implements JWTSubject
             'is_active' => 'boolean',
         ];
     }
+
+    public function libraryCard(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(LibraryCard::class);
+    }
     public function faculty(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Faculty::class);
@@ -59,24 +64,9 @@ class User extends Authenticatable implements JWTSubject
         return $this->belongsTo(Department::class);
     }
 
-    public function libraryCard(): \Illuminate\Database\Eloquent\Relations\HasOne
-    {
-        return $this->hasOne(LibraryCard::class);
-    }
-
     public function loans(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Loan::class);
-    }
-
-    public function fines(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(Fine::class);
-    }
-
-    public function reservations(): \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(Reservation::class);
     }
 
     public function scopeDuplicate($query, array $data, ?int $excludeId = null)

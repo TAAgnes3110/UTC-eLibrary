@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Models\Category;
-use App\Observers\TaxonomyCacheObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -63,7 +61,6 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
         $this->bootMicrosoftAzureSocialite();
         $this->bootRateLimiting();
-        Category::observe(TaxonomyCacheObserver::class);
     }
 
     /**

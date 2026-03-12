@@ -152,6 +152,7 @@
   }
 
   .admin-filter-select-centered {
+    min-width: 110px;
     text-align: center;
     text-align-last: center;
     line-height: 2.25rem;

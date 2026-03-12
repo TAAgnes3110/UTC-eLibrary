@@ -21,7 +21,7 @@ class DefaultUsersSeeder extends Seeder
      */
     public function run(): void
     {
-        $defaultPassword = 'password'; // Model User cast 'password' => 'hashed'
+        $defaultPassword = 'password'; 
 
         $accounts = [
             [

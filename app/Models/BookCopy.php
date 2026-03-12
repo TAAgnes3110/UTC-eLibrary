@@ -2,24 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BookCopy extends BaseModel
 {
     use SoftDeletes;
 
-    protected $table = 'book_copies';
-
     protected $fillable = [
         'book_id',
         'barcode',
         'call_number',
-        'condition',
         'status',
+        'warehouse_id',
         'location',
-        'notes',
         'params',
     ];
 
@@ -27,18 +22,19 @@ class BookCopy extends BaseModel
         'params' => 'array',
     ];
 
-    public function book(): BelongsTo
+    public function book()
     {
         return $this->belongsTo(Book::class);
     }
 
-    public function loans(): HasMany
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    public function loans()
     {
         return $this->hasMany(Loan::class);
     }
-
-    public function activeLoan(): ?Loan
-    {
-        return $this->loans()->where('status', 'active')->first();
-    }
 }
+

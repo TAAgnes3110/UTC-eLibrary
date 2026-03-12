@@ -1,18 +1,8 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head } from '@inertiajs/vue3';
 import WelcomeBanner from '@/Components/Admin/Dashboard/WelcomeBanner.vue';
 import StatsCards from '@/Components/Admin/Dashboard/StatsCards.vue';
-import LoanChart from '@/Components/Admin/Dashboard/LoanChart.vue';
-import RecentActivity from '@/Components/Admin/Dashboard/RecentActivity.vue';
-import OverdueBooks from '@/Components/Admin/Dashboard/OverdueBooks.vue';
-import PopularBooks from '@/Components/Admin/Dashboard/PopularBooks.vue';
-
-defineProps({
-    stats: { type: Object, default: () => ({}) },
-    recentLoans: { type: Array, default: () => [] },
-    overdueBooks: { type: Array, default: () => [] },
-});
 
 const statsCards = [
     { title: 'Sách hiện có trong kho', value: '15,240', icon: 'lucide:book', color: 'text-indigo-600', bg: 'bg-indigo-50' },
@@ -21,23 +11,7 @@ const statsCards = [
     { title: 'Sách chờ thu hồi (Quá hạn)', value: '15', icon: 'lucide:alert-triangle', color: 'text-rose-600', bg: 'bg-rose-50' },
 ];
 
-const quickActions = [
-    { label: 'Cho mượn hoặc Trả sách', icon: 'lucide:qr-code', href: 'admin.loans' },
-    { label: 'Nhập thêm sách mới', icon: 'lucide:plus', href: 'admin.books' },
-    { label: 'Xem kết quả hoạt động', icon: 'lucide:bar-chart-3', href: 'admin.stats' },
-];
-
-const handleQuickAction = (action) => {
-    if (action?.href) router.visit(route(action.href));
-};
-
-const recentActivities = [
-    { user: 'Nguyễn Văn A', action: 'Đã mượn "Lập trình PHP"', time: '5 phút trước' },
-    { user: 'Trần Thị B', action: 'Đã trả "Cấu trúc dữ liệu"', time: '15 phút trước' },
-    { user: 'Lê Văn C', action: 'Đăng ký thẻ mới', time: '1 giờ trước' },
-    { user: 'Phạm Thị D', action: 'Đã mượn "Giải tích 1"', time: '2 giờ trước' },
-    { user: 'Hoàng Văn E', action: 'Gia hạn sách', time: '3 giờ trước' },
-];
+const quickActions = [];
 </script>
 
 <template>
@@ -45,34 +19,12 @@ const recentActivities = [
     <AdminLayout title="Tổng quan">
         <div class="space-y-8 animate-in fade-in-50 duration-500">
             <!-- Welcome Banner -->
-            <WelcomeBanner
-                :quick-actions="quickActions"
-                @action-click="handleQuickAction"
-            />
+            <WelcomeBanner :quick-actions="quickActions" />
 
             <!-- Stats Cards -->
             <StatsCards :stats="statsCards" />
 
-            <!-- Charts & Activity -->
-            <div class="grid grid-cols-1 lg:grid-cols-7 gap-6">
-                <!-- Chart Section -->
-                <LoanChart class="lg:col-span-4" />
-
-                <!-- Recent Activity -->
-                <RecentActivity
-                    class="lg:col-span-3"
-                    :activities="recentActivities"
-                />
-            </div>
-
-            <!-- Quick Tables -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Overdue Books -->
-                <OverdueBooks :books="overdueBooks" />
-
-                <!-- Popular Books -->
-                <PopularBooks />
-            </div>
+            <!-- Các block thống kê chi tiết về sách/mượn đã được tạm thời ẩn khi thiết kế lại hệ thống thư viện -->
         </div>
     </AdminLayout>
 </template>

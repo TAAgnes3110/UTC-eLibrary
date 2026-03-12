@@ -2,92 +2,86 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Book extends BaseModel
 {
     use SoftDeletes;
 
-    protected $table = 'books';
-
     protected $fillable = [
-        'type',
+        'registration_number',
+        'book_code',
         'title',
-        'author',
-        'co_authors',
-        'isbn',
-        'classification_code',
-        'classification_detail',
+        'sub_title',
+        'language',
         'edition',
-        'category_id',
-        'faculty_id',
-        'department_id',
-        'warehouse_id',
-        'cohort',
-        'publisher_name',
-        'publication_place',
         'published_year',
-        'total_pages',
+        'pages',
+        'illustration_pages',
         'book_size',
-        'volume_number',
         'price',
+        'quantity',
+        'summary',
         'notes',
-        'status',
-        'total_copies',
-        'available_copies',
+        'series_name',
+        'publisher_place',
+        'cabinet',
+        'shelf',
+        'cover_image',
+        'classification_id',
+        'classification_detail_id',
+        'warehouse_id',
         'params',
-        'is_digital',
-        'file_url',
     ];
 
     protected $casts = [
         'params' => 'array',
-        'price' => 'decimal:2',
-        'type' => \App\Enums\BookType::class,
-        'is_digital' => 'boolean',
+        'published_year' => 'integer',
+        'pages' => 'integer',
+        'illustration_pages' => 'integer',
+        'quantity' => 'integer',
+        'price' => 'integer',
     ];
 
-    public function category(): BelongsTo
+    public function classification()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(Classification::class);
     }
 
-    public function faculty(): BelongsTo
+    public function classificationDetail()
     {
-        return $this->belongsTo(Faculty::class);
+        return $this->belongsTo(ClassificationDetail::class);
     }
 
-    public function department(): BelongsTo
-    {
-        return $this->belongsTo(Department::class);
-    }
-
-    public function warehouse(): BelongsTo
+    public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
     }
 
-    public function copies(): HasMany
+    public function authors()
+    {
+        return $this->belongsToMany(Author::class, 'book_authors')
+            ->withTimestamps()
+            ->withPivot('order')
+            ->orderBy('book_authors.order');
+    }
+
+    public function publishers()
+    {
+        return $this->belongsToMany(Publisher::class, 'book_publishers')
+            ->withTimestamps()
+            ->withPivot('order')
+            ->orderBy('book_publishers.order');
+    }
+
+    public function copies()
     {
         return $this->hasMany(BookCopy::class);
     }
 
-    public function availableCopies(): HasMany
+    public function availableCopies()
     {
         return $this->hasMany(BookCopy::class)->where('status', 'available');
     }
-
-    public function reservations(): HasMany
-    {
-        return $this->hasMany(Reservation::class);
-    }
-
-    public function updateStatistics(): void
-    {
-        $this->total_copies = $this->copies()->count();
-        $this->available_copies = $this->availableCopies()->count();
-        $this->save();
-    }
 }
+

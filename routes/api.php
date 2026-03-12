@@ -1,15 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\BookController;
-use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\EmailOTPController;
 use App\Http\Controllers\Api\FacultyController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\PermissionController;
-use App\Http\Controllers\Api\ProfileChangeRequestController;
 use App\Http\Controllers\Api\ProfileController;
-use App\Http\Controllers\Api\ReaderController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Middleware\LogApiRequests;
@@ -72,11 +68,6 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'me', 'middleware' => ['init']], function () {
         Route::get('profile', [ProfileController::class, 'show']);
         Route::put('profile', [ProfileController::class, 'update']);
-        Route::get('dashboard', [ReaderController::class, 'dashboard']);
-        Route::get('loans', [ReaderController::class, 'loans']);
-        Route::get('card', [ReaderController::class, 'card']);
-        Route::get('profile-change-requests/page-data', [ProfileChangeRequestController::class, 'pageData']);
-        Route::post('profile-change-requests', [ProfileChangeRequestController::class, 'store']);
     });
 
     Route::get('master-data', [MasterDataController::class, 'index'])->middleware(['init']);
@@ -98,22 +89,6 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/force/{id}', [UserController::class, 'forceDelete']);
             });
 
-            Route::group(['prefix' => '/books'], function () {
-                Route::get('/', [BookController::class, 'index']);
-                Route::get('/trash', [BookController::class, 'trash']);
-                Route::post('/upload-document', [BookController::class, 'uploadDocument']);
-                // Không còn API autocomplete tác giả/nhà xuất bản – nhập tay trực tiếp trong form sách
-                Route::get('/export', [BookController::class, 'export']);
-                Route::get('/template', [BookController::class, 'downloadTemplate']);
-                Route::post('/', [BookController::class, 'store']);
-                Route::get('/{book}', [BookController::class, 'show']);
-                Route::put('/{book}', [BookController::class, 'update']);
-                Route::delete('/{book}', [BookController::class, 'destroy']);
-                Route::post('/import', [BookController::class, 'import']);
-                Route::post('/restore/{id}', [BookController::class, 'restore']);
-                Route::delete('/force/{id}', [BookController::class, 'forceDelete']);
-            });
-
             Route::group(['prefix' => '/roles'], function () {
                 Route::get('/', [RoleController::class, 'index']);
                 Route::post('/', [RoleController::class, 'store']);
@@ -127,15 +102,6 @@ Route::prefix('v1')->group(function () {
             Route::group(['prefix' => '/permissions'], function () {
                 Route::get('/', [PermissionController::class, 'index']);
                 Route::post('/', [PermissionController::class, 'store']);
-            });
-
-            Route::get('/categories', [CategoryController::class, 'index']);
-            Route::get('/categories/search', [CategoryController::class, 'search']);
-
-            Route::group(['prefix' => '/profile-change-requests'], function () {
-                Route::get('/', [ProfileChangeRequestController::class, 'index']);
-                Route::post('/{id}/approve', [ProfileChangeRequestController::class, 'approve']);
-                Route::post('/{id}/reject', [ProfileChangeRequestController::class, 'reject']);
             });
         });
     });

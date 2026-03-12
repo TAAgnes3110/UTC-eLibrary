@@ -2,31 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Loan extends BaseModel
 {
     use SoftDeletes;
 
-    protected $table = 'loans';
-
     protected $fillable = [
         'user_id',
         'book_copy_id',
+        'loan_policy_id',
         'librarian_id',
         'loan_date',
         'due_date',
         'return_date',
+        'overdue_days',
+        'overdue_fine',
         'status',
         'condition_on_loan',
         'condition_on_return',
-        'overdue_days',
-        'overdue_fine',
         'renewal_count',
-        'max_renewals',
-        'last_renewal_date',
         'notes',
         'params',
     ];
@@ -35,56 +30,30 @@ class Loan extends BaseModel
         'loan_date' => 'date',
         'due_date' => 'date',
         'return_date' => 'date',
-        'last_renewal_date' => 'date',
+        'overdue_days' => 'integer',
         'overdue_fine' => 'decimal:2',
+        'renewal_count' => 'integer',
         'params' => 'array',
     ];
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function bookCopy(): BelongsTo
-    {
-        return $this->belongsTo(BookCopy::class);
-    }
-
-    public function librarian(): BelongsTo
+    public function librarian()
     {
         return $this->belongsTo(User::class, 'librarian_id');
     }
 
-    public function history(): HasMany
+    public function bookCopy()
     {
-        return $this->hasMany(LoanHistory::class);
+        return $this->belongsTo(BookCopy::class);
     }
 
-    /** Một phiếu mượn có thể có nhiều khoản phạt (quá hạn, mất sách, hư hỏng). */
-    public function fines(): HasMany
+    public function policy()
     {
-        return $this->hasMany(Fine::class);
-    }
-
-    public function isOverdue(): bool
-    {
-        if ($this->status === 'returned') {
-            return false;
-        }
-        return now()->gt($this->due_date);
-    }
-
-    public function canRenew(): bool
-    {
-        if ($this->status !== 'active') {
-            return false;
-        }
-        if ($this->renewal_count >= $this->max_renewals) {
-            return false;
-        }
-        if ($this->isOverdue()) {
-            return false;
-        }
-        return true;
+        return $this->belongsTo(LoanPolicy::class, 'loan_policy_id');
     }
 }
+

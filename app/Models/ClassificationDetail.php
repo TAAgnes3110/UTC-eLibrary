@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
-class Warehouse extends BaseModel
+class ClassificationDetail extends BaseModel
 {
     protected $fillable = [
         'code',
         'name',
+        'classification_id',
         'parent_id',
         'params',
     ];
@@ -15,24 +16,24 @@ class Warehouse extends BaseModel
         'params' => 'array',
     ];
 
+    public function classification()
+    {
+        return $this->belongsTo(Classification::class);
+    }
+
     public function parent()
     {
-        return $this->belongsTo(Warehouse::class, 'parent_id');
+        return $this->belongsTo(ClassificationDetail::class, 'parent_id');
     }
 
     public function children()
     {
-        return $this->hasMany(Warehouse::class, 'parent_id');
+        return $this->hasMany(ClassificationDetail::class, 'parent_id');
     }
 
     public function books()
     {
         return $this->hasMany(Book::class);
-    }
-
-    public function copies()
-    {
-        return $this->hasMany(BookCopy::class);
     }
 }
 

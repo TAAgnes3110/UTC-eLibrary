@@ -2,10 +2,6 @@
 
 namespace App\Enums;
 
-/**
- * Vai trò / loại người dùng (cột users.user_type).
- * Khớp với enum trong migration create_users_table.
- */
 enum RoleType: string
 {
     case SUPER_ADMIN = 'SUPER_ADMIN';

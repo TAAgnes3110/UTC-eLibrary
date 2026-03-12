@@ -18,12 +18,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             FacultySeeder::class,
             DepartmentSeeder::class,
-            CategorySeeder::class,
-            LibrarySettingsSeeder::class,
             DefaultUsersSeeder::class,
-            LibraryCardsAndMembersSeeder::class,
-            BookSeeder::class,
-            LoanSeeder::class,
+            BookSampleSeeder::class,
         ]);
     }
 }

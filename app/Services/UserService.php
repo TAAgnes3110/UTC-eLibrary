@@ -18,21 +18,7 @@ class UserService
      */
     public function create(array $data): User
     {
-        $cardNumber = $data['card_number'] ?? null;
-        unset($data['card_number']);
-
-        $user = User::create($data);
-
-        if ($cardNumber !== null && $cardNumber !== '') {
-            $user->libraryCard()->create([
-                'card_number' => $cardNumber,
-                'status' => 'active',
-                'is_active' => true,
-                'issue_date' => now(),
-            ]);
-        }
-
-        return $user->load('libraryCard');
+        return User::create($data);
     }
 
     /**
@@ -42,9 +28,6 @@ class UserService
      */
     public function update(User $user, array $data): User
     {
-        $cardNumber = $data['card_number'] ?? null;
-        $issueDate = $data['issue_date'] ?? null;
-        $expiryDate = $data['expiry_date'] ?? null;
         unset($data['card_number'], $data['issue_date'], $data['expiry_date']);
         if (array_key_exists('password', $data) && empty($data['password'])) {
             unset($data['password']);
@@ -52,43 +35,20 @@ class UserService
 
         $user->update($data);
 
-        $cardPayload = [];
-        if ($cardNumber !== null) {
-            $cardPayload['card_number'] = $cardNumber;
-            $cardPayload['status'] = 'active';
-            $cardPayload['is_active'] = true;
-        }
-        if ($issueDate !== null) {
-            $cardPayload['issue_date'] = $issueDate;
-        }
-        if ($expiryDate !== null) {
-            $cardPayload['expiry_date'] = $expiryDate;
-        }
-        if ($cardPayload !== []) {
-            if (empty($cardPayload['issue_date'])) {
-                $cardPayload['issue_date'] = $user->libraryCard?->issue_date ?? now();
-            }
-            $user->libraryCard()->updateOrCreate(
-                ['user_id' => $user->id],
-                $cardPayload
-            );
-        }
-
-        return $user->load('libraryCard');
+        return $user;
     }
 
     public function index(?string $keyword, bool $typeReader = false, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         $query = User::query()
-            ->with(['libraryCard', 'faculty:id,code,name', 'department:id,name,faculty_id'])
+            ->with(['faculty:id,code,name', 'department:id,name,faculty_id'])
             ->when($typeReader, fn ($q) => $q->whereIn('user_type', RoleType::readerTypes()))
             ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
                 $q->where('id', 'like', '%' . $keyword . '%')
                     ->orWhere('name', 'like', "%{$keyword}%")
                     ->orWhere('code', 'like', "%{$keyword}%")
                     ->orWhere('email', 'like', "%{$keyword}%")
-                    ->orWhere('phone', 'like', "%{$keyword}%")
-                    ->orWhereHas('libraryCard', fn ($sub) => $sub->where('card_number', 'like', "%{$keyword}%"));
+                    ->orWhere('phone', 'like', "%{$keyword}%");
             }))
             ->orderByDesc('id');
         return $query->paginate($perPage)->withQueryString();
@@ -168,7 +128,7 @@ class UserService
     public function adminList(int $perPage = 20): array
     {
         $users = User::query()
-            ->with(['libraryCard', 'faculty:id,code,name', 'department:id,code,name,faculty_id'])
+            ->with(['faculty:id,code,name', 'department:id,code,name,faculty_id'])
             ->orderByDesc('updated_at')
             ->paginate($perPage);
         return [
@@ -180,7 +140,7 @@ class UserService
     /** @return \Illuminate\Database\Eloquent\Collection */
     public function readers(): \Illuminate\Database\Eloquent\Collection
     {
-        return User::with(['libraryCard', 'faculty:id,code,name', 'department:id,name,faculty_id'])
+        return User::with(['faculty:id,code,name', 'department:id,name,faculty_id'])
             ->whereIn('user_type', RoleType::readerTypes())
             ->get();
     }

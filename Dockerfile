@@ -1,5 +1,5 @@
-# UTC-eLibrary - Laravel app image
-FROM php:8.5-cli-alpine AS base
+# UTC-eLibrary - Laravel app image (PHP 8.2 to match XAMPP)
+FROM php:8.2-cli-alpine AS base
 
 RUN apk add --no-cache \
     libzip-dev \

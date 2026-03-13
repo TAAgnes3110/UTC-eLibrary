@@ -8,6 +8,7 @@ import { Input } from '@/Components/ui/input';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
+import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 
 // Dữ liệu mẫu – sau này thay bằng props/API
 const sampleBooks = ref([
@@ -21,6 +22,7 @@ const sampleBooks = ref([
         published_year: 2018,
         classification: '624 / 624.2',
         warehouse: 'Thư viện Trung tâm UTC',
+        quantity: 12,
         status: 'available',
     },
     {
@@ -31,8 +33,9 @@ const sampleBooks = ref([
         authors: 'Đỗ Bá Lâm',
         publisher: 'Giao thông Vận tải',
         published_year: 2019,
-        classification: '624 / 624.2',
-        warehouse: 'Thư viện Trung tâm UTC',
+        classification: '658 / 658.5',
+        warehouse: 'Kho Tài liệu chuyên ngành Vận tải',
+        quantity: 8,
         status: 'available',
     },
     {
@@ -45,9 +48,13 @@ const sampleBooks = ref([
         published_year: 2017,
         classification: '624 / 624.2',
         warehouse: 'Thư viện Trung tâm UTC',
+        quantity: 5,
         status: 'on_loan',
     },
 ]);
+
+// Dữ liệu thùng rác (demo, chưa nối API)
+const trashedBooks = ref([]);
 
 const filterValues = ref({
     searchKeyword: '',
@@ -59,6 +66,8 @@ const isEditing = ref(false);
 const selectedBook = ref(null);
 const showDeleteConfirm = ref(false);
 const selectedIds = ref(new Set());
+
+const showTrashDrawer = ref(false);
 
 const books = computed(() => sampleBooks.value);
 
@@ -119,6 +128,7 @@ const emptyForm = () => ({
     published_year: '',
     classification: '',
     warehouse: '',
+    quantity: 1,
     status: 'available',
 });
 
@@ -158,9 +168,19 @@ const openDeleteMultiple = () => {
 };
 
 const confirmDelete = () => {
+    const now = new Date().toISOString();
     if (selectedBook.value) {
+        const toTrash = sampleBooks.value.find((b) => b.id === selectedBook.value.id);
+        if (toTrash) {
+            trashedBooks.value.push({ ...toTrash, deleted_at: now });
+        }
         sampleBooks.value = sampleBooks.value.filter((b) => b.id !== selectedBook.value.id);
     } else if (hasSelection.value) {
+        sampleBooks.value.forEach((b) => {
+            if (selectedIds.value.has(b.id)) {
+                trashedBooks.value.push({ ...b, deleted_at: now });
+            }
+        });
         sampleBooks.value = sampleBooks.value.filter((b) => !selectedIds.value.has(b.id));
         deselectAll();
     }
@@ -174,6 +194,19 @@ const exportExcel = () => {
 
 const openImportModal = () => {
     alert('Import sách từ Excel – backend sẽ được nối sau.');
+};
+
+const restoreBook = (id) => {
+    const index = trashedBooks.value.findIndex((b) => b.id === id);
+    if (index === -1) return;
+    const [book] = trashedBooks.value.splice(index, 1);
+    const restored = { ...book };
+    delete restored.deleted_at;
+    sampleBooks.value.push(restored);
+};
+
+const forceDeleteBook = (id) => {
+    trashedBooks.value = trashedBooks.value.filter((b) => b.id !== id);
 };
 </script>
 
@@ -195,14 +228,21 @@ const openImportModal = () => {
             <AdminImportExportBar
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.size"
-                update-file-label="Cập nhật file đính kèm"
+                update-file-label="Cập nhật ảnh bìa"
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"
                 @update-file="() => {}"
                 @delete-selected="openDeleteMultiple"
                 @deselect-all="deselectAll"
-            />
+            >
+                <template #extra>
+                    <button type="button" class="btn-admin-green" @click="showTrashDrawer = true">
+                        <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
+                        Thùng rác
+                    </button>
+                </template>
+            </AdminImportExportBar>
 
             <AdminFilterSearch
                 v-model="filterValues.searchKeyword"
@@ -234,13 +274,23 @@ const openImportModal = () => {
                                         class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
                                     />
                                 </th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[120px]">
+                                    Mã sách
+                                </th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tên sách</th>
-                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Mã sách / DKCB</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tác giả</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">NXB / Năm XB</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Phân loại</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Kho</th>
-                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Trạng thái</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center">
+                                    Số lượng
+                                </th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right w-[110px]">
+                                    Trạng thái
+                                </th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right w-[88px]">
+                                    Thao tác
+                                </th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -257,6 +307,14 @@ const openImportModal = () => {
                                         class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
                                     />
                                 </td>
+                                <td class="p-4 align-top">
+                                    <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">
+                                        {{ book.book_code }}
+                                    </p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
+                                        DKCB: {{ book.registration_number }}
+                                    </p>
+                                </td>
                                 <td class="p-4">
                                     <button
                                         type="button"
@@ -265,14 +323,6 @@ const openImportModal = () => {
                                     >
                                         {{ book.title }}
                                     </button>
-                                </td>
-                                <td class="p-4">
-                                    <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">
-                                        {{ book.book_code }}
-                                    </p>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                                        DKCB: {{ book.registration_number }}
-                                    </p>
                                 </td>
                                 <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
                                     {{ book.authors }}
@@ -289,7 +339,12 @@ const openImportModal = () => {
                                 <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
                                     {{ book.warehouse }}
                                 </td>
-                                <td class="p-4 text-right">
+                                <td class="p-4 text-center">
+                                    <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 min-w-[3rem]">
+                                        {{ book.quantity ?? 0 }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-right w-[110px]">
                                     <span
                                         :class="[
                                             'inline-flex items-center justify-end gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase text-white',
@@ -304,6 +359,26 @@ const openImportModal = () => {
                                         />
                                         {{ book.status === 'available' ? 'Có sẵn' : 'Đang mượn' }}
                                     </span>
+                                </td>
+                                <td class="p-4">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <button
+                                            type="button"
+                                            class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded"
+                                            @click="openEditModal(book)"
+                                            title="Chỉnh sửa"
+                                        >
+                                            <Icon icon="lucide:pen-square" class="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded"
+                                            @click="openDeleteOne(book)"
+                                            title="Xóa"
+                                        >
+                                            <Icon icon="lucide:trash-2" class="w-4 h-4" />
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -407,6 +482,16 @@ const openImportModal = () => {
                             />
                         </div>
                         <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Số lượng bản in</label>
+                            <Input
+                                v-model="form.quantity"
+                                type="number"
+                                min="0"
+                                class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800"
+                                placeholder="Ví dụ: 10"
+                            />
+                        </div>
+                        <div class="space-y-1.5">
                             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Trạng thái</label>
                             <select
                                 v-model="form.status"
@@ -438,6 +523,18 @@ const openImportModal = () => {
             :selected-count="selectedBook ? 0 : selectedIds.size"
             @close="showDeleteConfirm = false"
             @confirm="confirmDelete"
+        />
+
+        <!-- Thùng rác sách -->
+        <AdminTrashDrawer
+            :show="showTrashDrawer"
+            title="Thùng rác – Sách"
+            item-label-key="title"
+            :items="trashedBooks"
+            :loading="false"
+            @close="showTrashDrawer = false"
+            @restore="restoreBook"
+            @force-delete="forceDeleteBook"
         />
     </AdminLayout>
 </template>

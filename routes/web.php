@@ -47,38 +47,26 @@ Route::middleware('auth')->group(function () {
         Route::get('/readers', [ReaderController::class, 'index'])->name('readers.index');
         Route::get('/readers/export', [ReaderController::class, 'export'])->name('readers.export');
         Route::get('/profile', ProfileController::class)->name('profile');
+            Route::get('/books', function () {
+                return Inertia::render('Admin/Books/Index');
+            })->name('books.index');
     });
 
-    // Reader-facing "Thư viện số" area
     Route::prefix('library')->name('library.')->group(function () {
-        // Dashboard (Tổng quan)
         Route::get('/', function () {
             return Inertia::render('Reader/Dashboard');
         })->name('dashboard');
 
-        // Tra cứu sách - tạm thời là trang Dashboard; cập nhật sau khi có trang riêng
         Route::get('/search', function () {
             return Inertia::render('Reader/Dashboard');
         })->name('search');
-
-        // Sách đã lưu
         Route::get('/saved', [ReaderPageController::class, 'saved'])->name('saved');
-
-        // Xem thẻ / Quản lý thẻ
         Route::get('/card', ReaderCardController::class)->name('card');
-
-        // Yêu cầu chỉnh sửa thông tin
         Route::get('/profile/change-request', [ReaderProfileChangeRequestController::class, 'index'])->name('profile.change-request');
-
-        // Thông tin tài khoản (sử dụng cho các link khác nếu cần)
         Route::get('/profile', [ReaderProfileController::class, 'edit'])->name('profile.edit');
-
-        // Sách mượn
         Route::get('/loans', function () {
             return Inertia::render('Reader/Loans/Index');
         })->name('loans');
-
-        // Giới thiệu & Nội quy (có thể cho phép public sau này)
         Route::get('/intro', [ReaderPageController::class, 'intro'])->name('intro');
         Route::get('/rules', [ReaderPageController::class, 'rules'])->name('rules');
     });

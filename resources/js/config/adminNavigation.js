@@ -7,10 +7,26 @@ export const adminNavigation = [
     {
         name: 'Quản lý người dùng',
         icon: 'lucide:users',
-        active: ['admin.users.*'],
+        active: ['admin.users.*', 'admin.readers.*'],
         children: [
             { name: 'Tài khoản', href: 'admin.users.index', active: 'admin.users.*' },
+            { name: 'Bạn đọc / Thẻ thư viện', href: 'admin.readers.index', active: 'admin.readers.*' },
         ],
     },
-    // Các mục liên quan tới sách / phiếu / thẻ / quy định mượn trả đã được tạm thời loại bỏ
+    {
+        name: 'Quản lý tài liệu',
+        icon: 'lucide:book',
+        active: ['admin.books.*'],
+        children: [
+            { name: 'Sách', href: 'admin.books.index', active: 'admin.books.*' },
+        ],
+    },
+    {
+        name: 'Cấu hình thư viện',
+        icon: 'lucide:sliders',
+        active: ['admin.loan-policies.*'],
+        children: [
+            { name: 'Quy định mượn trả', href: 'admin.loan-policies.index', active: 'admin.loan-policies.*' },
+        ],
+    },
 ];

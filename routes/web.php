@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController as BackendAuthController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
+use App\Http\Controllers\Frontend\Admin\ReaderController;
 use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
 use App\Http\Controllers\Frontend\Reader\PageController as ReaderPageController;
 use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
@@ -34,7 +35,6 @@ Route::middleware('guest')->group(function () {
 Route::get('/auth/microsoft', [SocialAuthController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [SocialAuthController::class, 'handleMicrosoftCallback']);
 
-// Auth required: dashboard redirect + logout + admin + reader area
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', function () {
         return redirect()->route('admin.dashboard');
@@ -44,6 +44,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/readers', [ReaderController::class, 'index'])->name('readers.index');
+        Route::get('/readers/export', [ReaderController::class, 'export'])->name('readers.export');
         Route::get('/profile', ProfileController::class)->name('profile');
     });
 

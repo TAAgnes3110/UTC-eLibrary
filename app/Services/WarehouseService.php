@@ -2,15 +2,18 @@
 
 namespace App\Services;
 
+use App\Imports\WarehouseImport;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\UploadedFile;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WarehouseService
 {
     private const PER_PAGE = 50;
     
     /**
-     * @todo Tạo kho mới
+     * Tạo kho mới
      * @param array $data
      * @return Warehouse
      */
@@ -20,7 +23,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Cập nhật kho
+     * Cập nhật kho
      * @param Warehouse $warehouse
      * @param array $data
      * @return Warehouse
@@ -33,7 +36,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Danh sách kho
+     * Danh sách kho
      * @param ?string $keyword
      * @param int $perPage
      * @return LengthAwarePaginator
@@ -52,7 +55,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Xóa kho
+     * Xóa mềm kho
      * @param Warehouse $warehouse
      * @return void
      */
@@ -62,7 +65,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Danh sách kho đã xóa
+     * Danh sách kho đã xóa
      * @param int $perPage
      * @return LengthAwarePaginator
      */
@@ -76,7 +79,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Khôi phục kho
+     * Khôi phục kho
      * @param int $id
      * @return ?Warehouse
      */
@@ -91,7 +94,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Xóa vĩnh viễn kho
+     * Xóa vĩnh viễn kho
      * @param int $id
      * @return bool
      */
@@ -106,7 +109,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Cập nhật trạng thái kho
+     * Cập nhật trạng thái kho
      * @param array $ids
      * @param bool $isActive
      * @return void
@@ -117,7 +120,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Chuyển đổi trạng thái kho
+     * Chuyển đổi trạng thái kho
      * @param int $id
      * @return ?array{is_active: bool} null nếu lỗi (kho không tồn tại)
      */
@@ -133,7 +136,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Danh sách kho
+     * Danh sách kho
      * @param int $perPage
      * @return array{warehouses: LengthAwarePaginator}
      */
@@ -150,7 +153,7 @@ class WarehouseService
     }
 
     /**
-     * @todo Danh sách kho đã xóa
+     * Danh sách kho đã xóa
      * @param int $perPage
      * @return LengthAwarePaginator
      */
@@ -163,5 +166,19 @@ class WarehouseService
         return [
             'warehouses' => $warehouses,
         ];
+    }
+
+    /**
+     * Import danh sách kho từ file Excel.
+     *
+     * @param UploadedFile $file
+     * @return array{created:int,updated:int}
+     */
+    public function importWarehouses(UploadedFile $file): array
+    {
+        $import = new WarehouseImport();
+        Excel::import($import, $file);
+
+        return $import->getSummary();
     }
 }

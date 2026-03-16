@@ -8,9 +8,9 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
 use App\Http\Resources\UserResource;
-use App\Http\Resources\UserTrashedResource;
 use App\Models\User;
 use App\Services\UserService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -65,7 +65,7 @@ class UserController extends Controller
     public function trash(Request $request): JsonResponse
     {
         $items = $this->userService->trash();
-        return ApiResponse::success(UserTrashedResource::collection($items));
+        return ApiResponse::success(UserResource::collection($items));
     }
 
     public function restore(int $id): JsonResponse
@@ -82,7 +82,7 @@ class UserController extends Controller
         if (!$this->userService->forceDelete($id)) {
             return ApiResponse::notFound();
         }
-        return ApiResponse::success(null, __('Đã xóa vĩnh viễn.'));
+        return ApiResponse::success(null, __('messages.success_force_delete'));
     }
 
     public function updateStatus(Request $request): JsonResponse
@@ -110,48 +110,15 @@ class UserController extends Controller
         return Excel::download(new ReadersExport(), 'danh_sach_ban_doc.xlsx');
     }
 
-    public function exportUsers(): BinaryFileResponse
+    public function exportUsers(Request $request): BinaryFileResponse
     {
-        $rows = User::query()
-            ->with(['faculty:id,name,code', 'department:id,name,faculty_id'])
-            ->orderBy('id')
-            ->get()
-            ->map(function (User $user) {
-                return [
-                    $user->id,
-                    $user->code,
-                    $user->name,
-                    $user->email,
-                    $user->phone,
-                    $user->user_type?->value ?? (string) $user->user_type,
-                    $user->is_active ? 'Hoạt động' : 'Tạm khóa',
-                    optional($user->faculty)->name,
-                    optional($user->department)->name,
-                    $user->cohort,
-                    optional($user->created_at)?->format('Y-m-d H:i:s'),
-                    optional($user->updated_at)?->format('Y-m-d H:i:s'),
-                ];
-            });
-
-        $headings = [
-            'ID',
-            'Mã định danh',
-            'Họ tên',
-            'Email',
-            'Số điện thoại',
-            'Loại người dùng',
-            'Trạng thái',
-            'Khoa',
-            'Bộ môn / Lớp',
-            'Khóa học',
-            'Ngày tạo',
-            'Ngày cập nhật',
-        ];
-
-        return Excel::download(
-            new SimpleTableExport($rows, $headings),
-            'danh_sach_tai_khoan.xlsx'
-        );
+        $ids = $request->input('ids');
+        if (is_array($ids)) {
+            $ids = array_filter($ids, fn ($v) => is_numeric($v));
+        } else {
+            $ids = null;
+        }
+        return $this->userService->exportUsers($ids);
     }
 
     public function updateAvatar(Request $request, int $id): JsonResponse
@@ -173,6 +140,28 @@ class UserController extends Controller
             return ApiResponse::error(__('Vui lòng chọn một file ảnh hợp lệ.'), 422);
         }
         return ApiResponse::success($result, __('messages.success_update'));
+    }
+
+    public function bulkUpdateAvatar(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:zip',
+        ]);
+
+        $file = $request->file('file');
+        if (!$file) {
+            return ApiResponse::error(__('Vui lòng chọn một file .zip hợp lệ.'), 422);
+        }
+
+        try {
+            $summary = $this->userService->bulkUpdateAvatarFromZip($file);
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Throwable) {
+            return ApiResponse::error(__('Không thể xử lý file zip.'), 422);
+        }
+
+        return ApiResponse::success($summary, __('messages.success_update'));
     }
 
     /** @deprecated Dùng GET /users + GET /master-data */

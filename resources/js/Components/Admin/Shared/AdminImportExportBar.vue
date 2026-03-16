@@ -36,14 +36,20 @@ defineEmits([
             <Icon icon="lucide:plus" class="w-3.5 h-3.5" />
             {{ addLabel }}
         </button>
-        <button v-if="showExport" type="button" @click="$emit('export-excel')" class="btn-admin-green">
-            <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
-            Xuất excel
-        </button>
         <button v-if="showImport" type="button" @click="$emit('import-excel')" class="btn-admin-green">
             <Icon icon="lucide:file-up" class="w-3.5 h-3.5" />
             Nhập excel
         </button>
+        <button v-if="showExport" type="button" @click="$emit('export-excel')" class="btn-admin-green">
+            <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
+            Xuất excel
+        </button>
+        <slot name="extra" />
+        <button v-if="showUpdateFile" type="button" @click="$emit('update-file')" class="btn-admin-green">
+            <Icon icon="lucide:image-plus" class="w-3.5 h-3.5" />
+            {{ updateFileLabel }}
+        </button>
+
         <template v-if="hasSelection">
             <button
                 type="button"
@@ -54,12 +60,9 @@ defineEmits([
                 Xóa
             </button>
             <span class="text-xs font-medium text-white dark:text-slate-400">Đã chọn {{ selectedCount }}</span>
-            <button type="button" @click="$emit('deselect-all')" class="text-xs font-medium text-white dark:text-slate-400 hover:underline">Bỏ chọn</button>
+            <button type="button" @click="$emit('deselect-all')" class="text-xs font-medium text-white dark:text-slate-400 hover:underline">
+                Bỏ chọn
+            </button>
         </template>
-        <slot name="extra" />
-        <button v-if="showUpdateFile" type="button" @click="$emit('update-file')" class="btn-admin-green">
-            <Icon icon="lucide:image-plus" class="w-3.5 h-3.5" />
-            {{ updateFileLabel }}
-        </button>
     </div>
 </template>

@@ -6,16 +6,25 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
+import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
+import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 
 const warehousesData = ref({ data: [] });
 const loading = ref(false);
 const showModal = ref(false);
 const showDeleteModal = ref(false);
+const showImportModal = ref(false);
+const importLoading = ref(false);
 const isEditing = ref(false);
 const selectedWarehouse = ref(null);
 const form = ref({ id: null, code: '', name: '', is_active: true });
+
+const showTrashDrawer = ref(false);
+const trashedWarehouses = ref([]);
+const loadingTrash = ref(false);
 
 const SEARCH_IN_OPTIONS = [
     { key: 'code', label: 'Mã kho' },
@@ -27,6 +36,8 @@ const filterValues = ref({
     searchIn: { code: true, name: true },
     status: '',
 });
+
+const showFilterPanel = ref(false);
 
 const fetchWarehouses = async () => {
     loading.value = true;
@@ -71,6 +82,13 @@ const filteredWarehouses = computed(() => {
     return result;
 });
 
+const formatDateTime = (value) => {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('vi-VN');
+};
+
 const selectedIds = ref([]);
 const hasSelection = computed(() => selectedIds.value.length > 0);
 const isAllSelected = computed(
@@ -88,6 +106,79 @@ const toggleAll = () => {
 };
 const deselectAll = () => {
     selectedIds.value = [];
+};
+
+const openImportModal = () => {
+    showImportModal.value = true;
+};
+
+const exportExcel = async () => {
+    try {
+        const response = await window.axios.get('/warehouses/export', {
+            responseType: 'blob',
+        });
+        const blob = new Blob([response.data], {
+            type:
+                response.headers['content-type'] ||
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'Danh_sach_kho_sach.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error(e);
+        alert('Không thể xuất Excel. Vui lòng thử lại sau.');
+    }
+};
+
+const downloadTemplate = async () => {
+    try {
+        const response = await window.axios.get('/warehouses/import-template', {
+            responseType: 'blob',
+        });
+        const blob = new Blob([response.data], {
+            type:
+                response.headers['content-type'] ||
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'Mau_nhap_kho_sach.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error(e);
+        alert('Không thể tải file mẫu. Vui lòng thử lại sau.');
+    }
+};
+
+const importExcel = async (file) => {
+    if (!file) return;
+    importLoading.value = true;
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        await window.axios.post('/warehouses/import', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                Accept: 'application/json',
+            },
+        });
+        await fetchWarehouses();
+    } catch (e) {
+        console.error(e);
+        alert('Không thể nhập kho từ Excel. Vui lòng kiểm tra file và thử lại.');
+    } finally {
+        importLoading.value = false;
+    }
 };
 
 const openAddModal = () => {
@@ -146,17 +237,51 @@ const deleteWarehouse = async () => {
                 await window.axios.delete(`/warehouses/${id}`);
             }
         }
-        router.reload();
+        await fetchWarehouses();
     } catch (_) {
-        router.reload();
+        await fetchWarehouses();
     }
     selectedWarehouse.value = null;
     selectedIds.value = [];
     showDeleteModal.value = false;
 };
 
+const openTrashDrawer = () => {
+    showTrashDrawer.value = true;
+    fetchTrash();
+};
+
+const fetchTrash = async () => {
+    loadingTrash.value = true;
+    try {
+        const { data } = await window.axios.get('/warehouses/trash');
+        const payload = data?.data ?? data;
+        trashedWarehouses.value = Array.isArray(payload) ? payload : (payload?.data ?? []);
+    } catch {
+        trashedWarehouses.value = [];
+    }
+    loadingTrash.value = false;
+};
+
+const onRestoreWarehouse = async (id) => {
+    try {
+        await window.axios.post(`/warehouses/restore/${id}`);
+        fetchTrash();
+        fetchWarehouses();
+    } catch (_) {}
+};
+
+const onForceDeleteWarehouse = async (id) => {
+    if (!confirm('Xóa vĩnh viễn kho này? Hành động không thể hoàn tác.')) return;
+    try {
+        await window.axios.delete(`/warehouses/force/${id}`);
+        fetchTrash();
+        fetchWarehouses();
+    } catch (_) {}
+};
+
 function statusLabel(isActive) {
-    return isActive ? 'Đang dùng' : 'Ngừng dùng';
+    return isActive ? 'Hoạt động' : 'Không hoạt động';
 }
 function statusClass(isActive) {
     return isActive
@@ -177,16 +302,22 @@ function statusClass(isActive) {
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <div class="flex items-center justify-between gap-2 flex-wrap">
                 <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách kho sách</h2>
+                <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
+                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
+                    Thùng rác
+                </Button>
             </div>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.length"
                 add-label="Thêm kho"
-                :show-export="false"
-                :show-import="false"
+                :show-export="true"
+                :show-import="true"
                 :show-update-file="false"
                 @add="openAddModal"
+                @export-excel="exportExcel"
+                @import-excel="openImportModal"
                 @delete-selected="confirmBulkDelete"
                 @deselect-all="deselectAll"
             />
@@ -199,10 +330,16 @@ function statusClass(isActive) {
             >
                 <template #filters>
                     <div class="flex items-center gap-3">
+                        <AdminFilterPanel
+                            :options="SEARCH_IN_OPTIONS"
+                            v-model:model-value="filterValues.searchIn"
+                            :show="showFilterPanel"
+                            @update:show="showFilterPanel = $event"
+                        />
                         <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
                             <option value="">Trạng thái</option>
-                            <option value="active">Đang dùng</option>
-                            <option value="inactive">Ngừng dùng</option>
+                            <option value="active">Hoạt động</option>
+                            <option value="inactive">Không hoạt động</option>
                         </select>
                     </div>
                 </template>
@@ -224,6 +361,7 @@ function statusClass(isActive) {
                                 </th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Mã kho</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tên kho</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Cập nhật gần nhất</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Trạng thái</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Thao tác</th>
                             </tr>
@@ -247,6 +385,11 @@ function statusClass(isActive) {
                                 </td>
                                 <td class="p-4">
                                     <p class="font-semibold text-sm text-slate-900 dark:text-white">{{ w.name }}</p>
+                                </td>
+                                <td class="p-4">
+                                    <p class="text-[12px] text-slate-600 dark:text-slate-300">
+                                        {{ formatDateTime(w.updated_at || w.created_at) }}
+                                    </p>
                                 </td>
                                 <td class="p-4">
                                     <span :class="[statusClass(w.is_active), 'px-2 py-0.5 rounded text-[11px] font-semibold']">
@@ -311,14 +454,14 @@ function statusClass(isActive) {
                             />
                         </div>
                         <div class="sm:col-span-2 space-y-1.5">
-                            <label class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                                <input
-                                    type="checkbox"
-                                    v-model="form.is_active"
-                                    class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                />
-                                Đang sử dụng
-                            </label>
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Trạng thái</label>
+                            <select
+                                v-model="form.is_active"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm [color-scheme:light] dark:[color-scheme:dark]"
+                            >
+                                <option :value="true">Hoạt động</option>
+                                <option :value="false">Không hoạt động</option>
+                            </select>
                         </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30">
@@ -337,6 +480,31 @@ function statusClass(isActive) {
             :selected-count="selectedWarehouse ? 0 : selectedIds.length"
             @close="showDeleteModal = false"
             @confirm="deleteWarehouse"
+        />
+
+        <AdminFileModal
+            :show="showImportModal"
+            title="Nhập kho từ Excel"
+            description="Tải file mẫu, điền danh sách kho, sau đó chọn file để nhập."
+            accept=".xls,.xlsx,.csv"
+            :max-size-mb="10"
+            template-label="Tải file mẫu kho"
+            submit-label="Nhập Excel"
+            :loading="importLoading"
+            @close="showImportModal = false"
+            @submit="(file) => { importExcel(file); showImportModal.value = false; }"
+            @download-template="downloadTemplate"
+        />
+
+        <AdminTrashDrawer
+            :show="showTrashDrawer"
+            title="Thùng rác – Kho sách"
+            item-label-key="name"
+            :items="trashedWarehouses"
+            :loading="loadingTrash"
+            @close="showTrashDrawer = false"
+            @restore="onRestoreWarehouse"
+            @force-delete="onForceDeleteWarehouse"
         />
     </AdminLayout>
 </template>

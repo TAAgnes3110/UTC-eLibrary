@@ -15,18 +15,16 @@ class ImageUploadHelper
     public const MAX_SIZE_MB = 10;
 
     /**
-     * Lưu một ảnh upload vào thư mục cho trước.
-     * - Mặc định: sinh tên file ngẫu nhiên (UUID), có thể kèm prefix.
-     * - Nếu $fixedName = true: dùng đúng $prefix làm tên file (không thêm UUID).
+     * Lưu một ảnh upload vào thư mục cho trước, tự sinh tên file.
+     * Extension lấy từ file gốc, chuẩn hóa về jpg/png/gif/webp.
      *
      * @param UploadedFile $file File ảnh từ request
      * @param string $directory Thư mục trong storage/app/public
-     * @param string|null $prefix Tiền tố hoặc tên file (tùy $fixedName)
-     * @param bool $fixedName Nếu true, đặt tên cố định: "{$prefix}.{$ext}"
+     * @param string|null $prefix Tiền tố tên file
      * @return string Đường dẫn tương đối để lưu DB
      * @throws \InvalidArgumentException Nếu không phải ảnh hoặc vượt dung lượng
      */
-    public static function storeImage(UploadedFile $file, string $directory, ?string $prefix = null, bool $fixedName = false): string
+    public static function storeImage(UploadedFile $file, string $directory, ?string $prefix = null): string
     {
         $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
         if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
@@ -36,13 +34,9 @@ class ImageUploadHelper
             throw new \InvalidArgumentException('File vượt quá ' . self::MAX_SIZE_MB . 'MB.');
         }
         $directory = trim($directory, '/');
-        if ($fixedName && $prefix) {
-            $name = $prefix . '.' . $ext;
-        } else {
-            $name = $prefix
-                ? $prefix . '-' . Str::uuid()->toString() . '.' . $ext
-                : Str::uuid()->toString() . '.' . $ext;
-        }
+        $name = $prefix
+            ? $prefix . '.' . $ext
+            : Str::uuid()->toString() . '.' . $ext;
         $path = $file->storeAs($directory, $name, 'public');
         return $path;
     }

@@ -130,7 +130,7 @@ class UserService
         }
         ImageUploadHelper::deleteIfExists($user->avatar);
         $baseName = $user->code ?: (string) $user->id;
-        $path = ImageUploadHelper::storeImage($file, 'avatars', $baseName, true);
+        $path = ImageUploadHelper::storeImage($file, 'avatars', $baseName);
         $user->avatar = $path;
         $user->save();
         return ['avatar' => $path];

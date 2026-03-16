@@ -10,7 +10,6 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 
-// Dữ liệu mẫu – sau này thay bằng props/API
 const sampleBooks = ref([
     {
         id: 1,

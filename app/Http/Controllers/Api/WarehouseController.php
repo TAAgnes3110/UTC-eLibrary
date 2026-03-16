@@ -52,7 +52,6 @@ class WarehouseController extends Controller
         $data = $request->validated();
         $warehouse = $this->warehouseService->create($data);
         $warehouse->load('parent', 'createdBy', 'updatedBy');
-
         return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_create'), 201);
     }
 
@@ -62,8 +61,13 @@ class WarehouseController extends Controller
      * @param Warehouse $warehouse
      * @return JsonResponse
      */
-    public function update(WarehouseRequest $request, Warehouse $warehouse): JsonResponse
+    public function update(WarehouseRequest $request, int $id): JsonResponse
     {
+        unset($request->id,$request->created_at, $request->updated_at);
+        $warehouse = Warehouse::find($id);
+        if (!$warehouse) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
         $warehouse = $this->warehouseService->update($warehouse, $request->validated());
         return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_update'));
     }
@@ -75,6 +79,9 @@ class WarehouseController extends Controller
      */
     public function destroy(Warehouse $warehouse): JsonResponse
     {
+        if (!$warehouse) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
         $this->warehouseService->destroy($warehouse);
         return ApiResponse::success(null, __('messages.success_delete'));
     }
@@ -110,7 +117,7 @@ class WarehouseController extends Controller
     public function forceDelete(int $id): JsonResponse
     {
         if (!$this->warehouseService->forceDelete($id)) {
-            return ApiResponse::notFound();
+            return ApiResponse::notFound(__('messages.error_404'));
         }
         return ApiResponse::success(null, __('messages.success_force_delete'));
     }
@@ -139,7 +146,7 @@ class WarehouseController extends Controller
     {
         $result = $this->warehouseService->toggleStatus($id);
         if ($result === null) {
-            return ApiResponse::notFound();
+            return ApiResponse::notFound(__('messages.error_404'));
         }
         return ApiResponse::success($result, __('messages.success_update'));
     }
@@ -183,22 +190,20 @@ class WarehouseController extends Controller
     }
 
     /**
-     * Xuất danh sách kho hiện tại ra Excel.
-     *
+     * Xuất danh sách kho ra file Excel.
+     * @param Request $request
      * @return BinaryFileResponse
      */
-    public function export(): BinaryFileResponse
+    public function exportWarehouses(Request $request): BinaryFileResponse
     {
-        $rows = Warehouse::query()
-            ->orderBy('code')
-            ->get(['code', 'name'])
-            ->map(fn (Warehouse $w) => [
-                $w->code,
-                $w->name,
-            ]);
-
-        $export = new SimpleTableExport($rows, ['Mã', 'Tên']);
-
-        return Excel::download($export, 'Danh_sach_kho_sach.xlsx');
+        $ids = $request->input('ids');
+        if (is_array($ids)) {
+            $ids = array_filter($ids, fn ($v) => is_numeric($v));
+        } else {
+            $ids = null;
+        }
+        return $this->warehouseService->exportWarehouses($ids);
     }
+
+
 }

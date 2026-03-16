@@ -109,7 +109,7 @@ Route::prefix('v1')->group(function () {
 
             Route::group(['prefix' => '/warehouses'], function () {
                 Route::get('/', [WarehouseController::class, 'index']);
-                Route::get('/export', [WarehouseController::class, 'export']);
+                Route::get('/export', [WarehouseController::class, 'exportWarehouses']);
                 Route::get('/import-template', [WarehouseController::class, 'downloadImportTemplate']);
                 Route::post('/import', [WarehouseController::class, 'import']);
                 Route::get('/trash', [WarehouseController::class, 'trash']);

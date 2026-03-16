@@ -22,6 +22,14 @@ class UserController extends Controller
         private UserService $userService
     ) {}
 
+    /**
+     * Danh sách tài khoản người dùng.
+     *
+     * @param Request $request Request chứa các tham số lọc:
+     *                         - keyword: từ khóa tìm kiếm (id, tên, mã số, email, số điện thoại)
+     *                         - type: 'reader' nếu chỉ lấy bạn đọc, bỏ trống để lấy tất cả
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $keyword = $request->input('keyword');
@@ -30,28 +38,54 @@ class UserController extends Controller
         return ApiResponse::success(UserResource::collection($items));
     }
 
+    /**
+     * Xem chi tiết một tài khoản người dùng.
+     *
+     * @param User $user Bản ghi người dùng cần xem (model binding theo id)
+     * @return JsonResponse
+     */
     public function show(User $user): JsonResponse
     {
         $user->load(['libraryCard', 'faculty:id,code,name', 'department:id,code,name,faculty_id']);
         return ApiResponse::success(new UserResource($user));
     }
 
+    /**
+     * Tạo mới tài khoản người dùng.
+     *
+     * @param UserRequest $request Dữ liệu đã được validate cho tài khoản mới
+     * @return JsonResponse
+     */
     public function store(UserRequest $request): JsonResponse
     {
         $user = $this->userService->create($request->validated());
         return ApiResponse::success(new UserResource($user), __('messages.success_create'), 201);
     }
 
+    /**
+     * Cập nhật thông tin tài khoản người dùng.
+     *
+     * @param UserRequest $request Dữ liệu đã được validate cho tài khoản
+     * @param int $id ID người dùng cần cập nhật
+     * @return JsonResponse
+     */
     public function update(UserRequest $request, int $id): JsonResponse
     {
+        unset($request->id,$request->created_at, $request->updated_at);
         $user = User::find($id);
         if (!$user) {
-            return ApiResponse::notFound();
+            return ApiResponse::notFound(__('messages.error_404'));
         }
         $user = $this->userService->update($user, $request->validated());
         return ApiResponse::success(new UserResource($user), __('messages.success_update'));
     }
 
+    /**
+     * Xóa mềm một tài khoản người dùng.
+     *
+     * @param int $id ID người dùng cần xóa
+     * @return JsonResponse
+     */
     public function destroy(int $id): JsonResponse
     {
         $user = User::find($id);
@@ -62,12 +96,24 @@ class UserController extends Controller
         return ApiResponse::success(null, __('messages.success_delete'));
     }
 
+    /**
+     * Danh sách các tài khoản đã xóa mềm.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function trash(Request $request): JsonResponse
     {
         $items = $this->userService->trash();
         return ApiResponse::success(UserResource::collection($items));
     }
 
+    /**
+     * Khôi phục một tài khoản đã xóa mềm.
+     *
+     * @param int $id ID người dùng cần khôi phục
+     * @return JsonResponse
+     */
     public function restore(int $id): JsonResponse
     {
         $user = $this->userService->restore($id);
@@ -77,14 +123,28 @@ class UserController extends Controller
         return ApiResponse::success(null, __('Đã khôi phục.'));
     }
 
+    /**
+     * Xóa vĩnh viễn một tài khoản người dùng.
+     *
+     * @param int $id ID người dùng cần xóa vĩnh viễn
+     * @return JsonResponse
+     */
     public function forceDelete(int $id): JsonResponse
     {
         if (!$this->userService->forceDelete($id)) {
-            return ApiResponse::notFound();
+            return ApiResponse::notFound(__('messages.error_404'));
         }
         return ApiResponse::success(null, __('messages.success_force_delete'));
     }
 
+    /**
+     * Cập nhật trạng thái hoạt động cho nhiều tài khoản.
+     *
+     * @param Request $request Request chứa:
+     *                         - ids: mảng ID người dùng
+     *                         - is_active: true nếu kích hoạt, false nếu khóa
+     * @return JsonResponse
+     */
     public function updateStatus(Request $request): JsonResponse
     {
         $request->validate([
@@ -96,20 +156,26 @@ class UserController extends Controller
         return ApiResponse::success(null, __('messages.success_update'));
     }
 
+    /**
+     * Đổi trạng thái hoạt động của một tài khoản (khóa / mở khóa).
+     *
+     * @param int $id ID người dùng cần đổi trạng thái
+     * @return JsonResponse
+     */
     public function toggleStatus(int $id): JsonResponse
     {
         $result = $this->userService->toggleStatus($id);
         if ($result === null) {
-            return ApiResponse::notFound();
+            return ApiResponse::notFound(__('messages.error_404'));
         }
         return ApiResponse::success($result, __('messages.success_update'));
     }
 
-    public function exportReaders(): BinaryFileResponse
-    {
-        return Excel::download(new ReadersExport(), 'danh_sach_ban_doc.xlsx');
-    }
-
+    /**
+     * Xuất danh sách tài khoản người dùng ra file Excel.
+     * @param Request $request 
+     * @return BinaryFileResponse
+     */
     public function exportUsers(Request $request): BinaryFileResponse
     {
         $ids = $request->input('ids');
@@ -121,6 +187,13 @@ class UserController extends Controller
         return $this->userService->exportUsers($ids);
     }
 
+    /**
+     * Cập nhật ảnh đại diện cho một tài khoản người dùng.
+     *
+     * @param Request $request Request chứa file ảnh ở field 'avatar'
+     * @param int $id ID người dùng cần cập nhật ảnh đại diện
+     * @return JsonResponse
+     */
     public function updateAvatar(Request $request, int $id): JsonResponse
     {
         $user = User::find($id);
@@ -142,6 +215,15 @@ class UserController extends Controller
         return ApiResponse::success($result, __('messages.success_update'));
     }
 
+    /**
+     * Cập nhật ảnh đại diện hàng loạt từ file .zip.
+     *
+     * File zip phải chứa các ảnh có tên trùng với mã người dùng (code),
+     * mỗi ảnh sẽ được gán vào tài khoản tương ứng.
+     *
+     * @param Request $request Request chứa file zip ở field 'file'
+     * @return JsonResponse
+     */
     public function bulkUpdateAvatar(Request $request): JsonResponse
     {
         $request->validate([
@@ -160,7 +242,12 @@ class UserController extends Controller
         } catch (\Throwable) {
             return ApiResponse::error(__('Không thể xử lý file zip.'), 422);
         }
-
+        if (($summary['updated'] ?? 0) === 0) {
+            return ApiResponse::error(
+                __('Không có ảnh đại diện nào được cập nhật. Vui lòng kiểm tra lại định dạng file, số lượng và tên file (trùng mã người dùng).'),
+                422
+            );
+        }
         return ApiResponse::success($summary, __('messages.success_update'));
     }
 

@@ -18,7 +18,7 @@ return [
     'error_400' => "Đường dẫn không đúng.",
     'error_401' => "Bạn cần đăng nhập.",
     'error_403' => "Bạn chưa được phân quyền để sử dụng chức năng này.",
-    'error_404' => 'Nội dung không tồn tại.',
+    'error_404' => 'Không tìm thấy dữ liệu phù hợp.',
     'error_405' => 'Phương thức không được phép.',
     'error_406' => 'Không được chấp nhận.',
     'error_408' => 'Hết thời gian yêu cầu.',

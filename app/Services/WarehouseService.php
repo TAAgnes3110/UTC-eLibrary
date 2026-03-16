@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Exports\SimpleTableExport;
 use App\Imports\WarehouseImport;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WarehouseService
 {
@@ -30,7 +32,7 @@ class WarehouseService
      */
     public function update(Warehouse $warehouse, array $data): Warehouse
     {
-        unset($data['id'], $data['parent_id']);
+        unset($data['id']);
         $warehouse->update($data);
         return $warehouse;
     }
@@ -180,5 +182,38 @@ class WarehouseService
         Excel::import($import, $file);
 
         return $import->getSummary();
+    }
+
+    public function exportWarehouses(?array $ids = null): BinaryFileResponse
+    {
+        $query = Warehouse::query()
+            ->with('parent:id,code,name');
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $rows = $query
+            ->orderBy('id')
+            ->get()
+            ->map(function (Warehouse $warehouse) {
+                $statusLabel = $warehouse->is_active ? 'Hoạt động' : 'Khóa';
+                return [
+                    $warehouse->id,
+                    $warehouse->code,
+                    $warehouse->name,
+                    optional($warehouse->parent)->name,
+                    $statusLabel,
+                ];
+            });
+        $headings = [
+            'ID',
+            'Mã kho',
+            'Tên kho',
+            'Tầng / Kho cha',
+            'Trạng thái',
+        ];
+        return Excel::download(
+            new SimpleTableExport($rows, $headings),
+            'danh_sach_kho.xlsx'
+        );
     }
 }

@@ -4,9 +4,6 @@ export const usersApi = {
     list(params = {}) {
         return client.get('/users', { params }).then((r) => r.data);
     },
-    listReaders(params = {}) {
-        return client.get('/users', { params: { ...params, type: 'reader' } }).then((r) => r.data);
-    },
     get(id) {
         return client.get(`/users/${id}`).then((r) => r.data);
     },
@@ -33,7 +30,22 @@ export const usersApi = {
     },
     updateAvatar(id, formData) {
         return client
-            .post(`/users/${id}/avatar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+            .post(`/users/${id}/avatar`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            })
+            .then((r) => r.data);
+    },
+    export(params = {}) {
+        return client.get('/users/export', {
+            params,
+            responseType: 'blob',
+        });
+    },
+    bulkUpdateAvatar(formData) {
+        return client
+            .post('/users/avatar-bulk', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            })
             .then((r) => r.data);
     },
 };

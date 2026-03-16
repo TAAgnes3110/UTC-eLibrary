@@ -5,7 +5,6 @@ use App\Http\Controllers\Api\AuthController as BackendAuthController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
-use App\Http\Controllers\Frontend\Admin\ReaderController;
 use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
 use App\Http\Controllers\Frontend\Reader\PageController as ReaderPageController;
 use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;

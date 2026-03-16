@@ -3,20 +3,23 @@
 namespace App\Models;
 
 use App\Models\Traits\HasAuditFields;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Warehouse extends BaseModel
 {
-    use HasAuditFields;
+    use HasAuditFields, SoftDeletes;
 
     protected $fillable = [
         'code',
         'name',
         'parent_id',
+        'is_active',
         'params',
     ];
 
     protected $casts = [
         'params' => 'array',
+        'is_active' => 'boolean',
     ];
 
     public function parent()

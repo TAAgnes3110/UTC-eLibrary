@@ -11,6 +11,7 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import { usersApi } from '@/api/users';
 
 // Props: readers, faculties, cohorts, departments từ backend
 const props = defineProps({
@@ -205,7 +206,7 @@ const save = async () => {
         user_type: 'MEMBER',
     };
     try {
-        await window.axios.put(`/users/${form.id}`, payload);
+        await usersApi.update(form.id, payload);
         showModal.value = false;
         router.reload();
     } catch (e) {
@@ -238,12 +239,12 @@ const confirmDelete = async () => {
     try {
         if (deleteTarget.value === 'multiple') {
             for (const id of selectedIds.value) {
-                await window.axios.delete(`/users/${id}`);
+                await usersApi.remove(id);
             }
             selectedIds.value.clear();
             selectedIds.value = new Set();
         } else if (deleteTarget.value && deleteTarget.value.id) {
-            await window.axios.delete(`/users/${deleteTarget.value.id}`);
+            await usersApi.remove(deleteTarget.value.id);
             router.reload();
         }
         if (deleteTarget.value === 'multiple') router.reload();
@@ -261,8 +262,9 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get('/users/trash');
-        trashedReaders.value = data.data || [];
+        const payload = await usersApi.trash();
+        const data = payload?.data ?? payload;
+        trashedReaders.value = Array.isArray(payload) ? payload : (payload?.data ?? []);
     } catch {
         trashedReaders.value = [];
     }
@@ -270,7 +272,7 @@ const fetchTrash = async () => {
 };
 const onRestoreReader = async (id) => {
     try {
-        await window.axios.post(`/users/restore/${id}`);
+        await usersApi.restore(id);
         fetchTrash();
         router.reload();
     } catch (_) {}
@@ -278,7 +280,7 @@ const onRestoreReader = async (id) => {
 const onForceDeleteReader = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
-        await window.axios.delete(`/users/force/${id}`);
+        await usersApi.forceDelete(id);
         fetchTrash();
         router.reload();
     } catch (_) {}

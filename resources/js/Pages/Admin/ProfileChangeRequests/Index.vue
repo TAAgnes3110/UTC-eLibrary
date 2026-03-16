@@ -4,6 +4,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
+import client from '@/api/axios';
 
 const props = defineProps({
     requests: { type: Object, required: true },
@@ -31,7 +32,7 @@ const loading = ref(false);
 const approve = async (id) => {
     loading.value = true;
     try {
-        await window.axios.post(`/profile-change-requests/${id}/approve`);
+        await client.post(`/profile-change-requests/${id}/approve`);
         router.reload();
     } finally {
         loading.value = false;
@@ -43,7 +44,7 @@ const openReject = (id) => { rejectingId.value = id; rejectForm.reset(); };
 const closeReject = () => { rejectingId.value = null; };
 const submitReject = async (id) => {
     try {
-        await window.axios.post(`/profile-change-requests/${id}/reject`, { admin_note: rejectForm.admin_note });
+        await client.post(`/profile-change-requests/${id}/reject`, { admin_note: rejectForm.admin_note });
         closeReject();
         router.reload();
     } catch (e) {

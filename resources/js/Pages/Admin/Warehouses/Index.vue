@@ -11,6 +11,7 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import { warehousesApi } from '@/api/warehouses';
 
 const warehousesData = ref({ data: [] });
 const loading = ref(false);
@@ -20,7 +21,7 @@ const showImportModal = ref(false);
 const importLoading = ref(false);
 const isEditing = ref(false);
 const selectedWarehouse = ref(null);
-const form = ref({ id: null, code: '', name: '', is_active: true });
+const form = ref({ id: null, code: '', name: '', parent_id: null, is_active: true });
 
 const showTrashDrawer = ref(false);
 const trashedWarehouses = ref([]);
@@ -42,13 +43,14 @@ const showFilterPanel = ref(false);
 const fetchWarehouses = async () => {
     loading.value = true;
     try {
-        const { data } = await window.axios.get('/warehouses', {
-            params: { keyword: filterValues.value.searchKeyword || '' },
+        const payload = await warehousesApi.list({
+            keyword: filterValues.value.searchKeyword || '',
         });
-        const payload = data?.data ?? data;
-        const items = Array.isArray(payload) ? payload : (payload?.data ?? []);
+        const data = payload?.data ?? payload;
+        const items = Array.isArray(data) ? data : (data?.data ?? []);
         warehousesData.value = { data: items };
-    } catch {
+    } catch (e) {
+        console.error('Lỗi khi tải danh sách kho sách:', e);
         warehousesData.value = { data: [] };
     }
     loading.value = false;
@@ -114,9 +116,19 @@ const openImportModal = () => {
 
 const exportExcel = async () => {
     try {
-        const response = await window.axios.get('/warehouses/export', {
-            responseType: 'blob',
-        });
+        const params = {};
+        if (selectedIds.value.length > 0) {
+            params.ids = selectedIds.value;
+        } else if (
+            filterValues.value.searchKeyword ||
+            filterValues.value.status ||
+            Object.values(filterValues.value.searchIn || {}).some(Boolean)
+        ) {
+            // Không chọn cụ thể nhưng đang có bộ lọc -> xuất theo danh sách đã lọc
+            params.ids = filteredWarehouses.value.map((w) => w.id);
+        }
+
+        const response = await warehousesApi.export(params);
         const blob = new Blob([response.data], {
             type:
                 response.headers['content-type'] ||
@@ -138,9 +150,7 @@ const exportExcel = async () => {
 
 const downloadTemplate = async () => {
     try {
-        const response = await window.axios.get('/warehouses/import-template', {
-            responseType: 'blob',
-        });
+        const response = await warehousesApi.downloadImportTemplate();
         const blob = new Blob([response.data], {
             type:
                 response.headers['content-type'] ||
@@ -166,12 +176,7 @@ const importExcel = async (file) => {
     try {
         const formData = new FormData();
         formData.append('file', file);
-        await window.axios.post('/warehouses/import', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-                Accept: 'application/json',
-            },
-        });
+        await warehousesApi.import(formData);
         await fetchWarehouses();
     } catch (e) {
         console.error(e);
@@ -183,7 +188,7 @@ const importExcel = async (file) => {
 
 const openAddModal = () => {
     isEditing.value = false;
-    form.value = { id: null, code: '', name: '', is_active: true };
+    form.value = { id: null, code: '', name: '', parent_id: null, is_active: true };
     showModal.value = true;
 };
 
@@ -194,6 +199,7 @@ const openEditModal = (w) => {
         id: w.id,
         code: w.code || '',
         name: w.name || '',
+        parent_id: w.parent_id ?? null,
         is_active: !!w.is_active,
     };
     showModal.value = true;
@@ -213,13 +219,14 @@ const saveWarehouse = async () => {
     const payload = {
         code: form.value.code,
         name: form.value.name,
+        parent_id: form.value.parent_id,
         is_active: form.value.is_active,
     };
     try {
         if (isEditing.value && form.value.id) {
-            await window.axios.put(`/warehouses/${form.value.id}`, payload);
+            await warehousesApi.update(form.value.id, payload);
         } else {
-            await window.axios.post('/warehouses', payload);
+            await warehousesApi.create(payload);
         }
         showModal.value = false;
         await fetchWarehouses();
@@ -231,13 +238,16 @@ const saveWarehouse = async () => {
 const deleteWarehouse = async () => {
     try {
         if (selectedWarehouse.value) {
-            await window.axios.delete(`/warehouses/${selectedWarehouse.value.id}`);
+            await warehousesApi.remove(selectedWarehouse.value.id);
         } else if (selectedIds.value.length > 0) {
             for (const id of selectedIds.value) {
-                await window.axios.delete(`/warehouses/${id}`);
+                await warehousesApi.remove(id);
             }
         }
         await fetchWarehouses();
+        if (showTrashDrawer.value) {
+            await fetchTrash();
+        }
     } catch (_) {
         await fetchWarehouses();
     }
@@ -254,18 +264,19 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get('/warehouses/trash');
-        const payload = data?.data ?? data;
-        trashedWarehouses.value = Array.isArray(payload) ? payload : (payload?.data ?? []);
-    } catch {
+        const payload = await warehousesApi.trash();
+        const data = payload?.data ?? payload;
+        trashedWarehouses.value = Array.isArray(data) ? data : (data?.data ?? []);
+    } catch (e) {
         trashedWarehouses.value = [];
+        console.error('Lỗi khi tải thùng rác kho sách:', e);
     }
     loadingTrash.value = false;
 };
 
 const onRestoreWarehouse = async (id) => {
     try {
-        await window.axios.post(`/warehouses/restore/${id}`);
+        await warehousesApi.restore(id);
         fetchTrash();
         fetchWarehouses();
     } catch (_) {}
@@ -274,7 +285,7 @@ const onRestoreWarehouse = async (id) => {
 const onForceDeleteWarehouse = async (id) => {
     if (!confirm('Xóa vĩnh viễn kho này? Hành động không thể hoàn tác.')) return;
     try {
-        await window.axios.delete(`/warehouses/force/${id}`);
+        await warehousesApi.forceDelete(id);
         fetchTrash();
         fetchWarehouses();
     } catch (_) {}
@@ -361,6 +372,7 @@ function statusClass(isActive) {
                                 </th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Mã kho</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tên kho</th>
+                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tầng</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Cập nhật gần nhất</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Trạng thái</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Thao tác</th>
@@ -385,6 +397,11 @@ function statusClass(isActive) {
                                 </td>
                                 <td class="p-4">
                                     <p class="font-semibold text-sm text-slate-900 dark:text-white">{{ w.name }}</p>
+                                </td>
+                                <td class="p-4">
+                                    <p class="text-[12px] text-slate-600 dark:text-slate-300">
+                                        {{ w.parent ? `${w.parent.code} – ${w.parent.name}` : '—' }}
+                                    </p>
                                 </td>
                                 <td class="p-4">
                                     <p class="text-[12px] text-slate-600 dark:text-slate-300">
@@ -453,15 +470,24 @@ function statusClass(isActive) {
                                 placeholder="Ví dụ: Thư viện Trung tâm UTC"
                             />
                         </div>
-                        <div class="sm:col-span-2 space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Trạng thái</label>
-                            <select
-                                v-model="form.is_active"
-                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm [color-scheme:light] dark:[color-scheme:dark]"
-                            >
-                                <option :value="true">Hoạt động</option>
-                                <option :value="false">Không hoạt động</option>
-                            </select>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Tầng
+                            </label>
+                            <input
+                                v-model="form.parent_id"
+                                :list="'warehouse-parent-options'"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                                placeholder="Gõ tên / mã kho cha hoặc chọn..."
+                            />
+                            <datalist id="warehouse-parent-options">
+                                <option value="">— Không thuộc tầng / kho cha nào —</option>
+                                <option
+                                    v-for="w in warehousesList"
+                                    :key="w.id"
+                                    :value="w.code && w.name ? `${w.code} – ${w.name}` : (w.name || w.code || '')"
+                                />
+                            </datalist>
                         </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30">

@@ -1,10 +1,5 @@
-/**
- * Axios instance: baseURL /api/v1, interceptors (token, 401).
- * Gán vào window.axios để code cũ vẫn dùng được; module mới import từ đây.
- */
 import axios from 'axios';
 
-/** Năm học mặc định (vd: 2025-2026). Có thể override bằng env VITE_API_PERIOD nếu build-time cần. */
 function getDefaultPeriod() {
     if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_PERIOD) {
         return import.meta.env.VITE_API_PERIOD;
@@ -37,17 +32,67 @@ client.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+let isRefreshing = false;
+let refreshPromise = null;
+
 client.interceptors.response.use(
     (response) => response,
-    (error) => {
-        if (error.response?.status === 401) {
+    async (error) => {
+        const { response, config } = error || {};
+        const originalRequest = config || {};
+
+        if (!response || response.status !== 401) {
+            return Promise.reject(error);
+        }
+
+        if (originalRequest._retry) {
+            return Promise.reject(error);
+        }
+        originalRequest._retry = true;
+
+        try {
+            if (isRefreshing && refreshPromise) {
+                const newToken = await refreshPromise;
+                if (newToken) {
+                    originalRequest.headers = originalRequest.headers || {};
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    return client(originalRequest);
+                }
+                throw error;
+            }
+
+            isRefreshing = true;
+            const oldToken = localStorage.getItem('token');
+            if (!oldToken) throw error;
+
+            refreshPromise = axios
+                .post('/api/v1/auth/refresh', null, {
+                    headers: { Authorization: `Bearer ${oldToken}` },
+                })
+                .then((res) => res.data?.token || null)
+                .catch(() => null);
+
+            const newToken = await refreshPromise;
+            isRefreshing = false;
+            refreshPromise = null;
+
+            if (!newToken) {
+                throw error;
+            }
+
+            localStorage.setItem('token', newToken);
+
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return client(originalRequest);
+        } catch (e) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            if (!window.location.pathname.startsWith('/login')) {
+            if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
                 window.location.href = '/login';
             }
+            return Promise.reject(e);
         }
-        return Promise.reject(error);
     }
 );
 

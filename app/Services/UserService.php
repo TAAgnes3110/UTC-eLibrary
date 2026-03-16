@@ -60,7 +60,7 @@ class UserService
                     ->orWhere('email', 'like', "%{$keyword}%")
                     ->orWhere('phone', 'like', "%{$keyword}%");
             }))
-            ->orderByDesc('id');
+            ->orderByDesc('name');
         return $query->paginate($perPage)->withQueryString();
     }
 
@@ -140,7 +140,7 @@ class UserService
     {
         $users = User::query()
             ->with(['faculty:id,code,name', 'department:id,code,name,faculty_id'])
-            ->orderByDesc('updated_at')
+            ->orderByDesc('name')
             ->paginate($perPage);
         return [
             'users' => $users,
@@ -161,7 +161,6 @@ class UserService
         $query = User::query()
             ->whereNull('deleted_at')
             ->with(['faculty:id,name,code', 'department:id,name,faculty_id']);
-
         if (!empty($ids)) {
             $query->whereIn('id', $ids);
         }

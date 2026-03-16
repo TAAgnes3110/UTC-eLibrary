@@ -12,6 +12,7 @@ import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfir
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import { getRoleInfo, getStatusInfo } from '@/config/enums';
+import { usersApi } from '@/api/users';
 
 const props = defineProps({
     users: {
@@ -43,8 +44,8 @@ onMounted(() => {
 const fetchUsers = async () => {
     loadingFallback.value = true;
     try {
-        const { data } = await window.axios.get('/users');
-        const payload = data?.data ?? data;
+        const payload = await usersApi.list();
+        const data = payload?.data ?? payload;
         const items = Array.isArray(payload) ? payload : (payload?.data ?? []);
         const meta = payload?.meta ?? {};
         usersData.value = {
@@ -224,9 +225,9 @@ const saveUser = async () => {
             password_confirmation: form.password_confirmation,
         };
         if (isEditing.value && form.id) {
-            await window.axios.put(`/users/${form.id}`, payload);
+            await usersApi.update(form.id, payload);
         } else {
-            await window.axios.post('/users', payload);
+            await usersApi.create(payload);
         }
         await fetchUsers();
 
@@ -256,10 +257,10 @@ const saveUser = async () => {
 const deleteUser = async () => {
     try {
         if (selectedUser.value) {
-            await window.axios.delete(`/users/${selectedUser.value.id}`);
+            await usersApi.remove(selectedUser.value.id);
         } else if (selectedIds.value.length > 0) {
             for (const id of selectedIds.value) {
-                await window.axios.delete(`/users/${id}`);
+                await usersApi.remove(id);
             }
         }
         await fetchUsers();
@@ -282,8 +283,8 @@ const openTrashDrawer = () => {
 const fetchTrash = async () => {
     loadingTrash.value = true;
     try {
-        const { data } = await window.axios.get('/users/trash');
-        const payload = data?.data ?? data;
+        const payload = await usersApi.trash();
+        const data = payload?.data ?? payload;
         trashedUsers.value = Array.isArray(payload) ? payload : (payload?.data ?? []);
     } catch (e) {
         trashedUsers.value = [];
@@ -294,7 +295,7 @@ const fetchTrash = async () => {
 
 const onRestoreUser = async (id) => {
     try {
-        await window.axios.post(`/users/restore/${id}`);
+        await usersApi.restore(id);
         if (typeof fetchUsers === 'function') {
             await fetchUsers();
         }
@@ -307,7 +308,7 @@ const onRestoreUser = async (id) => {
 const onForceDeleteUser = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
-        await window.axios.delete(`/users/force/${id}`);
+        await usersApi.forceDelete(id);
         if (typeof fetchUsers === 'function') {
             await fetchUsers();
         }
@@ -331,8 +332,7 @@ const toggleStatus = async () => {
     const user = userToToggle.value;
     if (!user) return;
     try {
-        const { data } = await window.axios.post(`/users/${user.id}/toggle-status`);
-        const res = data?.data ?? data;
+        const res = await usersApi.toggleStatus(user.id);
         if (res?.is_active !== undefined) {
             user.is_active = res.is_active;
             user.status = res.is_active ? 'active' : 'blocked';
@@ -351,11 +351,14 @@ const exportExcel = async () => {
         const params = {};
         if (selectedIds.value.length > 0) {
             params.ids = selectedIds.value;
+        } else if (filterValues.value.searchKeyword
+            || filterValues.value.status
+            || Object.values(filterValues.value.searchIn || {}).some(Boolean !== undefined)
+            || Object.values(filterValues.value.roleFilter || {}).some(Boolean)
+        ) {
+            params.ids = filteredUsers.value.map((u) => u.id);
         }
-        const response = await window.axios.get('/users/export', {
-            params,
-            responseType: 'blob',
-        });
+        const response = await usersApi.export(params);
         const blob = new Blob([response.data], {
             type: response.headers['content-type']
                 || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -401,12 +404,7 @@ const uploadAvatar = async (file) => {
         const formData = new FormData();
         if (avatarBulkMode.value) {
             formData.append('file', file);
-            await window.axios.post('/users/avatar-bulk', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Accept: 'application/json',
-                },
-            });
+            await usersApi.bulkUpdateAvatar(formData);
         } else {
             const userId = avatarTargetUserId.value ?? selectedIds.value[0];
             if (!userId) {
@@ -415,18 +413,16 @@ const uploadAvatar = async (file) => {
                 return;
             }
             formData.append('avatar', file);
-            await window.axios.post(`/users/${userId}/avatar`, formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Accept: 'application/json',
-                },
-            });
+            await usersApi.updateAvatar(userId, formData);
         }
         await fetchUsers();
         alert('Cập nhật ảnh đại diện thành công.');
         closeAvatarModal();
     } catch (err) {
         console.error('Lỗi khi cập nhật ảnh đại diện:', err);
+        const res = err?.response?.data || {};
+        const message = res.message || res.error || 'Cập nhật ảnh đại diện không thành công. Vui lòng kiểm tra lại file.';
+        alert(message);
     } finally {
         avatarUploadLoading.value = false;
     }

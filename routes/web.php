@@ -44,12 +44,13 @@ Route::middleware('auth')->group(function () {
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
-        Route::get('/readers', [ReaderController::class, 'index'])->name('readers.index');
-        Route::get('/readers/export', [ReaderController::class, 'export'])->name('readers.export');
         Route::get('/profile', ProfileController::class)->name('profile');
-            Route::get('/books', function () {
-                return Inertia::render('Admin/Books/Index');
-            })->name('books.index');
+        Route::get('/books', function () {
+            return Inertia::render('Admin/Books/Index');
+        })->name('books.index');
+        Route::get('/warehouses', function () {
+            return Inertia::render('Admin/Warehouses/Index');
+        })->name('warehouses.index');
     });
 
     Route::prefix('library')->name('library.')->group(function () {

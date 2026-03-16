@@ -262,8 +262,33 @@ const toggleStatus = async () => {
 };
 const isLockAction = computed(() => userToToggle.value?.status === 'active');
 
-const exportExcel = () => { window.location.href = route('admin.users.export') || '#'; };
-const openImportModal = () => { /* TODO: modal nhập excel */ };
+const exportExcel = async () => {
+    try {
+        const response = await window.axios.get('/users/export', {
+            responseType: 'blob',
+        });
+
+        const blob = new Blob([response.data], {
+            type: response.headers['content-type']
+                || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'danh_sach_tai_khoan.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error(e);
+        alert('Không thể xuất Excel. Vui lòng thử lại sau.');
+    }
+};
+const openImportModal = () => {
+    // TODO: sẽ triển khai import excel sau
+};
 
 const closeAvatarModal = () => {
     showAvatarModal.value = false;

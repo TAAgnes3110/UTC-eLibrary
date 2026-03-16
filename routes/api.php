@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,7 @@ Route::prefix('v1')->group(function () {
 
             Route::group(['prefix' => '/users'], function () {
                 Route::get('/', [UserController::class, 'index']);
+                Route::get('/export', [UserController::class, 'exportUsers']);
                 Route::get('/trash', [UserController::class, 'trash']);
                 Route::post('/', [UserController::class, 'store']);
                 Route::post('/{id}/toggle-status', [UserController::class, 'toggleStatus']);
@@ -103,6 +105,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [PermissionController::class, 'index']);
                 Route::post('/', [PermissionController::class, 'store']);
             });
+
+            Route::apiResource('warehouses', WarehouseController::class);
         });
     });
 });

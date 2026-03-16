@@ -28,13 +28,20 @@ class UserService
      */
     public function update(User $user, array $data): User
     {
-        unset($data['card_number'], $data['issue_date'], $data['expiry_date']);
+        unset(
+            $data['id'],
+            $data['code'],
+            $data['created_at'],
+            $data['updated_at'],
+            $data['email_verified_at'],
+            $data['card_number'],
+            $data['issue_date'],
+            $data['expiry_date']
+        );
         if (array_key_exists('password', $data) && empty($data['password'])) {
             unset($data['password']);
         }
-
         $user->update($data);
-
         return $user;
     }
 

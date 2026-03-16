@@ -18,21 +18,48 @@ class UserRequest extends BaseRequest
     {
         $id = $this->route('user');
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
-
         return [
-            'code' => ['required', 'string', 'max:255', Rule::unique('users', 'code')->ignore($id)],
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($id)],
-            'phone' => ['nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($id)],
-            'password' => [$isUpdate ? 'nullable' : 'required', 'string', 'min:8'],
-            'user_type' => ['required', Rule::in(array_column(RoleType::cases(), 'value'))],
-            'gender' => ['nullable', 'string', 'in:male,female,other'],
-            'faculty_id' => ['nullable', 'integer', 'exists:faculties,id'],
-            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
-            'cohort' => ['nullable', 'string', 'max:20'],
-            'card_number' => ['nullable', 'string', 'max:50'],
-            'issue_date' => ['nullable', 'date'],
-            'expiry_date' => ['nullable', 'date', 'after_or_equal:issue_date'],
+            'code' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'string',
+                'max:255',
+                Rule::unique('users', 'code')->ignore($id),
+            ],
+            'name' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'string',
+                'max:255',
+            ],
+            'email' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'email',
+                'max:255',
+                Rule::unique('users', 'email')->ignore($id),
+            ],
+            'phone' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('users', 'phone')->ignore($id),
+            ],
+            'password' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'nullable',
+                'string',
+                'min:8',
+            ],
+            'user_type' => [
+                $isUpdate ? 'sometimes' : 'required',
+                Rule::in(array_column(RoleType::cases(), 'value')),
+            ],
+            'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
+            'faculty_id' => ['sometimes', 'nullable', 'integer', 'min:1', 'exists:faculties,id'],
+            'department_id' => ['sometimes', 'nullable', 'integer', 'min:1', 'exists:departments,id'],
+            'cohort' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'card_number' => ['sometimes', 'nullable', 'string', 'max:50'],
+            'issue_date' => ['sometimes', 'nullable', 'date'],
+            'expiry_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:issue_date'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

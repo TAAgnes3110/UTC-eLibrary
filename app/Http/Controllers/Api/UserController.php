@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Exports\ReadersExport;
+use App\Exports\SimpleTableExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
@@ -15,9 +16,6 @@ use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
-/**
- * Chỉ điều hướng: gọi UserService, trả ApiResponse / UserResource.
- */
 class UserController extends Controller
 {
     public function __construct(
@@ -110,6 +108,50 @@ class UserController extends Controller
     public function exportReaders(): BinaryFileResponse
     {
         return Excel::download(new ReadersExport(), 'danh_sach_ban_doc.xlsx');
+    }
+
+    public function exportUsers(): BinaryFileResponse
+    {
+        $rows = User::query()
+            ->with(['faculty:id,name,code', 'department:id,name,faculty_id'])
+            ->orderBy('id')
+            ->get()
+            ->map(function (User $user) {
+                return [
+                    $user->id,
+                    $user->code,
+                    $user->name,
+                    $user->email,
+                    $user->phone,
+                    $user->user_type?->value ?? (string) $user->user_type,
+                    $user->is_active ? 'Hoạt động' : 'Tạm khóa',
+                    optional($user->faculty)->name,
+                    optional($user->department)->name,
+                    $user->cohort,
+                    optional($user->created_at)?->format('Y-m-d H:i:s'),
+                    optional($user->updated_at)?->format('Y-m-d H:i:s'),
+                ];
+            });
+
+        $headings = [
+            'ID',
+            'Mã định danh',
+            'Họ tên',
+            'Email',
+            'Số điện thoại',
+            'Loại người dùng',
+            'Trạng thái',
+            'Khoa',
+            'Bộ môn / Lớp',
+            'Khóa học',
+            'Ngày tạo',
+            'Ngày cập nhật',
+        ];
+
+        return Excel::download(
+            new SimpleTableExport($rows, $headings),
+            'danh_sach_tai_khoan.xlsx'
+        );
     }
 
     public function updateAvatar(Request $request, int $id): JsonResponse

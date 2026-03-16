@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Traits\HasAuditFields;
 
 class Loan extends BaseModel
 {
     use SoftDeletes;
+    use HasAuditFields;
 
     protected $fillable = [
         'user_id',

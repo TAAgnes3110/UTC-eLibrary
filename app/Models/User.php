@@ -9,11 +9,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 use App\Enums\RoleType;
+use App\Models\Traits\HasAuditFields;
 
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, \Spatie\Permission\Traits\HasRoles;
+    use HasFactory, Notifiable, SoftDeletes, HasAuditFields, \Spatie\Permission\Traits\HasRoles;
 
     protected $table = 'users';
 

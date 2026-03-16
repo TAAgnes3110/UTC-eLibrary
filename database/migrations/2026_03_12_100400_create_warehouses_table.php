@@ -13,6 +13,7 @@ return new class extends Migration
             $table->string('code')->unique()->index();
             $table->string('name')->index();
             $table->foreignId('parent_id')->nullable()->constrained('warehouses')->nullOnDelete();
+            $table->boolean('is_active')->default(true)->index();
             $table->json('params')->nullable();
             $table->timestamps();
         });

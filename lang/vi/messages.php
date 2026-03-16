@@ -36,7 +36,7 @@ return [
     'validation_error' => 'Dữ liệu không hợp lệ.',
     'success_reset_password' => 'Đặt lại mật khẩu thành công.',
     'success_insert' => 'Thêm mới dữ liệu thành công.',
-    'success_create' => 'Thêm mới dữ liệu thành công.',
+    'success_create' => 'Tạo mới dữ liệu thành công.',
     'success_update' => 'Cập nhật dữ liệu thành công.',
     'success_send' => 'Gửi thành công.',
     '403_update' => 'Bản ghi này không thể sửa.',

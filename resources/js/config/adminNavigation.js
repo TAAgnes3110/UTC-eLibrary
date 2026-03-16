@@ -7,19 +7,16 @@ export const adminNavigation = [
     {
         name: 'Quản lý người dùng',
         icon: 'lucide:users',
-        active: ['admin.users.*', 'admin.readers.*'],
+        active: ['admin.users.*'],
         children: [
             { name: 'Tài khoản', href: 'admin.users.index', active: 'admin.users.*' },
-            { name: 'Bạn đọc / Thẻ thư viện', href: 'admin.readers.index', active: 'admin.readers.*' },
         ],
     },
     {
-        name: 'Quản lý tài liệu',
-        icon: 'lucide:book',
-        active: ['admin.books.*'],
-        children: [
-            { name: 'Sách', href: 'admin.books.index', active: 'admin.books.*' },
-        ],
+        name: 'Quản lý kho sách',
+        icon: 'lucide:warehouse',
+        active: ['admin.warehouses.*'],
+        href: 'admin.warehouses.index',
     },
     {
         name: 'Cấu hình thư viện',

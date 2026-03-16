@@ -1,29 +1,36 @@
 <script setup>
-/**
- * Drawer Thùng rác / Lịch sử xóa.
- * Hiển thị danh sách bản ghi đã xóa mềm; cho phép Khôi phục hoặc Xóa vĩnh viễn.
- * Parent truyền :items (đã trashed) và @restore / @force-delete.
- */
+import { ref, computed } from 'vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
+import { Input } from '@/Components/ui/input';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
-    /** Tiêu đề (vd: "Thùng rác – Sách", "Lịch sử xóa – Tài khoản") */
     title: { type: String, default: 'Thùng rác' },
-    /** Tên trường hiển thị (vd: 'title', 'name') */
     itemLabelKey: { type: String, default: 'name' },
-    /** Danh sách bản ghi đã xóa: [{ id, deleted_at, ... }] */
     items: { type: Array, default: () => [] },
     loading: { type: Boolean, default: false },
+    searchPlaceholder: { type: String, default: 'Tìm trong thùng rác...' },
 });
 
 defineEmits(['close', 'restore', 'force-delete']);
+
+const keyword = ref('');
 
 const getLabel = (item) => {
     const key = props.itemLabelKey;
     return item[key] ?? item.title ?? item.name ?? item.code ?? `#${item.id}`;
 };
+
+const filteredItems = computed(() => {
+    const kw = keyword.value.trim().toLowerCase();
+    if (!kw) return props.items;
+    return props.items.filter((item) => {
+        const label = String(getLabel(item)).toLowerCase();
+        const code = String(item.code ?? '').toLowerCase();
+        return label.includes(kw) || code.includes(kw);
+    });
+});
 
 const formatDate = (v) => {
     if (!v) return '—';
@@ -39,26 +46,36 @@ const formatDate = (v) => {
             <div
                 class="relative w-full max-w-md ml-auto h-full bg-white dark:bg-slate-900 shadow-xl border-l border-slate-200 dark:border-slate-800 flex flex-col animate-in slide-in-from-right duration-200"
             >
-                <div class="px-4 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-                    <div class="flex items-center gap-2">
-                        <Icon icon="lucide:trash-2" class="w-5 h-5 text-slate-500" />
-                        <h2 class="text-base font-bold text-slate-900 dark:text-white">{{ title }}</h2>
+                <div class="px-4 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-3">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <Icon icon="lucide:trash-2" class="w-5 h-5 text-slate-500" />
+                            <h2 class="text-base font-bold text-slate-900 dark:text-white">{{ title }}</h2>
+                        </div>
+                        <button type="button" @click="$emit('close')" class="p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">
+                            <Icon icon="lucide:x" class="w-5 h-5" />
+                        </button>
                     </div>
-                    <button type="button" @click="$emit('close')" class="p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">
-                        <Icon icon="lucide:x" class="w-5 h-5" />
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <Input
+                            v-model="keyword"
+                            type="search"
+                            class="h-9 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900"
+                            :placeholder="searchPlaceholder"
+                        />
+                    </div>
                 </div>
                 <div class="flex-1 overflow-y-auto p-4">
                     <p v-if="loading" class="text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
-                    <template v-else-if="items.length === 0">
+                    <template v-else-if="filteredItems.length === 0">
                         <div class="py-8 text-center">
                             <Icon icon="lucide:trash-2" class="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
-                            <p class="text-sm text-slate-500 dark:text-slate-400">Chưa có mục nào trong thùng rác</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Không tìm thấy mục phù hợp trong thùng rác</p>
                         </div>
                     </template>
                     <ul v-else class="space-y-2">
                         <li
-                            v-for="item in items"
+                            v-for="item in filteredItems"
                             :key="item.id"
                             class="flex items-center justify-between gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30"
                         >

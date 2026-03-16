@@ -18,6 +18,11 @@ class UserTrashedResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'code' => $this->code,
+             'deleted_by' => $this->whenLoaded('deletedBy', fn () => $this->deletedBy ? [
+                 'id' => $this->deletedBy->id,
+                 'name' => $this->deletedBy->name,
+                 'email' => $this->deletedBy->email,
+             ] : null),
             'deleted_at' => $this->deleted_at?->toIso8601String(),
         ];
     }

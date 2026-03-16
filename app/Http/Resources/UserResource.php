@@ -34,6 +34,16 @@ class UserResource extends JsonResource
             'cohort' => $this->cohort,
             'is_active' => $this->is_active,
             'avatar' => $avatar ?: null,
+            'created_by' => $this->whenLoaded('createdBy', fn () => $this->createdBy ? [
+                'id' => $this->createdBy->id,
+                'name' => $this->createdBy->name,
+                'email' => $this->createdBy->email,
+            ] : null),
+            'updated_by' => $this->whenLoaded('updatedBy', fn () => $this->updatedBy ? [
+                'id' => $this->updatedBy->id,
+                'name' => $this->updatedBy->name,
+                'email' => $this->updatedBy->email,
+            ] : null),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
 

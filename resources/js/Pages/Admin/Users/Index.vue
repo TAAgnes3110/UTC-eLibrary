@@ -173,6 +173,7 @@ const deselectAll = () => { selectedIds.value = []; };
 const openAddModal = () => {
     isEditing.value = false;
     form.reset();
+    form.clearErrors();
     form.role = 'MEMBER';
     form.is_active = true;
     showModal.value = true;
@@ -181,6 +182,7 @@ const openAddModal = () => {
 const openEditModal = (user) => {
     isEditing.value = true;
     selectedUser.value = user;
+    form.clearErrors();
     form.id = user.id;
     form.name = user.name;
     form.email = user.email;
@@ -189,6 +191,13 @@ const openEditModal = (user) => {
     form.role = user.role;
     form.is_active = !!user.is_active;
     showModal.value = true;
+};
+
+const closeUserModal = () => {
+    showModal.value = false;
+    isEditing.value = false;
+    selectedUser.value = null;
+    form.clearErrors();
 };
 
 const confirmDelete = (user) => {
@@ -413,8 +422,9 @@ const uploadAvatar = async (file) => {
                 },
             });
         }
-        closeAvatarModal();
         await fetchUsers();
+        alert('Cập nhật ảnh đại diện thành công.');
+        closeAvatarModal();
     } catch (err) {
         console.error('Lỗi khi cập nhật ảnh đại diện:', err);
     } finally {
@@ -609,7 +619,7 @@ const uploadAvatar = async (file) => {
         <!-- Modal tạo / chỉnh sửa tài khoản -->
         <Teleport to="body">
             <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-slate-900/50" @click="showModal = false" />
+                <div class="absolute inset-0 bg-slate-900/50" @click="closeUserModal" />
                 <div
                     class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200 dark:border-slate-800"
                 >
@@ -621,7 +631,7 @@ const uploadAvatar = async (file) => {
                         </h3>
                         <button
                             type="button"
-                            @click="showModal = false"
+                            @click="closeUserModal"
                             class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         >
                             <Icon icon="lucide:x" class="w-5 h-5" />
@@ -762,7 +772,7 @@ const uploadAvatar = async (file) => {
                     <div
                         class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30"
                     >
-                        <Button variant="outline" @click="showModal = false">
+                        <Button variant="outline" @click="closeUserModal">
                             Hủy bỏ
                         </Button>
                         <Button

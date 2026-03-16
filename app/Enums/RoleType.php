@@ -10,7 +10,6 @@ enum RoleType: string
     case MEMBER = 'MEMBER';
     case GUEST = 'GUEST';
 
-    /** Nhãn hiển thị (đa ngôn ngữ). */
     public function label(): string
     {
         return self::getName($this->value) ?? $this->value;
@@ -27,8 +26,6 @@ enum RoleType: string
         $result = collect(self::cases())->where('value', $value)->first();
         return $result ? __('enums.RoleType.' . $result->name) : null;
     }
-
-    /** [ name => [ value, label ] ] cho form/options. */
     public static function getNames(): array
     {
         return collect(self::cases())->mapWithKeys(fn ($it) => [
@@ -39,7 +36,6 @@ enum RoleType: string
         ])->toArray();
     }
 
-    /** [ [ id => value, text => label ], ... ] cho dropdown. */
     public static function getRoleTypes(): array
     {
         return collect(self::cases())->map(fn ($it) => [
@@ -47,20 +43,14 @@ enum RoleType: string
             'text' => __('enums.RoleType.' . $it->name),
         ])->toArray();
     }
-
-    /** Mảng giá trị value (cho validation Rule::in). */
     public static function values(): array
     {
         return array_column(self::cases(), 'value');
     }
-
-    /** Vai trò nhân viên (có quyền vào khu vực admin). */
     public static function staffRoles(): array
     {
         return [self::LIBRARIAN->value, self::ADMIN->value, self::SUPER_ADMIN->value];
     }
-
-    /** Vai trò bạn đọc (độc giả). */
     public static function readerTypes(): array
     {
         return [self::MEMBER->value, self::GUEST->value];

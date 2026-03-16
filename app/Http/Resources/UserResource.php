@@ -19,6 +19,12 @@ class UserResource extends JsonResource
             }
         }
         $userType = $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type;
+        $status = 'active';
+        if ($this->trashed()) {
+            $status = 'inactive';
+        } elseif (!$this->is_active) {
+            $status = 'blocked';
+        }
         return [
             'id' => $this->id,
             'code' => $this->code,
@@ -28,7 +34,7 @@ class UserResource extends JsonResource
             'user_type' => $userType,
             'user_type_label' => $this->user_type?->name ?? null,
             'role' => $userType,
-            'status' => $this->is_active ? 'active' : 'inactive',
+            'status' => $status,
             'faculty_id' => $this->faculty_id,
             'department_id' => $this->department_id,
             'cohort' => $this->cohort,
@@ -61,6 +67,12 @@ class UserResource extends JsonResource
                 'metadata' => $this->libraryCard->metadata,
             ] : null),
             'params' => $this->params ?? [],
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
+            'deleted_by' => $this->whenLoaded('deletedBy', fn () => $this->deletedBy ? [
+                'id' => $this->deletedBy->id,
+                'name' => $this->deletedBy->name,
+                'email' => $this->deletedBy->email,
+            ] : null),
         ];
     }
 }

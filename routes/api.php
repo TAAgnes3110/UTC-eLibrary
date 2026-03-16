@@ -81,6 +81,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [UserController::class, 'index']);
                 Route::get('/export', [UserController::class, 'exportUsers']);
                 Route::get('/trash', [UserController::class, 'trash']);
+                Route::post('/avatar-bulk', [UserController::class, 'bulkUpdateAvatar']);
                 Route::post('/', [UserController::class, 'store']);
                 Route::post('/{id}/toggle-status', [UserController::class, 'toggleStatus']);
                 Route::post('/{id}/avatar', [UserController::class, 'updateAvatar']);
@@ -106,7 +107,20 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [PermissionController::class, 'store']);
             });
 
-            Route::apiResource('warehouses', WarehouseController::class);
+            Route::group(['prefix' => '/warehouses'], function () {
+                Route::get('/', [WarehouseController::class, 'index']);
+                Route::get('/export', [WarehouseController::class, 'export']);
+                Route::get('/import-template', [WarehouseController::class, 'downloadImportTemplate']);
+                Route::post('/import', [WarehouseController::class, 'import']);
+                Route::get('/trash', [WarehouseController::class, 'trash']);
+                Route::post('/restore/{id}', [WarehouseController::class, 'restore']);
+                Route::delete('/force/{id}', [WarehouseController::class, 'forceDelete']);
+                Route::post('/{id}/toggle-status', [WarehouseController::class, 'toggleStatus']);
+                Route::post('/', [WarehouseController::class, 'store']);
+                Route::get('/{warehouse}', [WarehouseController::class, 'show']);
+                Route::put('/{warehouse}', [WarehouseController::class, 'update']);
+                Route::delete('/{warehouse}', [WarehouseController::class, 'destroy']);
+            });
         });
     });
 });

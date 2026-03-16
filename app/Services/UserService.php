@@ -7,6 +7,9 @@ use App\Helpers\ImageUploadHelper;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SimpleTableExport;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class UserService
 {
@@ -126,7 +129,8 @@ class UserService
             throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ') . implode(', ', ImageUploadHelper::ALLOWED_EXTENSIONS) . '.');
         }
         ImageUploadHelper::deleteIfExists($user->avatar);
-        $path = ImageUploadHelper::storeImage($file, 'avatars', (string) $user->id);
+        $baseName = $user->code ?: (string) $user->id;
+        $path = ImageUploadHelper::storeImage($file, 'avatars', $baseName, true);
         $user->avatar = $path;
         $user->save();
         return ['avatar' => $path];
@@ -150,5 +154,126 @@ class UserService
         return User::with(['faculty:id,code,name', 'department:id,name,faculty_id'])
             ->whereIn('user_type', RoleType::readerTypes())
             ->get();
+    }
+
+    public function exportUsers(?array $ids = null): BinaryFileResponse
+    {
+        $query = User::query()
+            ->whereNull('deleted_at')
+            ->with(['faculty:id,name,code', 'department:id,name,faculty_id']);
+
+        if (!empty($ids)) {
+            $query->whereIn('id', $ids);
+        }
+        $rows = $query
+            ->orderBy('id')
+            ->get()
+            ->map(function (User $user) {
+                $statusLabel = $user->is_active ? 'Hoạt động' : 'Khóa';
+                return [
+                    $user->id,
+                    $user->code,
+                    $user->name,
+                    $user->email,
+                    $user->phone,
+                    $user->user_type?->value ?? (string) $user->user_type,
+                    $statusLabel,
+                    optional($user->faculty)->name,
+                    optional($user->department)->name,
+                    $user->cohort,
+                    optional($user->created_at)?->format('Y-m-d H:i:s'),
+                    optional($user->updated_at)?->format('Y-m-d H:i:s'),
+                ];
+            });
+        $headings = [
+            'ID',
+            'Mã định danh',
+            'Họ tên',
+            'Email',
+            'Số điện thoại',
+            'Loại người dùng',
+            'Trạng thái',
+            'Khoa',
+            'Bộ môn / Lớp',
+            'Khóa học',
+            'Ngày tạo',
+            'Ngày cập nhật',
+        ];
+        return Excel::download(
+            new SimpleTableExport($rows, $headings),
+            'danh_sach_tai_khoan.xlsx'
+        );
+    }
+
+    /**
+     * @return array{updated:int,skipped:int}
+     */
+    public function bulkUpdateAvatarFromZip(UploadedFile $zipFile): array
+    {
+        $zip = new \ZipArchive();
+        if ($zip->open($zipFile->getRealPath()) !== true) {
+            throw new \InvalidArgumentException(__('Không thể đọc file zip.'));
+        }
+        $updated = 0;
+        $skipped = 0;
+        $tmpDir = storage_path('app/tmp/avatars-' . uniqid());
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $entry = $zip->getNameIndex($i);
+            if (str_ends_with($entry, '/')) {
+                continue;
+            }
+            $pathInfo = pathinfo($entry);
+            $code = $pathInfo['filename'] ?? null;
+            $ext = strtolower($pathInfo['extension'] ?? '');
+            if (!$code || !in_array($ext, ImageUploadHelper::ALLOWED_EXTENSIONS, true)) {
+                $skipped++;
+                continue;
+            }
+            $user = User::where('code', $code)->first();
+            if (!$user) {
+                $skipped++;
+                continue;
+            }
+            $contents = $zip->getFromIndex($i);
+            if ($contents === false) {
+                $skipped++;
+                continue;
+            }
+            $tmpPath = $tmpDir . DIRECTORY_SEPARATOR . $code . '.' . $ext;
+            file_put_contents($tmpPath, $contents);
+            $uploaded = new UploadedFile(
+                $tmpPath,
+                basename($tmpPath),
+                'image/' . $ext,
+                null,
+                true
+            );
+            try {
+                $this->updateAvatar($user, $uploaded);
+                $updated++;
+            } catch (\Throwable) {
+                $skipped++;
+            }
+        }
+        $zip->close();
+        try {
+            if (is_dir($tmpDir)) {
+                foreach (scandir($tmpDir) as $f) {
+                    if ($f === '.' || $f === '..') {
+                        continue;
+                    }
+                    @unlink($tmpDir . DIRECTORY_SEPARATOR . $f);
+                }
+                @rmdir($tmpDir);
+            }
+        } catch (\Throwable) {
+        }
+        return [
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ];
     }
 }

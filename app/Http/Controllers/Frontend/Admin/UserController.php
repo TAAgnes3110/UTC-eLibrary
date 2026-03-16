@@ -5,16 +5,18 @@ namespace App\Http\Controllers\Frontend\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Services\UserService;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Inertia\Response;
 
-/** Chỉ render trang. Dữ liệu lấy trực tiếp từ UserService (không qua API) để tránh lỗi decode. */
 class UserController extends Controller
 {
-    public function index(Request $request): Response
+    public function __construct(
+        private readonly UserService $userService,
+    ) {
+    }
+
+    public function index(): Response
     {
-        $payload = app(UserService::class)->adminList(20);
+        $payload = $this->userService->adminList(20);
         $paginator = $payload['users'];
         $items = UserResource::collection($paginator->getCollection())->resolve();
         $users = [
@@ -27,7 +29,7 @@ class UserController extends Controller
             'to' => $paginator->lastItem(),
         ];
 
-        return Inertia::render('Admin/Users/Index', [
+        return inertia('Admin/Users/Index', [
             'users' => $users,
             'roles' => $payload['roles'],
         ]);

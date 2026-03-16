@@ -10,13 +10,21 @@ use App\Models\Warehouse;
 use App\Services\WarehouseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Exports\SimpleTableExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WarehouseController extends Controller
 {
     public function __construct(
         private WarehouseService $warehouseService
     ) {}
-
+    /**
+     * Danh sách kho
+     * @param Request $request
+     * @return JsonResponse
+     */
     public function index(Request $request): JsonResponse
     {
         $keyword = $request->input('keyword');
@@ -24,11 +32,21 @@ class WarehouseController extends Controller
         return ApiResponse::success(WarehouseResoure::collection($items));
     }
 
+    /**
+     * Hiển thị thông tin kho
+     * @param Warehouse $warehouse
+     * @return JsonResponse
+     */
     public function show(Warehouse $warehouse): JsonResponse
     {
         return ApiResponse::success(new WarehouseResoure($warehouse));
     }
 
+    /**
+     * Tạo mới kho
+     * @param WarehouseRequest $request
+     * @return JsonResponse
+     */
     public function store(WarehouseRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -38,17 +56,149 @@ class WarehouseController extends Controller
         return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_create'), 201);
     }
 
+    /**
+     * Cập nhật thông tin kho
+     * @param WarehouseRequest $request
+     * @param Warehouse $warehouse
+     * @return JsonResponse
+     */
     public function update(WarehouseRequest $request, Warehouse $warehouse): JsonResponse
     {
         $warehouse = $this->warehouseService->update($warehouse, $request->validated());
         return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_update'));
     }
 
+    /**
+     * Xóa mềm kho
+     * @param Warehouse $warehouse
+     * @return JsonResponse
+     */
     public function destroy(Warehouse $warehouse): JsonResponse
     {
         $this->warehouseService->destroy($warehouse);
         return ApiResponse::success(null, __('messages.success_delete'));
     }
+    /**
+     * Danh sách kho đã xóa
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function trash(Request $request): JsonResponse
+    {
+        $items = $this->warehouseService->trash();
+        return ApiResponse::success(WarehouseResoure::collection($items));
+    }
 
-    
+    /**
+     * Khôi phục kho
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function restore(int $id): JsonResponse
+    {
+        $warehouse = $this->warehouseService->restore($id);
+        if (!$warehouse) {
+            return ApiResponse::notFound();
+        }
+        return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_restore'));
+    }
+    /**
+     * Xóa vĩnh viễn kho
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function forceDelete(int $id): JsonResponse
+    {
+        if (!$this->warehouseService->forceDelete($id)) {
+            return ApiResponse::notFound();
+        }
+        return ApiResponse::success(null, __('messages.success_force_delete'));
+    }
+    /**
+     * Cập nhật trạng thái kho
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function updateStatus(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+            'is_active' => 'required|boolean',
+        ]);
+        $this->warehouseService->updateStatus($request->ids, $request->boolean('is_active'));
+        return ApiResponse::success(null, __('messages.success_update'));
+    }
+
+    /**
+     * Chuyển đổi trạng thái kho
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function toggleStatus(int $id): JsonResponse
+    {
+        $result = $this->warehouseService->toggleStatus($id);
+        if ($result === null) {
+            return ApiResponse::notFound();
+        }
+        return ApiResponse::success($result, __('messages.success_update'));
+    }
+
+    public function warehouseList(Request $request): JsonResponse
+    {
+        $items = $this->warehouseService->warehouseList();
+        return ApiResponse::success(WarehouseResoure::collection($items));
+    }
+
+    public function trashList(Request $request): JsonResponse
+    {
+        $items = $this->warehouseService->trashList();
+        return ApiResponse::success(WarehouseResoure::collection($items));
+    }
+
+    /**
+     * Import danh sách kho từ file Excel.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+        $summary = $this->warehouseService->importWarehouses($request->file('file'));
+        return ApiResponse::success($summary, __('messages.success_import'));
+    }
+
+    public function downloadImportTemplate(): BinaryFileResponse
+    {
+        $disk = Storage::disk('public');
+        $file = 'Mẫu nhập kho sách.xlsx';
+        if ($disk->exists($file)) {
+            return response()->download(storage_path('app/public/' . $file));
+        }
+        $export = new SimpleTableExport(collect(), ['Mã', 'Tên']);
+        return Excel::download($export, $file);
+    }
+
+    /**
+     * Xuất danh sách kho hiện tại ra Excel.
+     *
+     * @return BinaryFileResponse
+     */
+    public function export(): BinaryFileResponse
+    {
+        $rows = Warehouse::query()
+            ->orderBy('code')
+            ->get(['code', 'name'])
+            ->map(fn (Warehouse $w) => [
+                $w->code,
+                $w->name,
+            ]);
+
+        $export = new SimpleTableExport($rows, ['Mã', 'Tên']);
+
+        return Excel::download($export, 'Danh_sach_kho_sach.xlsx');
+    }
 }

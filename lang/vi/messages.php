@@ -41,6 +41,8 @@ return [
     'success_send' => 'Gửi thành công.',
     '403_update' => 'Bản ghi này không thể sửa.',
     'success_delete' => 'Xóa dữ liệu thành công.',
+    'success_restore' => 'Khôi phục dữ liệu thành công.',
+    'success_force_delete' => 'Xóa vĩnh viễn dữ liệu thành công.',
     'success_delete_image' => 'Xóa ảnh thành công.',
     'success_clone' => 'Tạo mới dữ liệu thành công.',
     'success_upload_image' => 'Upload ảnh thành công.',

@@ -13,7 +13,6 @@ import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfir
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import { usersApi } from '@/api/users';
 
-// Props: readers, faculties, cohorts, departments từ backend
 const props = defineProps({
     readers: { type: Array, default: () => [] },
     faculties: { type: Array, default: () => [] },

@@ -2,13 +2,17 @@
 
 namespace App\Services;
 
+use App\Enums\ImportType;
+use App\Enums\ImportStatus;
 use App\Exports\SimpleTableExport;
-use App\Imports\WarehouseImport;
+use App\Jobs\ProcessWarehouseImport;
+use App\Models\Import;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
-use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Maatwebsite\Excel\Facades\Excel;
 
 class WarehouseService
 {
@@ -174,14 +178,25 @@ class WarehouseService
      * Import danh sách kho từ file Excel.
      *
      * @param UploadedFile $file
-     * @return array{created:int,updated:int}
+     * @return array{import_id:int,status:string}
      */
     public function importWarehouses(UploadedFile $file): array
     {
-        $import = new WarehouseImport();
-        Excel::import($import, $file);
+        $storedPath = $file->store('imports/warehouses', 'local');
 
-        return $import->getSummary();
+        $import = Import::create([
+            'type' => ImportType::WAREHOUSE,
+            'status' => ImportStatus::PENDING,
+            'file_path' => $storedPath,
+            'created_by' => Auth::id(),
+        ]);
+
+        ProcessWarehouseImport::dispatch($import);
+
+        return [
+            'import_id' => $import->id,
+            'status' => $import->status->value,
+        ];
     }
 
     public function exportWarehouses(?array $ids = null): BinaryFileResponse
@@ -195,25 +210,18 @@ class WarehouseService
             ->orderBy('id')
             ->get()
             ->map(function (Warehouse $warehouse) {
-                $statusLabel = $warehouse->is_active ? 'Hoạt động' : 'Khóa';
                 return [
-                    $warehouse->id,
                     $warehouse->code,
                     $warehouse->name,
-                    optional($warehouse->parent)->name,
-                    $statusLabel,
                 ];
             });
         $headings = [
-            'ID',
-            'Mã kho',
-            'Tên kho',
-            'Tầng / Kho cha',
-            'Trạng thái',
+            'Mã',
+            'Tên',
         ];
         return Excel::download(
             new SimpleTableExport($rows, $headings),
-            'danh_sach_kho.xlsx'
+            'FileKhoSach.xlsx'
         );
     }
 }

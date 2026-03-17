@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             FacultySeeder::class,
             DepartmentSeeder::class,
             WarehouseSeeder::class,
+            ClassificationSeeder::class,
+            ClassificationDetailSeeder::class,
             DefaultUsersSeeder::class,
             CmsAndContentSeeder::class,
             BookSampleSeeder::class,

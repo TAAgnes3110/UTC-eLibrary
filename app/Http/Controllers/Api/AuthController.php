@@ -30,6 +30,14 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
+        $remember = $request->boolean('remember');
+
+        if ($remember) {
+            JWTAuth::factory()->setTTL(config('jwt.remember_ttl'));
+        } else {
+            JWTAuth::factory()->setTTL(config('jwt.ttl'));
+        }
+
         $result = $this->authService->login(
             $request->input('login'),
             $request->input('password')
@@ -39,7 +47,7 @@ class AuthController extends Controller
             return ApiResponse::json(['status' => 'error', 'messages' => $result['error']], 401);
         }
 
-        Auth::guard('web')->login($result['user'], $request->boolean('remember'));
+        Auth::guard('web')->login($result['user'], $remember);
         return ApiResponse::json([
             'status' => 'success',
             'messages' => __('messages.success_login'),

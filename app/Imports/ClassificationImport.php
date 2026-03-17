@@ -2,7 +2,7 @@
 
 namespace App\Imports;
 
-use App\Models\Warehouse;
+use App\Models\Classification;
 use Illuminate\Support\Collection;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
@@ -12,7 +12,7 @@ use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithStartRow;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
 
-class WarehouseImport implements ToCollection, WithStartRow, WithChunkReading, SkipsOnFailure, SkipsEmptyRows, ShouldQueue
+class ClassificationImport implements ToCollection, WithStartRow, WithChunkReading, SkipsOnFailure, SkipsEmptyRows, ShouldQueue
 {
     use SkipsFailures;
 
@@ -41,15 +41,16 @@ class WarehouseImport implements ToCollection, WithStartRow, WithChunkReading, S
             if ($code === '' || $name === '') {
                 continue;
             }
-            $warehouse = Warehouse::query()->where('code', $code)->first();
-            if ($warehouse) {
-                if ($warehouse->name !== $name) {
-                    $warehouse->name = $name;
-                    $warehouse->save();
+
+            $classification = Classification::query()->where('code', $code)->first();
+            if ($classification) {
+                if ($classification->name !== $name) {
+                    $classification->name = $name;
+                    $classification->save();
                 }
                 $this->updated++;
             } else {
-                Warehouse::create([
+                Classification::create([
                     'code' => $code,
                     'name' => $name,
                 ]);

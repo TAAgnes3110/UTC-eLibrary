@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -170,16 +171,12 @@ class FileHelpers
     $worksheet->setTitle('Sheet 1');
 
     $rowIndex = 1;
-
-    // Nếu không truyền header riêng nhưng param list là array assoc
     if ($headers === null && !empty($data)) {
       $firstRow = reset($data);
       if (is_array($firstRow) && count(array_filter(array_keys($firstRow), 'is_string')) > 0) {
-        $headers = array_keys($firstRow); // Tử động bóc tách từ Assoc Array Data
+        $headers = array_keys($firstRow);
       }
     }
-
-    // Thiết lập Header
     if (!empty($headers)) {
       $colIndex = 1;
       foreach ($headers as $header) {
@@ -202,7 +199,7 @@ class FileHelpers
         ],
         'fill' => [
           'fillType' => Fill::FILL_SOLID,
-          'startColor' => ['argb' => 'FF4F81BD'], // Màu xanh dương standard
+          'startColor' => ['argb' => 'FF4F81BD'],
         ],
       ];
       $worksheet->getStyle('A1:' . $lastCol . '1')->applyFromArray($headerStyle);
@@ -210,8 +207,6 @@ class FileHelpers
 
       $rowIndex++;
     }
-
-    // Ghi dữ liệu
     $lastColIndex = 1;
     if (!empty($data)) {
       $dataValues = [];
@@ -225,14 +220,10 @@ class FileHelpers
 
       $itemCountRow = !empty($dataValues[0]) ? count($dataValues[0]) : 1;
       $lastColIndex = max(!empty($headers) ? count($headers) : 1, $itemCountRow);
-
-      // Từ dòng A2 trở đi...
       $worksheet->fromArray($dataValues, null, 'A' . $rowIndex, true);
 
       $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
       $lastRow = $rowIndex + count($dataValues) - 1;
-
-      // Kẻ viền cho dữ liệu, alignment vertical center
       $dataStyle = [
         'borders' => [
           'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']],
@@ -243,9 +234,7 @@ class FileHelpers
         ],
       ];
       $worksheet->getStyle('A' . $rowIndex . ':' . $lastCol . $lastRow)->applyFromArray($dataStyle);
-    } // empty($data) == false
-
-    // Auto-size các cột để vừa nội dung và không dính chữ
+    }
     for ($i = 1; $i <= $lastColIndex; $i++) {
       $colText = Coordinate::stringFromColumnIndex($i);
       $worksheet->getColumnDimension($colText)->setAutoSize(true);
@@ -268,8 +257,6 @@ class FileHelpers
       'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
       'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE0E0E0']],
     ];
-
-    // Sheet 1: NhapSach
     $ws1 = $spreadsheet->getActiveSheet();
     $ws1->setTitle('NhapSach');
     $headers1 = ['MaSach', 'TenSach', 'TacGia', 'NhaXuatBan', 'NamXuatBan', 'MaTheLoai', 'MaChiTiet', 'SoLuong', 'GiaTien', 'MaKho', 'ViTriKho', 'GhiChu'];
@@ -278,22 +265,16 @@ class FileHelpers
       $ws1->setCellValueByColumnAndRow($col++, 1, $h);
     }
     $ws1->getStyle('A1:' . Coordinate::stringFromColumnIndex(count($headers1)) . '1')->applyFromArray($styleHeader);
-
-    // Sheet 2: TheLoai
     $ws2 = $spreadsheet->createSheet();
     $ws2->setTitle('TheLoai');
     $ws2->fromArray(['MaTheLoai', 'TenTheLoai', 'MoTa'], null, 'A1');
     $ws2->fromArray([['TL01', 'Toán học', 'Sách toán tiểu học'], ['TL02', 'Ngữ văn', 'Sách tiếng Việt – văn học'], ['TL03', 'Khoa học', 'Sách khoa học tự nhiên']], null, 'A2');
     $ws2->getStyle('A1:C1')->applyFromArray($styleHeader);
-
-    // Sheet 3: TheLoaiChiTiet
     $ws3 = $spreadsheet->createSheet();
     $ws3->setTitle('TheLoaiChiTiet');
     $ws3->fromArray(['MaChiTiet', 'MaTheLoai', 'TenChiTiet'], null, 'A1');
     $ws3->fromArray([['CT01', 'TL01', 'Toán lớp 1'], ['CT02', 'TL01', 'Toán lớp 2'], ['CT03', 'TL02', 'Tiếng Việt lớp 1']], null, 'A2');
     $ws3->getStyle('A1:C1')->applyFromArray($styleHeader);
-
-    // Sheet 4: KhoSach
     $ws4 = $spreadsheet->createSheet();
     $ws4->setTitle('KhoSach');
     $ws4->fromArray(['MaKho', 'TenKho', 'ViTri', 'MoTa'], null, 'A1');
@@ -428,8 +409,6 @@ class FileHelpers
 
   /**
    * Tìm giá trị từ row theo danh sách alias.
-   * Ví dụ: getValueByAliases($row, ['tên tác giả', 'tác giả', 'author', 'name'])
-   *
    * @param array $row Dòng dữ liệu (đã map header)
    * @param array $aliases Danh sách tên cột có thể
    * @return string|null
@@ -443,5 +422,98 @@ class FileHelpers
       }
     }
     return null;
+  }
+
+  /**
+   * Tạo file ZIP từ danh sách đường dẫn file trên Storage.
+   *
+   * @param string[] $files Danh sách đường dẫn (tương đối theo disk hiện tại)
+   * @param string $zipPath Đường dẫn file zip cần tạo (ví dụ: 'exports/books.zip')
+   * @param bool $deleteSources Có xóa file gốc sau khi nén không
+   * @return bool
+   */
+  public static function createZipFromFiles(array $files, string $zipPath, bool $deleteSources = false): bool
+  {
+    if (empty($files)) {
+      return false;
+    }
+
+    $zipFullPath = Storage::path($zipPath);
+    $zipDir = dirname($zipFullPath);
+    if (! is_dir($zipDir)) {
+      @mkdir($zipDir, 0775, true);
+    }
+
+    $zip = new \ZipArchive();
+    if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+      return false;
+    }
+
+    foreach ($files as $file) {
+      if (! Storage::exists($file)) {
+        continue;
+      }
+      $absolutePath = Storage::path($file);
+      $zip->addFile($absolutePath, basename($file));
+    }
+
+    $zip->close();
+
+    if ($deleteSources) {
+      Storage::delete($files);
+    }
+
+    return true;
+  }
+
+  /**
+   * Nén toàn bộ một thư mục trên Storage thành file ZIP.
+   *
+   * @param string $folder Thư mục nguồn (ví dụ: 'exports/tmp/books')
+   * @param string $zipPath Đường dẫn file zip cần tạo (ví dụ: 'exports/books.zip')
+   * @param string|null $rootFolderName Tên thư mục gốc bên trong file zip (mặc định: tên thư mục cuối của $folder)
+   * @return bool
+   */
+  public static function createZipFromFolder(string $folder, string $zipPath, ?string $rootFolderName = null): bool
+  {
+    if (! Storage::exists($folder)) {
+      return false;
+    }
+
+    $zipFullPath = Storage::path($zipPath);
+    $zipDir = dirname($zipFullPath);
+    if (! is_dir($zipDir)) {
+      @mkdir($zipDir, 0775, true);
+    }
+
+    $zip = new \ZipArchive();
+    if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+      return false;
+    }
+
+    $rootName = $rootFolderName ?: basename($folder);
+    $basePath = rtrim(Storage::path($folder), DIRECTORY_SEPARATOR);
+    $baseLen = strlen($basePath) + 1;
+
+    $iterator = new \RecursiveIteratorIterator(
+      new \RecursiveDirectoryIterator($basePath, \FilesystemIterator::SKIP_DOTS),
+      \RecursiveIteratorIterator::SELF_FIRST
+    );
+
+    foreach ($iterator as $pathInfo) {
+      $fullPath = $pathInfo->getPathname();
+      $relative = substr($fullPath, $baseLen);
+      $localName = $rootName . '/' . str_replace('\\', '/', $relative);
+
+      if ($pathInfo->isDir()) {
+        $zip->addEmptyDir($localName);
+      } else {
+        $zip->addFile($fullPath, $localName);
+      }
+    }
+
+    $zip->close();
+
+    return true;
   }
 }

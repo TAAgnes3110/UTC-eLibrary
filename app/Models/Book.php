@@ -9,7 +9,12 @@ class Book extends BaseModel
 {
     use SoftDeletes;
     use HasAuditFields;
-
+    protected $appends = [
+        'authors_label',
+        'publishers_label',
+        'status_label',
+        'is_available',
+    ];
     protected $fillable = [
         'registration_number',
         'book_code',
@@ -35,7 +40,6 @@ class Book extends BaseModel
         'warehouse_id',
         'params',
     ];
-
     protected $casts = [
         'params' => 'array',
         'published_year' => 'integer',
@@ -54,12 +58,10 @@ class Book extends BaseModel
     {
         return $this->belongsTo(ClassificationDetail::class);
     }
-
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
     }
-
     public function authors()
     {
         return $this->belongsToMany(Author::class, 'book_authors')
@@ -67,7 +69,6 @@ class Book extends BaseModel
             ->withPivot('order')
             ->orderBy('book_authors.order');
     }
-
     public function publishers()
     {
         return $this->belongsToMany(Publisher::class, 'book_publishers')
@@ -75,7 +76,6 @@ class Book extends BaseModel
             ->withPivot('order')
             ->orderBy('book_publishers.order');
     }
-
     public function copies()
     {
         return $this->hasMany(BookCopy::class);
@@ -85,5 +85,30 @@ class Book extends BaseModel
     {
         return $this->hasMany(BookCopy::class)->where('status', 'available');
     }
+    public function getAuthorsLabelAttribute(): string
+    {
+        if (!$this->relationLoaded('authors')) {
+            $this->loadMissing('authors:id,name');
+        }
+        return $this->authors
+            ? $this->authors->pluck('name')->implode('; ')
+            : '';
+    }
+    public function getPublishersLabelAttribute(): string
+    {
+        if (!$this->relationLoaded('publishers')) {
+            $this->loadMissing('publishers:id,name');
+        }
+        return $this->publishers
+            ? $this->publishers->pluck('name')->implode('; ')
+            : '';
+    }
+    public function getIsAvailableAttribute(): bool
+    {
+        return (int) $this->quantity > 0;
+    }
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->is_available ? 'Còn' : 'Hết';    }
 }
 

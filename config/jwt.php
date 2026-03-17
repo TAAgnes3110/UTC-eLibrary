@@ -116,7 +116,7 @@ return [
     | systems in place to revoke the token if necessary.
     |
     */
-
+    'remember_ttl' => (int) env('JWT_REMEMBER_TTL', 43200),
     'refresh_iat' => env('JWT_REFRESH_IAT', false),
     'refresh_ttl' => (int) env('JWT_REFRESH_TTL', 20160),
 

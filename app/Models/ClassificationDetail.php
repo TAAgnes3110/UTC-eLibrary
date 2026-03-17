@@ -2,8 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAuditFields;
+
 class ClassificationDetail extends BaseModel
 {
+    use HasAuditFields;
+
     protected $fillable = [
         'code',
         'name',

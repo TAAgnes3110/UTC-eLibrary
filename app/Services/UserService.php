@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\SimpleTableExport;
+use App\Exports\UsersFileMauExport;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class UserService
@@ -128,11 +128,13 @@ class UserService
         if (!in_array($ext, ImageUploadHelper::ALLOWED_EXTENSIONS, true)) {
             throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ') . implode(', ', ImageUploadHelper::ALLOWED_EXTENSIONS) . '.');
         }
-        ImageUploadHelper::deleteIfExists($user->avatar);
-        $baseName = $user->code ?: (string) $user->id;
-        $path = ImageUploadHelper::storeImage($file, 'avatars', $baseName);
-        $user->avatar = $path;
-        $user->save();
+        $path = ImageUploadHelper::updateModelImage(
+            $user,
+            $file,
+            'users',
+            'avatar',
+            $user->code ?: (string) $user->id
+        );
         return ['avatar' => $path];
     }
 
@@ -158,49 +160,11 @@ class UserService
 
     public function exportUsers(?array $ids = null): BinaryFileResponse
     {
-        $query = User::query()
-            ->whereNull('deleted_at')
-            ->with(['faculty:id,name,code', 'department:id,name,faculty_id']);
-        if (!empty($ids)) {
-            $query->whereIn('id', $ids);
-        }
-        $rows = $query
-            ->orderBy('id')
-            ->get()
-            ->map(function (User $user) {
-                $statusLabel = $user->is_active ? 'Hoạt động' : 'Khóa';
-                return [
-                    $user->id,
-                    $user->code,
-                    $user->name,
-                    $user->email,
-                    $user->phone,
-                    $user->user_type?->value ?? (string) $user->user_type,
-                    $statusLabel,
-                    optional($user->faculty)->name,
-                    optional($user->department)->name,
-                    $user->cohort,
-                    optional($user->created_at)?->format('Y-m-d H:i:s'),
-                    optional($user->updated_at)?->format('Y-m-d H:i:s'),
-                ];
-            });
-        $headings = [
-            'ID',
-            'Mã định danh',
-            'Họ tên',
-            'Email',
-            'Số điện thoại',
-            'Loại người dùng',
-            'Trạng thái',
-            'Khoa',
-            'Bộ môn / Lớp',
-            'Khóa học',
-            'Ngày tạo',
-            'Ngày cập nhật',
-        ];
+        $export = new UsersFileMauExport($ids);
+
         return Excel::download(
-            new SimpleTableExport($rows, $headings),
-            'danh_sach_tai_khoan.xlsx'
+            $export,
+            'FileNguoiDung.xlsx'
         );
     }
 

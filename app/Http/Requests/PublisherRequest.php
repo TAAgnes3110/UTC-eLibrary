@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Http\Requests;
+
+class PublisherRequest extends BaseRequest
+{
+    public function rules(): array
+    {
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
+        return [
+            'name' => [
+                $isUpdate ? 'sometimes' : 'required',
+                'string',
+                'max:255',
+            ],
+            'params' => ['nullable', 'array'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Tên nhà xuất bản không được để trống',
+        ];
+    }
+}
+

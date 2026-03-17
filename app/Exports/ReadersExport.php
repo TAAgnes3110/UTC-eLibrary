@@ -16,7 +16,6 @@ class ReadersExport implements FromCollection, WithHeadings, WithMapping, Should
 
   public function collection()
   {
-    // Chỉ lấy user là bạn đọc (có thẻ thư viện hoặc role tương ứng)
     return User::with('libraryCard')->get();
   }
 

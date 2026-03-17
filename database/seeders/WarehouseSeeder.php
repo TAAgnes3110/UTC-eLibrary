@@ -11,24 +11,19 @@ class WarehouseSeeder extends Seeder
     {
         $parents = [
             [
-                'code' => 'TV-MUON',
-                'name' => 'Kho mượn (Giáo trình & Sách tham khảo)',
-                'params' => ['campus' => 'Hà Nội', 'floor' => 1, 'mode' => 'closed_stack'],
+                'code' => 'KHO-GT',
+                'name' => 'Kho Giáo trình (Tầng 1 - Nhà A8)',
+                'params' => ['campus' => 'Hà Nội', 'floor' => 1, 'type' => 'textbook'],
             ],
             [
-                'code' => 'TV-DOC-TV',
-                'name' => 'Phòng đọc Tiếng Việt',
-                'params' => ['campus' => 'Hà Nội', 'floor' => 5, 'mode' => 'reading_room'],
+                'code' => 'KHO-TK',
+                'name' => 'Kho Sách tham khảo & Luận án (Tầng 5-6 - Nhà A8)',
+                'params' => ['campus' => 'Hà Nội', 'floor' => '5-6', 'type' => 'reference'],
             ],
             [
-                'code' => 'TV-DOC-NN',
-                'name' => 'Phòng đọc Ngoại văn & Tài liệu đặc biệt',
-                'params' => ['campus' => 'Hà Nội', 'floor' => 6, 'mode' => 'special_collection'],
-            ],
-            [
-                'code' => 'TV-SO',
-                'name' => 'Tài nguyên số',
-                'params' => ['campus' => 'Hà Nội', 'floor' => null, 'mode' => 'digital'],
+                'code' => 'KHO-SO',
+                'name' => 'Kho Tài liệu số',
+                'params' => ['campus' => 'Hà Nội', 'floor' => null, 'type' => 'digital'],
             ],
         ];
 
@@ -47,71 +42,7 @@ class WarehouseSeeder extends Seeder
             $parentIds[$item['code']] = $warehouse->id;
         }
 
-        $children = [
-            [
-                'code' => '07',
-                'name' => 'Sách nghiệp vụ',
-                'parent_code' => 'TV-MUON',
-                'params' => ['type' => 'professional'],
-            ],
-            [
-                'code' => '075',
-                'name' => 'Sách giáo khoa / Giáo trình',
-                'parent_code' => 'TV-MUON',
-                'params' => ['type' => 'textbook'],
-            ],
-            [
-                'code' => '076',
-                'name' => 'Sách bài tập',
-                'parent_code' => 'TV-MUON',
-                'params' => ['type' => 'exercise'],
-            ],
-            [
-                'code' => '083',
-                'name' => 'Sách tham khảo',
-                'parent_code' => 'TV-MUON',
-                'params' => ['type' => 'reference'],
-            ],
-            [
-                'code' => 'BAO',
-                'name' => 'Báo, tạp chí tiếng Việt',
-                'parent_code' => 'TV-DOC-TV',
-                'params' => ['type' => 'newspaper_vi'],
-            ],
-            [
-                'code' => 'TC',
-                'name' => 'Tạp chí khoa học, chuyên ngành',
-                'parent_code' => 'TV-DOC-NN',
-                'params' => ['type' => 'journal'],
-            ],
-            [
-                'code' => 'TA',
-                'name' => 'Tranh ảnh, bản đồ',
-                'parent_code' => 'TV-DOC-TV',
-                'params' => ['type' => 'visual'],
-            ],
-            [
-                'code' => 'BD',
-                'name' => 'Băng đĩa, tài liệu số ngoại tuyến',
-                'parent_code' => 'TV-SO',
-                'params' => ['type' => 'media_offline'],
-            ],
-        ];
-
-        foreach ($children as $item) {
-            $params = $item['params'] ?? [];
-            $parentCode = $item['parent_code'] ?? null;
-            unset($item['params'], $item['parent_code']);
-
-            Warehouse::firstOrCreate(
-                ['code' => $item['code']],
-                array_merge($item, [
-                    'parent_id' => $parentCode && isset($parentIds[$parentCode]) ? $parentIds[$parentCode] : null,
-                    'is_active' => true,
-                    'params' => $params,
-                ])
-            );
-        }
+        // Không tạo kho con; 3 kho chính đã đủ cho mô hình UTC hiện tại.
     }
 }
 

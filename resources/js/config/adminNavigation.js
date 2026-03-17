@@ -5,6 +5,14 @@
 export const adminNavigation = [
     { name: 'Bảng điều khiển', href: 'admin.dashboard', icon: 'lucide:layout-grid', active: 'admin.dashboard' },
     {
+        name: 'Danh mục tài liệu',
+        icon: 'lucide:panels-top-left',
+        active: ['admin.books.*'],
+        children: [
+            { name: 'Sách in', href: 'admin.books.index', active: 'admin.books.*' },
+        ],
+    },
+    {
         name: 'Quản lý người dùng',
         icon: 'lucide:users',
         active: ['admin.users.*'],

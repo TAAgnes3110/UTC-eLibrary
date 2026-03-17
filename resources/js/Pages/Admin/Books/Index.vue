@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
@@ -9,48 +9,14 @@ import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import apiClient from '@/api/axios';
 
-const sampleBooks = ref([
-    {
-        id: 1,
-        registration_number: 'UTC0001',
-        book_code: '624-UTC-0001',
-        title: 'Cơ sở thiết kế đường ô tô',
-        authors: 'Nguyễn Viết Trung',
-        publisher: 'Giao thông Vận tải',
-        published_year: 2018,
-        classification: '624 / 624.2',
-        warehouse: 'Thư viện Trung tâm UTC',
-        quantity: 12,
-        status: 'available',
-    },
-    {
-        id: 2,
-        registration_number: 'UTC0002',
-        book_code: '624-UTC-0002',
-        title: 'Tổ chức vận tải và dịch vụ logistics',
-        authors: 'Đỗ Bá Lâm',
-        publisher: 'Giao thông Vận tải',
-        published_year: 2019,
-        classification: '658 / 658.5',
-        warehouse: 'Kho Tài liệu chuyên ngành Vận tải',
-        quantity: 8,
-        status: 'available',
-    },
-    {
-        id: 3,
-        registration_number: 'UTC0003',
-        book_code: '624-UTC-0003',
-        title: 'Kết cấu bê tông cốt thép – Cầu đường bộ',
-        authors: 'Phạm Hữu Vinh, Trần Thị Thanh',
-        publisher: 'Xây dựng',
-        published_year: 2017,
-        classification: '624 / 624.2',
-        warehouse: 'Thư viện Trung tâm UTC',
-        quantity: 5,
-        status: 'on_loan',
-    },
-]);
+const books = ref([]);
+
+const classifications = ref([]);
+const classificationDetails = ref([]);
+const selectedClassificationId = ref('');
+const loading = ref(false);
 
 // Dữ liệu thùng rác (demo, chưa nối API)
 const trashedBooks = ref([]);
@@ -58,6 +24,7 @@ const trashedBooks = ref([]);
 const filterValues = ref({
     searchKeyword: '',
     status: '',
+    warehouse: '',
 });
 
 const showModal = ref(false);
@@ -68,8 +35,6 @@ const selectedIds = ref(new Set());
 
 const showTrashDrawer = ref(false);
 
-const books = computed(() => sampleBooks.value);
-
 const filteredBooks = computed(() => {
     let list = [...books.value];
     const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
@@ -79,14 +44,95 @@ const filteredBooks = computed(() => {
                 (b.title || '').toLowerCase().includes(kw) ||
                 (b.book_code || '').toLowerCase().includes(kw) ||
                 (b.registration_number || '').toLowerCase().includes(kw) ||
-                (b.authors || '').toLowerCase().includes(kw)
+                (b.authors_label || '').toLowerCase().includes(kw)
             );
         });
     }
     if (filterValues.value.status) {
-        list = list.filter((b) => b.status === filterValues.value.status);
+        if (filterValues.value.status === 'in_stock') {
+            list = list.filter((b) => (b.quantity ?? 0) > 0);
+        } else if (filterValues.value.status === 'out_of_stock') {
+            list = list.filter((b) => (b.quantity ?? 0) <= 0);
+        }
+    }
+    if (filterValues.value.warehouse) {
+        const kwWarehouse = filterValues.value.warehouse.toLowerCase();
+        list = list.filter((b) =>
+            (b.warehouse?.name || '').toLowerCase().includes(kwWarehouse) ||
+            (b.warehouse?.code || '').toLowerCase().includes(kwWarehouse),
+        );
+    }
+    if (selectedClassificationId.value) {
+        list = list.filter(
+            (b) => String(b.classification_id) === String(selectedClassificationId.value) ||
+                String(b.classification?.id ?? '') === String(selectedClassificationId.value),
+        );
     }
     return list;
+});
+
+const loadBooks = async () => {
+    loading.value = true;
+    try {
+        const response = await apiClient.get('/books', {
+            params: {
+                per_page: 200,
+                keyword: filterValues.value.searchKeyword || undefined,
+            },
+        });
+        const payload = response?.data;
+        const paginator = payload?.data;
+        const items = Array.isArray(paginator?.data)
+            ? paginator.data
+            : Array.isArray(paginator)
+                ? paginator
+                : [];
+        books.value = items;
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load books', e);
+        books.value = [];
+    } finally {
+        loading.value = false;
+    }
+};
+
+const loadClassifications = async () => {
+    try {
+        const response = await apiClient.get('/classifications/list');
+        const payload = response?.data;
+        classifications.value = Array.isArray(payload?.data) ? payload.data : [];
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load classifications', e);
+        classifications.value = [];
+    }
+};
+
+const loadClassificationDetails = async () => {
+    try {
+        const response = await apiClient.get('/classification-details', {
+            params: {
+                per_page: 500,
+            },
+        });
+        const payload = response?.data;
+        const paginator = payload?.data;
+        const items = Array.isArray(paginator?.data)
+            ? paginator.data
+            : Array.isArray(paginator)
+                ? paginator
+                : [];
+        classificationDetails.value = items;
+    } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load classification details', e);
+        classificationDetails.value = [];
+    }
+};
+
+onMounted(async () => {
+    await Promise.all([loadBooks(), loadClassifications(), loadClassificationDetails()]);
 });
 
 const hasSelection = computed(() => selectedIds.value.size > 0);
@@ -126,9 +172,9 @@ const emptyForm = () => ({
     publisher: '',
     published_year: '',
     classification: '',
+    classification_detail: '',
     warehouse: '',
     quantity: 1,
-    status: 'available',
 });
 
 const form = ref(emptyForm());
@@ -147,10 +193,10 @@ const openEditModal = (book) => {
 
 const saveBook = () => {
     if (isEditing.value && form.value.id != null) {
-        sampleBooks.value = sampleBooks.value.map((b) => (b.id === form.value.id ? { ...form.value } : b));
+        books.value = books.value.map((b) => (b.id === form.value.id ? { ...form.value } : b));
     } else {
-        const nextId = Math.max(0, ...sampleBooks.value.map((b) => b.id || 0)) + 1;
-        sampleBooks.value.push({ ...form.value, id: nextId });
+        const nextId = Math.max(0, ...books.value.map((b) => b.id || 0)) + 1;
+        books.value.push({ ...form.value, id: nextId });
     }
     showModal.value = false;
 };
@@ -169,18 +215,18 @@ const openDeleteMultiple = () => {
 const confirmDelete = () => {
     const now = new Date().toISOString();
     if (selectedBook.value) {
-        const toTrash = sampleBooks.value.find((b) => b.id === selectedBook.value.id);
+        const toTrash = books.value.find((b) => b.id === selectedBook.value.id);
         if (toTrash) {
             trashedBooks.value.push({ ...toTrash, deleted_at: now });
         }
-        sampleBooks.value = sampleBooks.value.filter((b) => b.id !== selectedBook.value.id);
+        books.value = books.value.filter((b) => b.id !== selectedBook.value.id);
     } else if (hasSelection.value) {
-        sampleBooks.value.forEach((b) => {
+        books.value.forEach((b) => {
             if (selectedIds.value.has(b.id)) {
                 trashedBooks.value.push({ ...b, deleted_at: now });
             }
         });
-        sampleBooks.value = sampleBooks.value.filter((b) => !selectedIds.value.has(b.id));
+        books.value = books.value.filter((b) => !selectedIds.value.has(b.id));
         deselectAll();
     }
     showDeleteConfirm.value = false;
@@ -201,7 +247,7 @@ const restoreBook = (id) => {
     const [book] = trashedBooks.value.splice(index, 1);
     const restored = { ...book };
     delete restored.deleted_at;
-    sampleBooks.value.push(restored);
+    books.value.push(restored);
 };
 
 const forceDeleteBook = (id) => {
@@ -210,51 +256,62 @@ const forceDeleteBook = (id) => {
 </script>
 
 <template>
-    <Head title="Quản lý Sách - Admin" />
+    <Head title="Danh mục – Sách in" />
     <AdminLayout
-        title="Quản lý tài liệu"
+        title="Danh mục tài liệu"
         :breadcrumbs="[
             { label: 'Trang chủ' },
-            { label: 'Quản lý tài liệu' },
-            { label: 'Sách' },
+            { label: 'Danh mục tài liệu' },
+            { label: 'Sách in' },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách sách</h2>
+                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Sách in theo danh mục</h2>
+                <Button variant="outline" size="sm" class="gap-1.5" @click="showTrashDrawer = true">
+                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
+                    Thùng rác
+                </Button>
             </div>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.size"
                 update-file-label="Cập nhật ảnh bìa"
+                add-label="Thêm sách in"
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"
                 @update-file="() => {}"
                 @delete-selected="openDeleteMultiple"
                 @deselect-all="deselectAll"
-            >
-                <template #extra>
-                    <button type="button" class="btn-admin-green" @click="showTrashDrawer = true">
-                        <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
-                        Thùng rác
-                    </button>
-                </template>
-            </AdminImportExportBar>
+            />
 
             <AdminFilterSearch
                 v-model="filterValues.searchKeyword"
-                search-placeholder="Tìm theo tên sách, mã sách, DKCB, tác giả..."
-                :show-filter-button="false"
+                search-placeholder="Nhập từ khóa để tìm..."
+                :show-filter-button="true"
             >
                 <template #filters>
                     <div class="flex items-center gap-3">
                         <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
-                            <option value="">Tất cả trạng thái</option>
-                            <option value="available">Có sẵn</option>
-                            <option value="on_loan">Đang cho mượn</option>
+                            <option value="">Trạng thái</option>
+                            <option value="in_stock">Còn</option>
+                            <option value="out_of_stock">Hết</option>
                         </select>
+                        <input
+                            v-model="filterValues.warehouse"
+                            :list="'filter-warehouse-options'"
+                            class="admin-filter-input"
+                            placeholder="Kho sách"
+                        />
+                        <datalist id="filter-warehouse-options">
+                            <option
+                                v-for="b in books"
+                                :key="b.id"
+                                :value="b.warehouse?.name || ''"
+                            />
+                        </datalist>
                     </div>
                 </template>
             </AdminFilterSearch>
@@ -307,36 +364,52 @@ const forceDeleteBook = (id) => {
                                     />
                                 </td>
                                 <td class="p-4 align-top">
-                                    <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">
+                                    <p class="text-[13px] font-semibold text-slate-100 dark:text-slate-50 tracking-wide">
                                         {{ book.book_code }}
-                                    </p>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                                        DKCB: {{ book.registration_number }}
                                     </p>
                                 </td>
                                 <td class="p-4">
-                                    <button
-                                        type="button"
-                                        @click="openEditModal(book)"
-                                        class="font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 text-left"
-                                    >
-                                        {{ book.title }}
-                                    </button>
-                                </td>
-                                <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
-                                    {{ book.authors }}
-                                </td>
-                                <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
-                                    <div class="flex flex-col">
-                                        <span>{{ book.publisher }}</span>
-                                        <span class="text-[11px] text-slate-500 dark:text-slate-400">Năm: {{ book.published_year }}</span>
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="h-9 w-7 rounded-md overflow-hidden bg-slate-100 dark:bg-slate-800 flex-shrink-0 flex items-center justify-center ring-1 ring-slate-200/80 dark:ring-slate-700/80"
+                                        >
+                                            <img
+                                                v-if="book.cover_image"
+                                                :src="book.cover_image"
+                                                :alt="book.title"
+                                                class="h-full w-full object-cover"
+                                            />
+                                            <Icon
+                                                v-else
+                                                icon="lucide:book-open"
+                                                class="w-4 h-4 text-slate-400"
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="openEditModal(book)"
+                                            class="font-semibold text-slate-100 dark:text-white hover:text-blue-400 text-left line-clamp-2"
+                                        >
+                                            {{ book.title }}
+                                        </button>
                                     </div>
                                 </td>
                                 <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
-                                    {{ book.classification }}
+                                    {{ book.authors_label }}
                                 </td>
                                 <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
-                                    {{ book.warehouse }}
+                                    <div class="flex flex-col">
+                                        <span>{{ book.publishers_label }}</span>
+                                        <span class="text-[11px] text-slate-500 dark:text-slate-400">
+                                            Năm: {{ book.published_year }}
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
+                                    {{ book.classification?.code }} / {{ book.classification?.name }}
+                                </td>
+                                <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
+                                    {{ book.warehouse?.name }}
                                 </td>
                                 <td class="p-4 text-center">
                                     <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-50 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 min-w-[3rem]">
@@ -347,16 +420,16 @@ const forceDeleteBook = (id) => {
                                     <span
                                         :class="[
                                             'inline-flex items-center justify-end gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase text-white',
-                                            book.status === 'available'
+                                            (book.quantity ?? 0) > 0
                                                 ? 'bg-emerald-500 dark:bg-emerald-600'
-                                                : 'bg-amber-500 dark:bg-amber-600',
+                                                : 'bg-rose-500 dark:bg-rose-600',
                                         ]"
                                     >
                                         <Icon
-                                            :icon="book.status === 'available' ? 'lucide:check-circle' : 'lucide:clock'"
+                                            :icon="(book.quantity ?? 0) > 0 ? 'lucide:check-circle' : 'lucide:x-circle'"
                                             class="w-3 h-3"
                                         />
-                                        {{ book.status === 'available' ? 'Có sẵn' : 'Đang mượn' }}
+                                        {{ (book.quantity ?? 0) > 0 ? 'Còn' : 'Hết' }}
                                     </span>
                                 </td>
                                 <td class="p-4">
@@ -465,23 +538,63 @@ const forceDeleteBook = (id) => {
                             />
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Phân loại</label>
-                            <Input
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Phân loại sách <span class="text-rose-500">*</span>
+                            </label>
+                            <input
                                 v-model="form.classification"
-                                class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800"
-                                placeholder="Ví dụ: 624 / 624.2"
+                                :list="'book-classification-options'"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                                placeholder="Gõ mã / tên phân loại, ví dụ: 624 / 624.2"
                             />
+                            <datalist id="book-classification-options">
+                                <option
+                                    v-for="c in classifications"
+                                    :key="c.id"
+                                    :value="c.code && c.name ? `${c.code} – ${c.name}` : (c.name || c.code || '')"
+                                />
+                            </datalist>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Kho sách</label>
-                            <Input
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Phân loại chi tiết <span class="text-rose-500">*</span>
+                            </label>
+                            <input
+                                v-model="form.classification_detail"
+                                :list="'book-classification-detail-options'"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                                placeholder="Gõ mã / tên phân loại chi tiết"
+                            />
+                            <datalist id="book-classification-detail-options">
+                                <option
+                                    v-for="d in classificationDetails"
+                                    :key="d.id"
+                                    :value="d.code && d.name ? `${d.code} – ${d.name}` : (d.name || d.code || '')"
+                                />
+                            </datalist>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Kho sách <span class="text-rose-500">*</span>
+                            </label>
+                            <input
                                 v-model="form.warehouse"
-                                class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800"
-                                placeholder="Ví dụ: Thư viện Trung tâm UTC"
+                                :list="'book-warehouse-options'"
+                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                                placeholder="Gõ mã / tên kho, ví dụ: Thư viện Trung tâm UTC"
                             />
+                            <datalist id="book-warehouse-options">
+                                <option
+                                    v-for="w in books"
+                                    :key="w.id"
+                                    :value="w.warehouse?.name || ''"
+                                />
+                            </datalist>
                         </div>
                         <div class="space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Số lượng bản in</label>
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Số lượng bản in <span class="text-rose-500">*</span>
+                            </label>
                             <Input
                                 v-model="form.quantity"
                                 type="number"
@@ -489,16 +602,6 @@ const forceDeleteBook = (id) => {
                                 class="h-10 rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800"
                                 placeholder="Ví dụ: 10"
                             />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Trạng thái</label>
-                            <select
-                                v-model="form.status"
-                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                            >
-                                <option value="available">Có sẵn</option>
-                                <option value="on_loan">Đang cho mượn</option>
-                            </select>
                         </div>
                     </div>
                     <div

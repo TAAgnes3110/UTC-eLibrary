@@ -10,6 +10,7 @@ use App\Http\Controllers\Frontend\Reader\PageController as ReaderPageController;
 use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
 use App\Http\Controllers\Frontend\Reader\ProfileController as ReaderProfileController;
 use Inertia\Inertia;
+use Illuminate\Http\Request;
 use App\Http\Controllers\Frontend\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Frontend\Auth\NewPasswordController;
 use App\Http\Controllers\Frontend\Auth\PasswordResetLinkController;
@@ -57,8 +58,12 @@ Route::middleware('auth')->group(function () {
             return Inertia::render('Reader/Dashboard');
         })->name('dashboard');
 
-        Route::get('/search', function () {
-            return Inertia::render('Reader/Dashboard');
+        Route::get('/search', function (Request $request) {
+            return Inertia::render('Reader/Books/Index', [
+                'filters' => [
+                    'q' => $request->input('q'),
+                ],
+            ]);
         })->name('search');
         Route::get('/saved', [ReaderPageController::class, 'saved'])->name('saved');
         Route::get('/card', ReaderCardController::class)->name('card');

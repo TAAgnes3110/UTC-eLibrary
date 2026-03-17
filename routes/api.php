@@ -7,6 +7,11 @@ use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\ClassificationController;
+use App\Http\Controllers\Api\ClassificationDetailController;
+use App\Http\Controllers\Api\AuthorController;
+use App\Http\Controllers\Api\PublisherController;
+use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Middleware\LogApiRequests;
@@ -107,6 +112,30 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [PermissionController::class, 'store']);
             });
 
+            Route::group(['prefix' => '/classifications'], function () {
+                Route::get('/', [ClassificationController::class, 'index']);
+                Route::get('/list', [ClassificationController::class, 'list']);
+                Route::get('/{classification}/details', [ClassificationDetailController::class, 'listByClassification']);
+                Route::get('/export', [ClassificationController::class, 'export']);
+                Route::get('/import-template', [ClassificationController::class, 'downloadImportTemplate']);
+                Route::post('/import', [ClassificationController::class, 'import']);
+                Route::post('/', [ClassificationController::class, 'store']);
+                Route::get('/{classification}', [ClassificationController::class, 'show']);
+                Route::put('/{classification}', [ClassificationController::class, 'update']);
+                Route::delete('/{classification}', [ClassificationController::class, 'destroy']);
+            });
+
+            Route::group(['prefix' => '/classification-details'], function () {
+                Route::get('/', [ClassificationDetailController::class, 'index']);
+                 Route::get('/export', [ClassificationDetailController::class, 'export']);
+                 Route::get('/import-template', [ClassificationDetailController::class, 'downloadImportTemplate']);
+                 Route::post('/import', [ClassificationDetailController::class, 'import']);
+                Route::post('/', [ClassificationDetailController::class, 'store']);
+                Route::get('/{classification_detail}', [ClassificationDetailController::class, 'show']);
+                Route::put('/{classification_detail}', [ClassificationDetailController::class, 'update']);
+                Route::delete('/{classification_detail}', [ClassificationDetailController::class, 'destroy']);
+            });
+
             Route::group(['prefix' => '/warehouses'], function () {
                 Route::get('/', [WarehouseController::class, 'index']);
                 Route::get('/export', [WarehouseController::class, 'exportWarehouses']);
@@ -120,6 +149,33 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{warehouse}', [WarehouseController::class, 'show']);
                 Route::put('/{warehouse}', [WarehouseController::class, 'update']);
                 Route::delete('/{warehouse}', [WarehouseController::class, 'destroy']);
+            });
+
+            Route::group(['prefix' => '/authors'], function () {
+                Route::get('/', [AuthorController::class, 'index']);
+                Route::post('/', [AuthorController::class, 'store']);
+                Route::put('/{author}', [AuthorController::class, 'update']);
+                Route::delete('/{author}', [AuthorController::class, 'destroy']);
+            });
+
+            Route::group(['prefix' => '/publishers'], function () {
+                Route::get('/', [PublisherController::class, 'index']);
+                Route::post('/', [PublisherController::class, 'store']);
+                Route::put('/{publisher}', [PublisherController::class, 'update']);
+                Route::delete('/{publisher}', [PublisherController::class, 'destroy']);
+            });
+
+            Route::group(['prefix' => '/books'], function () {
+                Route::get('/', [BookController::class, 'index']);
+                Route::get('/trash', [BookController::class, 'trash']);
+                Route::get('/export', [BookController::class, 'export']);
+                Route::post('/import', [BookController::class, 'import']);
+                Route::post('/', [BookController::class, 'store']);
+                Route::get('/{book}', [BookController::class, 'show']);
+                Route::put('/{book}', [BookController::class, 'update']);
+                Route::delete('/{book}', [BookController::class, 'destroy']);
+                Route::post('/restore/{id}', [BookController::class, 'restore']);
+                Route::delete('/force/{id}', [BookController::class, 'forceDelete']);
             });
         });
     });

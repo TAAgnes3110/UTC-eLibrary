@@ -4,6 +4,7 @@ import { usePage, router } from '@inertiajs/vue3';
 import AdminSidebar from '@/Layouts/Admin/AdminSidebar.vue';
 import AdminHeader from '@/Layouts/Admin/AdminHeader.vue';
 import AdminBreadcrumb from '@/Layouts/Admin/AdminBreadcrumb.vue';
+import AdminToastContainer from '@/Components/Admin/Shared/AdminToastContainer.vue';
 
 const props = defineProps({
     title: { type: String, default: 'Dashboard' },
@@ -28,6 +29,7 @@ const toggleSidebar = () => {
 
 <template>
     <div class="min-h-screen bg-gray-50 dark:bg-slate-950 transition-colors duration-300">
+        <AdminToastContainer />
         <div
             v-if="sidebarOpen"
             class="fixed inset-0 z-40 bg-black/40 lg:hidden transition-opacity duration-300"

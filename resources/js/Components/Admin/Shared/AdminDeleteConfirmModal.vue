@@ -9,14 +9,11 @@ import { Icon } from '@iconify/vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
-    /** Tiêu đề modal */
     title: { type: String, default: 'Xác nhận xóa' },
-    /** Tên mục (sách, tài khoản, tác giả...) dùng trong câu */
     itemLabel: { type: String, default: 'mục' },
-    /** Một bản ghi: { id, name hoặc title } */
     item: { type: Object, default: null },
-    /** Số bản ghi khi xóa nhiều (ưu tiên hơn item) */
     selectedCount: { type: Number, default: 0 },
+    loading: { type: Boolean, default: false },
 });
 
 defineEmits(['close', 'confirm']);
@@ -54,11 +51,18 @@ const displayName = computed(() => {
                     <p class="mt-2 text-sm font-medium text-white">"{{ displayName }}"</p>
                 </div>
                 <div class="px-6 py-4 flex justify-center gap-3 border-t border-slate-700/80" style="background-color: #20222D;">
-                    <Button type="button" variant="outline" class="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-600 hover:text-white" @click="$emit('close')">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        class="bg-slate-700/50 border-slate-600 text-white hover:bg-slate-600 hover:text-white"
+                        :disabled="loading"
+                        @click="$emit('close')"
+                    >
                         Quay lại
                     </Button>
-                    <Button type="button" class="bg-red-500 hover:bg-red-600 text-white" @click="$emit('confirm')">
-                        Xóa dữ liệu
+                    <Button type="button" class="bg-red-500 hover:bg-red-600 text-white gap-2" :disabled="loading" @click="$emit('confirm')">
+                        <Icon v-if="loading" icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
+                        {{ loading ? 'Đang xóa...' : 'Xóa dữ liệu' }}
                     </Button>
                 </div>
             </div>

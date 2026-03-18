@@ -2,19 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Exports\ReadersExport;
-use App\Exports\SimpleTableExport;
 use App\Helpers\ApiResponse;
+use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Exports\UserExport;
 use App\Services\UserService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
 {
@@ -123,6 +122,16 @@ class UserController extends Controller
         return ApiResponse::success(null, __('Đã khôi phục.'));
     }
 
+    public function restoreMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $restored = $this->userService->restoreMany($request->input('ids', []));
+        return ApiResponse::success(['restored' => $restored], __('messages.success_restore'));
+    }
+
     /**
      * Xóa vĩnh viễn một tài khoản người dùng.
      *
@@ -135,6 +144,16 @@ class UserController extends Controller
             return ApiResponse::notFound(__('messages.error_404'));
         }
         return ApiResponse::success(null, __('messages.success_force_delete'));
+    }
+
+    public function forceDeleteMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $deleted = $this->userService->forceDeleteMany($request->input('ids', []));
+        return ApiResponse::success(['deleted' => $deleted], __('messages.success_force_delete'));
     }
 
     /**
@@ -171,34 +190,11 @@ class UserController extends Controller
         return ApiResponse::success($result, __('messages.success_update'));
     }
 
-    /**
-     * Xuất danh sách tài khoản người dùng ra file Excel.
-     * @param Request $request 
-     * @return BinaryFileResponse
-     */
-    public function exportUsers(Request $request): BinaryFileResponse
-    {
-        $ids = $request->input('ids');
-        if (is_array($ids)) {
-            $ids = array_filter($ids, fn ($v) => is_numeric($v));
-        } else {
-            $ids = null;
-        }
-        return $this->userService->exportUsers($ids);
-    }
-
-    /**
-     * Cập nhật ảnh đại diện cho một tài khoản người dùng.
-     *
-     * @param Request $request Request chứa file ảnh ở field 'avatar'
-     * @param int $id ID người dùng cần cập nhật ảnh đại diện
-     * @return JsonResponse
-     */
     public function updateAvatar(Request $request, int $id): JsonResponse
     {
         $user = User::find($id);
         if (!$user) {
-            return ApiResponse::error(__('Không tìm thấy người dùng.'), 404);
+            return ApiResponse::notFound(__('messages.error_404'));
         }
         $file = $request->file('avatar');
         if (!$file) {
@@ -206,49 +202,36 @@ class UserController extends Controller
         }
         try {
             $result = $this->userService->updateAvatar($user, $file);
+            return ApiResponse::success($result, __('messages.success_update'));
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         }
-        if ($result === null) {
-            return ApiResponse::error(__('Vui lòng chọn một file ảnh hợp lệ.'), 422);
-        }
-        return ApiResponse::success($result, __('messages.success_update'));
     }
 
-    /**
-     * Cập nhật ảnh đại diện hàng loạt từ file .zip.
-     *
-     * File zip phải chứa các ảnh có tên trùng với mã người dùng (code),
-     * mỗi ảnh sẽ được gán vào tài khoản tương ứng.
-     *
-     * @param Request $request Request chứa file zip ở field 'file'
-     * @return JsonResponse
-     */
     public function bulkUpdateAvatar(Request $request): JsonResponse
     {
         $request->validate([
             'file' => 'required|file|mimes:zip',
         ]);
-
         $file = $request->file('file');
         if (!$file) {
             return ApiResponse::error(__('Vui lòng chọn một file .zip hợp lệ.'), 422);
         }
-
         try {
             $summary = $this->userService->bulkUpdateAvatarFromZip($file);
+            return ApiResponse::success($summary, __('messages.success_update'));
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);
         } catch (\Throwable) {
             return ApiResponse::error(__('Không thể xử lý file zip.'), 422);
         }
-        if (($summary['updated'] ?? 0) === 0) {
-            return ApiResponse::error(
-                __('Không có ảnh đại diện nào được cập nhật. Vui lòng kiểm tra lại định dạng file, số lượng và tên file (trùng mã người dùng).'),
-                422
-            );
-        }
-        return ApiResponse::success($summary, __('messages.success_update'));
+    }
+
+    public function exportUsers(Request $request): StreamedResponse
+    {
+        $ids = $request->input('ids');
+        $ids = is_array($ids) ? array_values(array_filter($ids, static fn ($v) => is_numeric($v))) : null;
+        return UserExport::stream($ids);
     }
 
     /** @deprecated Dùng GET /users + GET /master-data */

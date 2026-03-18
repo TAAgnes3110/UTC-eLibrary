@@ -3,13 +3,10 @@
 namespace App\Services;
 
 use App\Enums\RoleType;
-use App\Helpers\ImageUploadHelper;
+use App\Helpers\FileHelpers;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\UsersFileMauExport;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class UserService
 {
@@ -88,6 +85,16 @@ class UserService
         return $user;
     }
 
+    /** @return int số bản ghi đã khôi phục */
+    public function restoreMany(array $ids): int
+    {
+        $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
+        if (empty($ids)) {
+            return 0;
+        }
+        return (int) User::onlyTrashed()->whereIn('id', $ids)->restore();
+    }
+
     public function forceDelete(int $id): bool
     {
         $user = User::onlyTrashed()->find($id);
@@ -96,6 +103,16 @@ class UserService
         }
         $user->forceDelete();
         return true;
+    }
+
+    /** @return int số bản ghi đã xóa vĩnh viễn */
+    public function forceDeleteMany(array $ids): int
+    {
+        $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
+        if (empty($ids)) {
+            return 0;
+        }
+        return User::onlyTrashed()->whereIn('id', $ids)->forceDelete();
     }
 
     public function updateStatus(array $ids, bool $isActive): void
@@ -113,29 +130,6 @@ class UserService
         $user->is_active = !$user->is_active;
         $user->save();
         return ['is_active' => $user->is_active];
-    }
-
-    /**
-     * @return array{avatar: string}|null null nếu lỗi (file invalid, extension không cho phép, v.v.)
-     * @throws \InvalidArgumentException
-     */
-    public function updateAvatar(User $user, UploadedFile $file): ?array
-    {
-        if (!$file->isValid()) {
-            return null;
-        }
-        $ext = strtolower($file->getClientOriginalExtension() ?: '');
-        if (!in_array($ext, ImageUploadHelper::ALLOWED_EXTENSIONS, true)) {
-            throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ') . implode(', ', ImageUploadHelper::ALLOWED_EXTENSIONS) . '.');
-        }
-        $path = ImageUploadHelper::updateModelImage(
-            $user,
-            $file,
-            'users',
-            'avatar',
-            $user->code ?: (string) $user->id
-        );
-        return ['avatar' => $path];
     }
 
     public function adminList(int $perPage = 20): array
@@ -158,85 +152,68 @@ class UserService
             ->get();
     }
 
-    public function exportUsers(?array $ids = null): BinaryFileResponse
+    /**
+     * @return array{avatar: string}
+     */
+    public function updateAvatar(User $user, UploadedFile $file): array
     {
-        $export = new UsersFileMauExport($ids);
-
-        return Excel::download(
-            $export,
-            'FileNguoiDung.xlsx'
-        );
+        $path = FileHelpers::updateModelImage($user, $file, 'users', 'avatar', $user->code ?: (string) $user->id);
+        return ['avatar' => $path];
     }
 
     /**
+     * Bulk update avatar từ zip (file name = user.code).
+     *
      * @return array{updated:int,skipped:int}
      */
     public function bulkUpdateAvatarFromZip(UploadedFile $zipFile): array
     {
-        $zip = new \ZipArchive();
-        if ($zip->open($zipFile->getRealPath()) !== true) {
-            throw new \InvalidArgumentException(__('Không thể đọc file zip.'));
-        }
+        $tmpDir = FileHelpers::extractZipToTemp($zipFile, 'avatars');
         $updated = 0;
         $skipped = 0;
-        $tmpDir = storage_path('app/tmp/avatars-' . uniqid());
-        if (!is_dir($tmpDir)) {
-            mkdir($tmpDir, 0775, true);
-        }
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $entry = $zip->getNameIndex($i);
-            if (str_ends_with($entry, '/')) {
-                continue;
-            }
-            $pathInfo = pathinfo($entry);
-            $code = $pathInfo['filename'] ?? null;
-            $ext = strtolower($pathInfo['extension'] ?? '');
-            if (!$code || !in_array($ext, ImageUploadHelper::ALLOWED_EXTENSIONS, true)) {
-                $skipped++;
-                continue;
-            }
-            $user = User::where('code', $code)->first();
-            if (!$user) {
-                $skipped++;
-                continue;
-            }
-            $contents = $zip->getFromIndex($i);
-            if ($contents === false) {
-                $skipped++;
-                continue;
-            }
-            $tmpPath = $tmpDir . DIRECTORY_SEPARATOR . $code . '.' . $ext;
-            file_put_contents($tmpPath, $contents);
-            $uploaded = new UploadedFile(
-                $tmpPath,
-                basename($tmpPath),
-                'image/' . $ext,
-                null,
-                true
-            );
-            try {
-                $this->updateAvatar($user, $uploaded);
-                $updated++;
-            } catch (\Throwable) {
-                $skipped++;
-            }
-        }
-        $zip->close();
+
         try {
-            if (is_dir($tmpDir)) {
-                foreach (scandir($tmpDir) as $f) {
-                    if ($f === '.' || $f === '..') {
-                        continue;
-                    }
-                    @unlink($tmpDir . DIRECTORY_SEPARATOR . $f);
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $fileInfo) {
+                if (!$fileInfo->isFile()) {
+                    continue;
                 }
-                @rmdir($tmpDir);
+                $ext = strtolower($fileInfo->getExtension() ?: '');
+                if (!in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
+                    $skipped++;
+                    continue;
+                }
+                $code = $fileInfo->getBasename('.' . $ext);
+                if ($code === '') {
+                    $skipped++;
+                    continue;
+                }
+                $user = User::query()->where('code', $code)->first();
+                if (!$user) {
+                    $skipped++;
+                    continue;
+                }
+
+                $uploaded = new UploadedFile(
+                    $fileInfo->getPathname(),
+                    $fileInfo->getBasename(),
+                    'image/' . $ext,
+                    null,
+                    true
+                );
+                try {
+                    FileHelpers::updateModelImage($user, $uploaded, 'users', 'avatar', $user->code ?: (string) $user->id);
+                    $updated++;
+                } catch (\Throwable) {
+                    $skipped++;
+                }
             }
-        } catch (\Throwable) {
+        } finally {
+            FileHelpers::removeDirectory($tmpDir);
         }
-        return [
-            'updated' => $updated,
-            'skipped' => $skipped,
-        ];
+
+        return ['updated' => $updated, 'skipped' => $skipped];
     }
 }

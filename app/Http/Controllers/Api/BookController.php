@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Exports\SimpleTableExport;
 use App\Helpers\ApiResponse;
+use App\Exports\BookImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BookRequest;
 use App\Http\Resources\BookResource;
@@ -11,9 +11,7 @@ use App\Models\Book;
 use App\Services\BookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
-use Maatwebsite\Excel\Facades\Excel;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BookController extends Controller
 {
@@ -127,6 +125,16 @@ class BookController extends Controller
         return ApiResponse::success(null, __('Đã khôi phục.'));
     }
 
+    public function restoreMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $restored = $this->bookService->restoreMany($request->input('ids', []));
+        return ApiResponse::success(['restored' => $restored], __('messages.success_restore'));
+    }
+
     /**
      * Xóa vĩnh viễn một sách.
      *
@@ -142,39 +150,80 @@ class BookController extends Controller
         return ApiResponse::success(null, __('messages.success_force_delete'));
     }
 
-    /**
-     * Import danh sách sách từ file Excel (FileSach.xlsx).
-     *
-     * @param Request $request Request chứa file Excel ở field 'file'
-     * @return JsonResponse
-     */
-    public function import(Request $request): JsonResponse
+    public function forceDeleteMany(Request $request): JsonResponse
     {
-        $file = $request->file('file');
-        if (!$file) {
-            return ApiResponse::error(__('Vui lòng chọn file Excel.'), 422);
-        }
-
-        $result = $this->bookService->importBooks($file);
-
-        return ApiResponse::success($result, __('Đã nhận file, hệ thống sẽ xử lý trong nền.'));
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $deleted = $this->bookService->forceDeleteMany($request->input('ids', []));
+        return ApiResponse::success(['deleted' => $deleted], __('messages.success_force_delete'));
     }
 
-    /**
-     * Xuất danh sách sách ra file Excel (giống FileMau).
-     *
-     * @param Request $request
-     * @return BinaryFileResponse
-     */
-    public function export(Request $request): BinaryFileResponse
+    public function updateImage(Request $request, int $id): JsonResponse
+    {
+        $book = Book::find($id);
+        if (!$book) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
+        $file = $request->file('book_cover');
+        if (!$file) {
+            return ApiResponse::error(__('Vui lòng chọn file ảnh hợp lệ.'), 422);
+        }
+        try {
+            $result = $this->bookService->updateCoverImage($book, $file);
+            return ApiResponse::success($result, __('messages.success_update'));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+    }
+
+    public function bulkUpdateImage(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:zip',
+        ]);
+        $file = $request->file('file');
+        if (!$file) {
+            return ApiResponse::error(__('Vui lòng chọn một file .zip hợp lệ.'), 422);
+        }
+        try {
+            $summary = $this->bookService->bulkUpdateCoverFromZip($file);
+            return ApiResponse::success($summary, __('messages.success_update'));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Throwable) {
+            return ApiResponse::error(__('Không thể xử lý file zip.'), 422);
+        }
+    }
+
+    public function export(Request $request): StreamedResponse
     {
         $ids = $request->input('ids');
         if (is_array($ids)) {
-            $ids = array_filter($ids, fn ($v) => is_numeric($v));
+            $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
         } else {
             $ids = null;
         }
         return $this->bookService->exportBooks($ids);
+    }
+
+    public function import(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+        $file = $request->file('file');
+        if (!$file) {
+            return ApiResponse::error(__('Vui lòng chọn file Excel.'), 422);
+        }
+        $summary = $this->bookService->importBooks($file);
+        return ApiResponse::success($summary, __('Đã import sách in xong.'));
+    }
+
+    public function downloadImportTemplate(): StreamedResponse
+    {
+        return BookImportTemplateExport::stream();
     }
 }
 

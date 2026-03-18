@@ -12,6 +12,7 @@ import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import { usersApi } from '@/api/users';
+import { toast } from '@/store/toast';
 
 const props = defineProps({
     readers: { type: Array, default: () => [] },
@@ -272,17 +273,61 @@ const fetchTrash = async () => {
 const onRestoreReader = async (id) => {
     try {
         await usersApi.restore(id);
-        fetchTrash();
+        await fetchTrash();
+        toast.success('Đã khôi phục.', { title: 'Thùng rác' });
         router.reload();
-    } catch (_) {}
+    } catch (e) {
+        console.error('Lỗi khi khôi phục bạn đọc:', e);
+        toast.error('Không thể khôi phục. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
+};
+
+const onRestoreManyReaders = async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (!confirm(`Khôi phục ${ids.length} mục?`)) return;
+    try {
+        if (typeof usersApi.restoreMany === 'function') {
+            await usersApi.restoreMany(ids);
+        } else {
+            await Promise.all(ids.map((id) => usersApi.restore(id)));
+        }
+        await fetchTrash();
+        toast.success(`Đã khôi phục ${ids.length} mục.`, { title: 'Thùng rác' });
+        router.reload();
+    } catch (e) {
+        console.error('Lỗi khi khôi phục nhiều bạn đọc:', e);
+        toast.error('Không thể khôi phục các mục đã chọn.', { title: 'Thùng rác' });
+    }
 };
 const onForceDeleteReader = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
         await usersApi.forceDelete(id);
-        fetchTrash();
+        trashedReaders.value = (trashedReaders.value || []).filter((u) => u.id !== id);
+        await fetchTrash();
         router.reload();
-    } catch (_) {}
+    } catch (e) {
+        console.error('Lỗi khi xóa vĩnh viễn bạn đọc:', e);
+        toast.error('Không thể xóa vĩnh viễn bạn đọc. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
+};
+
+const onForceDeleteManyReaders = async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (!confirm(`Xóa vĩnh viễn ${ids.length} mục? Không thể khôi phục.`)) return;
+    try {
+        if (typeof usersApi.forceDeleteMany === 'function') {
+            await usersApi.forceDeleteMany(ids);
+        } else {
+            await Promise.all(ids.map((id) => usersApi.forceDelete(id)));
+        }
+        trashedReaders.value = (trashedReaders.value || []).filter((u) => !ids.includes(u.id));
+        await fetchTrash();
+        router.reload();
+    } catch (e) {
+        console.error('Lỗi khi xóa vĩnh viễn nhiều bạn đọc:', e);
+        toast.error('Không thể xóa vĩnh viễn các bạn đọc đã chọn. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
 };
 
 const openDetail = (r) => {
@@ -308,7 +353,7 @@ const importExcel = (file) => {
 };
 
 const updatePhoto = () => {
-    alert('Chức năng đang được phát triển. API upload ảnh thẻ sẽ có trong bản cập nhật sau.');
+    toast.info('Chức năng đang được phát triển. API upload ảnh thẻ sẽ có trong bản cập nhật sau.', { title: 'Thông báo' });
 };
 
 const openPhotoModal = () => {
@@ -589,7 +634,9 @@ function readerStatusClass(r) {
             :loading="loadingTrash"
             @close="showTrashDrawer = false"
             @restore="onRestoreReader"
+            @restore-many="onRestoreManyReaders"
             @force-delete="onForceDeleteReader"
+            @force-delete-many="onForceDeleteManyReaders"
         />
 
             <!-- Modal Xem chi tiết bạn đọc -->

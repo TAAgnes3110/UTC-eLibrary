@@ -12,6 +12,7 @@ import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import { warehousesApi } from '@/api/warehouses';
+import { toast } from '@/store/toast';
 
 const warehousesData = ref({ data: [] });
 const loading = ref(false);
@@ -142,9 +143,10 @@ const exportExcel = async () => {
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
+        toast.success('Đã xuất Excel.', { title: 'Xuất Excel' });
     } catch (e) {
         console.error(e);
-        alert('Không thể xuất Excel. Vui lòng thử lại sau.');
+        toast.error('Không thể xuất Excel. Vui lòng thử lại sau.', { title: 'Xuất Excel' });
     }
 };
 
@@ -164,9 +166,10 @@ const downloadTemplate = async () => {
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
+        toast.success('Đã tải file mẫu.', { title: 'File mẫu' });
     } catch (e) {
         console.error(e);
-        alert('Không thể tải file mẫu. Vui lòng thử lại sau.');
+        toast.error('Không thể tải file mẫu. Vui lòng thử lại sau.', { title: 'File mẫu' });
     }
 };
 
@@ -178,9 +181,10 @@ const importExcel = async (file) => {
         formData.append('file', file);
         await warehousesApi.import(formData);
         await fetchWarehouses();
+        toast.success('Nhập kho từ Excel thành công.', { title: 'Import Excel' });
     } catch (e) {
         console.error(e);
-        alert('Không thể nhập kho từ Excel. Vui lòng kiểm tra file và thử lại.');
+        toast.error('Không thể nhập kho từ Excel. Vui lòng kiểm tra file và thử lại.', { title: 'Import Excel' });
     } finally {
         importLoading.value = false;
     }
@@ -225,13 +229,16 @@ const saveWarehouse = async () => {
     try {
         if (isEditing.value && form.value.id) {
             await warehousesApi.update(form.value.id, payload);
+            toast.success('Cập nhật kho sách thành công.', { title: 'Kho sách' });
         } else {
             await warehousesApi.create(payload);
+            toast.success('Thêm kho sách thành công.', { title: 'Kho sách' });
         }
         showModal.value = false;
         await fetchWarehouses();
     } catch (e) {
         console.error(e);
+        toast.error('Không thể lưu kho sách. Vui lòng kiểm tra dữ liệu.', { title: 'Kho sách' });
     }
 };
 
@@ -277,8 +284,24 @@ const fetchTrash = async () => {
 const onRestoreWarehouse = async (id) => {
     try {
         await warehousesApi.restore(id);
-        fetchTrash();
-        fetchWarehouses();
+        await fetchTrash();
+        await fetchWarehouses();
+        toast.success('Đã khôi phục.', { title: 'Thùng rác' });
+    } catch (_) {}
+};
+
+const onRestoreManyWarehouses = async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (!confirm(`Khôi phục ${ids.length} mục?`)) return;
+    try {
+        if (typeof warehousesApi.restoreMany === 'function') {
+            await warehousesApi.restoreMany(ids);
+        } else {
+            await Promise.all(ids.map((id) => warehousesApi.restore(id)));
+        }
+        await fetchTrash();
+        await fetchWarehouses();
+        toast.success(`Đã khôi phục ${ids.length} mục.`, { title: 'Thùng rác' });
     } catch (_) {}
 };
 
@@ -286,9 +309,33 @@ const onForceDeleteWarehouse = async (id) => {
     if (!confirm('Xóa vĩnh viễn kho này? Hành động không thể hoàn tác.')) return;
     try {
         await warehousesApi.forceDelete(id);
-        fetchTrash();
-        fetchWarehouses();
-    } catch (_) {}
+        trashedWarehouses.value = (trashedWarehouses.value || []).filter((w) => w.id !== id);
+        await fetchTrash();
+        await fetchWarehouses();
+        toast.success('Đã xóa vĩnh viễn.', { title: 'Thùng rác' });
+    } catch (e) {
+        console.error('Lỗi khi xóa vĩnh viễn kho:', e);
+        toast.error('Không thể xóa vĩnh viễn kho. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
+};
+
+const onForceDeleteManyWarehouses = async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (!confirm(`Xóa vĩnh viễn ${ids.length} mục? Hành động không thể hoàn tác.`)) return;
+    try {
+        if (typeof warehousesApi.forceDeleteMany === 'function') {
+            await warehousesApi.forceDeleteMany(ids);
+        } else {
+            await Promise.all(ids.map((id) => warehousesApi.forceDelete(id)));
+        }
+        trashedWarehouses.value = (trashedWarehouses.value || []).filter((w) => !ids.includes(w.id));
+        await fetchTrash();
+        await fetchWarehouses();
+        toast.success(`Đã xóa vĩnh viễn ${ids.length} mục.`, { title: 'Thùng rác' });
+    } catch (e) {
+        console.error('Lỗi khi xóa vĩnh viễn nhiều kho:', e);
+        toast.error('Không thể xóa vĩnh viễn các kho đã chọn. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
 };
 
 function statusLabel(isActive) {
@@ -372,7 +419,6 @@ function statusClass(isActive) {
                                 </th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Mã kho</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tên kho</th>
-                                <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tầng</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Cập nhật gần nhất</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Trạng thái</th>
                                 <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Thao tác</th>
@@ -397,11 +443,6 @@ function statusClass(isActive) {
                                 </td>
                                 <td class="p-4">
                                     <p class="font-semibold text-sm text-slate-900 dark:text-white">{{ w.name }}</p>
-                                </td>
-                                <td class="p-4">
-                                    <p class="text-[12px] text-slate-600 dark:text-slate-300">
-                                        {{ w.parent ? `${w.parent.code} – ${w.parent.name}` : '—' }}
-                                    </p>
                                 </td>
                                 <td class="p-4">
                                     <p class="text-[12px] text-slate-600 dark:text-slate-300">
@@ -470,25 +511,6 @@ function statusClass(isActive) {
                                 placeholder="Ví dụ: Thư viện Trung tâm UTC"
                             />
                         </div>
-                        <div class="space-y-1.5">
-                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                                Tầng
-                            </label>
-                            <input
-                                v-model="form.parent_id"
-                                :list="'warehouse-parent-options'"
-                                class="w-full h-10 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                                placeholder="Gõ tên / mã kho cha hoặc chọn..."
-                            />
-                            <datalist id="warehouse-parent-options">
-                                <option value="">— Không thuộc tầng / kho cha nào —</option>
-                                <option
-                                    v-for="w in warehousesList"
-                                    :key="w.id"
-                                    :value="w.code && w.name ? `${w.code} – ${w.name}` : (w.name || w.code || '')"
-                                />
-                            </datalist>
-                        </div>
                     </div>
                     <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30">
                         <Button variant="outline" @click="showModal = false">Hủy bỏ</Button>
@@ -518,19 +540,21 @@ function statusClass(isActive) {
             submit-label="Nhập Excel"
             :loading="importLoading"
             @close="showImportModal = false"
-            @submit="(file) => { importExcel(file); showImportModal.value = false; }"
+            @submit="(file) => { importExcel(file); showImportModal = false; }"
             @download-template="downloadTemplate"
         />
 
         <AdminTrashDrawer
             :show="showTrashDrawer"
-            title="Thùng rác – Kho sách"
+            title="Thùng rác"
             item-label-key="name"
             :items="trashedWarehouses"
             :loading="loadingTrash"
             @close="showTrashDrawer = false"
             @restore="onRestoreWarehouse"
+            @restore-many="onRestoreManyWarehouses"
             @force-delete="onForceDeleteWarehouse"
+            @force-delete-many="onForceDeleteManyWarehouses"
         />
     </AdminLayout>
 </template>

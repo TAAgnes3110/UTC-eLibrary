@@ -22,8 +22,14 @@ export const warehousesApi = {
     restore(id) {
         return client.post(`/warehouses/restore/${id}`).then((r) => r.data);
     },
+    restoreMany(ids = []) {
+        return client.post('/warehouses/restore', { ids }).then((r) => r.data);
+    },
     forceDelete(id) {
         return client.delete(`/warehouses/force/${id}`).then((r) => r.data);
+    },
+    forceDeleteMany(ids = []) {
+        return client.post('/warehouses/force', { ids }).then((r) => r.data);
     },
     toggleStatus(id) {
         return client.post(`/warehouses/${id}/toggle-status`).then((r) => r.data);

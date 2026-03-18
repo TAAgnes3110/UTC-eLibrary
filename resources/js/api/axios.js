@@ -1,5 +1,18 @@
 import axios from 'axios';
 
+function isApiDebugEnabled() {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('api_debug') === '1';
+}
+
+function safeJson(obj) {
+    try {
+        return JSON.parse(JSON.stringify(obj));
+    } catch {
+        return obj;
+    }
+}
+
 function getDefaultPeriod() {
     if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_PERIOD) {
         return import.meta.env.VITE_API_PERIOD;
@@ -19,6 +32,17 @@ const client = axios.create({
 
 client.interceptors.request.use(
     (config) => {
+        if (isApiDebugEnabled()) {
+            config.metadata = config.metadata || {};
+            config.metadata.startTime = performance?.now?.() ?? Date.now();
+            const method = (config.method || 'GET').toUpperCase();
+            const url = `${config.baseURL || ''}${config.url || ''}`;
+            console.groupCollapsed(`[API][REQ] ${method} ${url}`);
+            console.log('headers', safeJson(config.headers || {}));
+            console.log('params', safeJson(config.params || {}));
+            console.log('data', safeJson(config.data || null));
+            console.groupEnd();
+        }
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -36,10 +60,38 @@ let isRefreshing = false;
 let refreshPromise = null;
 
 client.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        if (isApiDebugEnabled()) {
+            const cfg = response.config || {};
+            const method = (cfg.method || 'GET').toUpperCase();
+            const url = `${cfg.baseURL || ''}${cfg.url || ''}`;
+            const start = cfg.metadata?.startTime;
+            const end = performance?.now?.() ?? Date.now();
+            const ms = start ? Math.round(end - start) : null;
+            console.groupCollapsed(`[API][RES] ${response.status} ${method} ${url}${ms != null ? ` (${ms}ms)` : ''}`);
+            console.log('data', safeJson(response.data));
+            console.groupEnd();
+        }
+        return response;
+    },
     async (error) => {
         const { response, config } = error || {};
         const originalRequest = config || {};
+
+        if (isApiDebugEnabled()) {
+            const method = (originalRequest.method || 'GET').toUpperCase();
+            const url = `${originalRequest.baseURL || ''}${originalRequest.url || ''}`;
+            const start = originalRequest.metadata?.startTime;
+            const end = performance?.now?.() ?? Date.now();
+            const ms = start ? Math.round(end - start) : null;
+            console.groupCollapsed(
+                `[API][ERR] ${response?.status ?? 'NO_RESPONSE'} ${method} ${url}${ms != null ? ` (${ms}ms)` : ''}`
+            );
+            console.log('message', error?.message);
+            console.log('response.data', safeJson(response?.data));
+            console.log('response.headers', safeJson(response?.headers));
+            console.groupEnd();
+        }
 
         if (!response || response.status !== 401) {
             return Promise.reject(error);

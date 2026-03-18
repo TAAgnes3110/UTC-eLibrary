@@ -3,17 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Helpers\ApiResponse;
+use App\Exports\ClassificationImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClassificationRequest;
 use App\Http\Resources\ClassificationResource;
 use App\Models\Classification;
 use App\Services\ClassificationService;
-use App\Exports\SimpleTableExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClassificationController extends Controller
 {
@@ -93,52 +91,8 @@ class ClassificationController extends Controller
         return ApiResponse::success(null, __('messages.success_delete'));
     }
 
-    /**
-     * Import danh sách phân loại sách từ file Excel.
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function import(Request $request): JsonResponse
+    public function downloadImportTemplate(): StreamedResponse
     {
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-        ]);
-        $summary = $this->classificationService->importClassifications($request->file('file'));
-        return ApiResponse::success($summary, __('messages.success_import'));
-    }
-
-    /**
-     * Tải file mẫu nhập phân loại sách.
-     *
-     * @return BinaryFileResponse
-     */
-    public function downloadImportTemplate(): BinaryFileResponse
-    {
-        $disk = Storage::disk('public');
-        $file = 'Mẫu nhập phân loại sách.xlsx';
-        if ($disk->exists($file)) {
-            return response()->download(storage_path('app/public/' . $file));
-        }
-        $export = new SimpleTableExport(collect(), ['Mã phân loại', 'Tên phân loại']);
-        Excel::store($export, $file, 'public');
-        return response()->download(storage_path('app/public/' . $file));
-    }
-
-    /**
-     * Xuất danh sách phân loại sách ra file Excel.
-     *
-     * @param Request $request
-     * @return BinaryFileResponse
-     */
-    public function export(Request $request): BinaryFileResponse
-    {
-        $ids = $request->input('ids');
-        if (is_array($ids)) {
-            $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
-        } else {
-            $ids = null;
-        }
-        return $this->classificationService->exportClassifications($ids);
+        return ClassificationImportTemplateExport::stream();
     }
 }

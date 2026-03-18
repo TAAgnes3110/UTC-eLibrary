@@ -13,6 +13,7 @@ import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import { getRoleInfo, getStatusInfo } from '@/config/enums';
 import { usersApi } from '@/api/users';
+import { toast } from '@/store/toast';
 
 const props = defineProps({
     users: {
@@ -300,8 +301,30 @@ const onRestoreUser = async (id) => {
             await fetchUsers();
         }
         await fetchTrash();
+        toast.success('Đã khôi phục.', { title: 'Thùng rác' });
     } catch (e) {
         console.error('Lỗi khi khôi phục tài khoản:', e);
+        toast.error('Không thể khôi phục. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
+};
+
+const onRestoreManyUsers = async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (!confirm(`Khôi phục ${ids.length} mục?`)) return;
+    try {
+        if (typeof usersApi.restoreMany === 'function') {
+            await usersApi.restoreMany(ids);
+        } else {
+            await Promise.all(ids.map((id) => usersApi.restore(id)));
+        }
+        if (typeof fetchUsers === 'function') {
+            await fetchUsers();
+        }
+        await fetchTrash();
+        toast.success(`Đã khôi phục ${ids.length} mục.`, { title: 'Thùng rác' });
+    } catch (e) {
+        console.error('Lỗi khi khôi phục nhiều tài khoản:', e);
+        toast.error('Không thể khôi phục các mục đã chọn.', { title: 'Thùng rác' });
     }
 };
 
@@ -309,12 +332,36 @@ const onForceDeleteUser = async (id) => {
     if (!confirm('Xóa vĩnh viễn? Không thể khôi phục.')) return;
     try {
         await usersApi.forceDelete(id);
+        trashedUsers.value = (trashedUsers.value || []).filter((u) => u.id !== id);
         if (typeof fetchUsers === 'function') {
             await fetchUsers();
         }
         await fetchTrash();
+        toast.success('Đã xóa vĩnh viễn.', { title: 'Thùng rác' });
     } catch (e) {
         console.error('Lỗi khi xóa vĩnh viễn tài khoản:', e);
+        toast.error('Không thể xóa vĩnh viễn. Vui lòng thử lại.', { title: 'Thùng rác' });
+    }
+};
+
+const onForceDeleteManyUsers = async (ids) => {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    if (!confirm(`Xóa vĩnh viễn ${ids.length} mục? Không thể khôi phục.`)) return;
+    try {
+        if (typeof usersApi.forceDeleteMany === 'function') {
+            await usersApi.forceDeleteMany(ids);
+        } else {
+            await Promise.all(ids.map((id) => usersApi.forceDelete(id)));
+        }
+        trashedUsers.value = (trashedUsers.value || []).filter((u) => !ids.includes(u.id));
+        if (typeof fetchUsers === 'function') {
+            await fetchUsers();
+        }
+        await fetchTrash();
+        toast.success(`Đã xóa vĩnh viễn ${ids.length} mục.`, { title: 'Thùng rác' });
+    } catch (e) {
+        console.error('Lỗi khi xóa vĩnh viễn nhiều tài khoản:', e);
+        toast.error('Không thể xóa vĩnh viễn các mục đã chọn.', { title: 'Thùng rác' });
     }
 };
 
@@ -353,7 +400,7 @@ const exportExcel = async () => {
             params.ids = selectedIds.value;
         } else if (filterValues.value.searchKeyword
             || filterValues.value.status
-            || Object.values(filterValues.value.searchIn || {}).some(Boolean !== undefined)
+            || Object.values(filterValues.value.searchIn || {}).some((v) => v !== undefined)
             || Object.values(filterValues.value.roleFilter || {}).some(Boolean)
         ) {
             params.ids = filteredUsers.value.map((u) => u.id);
@@ -371,8 +418,12 @@ const exportExcel = async () => {
         link.click();
         link.remove();
         window.URL.revokeObjectURL(url);
+        toast.success('Đã xuất Excel.', { title: 'Xuất Excel' });
     } catch (e) {
         console.error('Lỗi khi xuất Excel:', e);
+        const res = e?.response?.data || {};
+        const msg = res?.message || res?.error || 'Không thể xuất Excel.';
+        toast.error(msg, { title: 'Xuất Excel' });
     }
 };
 
@@ -408,7 +459,7 @@ const uploadAvatar = async (file) => {
         } else {
             const userId = avatarTargetUserId.value ?? selectedIds.value[0];
             if (!userId) {
-                alert('Vui lòng chọn đúng 1 người để cập nhật ảnh đại diện.');
+                toast.info('Vui lòng chọn đúng 1 người để cập nhật ảnh đại diện.', { title: 'Ảnh đại diện' });
                 avatarUploadLoading.value = false;
                 return;
             }
@@ -416,13 +467,13 @@ const uploadAvatar = async (file) => {
             await usersApi.updateAvatar(userId, formData);
         }
         await fetchUsers();
-        alert('Cập nhật ảnh đại diện thành công.');
+        toast.success('Cập nhật ảnh đại diện thành công.', { title: 'Ảnh đại diện' });
         closeAvatarModal();
     } catch (err) {
         console.error('Lỗi khi cập nhật ảnh đại diện:', err);
         const res = err?.response?.data || {};
         const message = res.message || res.error || 'Cập nhật ảnh đại diện không thành công. Vui lòng kiểm tra lại file.';
-        alert(message);
+        toast.error(message, { title: 'Ảnh đại diện' });
     } finally {
         avatarUploadLoading.value = false;
     }
@@ -532,8 +583,11 @@ const uploadAvatar = async (file) => {
                                 </td>
                                 <td class="p-4">
                                     <div class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden relative group/avatar">
-                                        <img v-if="user.avatar" :src="user.avatar" :alt="user.name" class="h-full w-full object-cover" />
-                                        <span v-else>{{ (user.name || '?').charAt(0).toUpperCase() }}</span>
+                                        <img
+                                            :src="user.avatar || '/images/default-avatar.png'"
+                                            :alt="user.name || 'Avatar'"
+                                            class="h-full w-full object-cover"
+                                        />
                                         <button
                                             type="button"
                                             class="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center rounded-lg cursor-pointer"
@@ -847,13 +901,15 @@ const uploadAvatar = async (file) => {
         />
         <AdminTrashDrawer
             :show="showTrashDrawer"
-            title="Thùng rác – Tài khoản"
+            title="Thùng rác"
             item-label-key="name"
             :items="trashedUsers"
             :loading="loadingTrash"
             @close="showTrashDrawer = false"
             @restore="onRestoreUser"
+            @restore-many="onRestoreManyUsers"
             @force-delete="onForceDeleteUser"
+            @force-delete-many="onForceDeleteManyUsers"
         />
     </AdminLayout>
 </template>

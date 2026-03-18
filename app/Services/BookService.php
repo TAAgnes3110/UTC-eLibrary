@@ -2,21 +2,16 @@
 
 namespace App\Services;
 
-use App\Enums\ImportStatus;
-use App\Enums\ImportType;
-use App\Helpers\ImageUploadHelper;
-use App\Exports\BookFileMauExport;
-use App\Jobs\ProcessBookImport;
+use App\Exports\BooksWorkbookExport;
+use App\Helpers\FileHelpers;
 use App\Models\Book;
+use App\Imports\BookImport;
 use App\Models\ClassificationDetail;
-use App\Models\Import;
 use App\Models\Warehouse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BookService
 {
@@ -115,6 +110,16 @@ class BookService
         return $book;
     }
 
+    /** @return int số bản ghi đã khôi phục */
+    public function restoreMany(array $ids): int
+    {
+        $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
+        if (empty($ids)) {
+            return 0;
+        }
+        return (int) Book::onlyTrashed()->whereIn('id', $ids)->restore();
+    }
+
     public function forceDelete(int $id): bool
     {
         $book = Book::onlyTrashed()->find($id);
@@ -124,22 +129,23 @@ class BookService
         $book->forceDelete();
         return true;
     }
-    public function updateAvatar(Book $book, UploadedFile $file): ?array
+
+    /** @return int số bản ghi đã xóa vĩnh viễn */
+    public function forceDeleteMany(array $ids): int
     {
-        if (!$file->isValid()) {
-            return null;
+        $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
+        if (empty($ids)) {
+            return 0;
         }
-        $ext = strtolower($file->getClientOriginalExtension() ?: '');
-        if (!in_array($ext, ImageUploadHelper::ALLOWED_EXTENSIONS, true)) {
-            throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ') . implode(', ', ImageUploadHelper::ALLOWED_EXTENSIONS) . '.');
-        }
-        $path = ImageUploadHelper::updateModelImage(
-            $book,
-            $file,
-            'books',
-            'cover_image',
-            $book->code ?: (string) $book->id
-        );
+        return Book::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+    }
+
+    /**
+     * @return array{cover_image: string}
+     */
+    public function updateCoverImage(Book $book, UploadedFile $file): array
+    {
+        $path = FileHelpers::updateModelImage($book, $file, 'books', 'cover_image', $book->code ?: (string) $book->id);
         return ['cover_image' => $path];
     }
 
@@ -154,38 +160,14 @@ class BookService
         ];
     }
 
-    /**
-     * Import danh sách sách từ file Excel (chạy nền qua queue).
-     *
-     * @param UploadedFile $file
-     * @return array{import_id:int,status:string}
-     */
-    public function importBooks(UploadedFile $file): array
+    public function exportBooks(?array $ids = null): StreamedResponse
     {
-        $storedPath = $file->store('imports/books', 'local');
-
-        $import = Import::create([
-            'type' => ImportType::BOOK,
-            'status' => ImportStatus::PENDING,
-            'file_path' => $storedPath,
-            'created_by' => Auth::id(),
-        ]);
-
-        ProcessBookImport::dispatch($import);
-
-        return [
-            'import_id' => $import->id,
-            'status' => $import->status->value,
-        ];
+        return BooksWorkbookExport::stream($ids);
     }
 
-    public function exportBooks(?array $ids = null): BinaryFileResponse
+    public function importBooks(UploadedFile $file): array
     {
-        $export = new BookFileMauExport($ids);
-        return Excel::download(
-            $export,
-            'FileSach.xlsx'
-        );
+        return BookImport::import($file);
     }
 
     /**
@@ -228,5 +210,62 @@ class BookService
         }
         $orderPart = str_pad((string) $nextOrder, 4, '0', STR_PAD_LEFT);
         return sprintf('%s-%s-%s', $shortClassificationCode, $warehouse->code, $orderPart);
+    }
+
+    /**
+     * Bulk update book cover từ zip (file name = book.code).
+     *
+     * @return array{updated:int,skipped:int}
+     */
+    public function bulkUpdateCoverFromZip(UploadedFile $zipFile): array
+    {
+        $tmpDir = FileHelpers::extractZipToTemp($zipFile, 'book-covers');
+        $updated = 0;
+        $skipped = 0;
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
+            );
+            foreach ($iterator as $fileInfo) {
+                if (!$fileInfo->isFile()) {
+                    continue;
+                }
+                $ext = strtolower($fileInfo->getExtension() ?: '');
+                if (!in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
+                    $skipped++;
+                    continue;
+                }
+                $code = $fileInfo->getBasename('.' . $ext);
+                if ($code === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                $book = Book::query()->where('code', $code)->first();
+                if (!$book) {
+                    $skipped++;
+                    continue;
+                }
+
+                $uploaded = new UploadedFile(
+                    $fileInfo->getPathname(),
+                    $fileInfo->getBasename(),
+                    'image/' . $ext,
+                    null,
+                    true
+                );
+                try {
+                    FileHelpers::updateModelImage($book, $uploaded, 'books', 'cover_image', $book->code ?: (string) $book->id);
+                    $updated++;
+                } catch (\Throwable) {
+                    $skipped++;
+                }
+            }
+        } finally {
+            FileHelpers::removeDirectory($tmpDir);
+        }
+
+        return ['updated' => $updated, 'skipped' => $skipped];
     }
 }

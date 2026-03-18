@@ -6,14 +6,12 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\WarehouseRequest;
 use App\Http\Resources\WarehouseResoure;
+use App\Exports\WarehouseImportTemplateExport;
 use App\Models\Warehouse;
 use App\Services\WarehouseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use App\Exports\SimpleTableExport;
-use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WarehouseController extends Controller
 {
@@ -109,6 +107,16 @@ class WarehouseController extends Controller
         }
         return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_restore'));
     }
+
+    public function restoreMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $restored = $this->warehouseService->restoreMany($request->input('ids', []));
+        return ApiResponse::success(['restored' => $restored], __('messages.success_restore'));
+    }
     /**
      * Xóa vĩnh viễn kho
      * @param int $id
@@ -120,6 +128,16 @@ class WarehouseController extends Controller
             return ApiResponse::notFound(__('messages.error_404'));
         }
         return ApiResponse::success(null, __('messages.success_force_delete'));
+    }
+
+    public function forceDeleteMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $deleted = $this->warehouseService->forceDeleteMany($request->input('ids', []));
+        return ApiResponse::success(['deleted' => $deleted], __('messages.success_force_delete'));
     }
     /**
      * Cập nhật trạng thái kho
@@ -163,47 +181,32 @@ class WarehouseController extends Controller
         return ApiResponse::success(WarehouseResoure::collection($items));
     }
 
-    /**
-     * Import danh sách kho từ file Excel.
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
+    public function downloadImportTemplate(): StreamedResponse
+    {
+        return WarehouseImportTemplateExport::stream();
+    }
+
     public function import(Request $request): JsonResponse
     {
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv',
         ]);
-        $summary = $this->warehouseService->importWarehouses($request->file('file'));
-        return ApiResponse::success($summary, __('messages.success_import'));
-    }
-
-    public function downloadImportTemplate(): BinaryFileResponse
-    {
-        $disk = Storage::disk('public');
-        $file = 'Mẫu nhập kho sách.xlsx';
-        if ($disk->exists($file)) {
-            return response()->download(storage_path('app/public/' . $file));
+        $file = $request->file('file');
+        if (!$file) {
+            return ApiResponse::error(__('Vui lòng chọn file Excel.'), 422);
         }
-        $export = new SimpleTableExport(collect(), ['Mã', 'Tên']);
-        return Excel::download($export, $file);
+        $summary = $this->warehouseService->importWarehouses($file);
+        return ApiResponse::success($summary, __('Đã import kho sách xong.'));
     }
 
-    /**
-     * Xuất danh sách kho ra file Excel.
-     * @param Request $request
-     * @return BinaryFileResponse
-     */
-    public function exportWarehouses(Request $request): BinaryFileResponse
+    public function exportWarehouses(Request $request): StreamedResponse
     {
         $ids = $request->input('ids');
         if (is_array($ids)) {
-            $ids = array_filter($ids, fn ($v) => is_numeric($v));
+            $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
         } else {
             $ids = null;
         }
         return $this->warehouseService->exportWarehouses($ids);
     }
-
-
 }

@@ -1,519 +1,518 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Helpers;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Writer\Csv;
-use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Writer\Csv;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class FileHelpers
+final class FileHelpers
 {
-  /**
-   * Các extension Excel được hỗ trợ.
-   */
-  public const EXCEL_EXTENSIONS = ['xlsx', 'xls', 'csv'];
+    public const EXCEL_EXTENSIONS = ['xlsx', 'xls', 'csv'];
+    public const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
-  /**
-   * Lấy extension của file.
-   *
-   * @param UploadedFile|string $file
-   * @return string
-   */
-  public static function getFileExtension(UploadedFile|string $file): string
-  {
-    if ($file instanceof UploadedFile) {
-      return strtolower($file->getClientOriginalExtension());
-    }
-    return strtolower(pathinfo((string) $file, PATHINFO_EXTENSION));
-  }
+    /**
+     * Lưu file upload lên Storage.
+     * Trả về đường dẫn tương đối (để lưu DB).
+     */
+    public static function storeUploadedFile(
+        UploadedFile $file,
+        string $disk,
+        string $directory,
+        ?string $filename = null
+    ): string {
+        $directory = trim($directory, '/');
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
 
-  /**
-   * Kiểm tra file có phải Excel không.
-   *
-   * @param UploadedFile|string $file
-   * @return bool
-   */
-  public static function isExcelFile(UploadedFile|string $file): bool
-  {
-    return in_array(self::getFileExtension($file), self::EXCEL_EXTENSIONS);
-  }
-
-  /**
-   * Đọc file Excel thành mảng dữ liệu.
-   * Dòng đầu tiên được dùng làm header.
-   *
-   * @param UploadedFile|string $file File upload hoặc đường dẫn
-   * @param int $headerRow Dòng chứa header (mặc định: 1)
-   * @param int|null $sheetIndex Index của sheet cần đọc (mặc định: 0 - sheet đầu tiên)
-   * @return array{headers: string[], rows: array[], total_rows: int}
-   */
-  public static function readExcel(UploadedFile|string $file, int $headerRow = 1, ?int $sheetIndex = 0): array
-  {
-    $filePath = $file instanceof UploadedFile ? $file->getRealPath() : $file;
-    $spreadsheet = IOFactory::load($filePath);
-    $worksheet = $spreadsheet->getSheet($sheetIndex ?? 0);
-    $data = $worksheet->toArray(null, true, true, true);
-
-    if (empty($data) || !isset($data[$headerRow])) {
-      return ['headers' => [], 'rows' => [], 'total_rows' => 0];
-    }
-
-    $rawHeaders = $data[$headerRow];
-    $headers = self::normalizeHeaders($rawHeaders);
-
-    $rows = [];
-    foreach ($data as $rowIndex => $rowData) {
-      if ($rowIndex <= $headerRow) {
-        continue;
-      }
-
-      $values = array_values($rowData);
-      if (self::isEmptyRow($values)) {
-        continue;
-      }
-
-      $mapped = [];
-      foreach ($headers as $colLetter => $headerName) {
-        $mapped[$headerName] = isset($rowData[$colLetter]) ? trim((string) $rowData[$colLetter]) : null;
-      }
-      $mapped['_row_number'] = $rowIndex;
-      $rows[] = $mapped;
-    }
-
-    $spreadsheet->disconnectWorksheets();
-    unset($spreadsheet);
-
-    return [
-      'headers' => array_values($headers),
-      'rows' => $rows,
-      'total_rows' => count($rows),
-    ];
-  }
-
-  /**
-   * Xuất danh sách dữ liệu ra file Excel và tải về trực tiếp.
-   *
-   * @param array $data Dữ liệu cần xuất
-   * @param string $filename Tên file (VD: export.xlsx)
-   * @param array|null $headers Header của các cột (tùy chọn)
-   * @return StreamedResponse
-   */
-  public static function downloadExcel(array $data, string $filename = 'export.xlsx', ?array $headers = null): StreamedResponse
-  {
-    $spreadsheet = self::createExcelExport($data, $headers);
-    $ext = self::getFileExtension($filename);
-
-    if ($ext === 'csv') {
-      $writer = new Csv($spreadsheet);
-      $contentType = 'text/csv';
-    } else {
-      $writer = new Xlsx($spreadsheet);
-      $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    }
-
-    return response()->streamDownload(function () use ($writer) {
-      $writer->save('php://output');
-    }, $filename, [
-      'Content-Type' => $contentType,
-      'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-      'Cache-Control' => 'max-age=0',
-    ]);
-  }
-
-  /**
-   * Hỗ trợ lùi phiên bản cho hàm cũ (lưu vào ổ đĩa).
-   */
-  public static function exportExcel(array $data, string $filename, ?array $headers = null): void
-  {
-    self::saveExcel($data, $filename, $headers);
-  }
-
-  /**
-   * Xuất danh sách dữ liệu ra file Excel và lưu vào server.
-   *
-   * @param array $data Dữ liệu cần xuất
-   * @param string $path Đường dẫn file lưu
-   * @param array|null $headers Header của các cột (tùy chọn)
-   */
-  public static function saveExcel(array $data, string $path, ?array $headers = null): void
-  {
-    $spreadsheet = self::createExcelExport($data, $headers);
-    $ext = self::getFileExtension($path);
-
-    if ($ext === 'csv') {
-      $writer = new Csv($spreadsheet);
-    } else {
-      $writer = new Xlsx($spreadsheet);
-    }
-
-    $writer->save($path);
-  }
-
-  /**
-   * Khởi tạo đối tượng Spreadsheet từ dữ liệu. Thêm định dạng sẵn (kẻ viền, nền, wrap, auto-size).
-   *
-   * @param array $data Dữ liệu cần xuất
-   * @param array|null $headers Header của các cột (tùy chọn)
-   */
-  public static function createExcelExport(array $data, ?array $headers = null): Spreadsheet
-  {
-    $spreadsheet = new Spreadsheet();
-    $worksheet = $spreadsheet->getActiveSheet();
-    $worksheet->setTitle('Sheet 1');
-
-    $rowIndex = 1;
-    if ($headers === null && !empty($data)) {
-      $firstRow = reset($data);
-      if (is_array($firstRow) && count(array_filter(array_keys($firstRow), 'is_string')) > 0) {
-        $headers = array_keys($firstRow);
-      }
-    }
-    if (!empty($headers)) {
-      $colIndex = 1;
-      foreach ($headers as $header) {
-        $colLetter = Coordinate::stringFromColumnIndex($colIndex);
-        $worksheet->setCellValue($colLetter . $rowIndex, is_string($header) ? $header : '');
-        $colIndex++;
-      }
-
-      $lastColIndex = count($headers);
-      $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
-
-      $headerStyle = [
-        'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
-        'alignment' => [
-          'horizontal' => Alignment::HORIZONTAL_CENTER,
-          'vertical' => Alignment::VERTICAL_CENTER,
-        ],
-        'borders' => [
-          'allBorders' => ['borderStyle' => Border::BORDER_THIN],
-        ],
-        'fill' => [
-          'fillType' => Fill::FILL_SOLID,
-          'startColor' => ['argb' => 'FF4F81BD'],
-        ],
-      ];
-      $worksheet->getStyle('A1:' . $lastCol . '1')->applyFromArray($headerStyle);
-      $worksheet->getRowDimension(1)->setRowHeight(25);
-
-      $rowIndex++;
-    }
-    $lastColIndex = 1;
-    if (!empty($data)) {
-      $dataValues = [];
-      foreach ($data as $row) {
-        if (is_array($row)) {
-          $dataValues[] = array_values($row);
-        } else {
-          $dataValues[] = (array) $row;
+        $name = $filename ? trim($filename) : Str::uuid()->toString();
+        if ($ext !== '') {
+            $name .= '.' . $ext;
         }
-      }
 
-      $itemCountRow = !empty($dataValues[0]) ? count($dataValues[0]) : 1;
-      $lastColIndex = max(!empty($headers) ? count($headers) : 1, $itemCountRow);
-      $worksheet->fromArray($dataValues, null, 'A' . $rowIndex, true);
-
-      $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
-      $lastRow = $rowIndex + count($dataValues) - 1;
-      $dataStyle = [
-        'borders' => [
-          'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFAAAAAA']],
-        ],
-        'alignment' => [
-          'vertical' => Alignment::VERTICAL_CENTER,
-          'wrapText' => true
-        ],
-      ];
-      $worksheet->getStyle('A' . $rowIndex . ':' . $lastCol . $lastRow)->applyFromArray($dataStyle);
-    }
-    for ($i = 1; $i <= $lastColIndex; $i++) {
-      $colText = Coordinate::stringFromColumnIndex($i);
-      $worksheet->getColumnDimension($colText)->setAutoSize(true);
+        return $file->storeAs($directory, $name, $disk);
     }
 
-    return $spreadsheet;
-  }
-
-  /**
-   * Tạo file Excel mẫu cho thủ thư nhập kho (4 sheet).
-   * Sheet 1: NhapSach (cột trùng file mẫu). Sheet 2–4: TheLoai, TheLoaiChiTiet, KhoSach.
-   *
-   * @return Spreadsheet
-   */
-  public static function createLibraryTemplate(): Spreadsheet
-  {
-    $spreadsheet = new Spreadsheet();
-    $styleHeader = [
-      'font' => ['bold' => true],
-      'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
-      'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE0E0E0']],
-    ];
-    $ws1 = $spreadsheet->getActiveSheet();
-    $ws1->setTitle('NhapSach');
-    $headers1 = ['MaSach', 'TenSach', 'TacGia', 'NhaXuatBan', 'NamXuatBan', 'MaTheLoai', 'MaChiTiet', 'SoLuong', 'GiaTien', 'MaKho', 'ViTriKho', 'GhiChu'];
-    $col = 1;
-    foreach ($headers1 as $h) {
-      $ws1->setCellValueByColumnAndRow($col++, 1, $h);
+    public static function deleteIfExists(?string $path, string $disk = 'public'): void
+    {
+        if (empty($path) || str_starts_with($path, 'http')) {
+            return;
+        }
+        if (Storage::disk($disk)->exists($path)) {
+            Storage::disk($disk)->delete($path);
+        }
     }
-    $ws1->getStyle('A1:' . Coordinate::stringFromColumnIndex(count($headers1)) . '1')->applyFromArray($styleHeader);
-    $ws2 = $spreadsheet->createSheet();
-    $ws2->setTitle('TheLoai');
-    $ws2->fromArray(['MaTheLoai', 'TenTheLoai', 'MoTa'], null, 'A1');
-    $ws2->fromArray([['TL01', 'Toán học', 'Sách toán tiểu học'], ['TL02', 'Ngữ văn', 'Sách tiếng Việt – văn học'], ['TL03', 'Khoa học', 'Sách khoa học tự nhiên']], null, 'A2');
-    $ws2->getStyle('A1:C1')->applyFromArray($styleHeader);
-    $ws3 = $spreadsheet->createSheet();
-    $ws3->setTitle('TheLoaiChiTiet');
-    $ws3->fromArray(['MaChiTiet', 'MaTheLoai', 'TenChiTiet'], null, 'A1');
-    $ws3->fromArray([['CT01', 'TL01', 'Toán lớp 1'], ['CT02', 'TL01', 'Toán lớp 2'], ['CT03', 'TL02', 'Tiếng Việt lớp 1']], null, 'A2');
-    $ws3->getStyle('A1:C1')->applyFromArray($styleHeader);
-    $ws4 = $spreadsheet->createSheet();
-    $ws4->setTitle('KhoSach');
-    $ws4->fromArray(['MaKho', 'TenKho', 'ViTri', 'MoTa'], null, 'A1');
-    $ws4->fromArray([['K1', 'Kho A', 'Tầng 1', 'Khu sách giáo khoa'], ['K2', 'Kho B', 'Tầng 2', 'Khu sách tham khảo']], null, 'A2');
-    $ws4->getStyle('A1:D1')->applyFromArray($styleHeader);
 
-    return $spreadsheet;
-  }
-
-  /**
-   * Normalize headers: trim, lowercase, bỏ dấu cách thừa.
-   *
-   * @param array $rawHeaders
-   * @return array<string, string> [colLetter => normalizedName]
-   */
-  public static function normalizeHeaders(array $rawHeaders): array
-  {
-    $headers = [];
-    foreach ($rawHeaders as $colLetter => $value) {
-      if ($value === null || trim((string) $value) === '') {
-        continue;
-      }
-      $normalized = mb_strtolower(trim((string) $value));
-      $normalized = preg_replace('/\s+/', ' ', $normalized);
-      $headers[$colLetter] = $normalized;
+    /**
+     * Replace file: xóa path cũ (nếu có), lưu file mới.
+     */
+    public static function replaceUploadedFile(
+        ?string $oldPath,
+        UploadedFile $file,
+        string $disk,
+        string $directory,
+        ?string $filename = null
+    ): string {
+        self::deleteIfExists($oldPath, $disk);
+        return self::storeUploadedFile($file, $disk, $directory, $filename);
     }
-    return $headers;
-  }
 
-  /**
-   * Kiểm tra xem dòng có trống hoàn toàn không.
-   */
-  public static function isEmptyRow(array $values): bool
-  {
-    foreach ($values as $val) {
-      if ($val !== null && trim((string) $val) !== '') {
-        return false;
-      }
+    /**
+     * Update một field path trên model (và save).
+     */
+    public static function updateModelFilePath(
+        Model $model,
+        string $attribute,
+        string $path
+    ): void {
+        $model->{$attribute} = $path;
+        $model->save();
     }
-    return true;
-  }
 
-  /**
-   * Parse giá trị ngày tháng từ Excel.
-   * Hỗ trợ: Excel serial number, Y-m-d, d/m/Y, d-m-Y.
-   *
-   * @param mixed $value
-   * @return string|null Ngày dạng Y-m-d hoặc null
-   */
-  public static function parseDate(mixed $value): ?string
-  {
-    if (empty($value)) {
-      return null;
+    /**
+     * Update ảnh cho model:
+     * - validate extension
+     * - xóa ảnh cũ
+     * - lưu ảnh mới vào upload/{table}
+     * - gán path vào field và save
+     *
+     * @throws \InvalidArgumentException
+     */
+    public static function updateModelImage(
+        Model $model,
+        UploadedFile $file,
+        string $table,
+        string $attribute,
+        ?string $baseName = null,
+        string $disk = 'public'
+    ): string {
+        if (!$file->isValid()) {
+            throw new \InvalidArgumentException(__('File không hợp lệ.'));
+        }
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
+        if (!in_array($ext, self::IMAGE_EXTENSIONS, true)) {
+            throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ') . implode(', ', self::IMAGE_EXTENSIONS) . '.');
+        }
+
+        self::deleteIfExists((string) ($model->{$attribute} ?? null), $disk);
+
+        $baseName ??= $model->code ?? (string) $model->id;
+        $directory = \App\Enums\UploadDirectory::forTable($table);
+        $path = $file->storeAs(trim($directory, '/'), $baseName . '.' . $ext, $disk);
+
+        $model->{$attribute} = $path;
+        $model->save();
+
+        return $path;
     }
-    if (is_numeric($value) && (int) $value > 30000) {
-      try {
-        $date = ExcelDate::excelToDateTimeObject((int) $value);
-        return $date->format('Y-m-d');
-      } catch (\Throwable) {
+
+    public static function getFileExtension(UploadedFile|string $file): string
+    {
+        if ($file instanceof UploadedFile) {
+            return strtolower($file->getClientOriginalExtension() ?: '');
+        }
+        return strtolower(pathinfo((string) $file, PATHINFO_EXTENSION));
+    }
+
+    public static function isExcelFile(UploadedFile|string $file): bool
+    {
+        return in_array(self::getFileExtension($file), self::EXCEL_EXTENSIONS, true);
+    }
+
+    /**
+     * Đọc Excel/CSV thành array rows với header normalize.
+     *
+     * @return array{headers: string[], rows: array<int,array<string,?string>>, total_rows: int}
+     */
+    public static function readExcel(UploadedFile|string $file, int $headerRow = 1, ?int $sheetIndex = 0): array
+    {
+        $filePath = $file instanceof UploadedFile ? ($file->getRealPath() ?: '') : (string) $file;
+        if ($filePath === '' || !is_file($filePath)) {
+            return ['headers' => [], 'rows' => [], 'total_rows' => 0];
+        }
+
+        $spreadsheet = IOFactory::load($filePath);
+        $worksheet = $spreadsheet->getSheet($sheetIndex ?? 0);
+        $data = $worksheet->toArray(null, true, true, true);
+
+        if (empty($data) || !isset($data[$headerRow])) {
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+            return ['headers' => [], 'rows' => [], 'total_rows' => 0];
+        }
+
+        $rawHeaders = $data[$headerRow];
+        $headers = self::normalizeHeaders($rawHeaders);
+
+        $rows = [];
+        foreach ($data as $rowIndex => $rowData) {
+            if ($rowIndex <= $headerRow) {
+                continue;
+            }
+            $values = array_values($rowData);
+            if (self::isEmptyRow($values)) {
+                continue;
+            }
+
+            $mapped = [];
+            foreach ($headers as $colLetter => $headerName) {
+                $mapped[$headerName] = isset($rowData[$colLetter]) ? trim((string) $rowData[$colLetter]) : null;
+            }
+            $mapped['_row_number'] = (string) $rowIndex;
+            $rows[] = $mapped;
+        }
+
+        $spreadsheet->disconnectWorksheets();
+        unset($spreadsheet);
+
+        return [
+            'headers' => array_values($headers),
+            'rows' => $rows,
+            'total_rows' => count($rows),
+        ];
+    }
+
+    /**
+     * Download Excel/CSV (stream) từ mảng rows.
+     */
+    public static function downloadExcel(array $data, string $filename = 'export.xlsx', ?array $headers = null): StreamedResponse
+    {
+        $spreadsheet = self::createSpreadsheet($data, $headers);
+        $ext = self::getFileExtension($filename);
+
+        if ($ext === 'csv') {
+            $writer = new Csv($spreadsheet);
+            $contentType = 'text/csv';
+        } else {
+            $writer = new Xlsx($spreadsheet);
+            $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        }
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * Download một workbook (nhiều sheet).
+     *
+     * @param array<int,array{title:string,headers?:array<int,string>,rows?:array<int,array<int,mixed>>}> $sheets
+     */
+    public static function downloadWorkbook(array $sheets, string $filename = 'template.xlsx'): StreamedResponse
+    {
+        $spreadsheet = self::createWorkbook($sheets);
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Cache-Control' => 'max-age=0',
+        ]);
+    }
+
+    /**
+     * @param array<int,array{title:string,headers?:array<int,string>,rows?:array<int,array<int,mixed>>}> $sheets
+     */
+    public static function createWorkbook(array $sheets): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+        $defs = array_values($sheets);
+        if (empty($defs)) {
+            return $spreadsheet;
+        }
+        $first = $defs[0];
+        $sheet0 = $spreadsheet->getActiveSheet();
+        $sheet0->setTitle((string) ($first['title'] ?? 'Sheet 1'));
+        self::fillWorksheetTable($sheet0, $first['rows'] ?? [], $first['headers'] ?? null);
+        for ($i = 1; $i < count($defs); $i++) {
+            $def = $defs[$i];
+            $ws = new Worksheet($spreadsheet, (string) ($def['title'] ?? ('Sheet ' . ($i + 1))));
+            $spreadsheet->addSheet($ws);
+            self::fillWorksheetTable($ws, $def['rows'] ?? [], $def['headers'] ?? null);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+        return $spreadsheet;
+    }
+
+    public static function createSpreadsheet(array $data, ?array $headers = null): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+        $worksheet = $spreadsheet->getActiveSheet();
+        $worksheet->setTitle('Sheet 1');
+        self::fillWorksheetTable($worksheet, $data, $headers);
+
+        return $spreadsheet;
+    }
+
+    private static function fillWorksheetTable(Worksheet $worksheet, array $data, ?array $headers): void
+    {
+        $worksheet->getStyle($worksheet->calculateWorksheetDimension())->getBorders()->getAllBorders()->setBorderStyle(Border::BORDER_NONE);
+
+        $rowIndex = 1;
+
+        if ($headers === null && !empty($data)) {
+            $firstRow = reset($data);
+            if (is_array($firstRow) && count(array_filter(array_keys($firstRow), 'is_string')) > 0) {
+                $headers = array_keys($firstRow);
+            }
+        }
+
+        if (!empty($headers)) {
+            $colIndex = 1;
+            foreach ($headers as $header) {
+                $colLetter = Coordinate::stringFromColumnIndex($colIndex);
+                $worksheet->setCellValue($colLetter . $rowIndex, is_string($header) ? $header : '');
+                $colIndex++;
+            }
+
+            $lastColIndex = count($headers);
+            $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
+
+            $worksheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                ],
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN],
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FF4F81BD'],
+                ],
+            ]);
+            $worksheet->getRowDimension(1)->setRowHeight(24);
+            $rowIndex++;
+        }
+
+        $lastColIndex = 1;
+        if (!empty($data)) {
+            $dataValues = [];
+            foreach ($data as $row) {
+                $dataValues[] = is_array($row) ? array_values($row) : (array) $row;
+            }
+
+            $itemCountRow = !empty($dataValues[0]) ? count($dataValues[0]) : 1;
+            $lastColIndex = max(!empty($headers) ? count($headers) : 1, $itemCountRow);
+
+            $worksheet->fromArray($dataValues, null, 'A' . $rowIndex, true);
+
+            $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
+            $lastRow = $rowIndex + count($dataValues) - 1;
+            $worksheet->getStyle('A' . $rowIndex . ':' . $lastCol . $lastRow)->applyFromArray([
+                'borders' => [
+                    'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFDDDDDD']],
+                ],
+                'alignment' => [
+                    'vertical' => Alignment::VERTICAL_CENTER,
+                    'wrapText' => true,
+                ],
+            ]);
+        }
+
+        for ($i = 1; $i <= $lastColIndex; $i++) {
+            $col = Coordinate::stringFromColumnIndex($i);
+            $worksheet->getColumnDimension($col)->setAutoSize(true);
+        }
+    }
+
+    /**
+     * Normalize headers: trim, lowercase, bỏ khoảng trắng thừa.
+     *
+     * @return array<string,string> [colLetter => normalizedName]
+     */
+    public static function normalizeHeaders(array $rawHeaders): array
+    {
+        $headers = [];
+        foreach ($rawHeaders as $colLetter => $value) {
+            if ($value === null || trim((string) $value) === '') {
+                continue;
+            }
+            $normalized = mb_strtolower(trim((string) $value));
+            $normalized = preg_replace('/\s+/', ' ', $normalized) ?: $normalized;
+            $headers[$colLetter] = $normalized;
+        }
+        return $headers;
+    }
+
+    public static function isEmptyRow(array $values): bool
+    {
+        foreach ($values as $val) {
+            if ($val !== null && trim((string) $val) !== '') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static function buildImportResult(int $success, int $skipped, array $errors): array
+    {
+        return [
+            'status' => empty($errors) ? 'success' : (($success > 0) ? 'partial' : 'error'),
+            'summary' => [
+                'total_processed' => $success + $skipped + count($errors),
+                'success' => $success,
+                'skipped' => $skipped,
+                'errors' => count($errors),
+            ],
+            'errors' => array_slice($errors, 0, 50),
+        ];
+    }
+
+    public static function getValueByAliases(array $row, array $aliases): ?string
+    {
+        foreach ($aliases as $alias) {
+            $alias = mb_strtolower(trim((string) $alias));
+            if (isset($row[$alias]) && trim((string) $row[$alias]) !== '') {
+                return trim((string) $row[$alias]);
+            }
+        }
         return null;
-      }
     }
 
-    $value = trim((string) $value);
-    $formats = ['Y-m-d', 'd/m/Y', 'd-m-Y', 'm/d/Y', 'Y/m/d'];
-    foreach ($formats as $format) {
-      $date = \DateTime::createFromFormat($format, $value);
-      if ($date && $date->format($format) === $value) {
-        return $date->format('Y-m-d');
-      }
+    public static function parseNumber(mixed $value): ?float
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        $cleaned = preg_replace('/[^\d.,-]/', '', (string) $value) ?? '';
+        if ($cleaned === '') {
+            return null;
+        }
+        if (preg_match('/^\d{1,3}([.,]\d{3})+$/', $cleaned)) {
+            $cleaned = str_replace(['.', ','], '', $cleaned);
+        } elseif (str_contains($cleaned, ',')) {
+            $cleaned = str_replace(',', '.', $cleaned);
+        }
+
+        return is_numeric($cleaned) ? (float) $cleaned : null;
     }
 
-    return null;
-  }
-
-  /**
-   * Parse giá trị số từ Excel (bỏ dấu phẩy, dấu chấm ngàn).
-   *
-   * @param mixed $value
-   * @return float|null
-   */
-  public static function parseNumber(mixed $value): ?float
-  {
-    if ($value === null || trim((string) $value) === '') {
-      return null;
+    public static function parseYear(mixed $value): ?int
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+        $year = (int) trim((string) $value);
+        return ($year >= 1900 && $year <= 2100) ? $year : null;
     }
 
-    $cleaned = preg_replace('/[^\d.,-]/', '', (string) $value);
-    if (preg_match('/^\d{1,3}([.,]\d{3})+$/', $cleaned)) {
-      $cleaned = str_replace(['.', ','], '', $cleaned);
-    } elseif (str_contains($cleaned, ',')) {
-      $cleaned = str_replace(',', '.', $cleaned);
+    /**
+     * Tạo ZIP từ danh sách path trên Storage.
+     *
+     * @param string[] $paths Relative paths theo disk
+     */
+    public static function createZipFromDiskPaths(
+        array $paths,
+        string $zipPath,
+        string $disk = 'public',
+        bool $deleteSources = false
+    ): bool {
+        if (empty($paths)) {
+            return false;
+        }
+        $diskRef = Storage::disk($disk);
+        $zipFullPath = $diskRef->path($zipPath);
+        $zipDir = dirname($zipFullPath);
+        if (!is_dir($zipDir)) {
+            @mkdir($zipDir, 0775, true);
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            return false;
+        }
+
+        $added = 0;
+        foreach ($paths as $p) {
+            if (!$diskRef->exists($p)) {
+                continue;
+            }
+            $zip->addFile($diskRef->path($p), basename($p));
+            $added++;
+        }
+        $zip->close();
+
+        if ($added === 0) {
+            @unlink($zipFullPath);
+            return false;
+        }
+
+        if ($deleteSources) {
+            $diskRef->delete($paths);
+        }
+
+        return true;
     }
 
-    return is_numeric($cleaned) ? (float) $cleaned : null;
-  }
+    /**
+     * Giải nén zip upload ra thư mục tạm (storage/app/tmp/...).
+     * Caller tự cleanup bằng removeDirectory().
+     */
+    public static function extractZipToTemp(UploadedFile $zipFile, string $prefix = 'tmp'): string
+    {
+        if (!$zipFile->isValid()) {
+            throw new \InvalidArgumentException(__('File zip không hợp lệ.'));
+        }
+        $ext = strtolower($zipFile->getClientOriginalExtension() ?: '');
+        if ($ext !== 'zip') {
+            throw new \InvalidArgumentException(__('Chỉ chấp nhận file .zip.'));
+        }
 
-  /**
-   * Parse năm từ giá trị (có thể là số hoặc chuỗi).
-   */
-  public static function parseYear(mixed $value): ?int
-  {
-    if ($value === null || trim((string) $value) === '') {
-      return null;
+        $tmpDir = storage_path('app/tmp/' . $prefix . '-' . Str::uuid()->toString());
+        if (!is_dir($tmpDir)) {
+            mkdir($tmpDir, 0775, true);
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($zipFile->getRealPath()) !== true) {
+            throw new \InvalidArgumentException(__('Không thể đọc file zip.'));
+        }
+        $zip->extractTo($tmpDir);
+        $zip->close();
+
+        return $tmpDir;
     }
 
-    $year = (int) trim((string) $value);
-    return ($year >= 1900 && $year <= 2100) ? $year : null;
-  }
-
-  /**
-   * Tạo kết quả import chuẩn.
-   *
-   * @param int $success Số dòng thành công
-   * @param int $skipped Số dòng bị bỏ qua (trùng lặp)
-   * @param array $errors Danh sách lỗi [['row' => int, 'message' => string]]
-   * @return array
-   */
-  public static function buildImportResult(int $success, int $skipped, array $errors): array
-  {
-    return [
-      'status' => empty($errors) ? 'success' : (($success > 0) ? 'partial' : 'error'),
-      'summary' => [
-        'total_processed' => $success + $skipped + count($errors),
-        'success' => $success,
-        'skipped' => $skipped,
-        'errors' => count($errors),
-      ],
-      'errors' => array_slice($errors, 0, 50),
-    ];
-  }
-
-  /**
-   * Tìm giá trị từ row theo danh sách alias.
-   * @param array $row Dòng dữ liệu (đã map header)
-   * @param array $aliases Danh sách tên cột có thể
-   * @return string|null
-   */
-  public static function getValueByAliases(array $row, array $aliases): ?string
-  {
-    foreach ($aliases as $alias) {
-      $alias = mb_strtolower(trim($alias));
-      if (isset($row[$alias]) && trim((string) $row[$alias]) !== '') {
-        return trim((string) $row[$alias]);
-      }
+    public static function removeDirectory(string $dir): void
+    {
+        if ($dir === '' || !is_dir($dir)) {
+            return;
+        }
+        try {
+            $it = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+            foreach ($it as $file) {
+                if ($file->isDir()) {
+                    @rmdir($file->getPathname());
+                } else {
+                    @unlink($file->getPathname());
+                }
+            }
+            @rmdir($dir);
+        } catch (\Throwable) {
+        }
     }
-    return null;
-  }
-
-  /**
-   * Tạo file ZIP từ danh sách đường dẫn file trên Storage.
-   *
-   * @param string[] $files Danh sách đường dẫn (tương đối theo disk hiện tại)
-   * @param string $zipPath Đường dẫn file zip cần tạo (ví dụ: 'exports/books.zip')
-   * @param bool $deleteSources Có xóa file gốc sau khi nén không
-   * @return bool
-   */
-  public static function createZipFromFiles(array $files, string $zipPath, bool $deleteSources = false): bool
-  {
-    if (empty($files)) {
-      return false;
-    }
-
-    $zipFullPath = Storage::path($zipPath);
-    $zipDir = dirname($zipFullPath);
-    if (! is_dir($zipDir)) {
-      @mkdir($zipDir, 0775, true);
-    }
-
-    $zip = new \ZipArchive();
-    if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-      return false;
-    }
-
-    foreach ($files as $file) {
-      if (! Storage::exists($file)) {
-        continue;
-      }
-      $absolutePath = Storage::path($file);
-      $zip->addFile($absolutePath, basename($file));
-    }
-
-    $zip->close();
-
-    if ($deleteSources) {
-      Storage::delete($files);
-    }
-
-    return true;
-  }
-
-  /**
-   * Nén toàn bộ một thư mục trên Storage thành file ZIP.
-   *
-   * @param string $folder Thư mục nguồn (ví dụ: 'exports/tmp/books')
-   * @param string $zipPath Đường dẫn file zip cần tạo (ví dụ: 'exports/books.zip')
-   * @param string|null $rootFolderName Tên thư mục gốc bên trong file zip (mặc định: tên thư mục cuối của $folder)
-   * @return bool
-   */
-  public static function createZipFromFolder(string $folder, string $zipPath, ?string $rootFolderName = null): bool
-  {
-    if (! Storage::exists($folder)) {
-      return false;
-    }
-
-    $zipFullPath = Storage::path($zipPath);
-    $zipDir = dirname($zipFullPath);
-    if (! is_dir($zipDir)) {
-      @mkdir($zipDir, 0775, true);
-    }
-
-    $zip = new \ZipArchive();
-    if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
-      return false;
-    }
-
-    $rootName = $rootFolderName ?: basename($folder);
-    $basePath = rtrim(Storage::path($folder), DIRECTORY_SEPARATOR);
-    $baseLen = strlen($basePath) + 1;
-
-    $iterator = new \RecursiveIteratorIterator(
-      new \RecursiveDirectoryIterator($basePath, \FilesystemIterator::SKIP_DOTS),
-      \RecursiveIteratorIterator::SELF_FIRST
-    );
-
-    foreach ($iterator as $pathInfo) {
-      $fullPath = $pathInfo->getPathname();
-      $relative = substr($fullPath, $baseLen);
-      $localName = $rootName . '/' . str_replace('\\', '/', $relative);
-
-      if ($pathInfo->isDir()) {
-        $zip->addEmptyDir($localName);
-      } else {
-        $zip->addFile($fullPath, $localName);
-      }
-    }
-
-    $zip->close();
-
-    return true;
-  }
 }

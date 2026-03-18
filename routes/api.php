@@ -93,7 +93,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{user}', [UserController::class, 'show']);
                 Route::put('/{user}', [UserController::class, 'update']);
                 Route::delete('/{user}', [UserController::class, 'destroy']);
+                Route::post('/restore', [UserController::class, 'restoreMany']);
                 Route::post('/restore/{id}', [UserController::class, 'restore']);
+                Route::post('/force', [UserController::class, 'forceDeleteMany']);
+                Route::delete('/force', [UserController::class, 'forceDeleteMany']);
                 Route::delete('/force/{id}', [UserController::class, 'forceDelete']);
             });
 
@@ -116,9 +119,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [ClassificationController::class, 'index']);
                 Route::get('/list', [ClassificationController::class, 'list']);
                 Route::get('/{classification}/details', [ClassificationDetailController::class, 'listByClassification']);
-                Route::get('/export', [ClassificationController::class, 'export']);
                 Route::get('/import-template', [ClassificationController::class, 'downloadImportTemplate']);
-                Route::post('/import', [ClassificationController::class, 'import']);
                 Route::post('/', [ClassificationController::class, 'store']);
                 Route::get('/{classification}', [ClassificationController::class, 'show']);
                 Route::put('/{classification}', [ClassificationController::class, 'update']);
@@ -127,9 +128,7 @@ Route::prefix('v1')->group(function () {
 
             Route::group(['prefix' => '/classification-details'], function () {
                 Route::get('/', [ClassificationDetailController::class, 'index']);
-                 Route::get('/export', [ClassificationDetailController::class, 'export']);
-                 Route::get('/import-template', [ClassificationDetailController::class, 'downloadImportTemplate']);
-                 Route::post('/import', [ClassificationDetailController::class, 'import']);
+                Route::get('/import-template', [ClassificationDetailController::class, 'downloadImportTemplate']);
                 Route::post('/', [ClassificationDetailController::class, 'store']);
                 Route::get('/{classification_detail}', [ClassificationDetailController::class, 'show']);
                 Route::put('/{classification_detail}', [ClassificationDetailController::class, 'update']);
@@ -142,7 +141,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('/import-template', [WarehouseController::class, 'downloadImportTemplate']);
                 Route::post('/import', [WarehouseController::class, 'import']);
                 Route::get('/trash', [WarehouseController::class, 'trash']);
+                Route::post('/restore', [WarehouseController::class, 'restoreMany']);
                 Route::post('/restore/{id}', [WarehouseController::class, 'restore']);
+                Route::post('/force', [WarehouseController::class, 'forceDeleteMany']);
+                Route::delete('/force', [WarehouseController::class, 'forceDeleteMany']);
                 Route::delete('/force/{id}', [WarehouseController::class, 'forceDelete']);
                 Route::post('/{id}/toggle-status', [WarehouseController::class, 'toggleStatus']);
                 Route::post('/', [WarehouseController::class, 'store']);
@@ -168,14 +170,20 @@ Route::prefix('v1')->group(function () {
             Route::group(['prefix' => '/books'], function () {
                 Route::get('/', [BookController::class, 'index']);
                 Route::get('/trash', [BookController::class, 'trash']);
+                Route::get('/import-template', [BookController::class, 'downloadImportTemplate']);
                 Route::get('/export', [BookController::class, 'export']);
                 Route::post('/import', [BookController::class, 'import']);
                 Route::post('/', [BookController::class, 'store']);
                 Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}', [BookController::class, 'update']);
                 Route::delete('/{book}', [BookController::class, 'destroy']);
+                Route::post('/restore', [BookController::class, 'restoreMany']);
                 Route::post('/restore/{id}', [BookController::class, 'restore']);
+                Route::post('/force', [BookController::class, 'forceDeleteMany']);
+                Route::delete('/force', [BookController::class, 'forceDeleteMany']);
                 Route::delete('/force/{id}', [BookController::class, 'forceDelete']);
+                Route::post('/{id}/image', [BookController::class, 'updateImage']);
+                Route::post('/image-bulk', [BookController::class, 'bulkUpdateImage']);
             });
         });
     });

@@ -186,10 +186,11 @@ const getNotifIconBg = (type) => {
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button variant="ghost" class="h-9 w-9 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 p-0 border border-slate-200/50 dark:border-slate-700/50 ring-0 focus-visible:ring-2 focus-visible:ring-blue-500/30">
-                        <img v-if="user?.avatar" :src="user.avatar" :alt="user?.name" class="h-full w-full object-cover" />
-                        <span v-else class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-300 font-bold text-sm">
-                            {{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}
-                        </span>
+                        <img
+                            :src="user?.avatar || '/images/default-avatar.png'"
+                            :alt="user?.name || 'Avatar'"
+                            class="h-full w-full object-cover"
+                        />
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent

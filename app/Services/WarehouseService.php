@@ -2,17 +2,12 @@
 
 namespace App\Services;
 
-use App\Enums\ImportType;
-use App\Enums\ImportStatus;
-use App\Exports\SimpleTableExport;
-use App\Jobs\ProcessWarehouseImport;
-use App\Models\Import;
+use App\Exports\WarehouseExport;
+use App\Imports\WarehouseImport;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WarehouseService
 {
@@ -99,6 +94,16 @@ class WarehouseService
         return $warehouse;
     }
 
+    /** @return int số bản ghi đã khôi phục */
+    public function restoreMany(array $ids): int
+    {
+        $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
+        if (empty($ids)) {
+            return 0;
+        }
+        return (int) Warehouse::onlyTrashed()->whereIn('id', $ids)->restore();
+    }
+
     /**
      * Xóa vĩnh viễn kho
      * @param int $id
@@ -112,6 +117,16 @@ class WarehouseService
         }
         $warehouse->forceDelete();
         return true;
+    }
+
+    /** @return int số bản ghi đã xóa vĩnh viễn */
+    public function forceDeleteMany(array $ids): int
+    {
+        $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
+        if (empty($ids)) {
+            return 0;
+        }
+        return Warehouse::onlyTrashed()->whereIn('id', $ids)->forceDelete();
     }
 
     /**
@@ -175,53 +190,17 @@ class WarehouseService
     }
 
     /**
-     * Import danh sách kho từ file Excel.
+     * Import danh sách kho từ file Excel/CSV (sync).
      *
-     * @param UploadedFile $file
-     * @return array{import_id:int,status:string}
+     * @return array
      */
     public function importWarehouses(UploadedFile $file): array
     {
-        $storedPath = $file->store('imports/warehouses', 'local');
-
-        $import = Import::create([
-            'type' => ImportType::WAREHOUSE,
-            'status' => ImportStatus::PENDING,
-            'file_path' => $storedPath,
-            'created_by' => Auth::id(),
-        ]);
-
-        ProcessWarehouseImport::dispatch($import);
-
-        return [
-            'import_id' => $import->id,
-            'status' => $import->status->value,
-        ];
+        return WarehouseImport::import($file);
     }
 
-    public function exportWarehouses(?array $ids = null): BinaryFileResponse
+    public function exportWarehouses(?array $ids = null): StreamedResponse
     {
-        $query = Warehouse::query()
-            ->with('parent:id,code,name');
-        if (!empty($ids)) {
-            $query->whereIn('id', $ids);
-        }
-        $rows = $query
-            ->orderBy('id')
-            ->get()
-            ->map(function (Warehouse $warehouse) {
-                return [
-                    $warehouse->code,
-                    $warehouse->name,
-                ];
-            });
-        $headings = [
-            'Mã',
-            'Tên',
-        ];
-        return Excel::download(
-            new SimpleTableExport($rows, $headings),
-            'FileKhoSach.xlsx'
-        );
+        return WarehouseExport::stream($ids);
     }
 }

@@ -1,69 +1,50 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Imports;
 
+use App\Helpers\FileHelpers;
 use App\Models\Warehouse;
-use Illuminate\Support\Collection;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
-use Maatwebsite\Excel\Concerns\SkipsFailures;
-use Maatwebsite\Excel\Concerns\SkipsOnFailure;
-use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithStartRow;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Illuminate\Http\UploadedFile;
 
-class WarehouseImport implements ToCollection, WithStartRow, WithChunkReading, SkipsOnFailure, SkipsEmptyRows, ShouldQueue
+final class WarehouseImport
 {
-    use SkipsFailures;
+    public const CODE_ALIASES = ['mã', 'ma', 'mã kho', 'ma kho', 'makho', 'ma_kho', 'Mã', 'code'];
+    public const NAME_ALIASES = ['tên', 'ten', 'tên kho', 'ten kho', 'tenkho', 'ten_kho', 'Tên', 'name'];
 
-    private int $created = 0;
-    private int $updated = 0;
-
-    public function startRow(): int
+    public static function import(UploadedFile $file): array
     {
-        return 3;
-    }
+        $result = FileHelpers::readExcel($file, 1, 0);
+        $rows = $result['rows'];
 
-    public function chunkSize(): int
-    {
-        return 1000;
-    }
+        $success = 0;
+        $skipped = 0;
+        $errors = [];
 
-    /**
-     * @param Collection<int, array<int, mixed>> $rows
-     */
-    public function collection(Collection $rows): void
-    {
         foreach ($rows as $row) {
-            $code = trim((string) ($row[0] ?? ''));
-            $name = trim((string) ($row[1] ?? ''));
-
-            if ($code === '' || $name === '') {
-                continue;
-            }
-            $warehouse = Warehouse::query()->where('code', $code)->first();
-            if ($warehouse) {
-                if ($warehouse->name !== $name) {
-                    $warehouse->name = $name;
-                    $warehouse->save();
+            try {
+                $code = FileHelpers::getValueByAliases($row, self::CODE_ALIASES);
+                $name = FileHelpers::getValueByAliases($row, self::NAME_ALIASES);
+                if (!$code || !$name) {
+                    $skipped++;
+                    continue;
                 }
-                $this->updated++;
-            } else {
+
                 Warehouse::create([
                     'code' => $code,
                     'name' => $name,
                 ]);
-                $this->created++;
+                $success++;
+            } catch (\Throwable $e) {
+                $errors[] = [
+                    'row' => $row['_row_number'] ?? null,
+                    'message' => $e->getMessage(),
+                ];
             }
         }
-    }
 
-    public function getSummary(): array
-    {
-        return [
-            'created' => $this->created,
-            'updated' => $this->updated,
-        ];
+        return FileHelpers::buildImportResult($success, $skipped, $errors);
     }
 }
 

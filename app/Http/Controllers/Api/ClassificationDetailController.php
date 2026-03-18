@@ -3,18 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Helpers\ApiResponse;
+use App\Exports\ClassificationDetailImportTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClassificationDetailRequest;
 use App\Http\Resources\ClassificationDetailResource;
 use App\Models\Classification;
 use App\Models\ClassificationDetail;
 use App\Services\ClassificationDetailService;
-use App\Exports\SimpleTableExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ClassificationDetailController extends Controller
 {
@@ -98,52 +96,8 @@ class ClassificationDetailController extends Controller
         return ApiResponse::success(null, __('messages.success_delete'));
     }
 
-    /**
-     * Import danh sách phân loại sách chi tiết từ file Excel.
-     *
-     * @param Request $request
-     * @return JsonResponse
-     */
-    public function import(Request $request): JsonResponse
+    public function downloadImportTemplate(): StreamedResponse
     {
-        $request->validate([
-            'file' => 'required|file|mimes:xlsx,xls,csv',
-        ]);
-        $summary = $this->classificationDetailService->importClassificationDetails($request->file('file'));
-        return ApiResponse::success($summary, __('messages.success_import'));
-    }
-
-    /**
-     * Tải file mẫu nhập phân loại sách chi tiết.
-     *
-     * @return BinaryFileResponse
-     */
-    public function downloadImportTemplate(): BinaryFileResponse
-    {
-        $disk = Storage::disk('public');
-        $file = 'Mẫu nhập phân loại sách chi tiết.xlsx';
-        if ($disk->exists($file)) {
-            return response()->download(storage_path('app/public/' . $file));
-        }
-        $export = new SimpleTableExport(collect(), ['Mã phân loại chính', 'Mã phân loại chi tiết', 'Tên phân loại chi tiết']);
-        Excel::store($export, $file, 'public');
-        return response()->download(storage_path('app/public/' . $file));
-    }
-
-    /**
-     * Xuất danh sách phân loại sách chi tiết ra file Excel.
-     *
-     * @param Request $request
-     * @return BinaryFileResponse
-     */
-    public function export(Request $request): BinaryFileResponse
-    {
-        $ids = $request->input('ids');
-        if (is_array($ids)) {
-            $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
-        } else {
-            $ids = null;
-        }
-        return $this->classificationDetailService->exportClassificationDetails($ids);
+        return ClassificationDetailImportTemplateExport::stream();
     }
 }

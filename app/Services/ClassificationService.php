@@ -2,18 +2,9 @@
 
 namespace App\Services;
 
-use App\Enums\ImportStatus;
-use App\Enums\ImportType;
 use App\Models\Classification;
-use App\Exports\SimpleTableExport;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Http\UploadedFile;
-use App\Jobs\ProcessClassificationImport;
-use App\Models\Import;
-use Illuminate\Support\Facades\Auth;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Maatwebsite\Excel\Facades\Excel;
 
 class ClassificationService
 {
@@ -57,69 +48,5 @@ class ClassificationService
     {
         $classification->delete();
         MasterDataService::clearCache();
-    }
-
-    /**
-     * Import danh sách phân loại từ file Excel (chạy nền qua queue).
-     *
-     * @param UploadedFile $file
-     * @return array{import_id:int,status:string}
-     */
-    public function importClassifications(UploadedFile $file): array
-    {
-        $storedPath = $file->store('imports/classifications', 'local');
-
-        $import = Import::create([
-            'type' => ImportType::CLASSIFICATION,
-            'status' => ImportStatus::PENDING,
-            'file_path' => $storedPath,
-            'created_by' => Auth::id(),
-        ]);
-
-        ProcessClassificationImport::dispatch($import);
-
-        return [
-            'import_id' => $import->id,
-            'status' => $import->status->value,
-        ];
-    }
-
-    /**
-     * Xuất danh sách phân loại ra file Excel.
-     *
-     * @param array<int,int>|null $ids
-     */
-    public function exportClassifications(?array $ids = null): BinaryFileResponse
-    {
-        $query = Classification::query();
-        if (!empty($ids)) {
-            $query->whereIn('id', $ids);
-        }
-        $rows = $query
-            ->with('parent:id,code,name')
-            ->orderBy('code')
-            ->get()
-            ->map(function (Classification $classification) {
-                return [
-                    $classification->id,
-                    $classification->code,
-                    $classification->name,
-                    optional($classification->parent)->code,
-                    optional($classification->parent)->name,
-                ];
-            });
-
-        $headings = [
-            'ID',
-            'Mã phân loại',
-            'Tên phân loại',
-            'Mã phân loại cha',
-            'Tên phân loại cha',
-        ];
-
-        return Excel::download(
-            new SimpleTableExport($rows, $headings),
-            'danh_sach_phan_loai_sach.xlsx'
-        );
     }
 }

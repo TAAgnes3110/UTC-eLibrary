@@ -22,8 +22,14 @@ export const usersApi = {
     restore(id) {
         return client.post(`/users/restore/${id}`).then((r) => r.data);
     },
+    restoreMany(ids = []) {
+        return client.post('/users/restore', { ids }).then((r) => r.data);
+    },
     forceDelete(id) {
         return client.delete(`/users/force/${id}`).then((r) => r.data);
+    },
+    forceDeleteMany(ids = []) {
+        return client.post('/users/force', { ids }).then((r) => r.data);
     },
     toggleStatus(id) {
         return client.post(`/users/${id}/toggle-status`).then((r) => r.data);

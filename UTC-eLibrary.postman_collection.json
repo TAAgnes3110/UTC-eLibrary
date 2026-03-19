@@ -1,0 +1,406 @@
+{
+  "info": {
+    "name": "UTC-eLibrary API",
+    "description": "Postman collection cho UTC-eLibrary. Bảo mật theo backend: domain/period + Bearer token.",
+    "_postman_id": "7b3a2c31-9c64-4e6c-b3c0-6e6d4c3b2b10",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "BASE_URL", "value": "http://localhost" },
+    { "key": "DOMAIN", "value": "http://localhost" },
+    { "key": "PERIOD", "value": "2025-2026" },
+    { "key": "token", "value": "" },
+    { "key": "otp", "value": "" },
+
+    { "key": "warehouse_id", "value": "1" },
+    { "key": "user_id", "value": "1" },
+    { "key": "book_id", "value": "1" },
+    { "key": "faculty_id", "value": "1" },
+    { "key": "role_id", "value": "1" },
+    { "key": "permission_id", "value": "1" },
+    { "key": "classification_id", "value": "1" },
+    { "key": "classification_detail_id", "value": "1" },
+    { "key": "author_id", "value": "1" },
+    { "key": "publisher_id", "value": "1" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const domain = pm.variables.get('DOMAIN');",
+          "const period = pm.variables.get('PERIOD');",
+          "const token = pm.variables.get('token');",
+          "",
+          "pm.request.headers.upsert({ key: 'domain', value: domain });",
+          "pm.request.headers.upsert({ key: 'period', value: period });",
+          "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });",
+          "pm.request.headers.upsert({ key: 'User-Agent', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36' });",
+          "",
+          "if (token && token.trim().length > 0) {",
+          "  pm.request.headers.upsert({ key: 'Authorization', value: `Bearer ${token}` });",
+          "} else {",
+          "  pm.request.headers.remove('Authorization');",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /api/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{BASE_URL}}/api/health", "host": ["{{BASE_URL}}"], "path": ["api", "health"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth (không cần init)",
+      "item": [
+        {
+          "name": "POST /api/v1/auth/login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"login\": \"admin@utc.edu.vn\",\n  \"password\": \"password\",\n  \"remember\": false\n}"
+            },
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/login", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "login"] }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/v1/auth/refresh",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/refresh", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "refresh"] }
+          }
+        },
+        {
+          "name": "POST /api/v1/auth/logout (init)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/logout", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "logout"] }
+          }
+        },
+        {
+          "name": "GET /api/v1/auth/user (init)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/user", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "user"] }
+          }
+        },
+        {
+          "name": "POST /api/v1/auth/register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"UTCTEST001\",\n  \"name\": \"UTCTEST Name\",\n  \"email\": \"utctest001@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"phone\": \"0912345678\",\n  \"user_type\": \"MEMBER\"\n}"
+            },
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/register", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "register"] }
+          }
+        },
+        {
+          "name": "POST /api/v1/auth/verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"utctest001@example.com\",\n  \"otp\": \"{{otp}}\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/verify-otp", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "verify-otp"] }
+          }
+        },
+        {
+          "name": "POST /api/v1/auth/resend-otp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"utctest001@example.com\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/resend-otp", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "resend-otp"] }
+          }
+          ,
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  const json = pm.response.json();",
+                  "  if (json && json.otp) {",
+                  "    pm.collectionVariables.set('otp', json.otp);",
+                  "  }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/v1/auth/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"utctest001@example.com\",\n  \"otp\": \"{{otp}}\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\"\n}"
+            },
+            "url": { "raw": "{{BASE_URL}}/api/v1/auth/reset-password", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "auth", "reset-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Init (Me/Profile/Master-data)",
+      "item": [
+        {
+          "name": "GET /api/v1/me/profile",
+          "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/me/profile", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "me", "profile"] } }
+        },
+        {
+          "name": "PUT /api/v1/me/profile",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"UTCTEST Name\",\n  \"email\": \"utctest001@example.com\",\n  \"phone\": \"0912345678\",\n  \"gender\": \"male\",\n  \"password\": \"newpassword123\"\n}"
+            },
+            "url": { "raw": "{{BASE_URL}}/api/v1/me/profile", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "me", "profile"] }
+          }
+        },
+        {
+          "name": "GET /api/v1/master-data",
+          "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/master-data", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "master-data"] } }
+        }
+      ]
+    },
+    {
+      "name": "Faculties (apiResource)",
+      "item": [
+        { "name": "GET /api/v1/faculties", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/faculties", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "faculties"] } } },
+        {
+          "name": "POST /api/v1/faculties",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"Khoa Test\", \"code\": \"KTEST\", \"is_active\": true }" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/faculties", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "faculties"] }
+          }
+        },
+        {
+          "name": "GET /api/v1/faculties/{faculty}",
+          "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/faculties/{{faculty_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "faculties", "{{faculty_id}}"] } }
+        },
+        {
+          "name": "PUT /api/v1/faculties/{faculty}",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"Khoa Test Updated\" }" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/faculties/{{faculty_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "faculties", "{{faculty_id}}"] }
+          }
+        },
+        {
+          "name": "DELETE /api/v1/faculties/{faculty}",
+          "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/faculties/{{faculty_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "faculties", "{{faculty_id}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        { "name": "GET /api/v1/users", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/users?keyword=&type=reader", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users"] } } },
+        { "name": "GET /api/v1/users/export", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/users/export", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "export"] } } },
+        { "name": "GET /api/v1/users/trash", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/users/trash", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "trash"] } } },
+        {
+          "name": "POST /api/v1/users/avatar-bulk (form-data zip)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{BASE_URL}}/api/v1/users/avatar-bulk", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "avatar-bulk"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "", "disabled": false }]
+            }
+          }
+        },
+        {
+          "name": "POST /api/v1/users",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"UTCTEST002\",\n  \"name\": \"UTCTEST002\",\n  \"email\": \"utctest002@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"phone\": \"0912345000\",\n  \"user_type\": \"MEMBER\",\n  \"is_active\": true\n}"
+            },
+            "url": { "raw": "{{BASE_URL}}/api/v1/users", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users"] }
+          }
+        },
+        { "name": "POST /api/v1/users/{id}/toggle-status", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/users/{{user_id}}/toggle-status", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "{{user_id}}", "toggle-status"] } } },
+        {
+          "name": "POST /api/v1/users/{id}/avatar (form-data avatar file)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{BASE_URL}}/api/v1/users/{{user_id}}/avatar", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "{{user_id}}", "avatar"] },
+            "body": { "mode": "formdata", "formdata": [{ "key": "avatar", "type": "file", "src": "", "disabled": false }] }
+          }
+        },
+        {
+          "name": "GET /api/v1/users/{user}",
+          "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/users/{{user_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "{{user_id}}"] } }
+        },
+        {
+          "name": "PUT /api/v1/users/{user}",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"name\": \"User Updated\" }" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/users/{{user_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "{{user_id}}"] }
+          }
+        },
+        { "name": "DELETE /api/v1/users/{user}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/users/{{user_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "{{user_id}}"] } } },
+        {
+          "name": "POST /api/v1/users/restore (restoreMany)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/users/restore", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "restore"] }
+          }
+        },
+        { "name": "POST /api/v1/users/restore/{id}", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/users/restore/{{user_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "restore", "{{user_id}}"] } } },
+        { "name": "POST /api/v1/users/force (forceDeleteMany)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/users/force", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "force"] } } },
+        { "name": "DELETE /api/v1/users/force (forceDeleteMany)", "request": { "method": "DELETE", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/users/force", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "force"] } } },
+        { "name": "DELETE /api/v1/users/force/{id} (forceDelete)", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/users/force/{{user_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "users", "force", "{{user_id}}"] } } }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        { "name": "GET /api/v1/roles", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/roles", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles"] } } },
+        { "name": "POST /api/v1/roles", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"ROLE_TEST_1\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/roles", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles"] } } },
+        { "name": "GET /api/v1/roles/{id}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/roles/{{role_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles", "{{role_id}}"] } } },
+        { "name": "PUT /api/v1/roles/{id}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"ROLE_TEST_1_UPDATED\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/roles/{{role_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles", "{{role_id}}"] } } },
+        { "name": "DELETE /api/v1/roles/{id}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/roles/{{role_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles", "{{role_id}}"] } } },
+        { "name": "POST /api/v1/roles/{id}/permissions", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"permission\": \"permissions.index\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/roles/{{role_id}}/permissions", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles", "{{role_id}}", "permissions"] } } },
+        { "name": "DELETE /api/v1/roles/{id}/permissions", "request": { "method": "DELETE", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"permission\": \"permissions.index\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/roles/{{role_id}}/permissions", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "roles", "{{role_id}}", "permissions"] } } }
+      ]
+    },
+    {
+      "name": "Permissions",
+      "item": [
+        { "name": "GET /api/v1/permissions", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/permissions", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "permissions"] } } },
+        { "name": "POST /api/v1/permissions", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"permissions.index\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/permissions", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "permissions"] } } }
+      ]
+    },
+    {
+      "name": "Classifications",
+      "item": [
+        { "name": "GET /api/v1/classifications", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications"] } } },
+        { "name": "GET /api/v1/classifications/list", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/list", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "list"] } } },
+        { "name": "GET /api/v1/classifications/{classification}/details", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}/details", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}", "details"] } } },
+        { "name": "GET /api/v1/classifications/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "import-template"] } } },
+        { "name": "POST /api/v1/classifications", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"code\": \"CL001\", \"name\": \"Phan loai 1\", \"parent_id\": null, \"params\": {} }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classifications", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications"] } } },
+        { "name": "GET /api/v1/classifications/{classification}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}"] } } },
+        { "name": "PUT /api/v1/classifications/{classification}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Phan loai 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}"] } } },
+        { "name": "DELETE /api/v1/classifications/{classification}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}"] } } }
+      ]
+    },
+    {
+      "name": "Classification-details",
+      "item": [
+        { "name": "GET /api/v1/classification-details", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details"] } } },
+        { "name": "GET /api/v1/classification-details/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "import-template"] } } },
+        { "name": "POST /api/v1/classification-details", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"code\": \"CLD001\", \"name\": \"Chi tiet 1\", \"classification_id\": {{classification_id}}, \"parent_id\": null, \"params\": {} }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classification-details", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details"] } } },
+        { "name": "GET /api/v1/classification-details/{classification_detail}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/{{classification_detail_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "{{classification_detail_id}}"] } } },
+        { "name": "PUT /api/v1/classification-details/{classification_detail}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Chi tiet 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/{{classification_detail_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "{{classification_detail_id}}"] } } },
+        { "name": "DELETE /api/v1/classification-details/{classification_detail}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/{{classification_detail_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "{{classification_detail_id}}"] } } }
+      ]
+    },
+    {
+      "name": "Warehouses",
+      "item": [
+        { "name": "GET /api/v1/warehouses", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses"] } } },
+        { "name": "GET /api/v1/warehouses/export", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/export?ids[]=1&ids[]=2", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "export"] } } },
+        { "name": "GET /api/v1/warehouses/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "import-template"] } } },
+        { "name": "POST /api/v1/warehouses/import (form-data file)", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/import", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "import"] }, "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "", "disabled": false }] } } },
+        { "name": "GET /api/v1/warehouses/trash", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/trash", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "trash"] } } },
+        { "name": "POST /api/v1/warehouses/restore (restoreMany)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/restore", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "restore"] } } },
+        { "name": "POST /api/v1/warehouses/restore/{id}", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/restore/{{warehouse_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "restore", "{{warehouse_id}}"] } } },
+        { "name": "POST /api/v1/warehouses/force (forceDeleteMany)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/force", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "force"] } } },
+        { "name": "DELETE /api/v1/warehouses/force (forceDeleteMany)", "request": { "method": "DELETE", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/force", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "force"] } } },
+        { "name": "DELETE /api/v1/warehouses/force/{id} (forceDelete)", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/force/{{warehouse_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "force", "{{warehouse_id}}"] } } },
+        { "name": "POST /api/v1/warehouses/{id}/toggle-status", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/{{warehouse_id}}/toggle-status", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "{{warehouse_id}}", "toggle-status"] } } },
+        {
+          "name": "POST /api/v1/warehouses (store)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"code\": \"WH001\", \"name\": \"Kho 1\", \"is_active\": true }" },
+            "url": { "raw": "{{BASE_URL}}/api/v1/warehouses", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses"] }
+          }
+        },
+        {
+          "name": "GET /api/v1/warehouses/{warehouse}",
+          "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/{{warehouse_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "{{warehouse_id}}"] } }
+        },
+        {
+          "name": "PUT /api/v1/warehouses/{warehouse}",
+          "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Kho 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/{{warehouse_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "{{warehouse_id}}"] } }
+        },
+        { "name": "DELETE /api/v1/warehouses/{warehouse}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/warehouses/{{warehouse_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "warehouses", "{{warehouse_id}}"] } } }
+      ]
+    },
+    {
+      "name": "Books",
+      "item": [
+        { "name": "GET /api/v1/books", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books"] } } },
+        { "name": "GET /api/v1/books/trash", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/trash", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "trash"] } } },
+        { "name": "GET /api/v1/books/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "import-template"] } } },
+        { "name": "GET /api/v1/books/export", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/export?ids[]=1&ids[]=2", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "export"] } } },
+        { "name": "POST /api/v1/books/import (form-data file)", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/books/import", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "import"] }, "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "", "disabled": false }] } } },
+        { "name": "POST /api/v1/books (store)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Sách Test\", \"warehouse_id\": {{warehouse_id}}, \"quantity\": 10 }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books"] } } },
+        { "name": "GET /api/v1/books/{book}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}"] } } },
+        { "name": "PUT /api/v1/books/{book}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Sách Test Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}"] } } },
+        { "name": "DELETE /api/v1/books/{book}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}"] } } },
+        { "name": "POST /api/v1/books/restore (restoreMany)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books/restore", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "restore"] } } },
+        { "name": "POST /api/v1/books/restore/{id}", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/books/restore/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "restore", "{{book_id}}"] } } },
+        { "name": "POST /api/v1/books/force (forceDeleteMany)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books/force", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "force"] } } },
+        { "name": "DELETE /api/v1/books/force (forceDeleteMany)", "request": { "method": "DELETE", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"ids\": [1,2,3] }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books/force", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "force"] } } },
+        { "name": "DELETE /api/v1/books/force/{id} (forceDelete)", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/books/force/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "force", "{{book_id}}"] } } },
+        { "name": "POST /api/v1/books/{id}/image (form-data book_cover file)", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}/image", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}", "image"] }, "body": { "mode": "formdata", "formdata": [{ "key": "book_cover", "type": "file", "src": "", "disabled": false }] } } },
+        { "name": "POST /api/v1/books/image-bulk (form-data zip file)", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/books/image-bulk", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "image-bulk"] }, "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "", "disabled": false }] } } }
+      ]
+    },
+    {
+      "name": "Authors",
+      "item": [
+        { "name": "GET /api/v1/authors", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/authors", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "authors"] } } },
+        { "name": "POST /api/v1/authors", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Tac gia 1\", \"params\": {} }" }, "url": { "raw": "{{BASE_URL}}/api/v1/authors", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "authors"] } } },
+        { "name": "PUT /api/v1/authors/{author}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Tac gia 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/authors/{{author_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "authors", "{{author_id}}"] } } },
+        { "name": "DELETE /api/v1/authors/{author}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/authors/{{author_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "authors", "{{author_id}}"] } } }
+      ]
+    },
+    {
+      "name": "Publishers",
+      "item": [
+        { "name": "GET /api/v1/publishers", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/publishers", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "publishers"] } } },
+        { "name": "POST /api/v1/publishers", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Nha xuat ban 1\", \"params\": {} }" }, "url": { "raw": "{{BASE_URL}}/api/v1/publishers", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "publishers"] } } },
+        { "name": "PUT /api/v1/publishers/{publisher}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Nha xuat ban 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/publishers/{{publisher_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "publishers", "{{publisher_id}}"] } } },
+        { "name": "DELETE /api/v1/publishers/{publisher}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/publishers/{{publisher_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "publishers", "{{publisher_id}}"] } } }
+      ]
+    }
+  ]
+}
+

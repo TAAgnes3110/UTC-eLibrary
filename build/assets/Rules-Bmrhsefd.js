@@ -1,0 +1,16 @@
+import{_ as o}from"./ReaderDashboardLayout-DHqqVjct.js";import{a as d,b as n,u as a,h as m,d as l,e as t,D as u,f as x,F as p,q as b,i as v}from"./app-CwE72ZX9.js";import{I as f}from"./ThemeToggle-ClUBD3J4.js";import{_ as g}from"./_plugin-vue_export-helper-DlAUqK2U.js";/* empty css            */const k={class:"space-y-6 max-w-3xl"},_={class:"flex items-center justify-between"},y={class:"rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden"},w={class:"p-6 lg:p-8"},q={class:"flex items-center gap-3 mb-6 pb-4 border-b border-slate-100 dark:border-slate-800"},T={class:"w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-950/50 flex items-center justify-center text-amber-600 dark:text-amber-400"},N=["innerHTML"],B={__name:"Rules",props:{content:{type:String,default:""}},setup(i){const r=i,h=`
+<h2 class="text-lg font-bold text-slate-900 dark:text-white mb-3">Nội quy thư viện</h2>
+<p class="text-slate-600 dark:text-slate-400 mb-4">Bạn đọc vui lòng tuân thủ nội quy khi sử dụng thư viện và dịch vụ mượn trả sách.</p>
+<h3 class="text-base font-semibold text-slate-800 dark:text-slate-200 mt-4 mb-2">1. Đối tượng phục vụ</h3>
+<p class="text-slate-600 dark:text-slate-400 text-sm">Cán bộ, giảng viên, sinh viên và học viên của Trường Đại học Giao thông Vận tải có thẻ thư viện hợp lệ.</p>
+<h3 class="text-base font-semibold text-slate-800 dark:text-slate-200 mt-4 mb-2">2. Quy định mượn trả</h3>
+<ul class="list-disc list-inside space-y-1 text-slate-600 dark:text-slate-400 text-sm">
+  <li>Mang thẻ thư viện khi đến thư viện và khi mượn/trả sách</li>
+  <li>Tuân thủ số lượng sách được mượn và thời hạn trả theo quy định</li>
+  <li>Gia hạn sách đúng hạn khi có nhu cầu (nếu được phép)</li>
+  <li>Giữ gìn tài liệu, không làm hư hỏng hoặc làm bẩn</li>
+</ul>
+<h3 class="text-base font-semibold text-slate-800 dark:text-slate-200 mt-4 mb-2">3. Trách nhiệm</h3>
+<p class="text-slate-600 dark:text-slate-400 text-sm">Bạn đọc chịu trách nhiệm bồi thường nếu làm mất hoặc hư hỏng tài liệu. Vi phạm nội quy có thể bị tạm ngừng quyền sử dụng thư viện.</p>
+<p class="text-slate-600 dark:text-slate-400 mt-6 text-sm">Chi tiết quy định mượn trả có thể được cập nhật bởi Thư viện. Mọi thắc mắc vui lòng liên hệ bộ phận Thư viện.</p>
+`.trim(),c=b(()=>{const s=(r.content||"").trim();return s||h});return(s,e)=>(v(),d(p,null,[n(a(m),{title:"Nội quy - Thư viện số"}),n(o,{title:"Nội quy"},{default:l(()=>[t("div",k,[t("div",_,[e[1]||(e[1]=t("h1",{class:"text-xl font-bold text-slate-900 dark:text-white"},"Nội quy thư viện",-1)),n(a(u),{href:s.route("library.search"),class:"text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"},{default:l(()=>[...e[0]||(e[0]=[x("← Tra cứu sách",-1)])]),_:1},8,["href"])]),t("div",y,[t("div",w,[t("div",q,[t("div",T,[n(a(f),{icon:"lucide:file-text",class:"w-6 h-6"})]),e[2]||(e[2]=t("div",null,[t("h2",{class:"font-bold text-slate-900 dark:text-white"},"Nội quy & Hướng dẫn"),t("p",{class:"text-sm text-slate-500 dark:text-slate-400"},"Quy định sử dụng thư viện và mượn trả sách")],-1))]),t("div",{class:"prose prose-slate dark:prose-invert prose-sm max-w-none reader-rules",innerHTML:c.value},null,8,N)])])])]),_:1})],64))}},I=g(B,[["__scopeId","data-v-3cc18d5c"]]);export{I as default};

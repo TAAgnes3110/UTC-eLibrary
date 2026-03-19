@@ -145,7 +145,8 @@ class BookService
      */
     public function updateCoverImage(Book $book, UploadedFile $file): array
     {
-        $path = FileHelpers::updateModelImage($book, $file, 'books', 'cover_image', $book->code ?: (string) $book->id);
+        $baseName = $book->book_code ?: (string) $book->id;
+        $path = FileHelpers::updateModelImage($book, $file, 'books', 'cover_image', $baseName);
         return ['cover_image' => $path];
     }
 
@@ -213,7 +214,7 @@ class BookService
     }
 
     /**
-     * Bulk update book cover từ zip (file name = book.code).
+     * Bulk update book cover từ zip (file name = book.book_code).
      *
      * @return array{updated:int,skipped:int}
      */
@@ -242,7 +243,7 @@ class BookService
                     continue;
                 }
 
-                $book = Book::query()->where('code', $code)->first();
+                $book = Book::query()->where('book_code', $code)->first();
                 if (!$book) {
                     $skipped++;
                     continue;
@@ -256,7 +257,8 @@ class BookService
                     true
                 );
                 try {
-                    FileHelpers::updateModelImage($book, $uploaded, 'books', 'cover_image', $book->code ?: (string) $book->id);
+                    $baseName = $book->book_code ?: (string) $book->id;
+                    FileHelpers::updateModelImage($book, $uploaded, 'books', 'cover_image', $baseName);
                     $updated++;
                 } catch (\Throwable) {
                     $skipped++;

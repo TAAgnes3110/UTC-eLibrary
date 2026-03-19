@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
             $avatar = $user->avatar ?? '';
             if ($avatar && !str_starts_with($avatar, 'http')) {
                 $avatar = Storage::disk('public')->exists($avatar)
-                    ? asset('storage/' . ltrim($avatar, '/'))
+                    ? asset(ltrim($avatar, '/'))
                     : null;
             }
             if (empty($avatar)) {

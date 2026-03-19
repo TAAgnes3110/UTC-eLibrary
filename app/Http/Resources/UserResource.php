@@ -13,7 +13,7 @@ class UserResource extends JsonResource
         $avatar = $this->avatar;
         if (!empty($avatar) && !str_starts_with($avatar, 'http')) {
             if (Storage::disk('public')->exists($avatar)) {
-                $avatar = asset('storage/' . ltrim($avatar, '/'));
+                $avatar = asset(ltrim($avatar, '/'));
             } else {
                 $avatar = null;
             }

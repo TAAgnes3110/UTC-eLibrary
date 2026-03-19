@@ -29,3 +29,4 @@ class AuthorRequest extends BaseRequest
         ];
     }
 }
+

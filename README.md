@@ -19,7 +19,6 @@
 - [Thùng rác (xóa mềm)](#-thùng-rác-xóa-mềm)
 - [Cài đặt & Chạy](#-cài-đặt--chạy)
 - [Test](#-test)
-- [Docker](#-docker)
 - [Tác giả](#-tác-giả)
 
 ---
@@ -448,60 +447,10 @@ composer test
 - Nếu không có SQLite, tạo DB MySQL `elibrary_test` — bootstrap tự chuyển sang MySQL
 - Chi tiết: xem [`tests/README.md`](tests/README.md)
 
----
-
-## 🐳 Docker
-
-Chạy toàn bộ ứng dụng (app + MySQL + Redis) bằng Docker:
-
-```bash
-docker compose up -d
-docker compose exec app php artisan migrate --seed --force
-```
-
-- Ứng dụng: http://localhost:8000
-- MySQL: port 3306
-- Redis: port 6379
-
-Chi tiết: xem `docker-compose.yml` và `Dockerfile`.
-
----
-
-## 🌐 Ngrok (truy cập từ bên ngoài)
-
-Để test trên điện thoại, demo từ xa hoặc test OAuth/Webhook:
-
-1. **Cài đặt ngrok** (nếu chưa có):
-   - Tải [ngrok](https://ngrok.com/download) (Windows), giải nén và đặt `ngrok.exe` vào thư mục (vd: `C:\ngrok\ngrok.exe`).
-   - Hoặc dùng Chocolatey: `choco install ngrok` (chạy CMD/PowerShell **Run as Administrator**).
-2. Đăng ký [ngrok.com](https://ngrok.com) và lấy Authtoken.
-3. Thêm vào `.env`:
-   ```env
-   NGROK_AUTHTOKEN=your_ngrok_authtoken_here
-   ```
-4. Chạy ngrok:
-   - **Terminal:** `ngrok http 8000` (chỉ chạy được nếu `ngrok` đã nằm trong PATH).
-   - **Nếu báo "command not found":** dùng đường dẫn đầy đủ, ví dụ:
-     ```bash
-     /c/ngrok/ngrok.exe http 8000
-     ```
-     (đổi `C:\ngrok\ngrok.exe` theo nơi bạn đặt file; trong Git Bash dùng `/c/ngrok/ngrok.exe`).
-   - **Windows CMD:** `start-ngrok.bat` hoặc `ngrok http 8000` (file `start-ngrok.bat` nằm ở thư mục gốc project).
-   - **Git Bash:** `./start-ngrok.sh` hoặc `./ngrok.exe http 8000` (nếu đặt `ngrok.exe` trong thư mục project).
-   - (Đổi `8000` nếu app chạy ở port khác.)
-5. Copy URL ngrok (vd: `https://xxxx.ngrok-free.dev`) và cập nhật trong `.env`:
-   ```env
-   APP_URL=https://xxxx.ngrok-free.dev
-   ```
-
-> ⚠️ Mỗi lần restart ngrok URL thường đổi (trừ gói trả phí). Nhớ cập nhật lại `APP_URL`.
-
----
-
 ## 📁 Tài liệu thêm
 
 - **API:** [docs/API.md](docs/API.md) — Mô tả API v1, endpoint, rate limit.
-- **Kiến trúc:** [ARCHITECTURE.md](ARCHITECTURE.md) — REST API, Auth, Cache, Docker, Health.
+- **Kiến trúc:** [ARCHITECTURE.md](ARCHITECTURE.md) — REST API, Auth, Cache, Health.
 
 ---
 

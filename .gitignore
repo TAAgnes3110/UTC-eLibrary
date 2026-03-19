@@ -38,8 +38,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 
-ngrok.exe
-
 # Local env overrides
 .env.local
 .env.*.local

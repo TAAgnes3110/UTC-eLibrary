@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use App\Enums\RoleType;
-use Inertia\Inertia;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -30,7 +29,8 @@ class AppServiceProvider extends ServiceProvider
             \Illuminate\Support\Facades\URL::forceScheme('https');
         }
 
-        Inertia::share('auth', function () {
+        // @intelephense-ignore-next-line
+        \Inertia\Inertia::share('auth', function () {
             $user = request()->user();
             if (!$user) {
                 return ['user' => null, 'is_staff' => false];
@@ -87,7 +87,10 @@ class AppServiceProvider extends ServiceProvider
 
     protected function bootMicrosoftAzureSocialite()
     {
-        $socialite = $this->app->make(\Laravel\Socialite\Contracts\Factory::class);
+        // Use concrete manager so IDE can resolve extend/buildProvider.
+        // @intelephense-ignore-next-line
+        /** @var \Laravel\Socialite\SocialiteManager $socialite */
+        $socialite = $this->app->make(\Laravel\Socialite\SocialiteManager::class);
 
         $socialite->extend('microsoft-azure', function ($app) use ($socialite) {
             $config = config('services.azure');

@@ -41,7 +41,12 @@ class ClassificationService
 
     public function listAll(): Collection
     {
-        return Classification::orderBy('code')->get(['id', 'code', 'name']);
+        /** @var Collection $items */
+        $items = MasterLookupCacheService::remember('classifications:list-all', function () {
+            return Classification::orderBy('code')->get(['id', 'code', 'name']);
+        });
+
+        return $items;
     }
 
     public function destroy(Classification $classification): void

@@ -2,15 +2,18 @@
 
 namespace App\Services;
 
+use App\Enums\ResourceKind;
 use App\Exports\BooksWorkbookExport;
 use App\Helpers\FileHelpers;
 use App\Models\Book;
 use App\Imports\BookImport;
 use App\Models\ClassificationDetail;
 use App\Models\Warehouse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BookService
@@ -21,6 +24,10 @@ class BookService
     {
         return DB::transaction(function () use ($data) {
             $bookData = $data;
+            $syncThesis = array_key_exists('thesis_metadata', $bookData);
+            $thesisMeta = $bookData['thesis_metadata'] ?? null;
+            unset($bookData['thesis_metadata']);
+
             $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
             if (empty($bookData['registration_number'])) {
                 $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
@@ -29,7 +36,17 @@ class BookService
                 $classificationDetail = ClassificationDetail::findOrFail($bookData['classification_detail_id']);
                 $bookData['book_code'] = $this->generateBookCode($classificationDetail, $warehouse);
             }
-            return Book::create($bookData);
+            $book = Book::create($bookData);
+            if ($syncThesis) {
+                $this->syncThesisMetadata($book, $thesisMeta);
+            }
+
+            return $book->fresh([
+                'classification:id,code,name',
+                'classificationDetail:id,code,name',
+                'warehouse:id,code,name',
+                'thesisMetadata',
+            ]);
         });
     }
 
@@ -43,11 +60,26 @@ class BookService
         if (array_key_exists('cover_image', $data) && empty($data['cover_image'])) {
             unset($data['cover_image']);
         }
+        $syncThesis = array_key_exists('thesis_metadata', $data);
+        $thesisMeta = $data['thesis_metadata'] ?? null;
+        unset($data['thesis_metadata']);
+
         $book->update($data);
-        return $book;
+        if ($syncThesis) {
+            $this->syncThesisMetadata($book, $thesisMeta);
+        }
+
+        return $book->fresh([
+            'classification:id,code,name',
+            'classificationDetail:id,code,name',
+            'warehouse:id,code,name',
+            'authors:id,name',
+            'publishers:id,name',
+            'thesisMetadata',
+        ]);
     }
 
-    public function index(?string $keyword, int $perPage = self::PER_PAGE): LengthAwarePaginator
+    public function index(?string $keyword, ?string $resourceKind, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         $query = Book::query()
             ->with([
@@ -56,8 +88,9 @@ class BookService
                 'warehouse:id,code,name',
                 'authors:id,name',
                 'publishers:id,name',
-            ])
-            ->when($keyword !== null && $keyword !== '', function ($q) use ($keyword) {
+            ]);
+        $this->applyResourceKindFilter($query, $resourceKind);
+        $query->when($keyword !== null && $keyword !== '', function ($q) use ($keyword) {
                 $q->where(function ($q) use ($keyword) {
                     $q->where('title', 'like', "%{$keyword}%")
                         ->orWhere('registration_number', 'like', "%{$keyword}%")
@@ -85,6 +118,74 @@ class BookService
                 });
             });
         return $query->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * @param array<string, mixed>|null $meta
+     */
+    private function syncThesisMetadata(Book $book, mixed $meta): void
+    {
+        if ($meta === null || (is_array($meta) && $meta === [])) {
+            $book->thesisMetadata()->delete();
+            return;
+        }
+        if (!is_array($meta)) {
+            return;
+        }
+        if (empty($meta['work_type'])) {
+            throw ValidationException::withMessages([
+                'thesis_metadata.work_type' => [__('Thesis metadata requires work_type.')],
+            ]);
+        }
+
+        $book->thesisMetadata()->updateOrCreate(
+            ['book_id' => $book->id],
+            [
+                'work_type' => $meta['work_type'],
+                'degree_program' => $meta['degree_program'] ?? null,
+                'supervisor_name' => $meta['supervisor_name'] ?? null,
+                'supervisor_user_id' => $meta['supervisor_user_id'] ?? null,
+                'defense_year' => $meta['defense_year'] ?? null,
+                'keywords' => $meta['keywords'] ?? null,
+                'abstract_text' => $meta['abstract_text'] ?? null,
+                'params' => $meta['params'] ?? null,
+            ]
+        );
+    }
+
+    /**
+     * Lọc theo resource_kind; hỗ trợ nhiều giá trị cách nhau bởi dấu phẩy (vd: print,hybrid).
+     *
+     * @param  Builder<Book>  $query
+     */
+    private function applyResourceKindFilter(Builder $query, ?string $resourceKind): void
+    {
+        if ($resourceKind === null || $resourceKind === '') {
+            return;
+        }
+        $allowed = ResourceKind::values();
+        $parts = array_unique(array_filter(array_map('trim', explode(',', $resourceKind))));
+        $parts = array_values(array_filter($parts, static fn ($p) => in_array($p, $allowed, true)));
+        if ($parts === []) {
+            return;
+        }
+        $includeNullAsPrint = in_array('print', $parts, true);
+        if (count($parts) === 1) {
+            if ($includeNullAsPrint && $parts[0] === 'print') {
+                $query->where(function ($q) {
+                    $q->where('resource_kind', 'print')->orWhereNull('resource_kind');
+                });
+            } else {
+                $query->where('resource_kind', $parts[0]);
+            }
+        } else {
+            $query->where(function ($q) use ($parts, $includeNullAsPrint) {
+                $q->whereIn('resource_kind', $parts);
+                if ($includeNullAsPrint) {
+                    $q->orWhereNull('resource_kind');
+                }
+            });
+        }
     }
 
     public function destroy(Book $book): void

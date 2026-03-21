@@ -47,5 +47,6 @@ class MasterDataService
     public static function clearCache(): void
     {
         Cache::forget(self::CACHE_KEY);
+        MasterLookupCacheService::clear();
     }
 }

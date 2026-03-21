@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\ClassificationDetailController;
 use App\Http\Controllers\Api\AuthorController;
 use App\Http\Controllers\Api\PublisherController;
 use App\Http\Controllers\Api\BookController;
+use App\Http\Controllers\Api\DigitalAssetController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Middleware\LogApiRequests;
@@ -174,6 +175,8 @@ Route::prefix('v1')->group(function () {
                 Route::get('/export', [BookController::class, 'export']);
                 Route::post('/import', [BookController::class, 'import']);
                 Route::post('/', [BookController::class, 'store']);
+                Route::post('/{book}/digital-assets', [DigitalAssetController::class, 'store']);
+                Route::delete('/{book}/digital-assets/{digital_asset}', [DigitalAssetController::class, 'destroy']);
                 Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}', [BookController::class, 'update']);
                 Route::delete('/{book}', [BookController::class, 'destroy']);

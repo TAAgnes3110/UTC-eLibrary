@@ -2,13 +2,25 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Enums\AccessMode;
+use App\Enums\ResourceKind;
 use App\Models\Traits\HasAuditFields;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Book extends BaseModel
 {
     use SoftDeletes;
     use HasAuditFields;
+
+    protected static function booted(): void
+    {
+        static::forceDeleting(function (Book $book): void {
+            $book->digitalAssets()->withTrashed()->get()->each->forceDelete();
+            ThesisMetadata::withTrashed()->where('book_id', $book->id)->forceDelete();
+        });
+    }
     protected $appends = [
         'authors_label',
         'publishers_label',
@@ -38,10 +50,14 @@ class Book extends BaseModel
         'classification_id',
         'classification_detail_id',
         'warehouse_id',
+        'resource_kind',
+        'access_mode',
         'params',
     ];
     protected $casts = [
         'params' => 'array',
+        'resource_kind' => ResourceKind::class,
+        'access_mode' => AccessMode::class,
         'published_year' => 'integer',
         'pages' => 'integer',
         'illustration_pages' => 'integer',
@@ -79,6 +95,16 @@ class Book extends BaseModel
     public function copies()
     {
         return $this->hasMany(BookCopy::class);
+    }
+
+    public function digitalAssets(): HasMany
+    {
+        return $this->hasMany(DigitalAsset::class);
+    }
+
+    public function thesisMetadata(): HasOne
+    {
+        return $this->hasOne(ThesisMetadata::class);
     }
 
     public function availableCopies()

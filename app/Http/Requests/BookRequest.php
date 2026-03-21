@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\AccessMode;
+use App\Enums\ResourceKind;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class BookRequest extends BaseRequest
 {
@@ -14,7 +17,6 @@ class BookRequest extends BaseRequest
      */
     public function rules(): array
     {
-        $id = $this->route('book');
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
         return [
             'title' => [
@@ -31,6 +33,17 @@ class BookRequest extends BaseRequest
                 'integer',
                 'min:0',
             ],
+            'resource_kind' => ['sometimes', 'nullable', Rule::enum(ResourceKind::class)],
+            'access_mode' => ['sometimes', 'nullable', Rule::enum(AccessMode::class)],
+            'thesis_metadata' => ['sometimes', 'nullable', 'array'],
+            'thesis_metadata.work_type' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'thesis_metadata.degree_program' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'thesis_metadata.supervisor_name' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'thesis_metadata.supervisor_user_id' => ['sometimes', 'nullable', 'integer', 'exists:users,id'],
+            'thesis_metadata.defense_year' => ['sometimes', 'nullable', 'integer', 'min:1900', 'max:2100'],
+            'thesis_metadata.keywords' => ['sometimes', 'nullable', 'string'],
+            'thesis_metadata.abstract_text' => ['sometimes', 'nullable', 'string'],
+            'thesis_metadata.params' => ['sometimes', 'nullable', 'array'],
         ];
     }
 

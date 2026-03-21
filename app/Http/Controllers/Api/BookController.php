@@ -28,10 +28,15 @@ class BookController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'resource_kind' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:200'],
+        ]);
         $keyword = $request->input('keyword');
+        $resourceKind = $request->input('resource_kind');
         $perPage = (int) $request->input('per_page', 50);
 
-        $items = $this->bookService->index($keyword, $perPage);
+        $items = $this->bookService->index($keyword, $resourceKind, $perPage);
 
         return ApiResponse::success(BookResource::collection($items));
     }
@@ -77,6 +82,8 @@ class BookController extends Controller
             'warehouse:id,code,name',
             'authors:id,name',
             'publishers:id,name',
+            'digitalAssets',
+            'thesisMetadata',
         ]);
 
         return ApiResponse::success(new BookResource($book));

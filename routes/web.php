@@ -2,15 +2,16 @@
 
 use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController as BackendAuthController;
+use App\Http\Controllers\Frontend\Admin\BookPageController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
+use App\Http\Controllers\Frontend\Admin\WarehousePageController;
 use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
+use App\Http\Controllers\Frontend\Reader\LibraryController as ReaderLibraryController;
 use App\Http\Controllers\Frontend\Reader\PageController as ReaderPageController;
 use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
 use App\Http\Controllers\Frontend\Reader\ProfileController as ReaderProfileController;
-use Inertia\Inertia;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Frontend\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Frontend\Auth\NewPasswordController;
 use App\Http\Controllers\Frontend\Auth\PasswordResetLinkController;
@@ -45,33 +46,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/', DashboardController::class)->name('dashboard');
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/profile', ProfileController::class)->name('profile');
-        Route::get('/books', function () {
-            return Inertia::render('Admin/Books/Index');
-        })->name('books.index');
-        Route::get('/warehouses', function () {
-            return Inertia::render('Admin/Warehouses/Index');
-        })->name('warehouses.index');
+        Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
+        Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
+        Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
     });
 
     Route::prefix('library')->name('library.')->group(function () {
-        Route::get('/', function () {
-            return Inertia::render('Reader/Dashboard');
-        })->name('dashboard');
-
-        Route::get('/search', function (Request $request) {
-            return Inertia::render('Reader/Books/Index', [
-                'filters' => [
-                    'q' => $request->input('q'),
-                ],
-            ]);
-        })->name('search');
+        Route::get('/', [ReaderLibraryController::class, 'dashboard'])->name('dashboard');
+        Route::get('/search', [ReaderLibraryController::class, 'search'])->name('search');
         Route::get('/saved', [ReaderPageController::class, 'saved'])->name('saved');
         Route::get('/card', ReaderCardController::class)->name('card');
         Route::get('/profile/change-request', [ReaderProfileChangeRequestController::class, 'index'])->name('profile.change-request');
         Route::get('/profile', [ReaderProfileController::class, 'edit'])->name('profile.edit');
-        Route::get('/loans', function () {
-            return Inertia::render('Reader/Loans/Index');
-        })->name('loans');
+        Route::get('/loans', [ReaderLibraryController::class, 'loans'])->name('loans');
         Route::get('/intro', [ReaderPageController::class, 'intro'])->name('intro');
         Route::get('/rules', [ReaderPageController::class, 'rules'])->name('rules');
     });

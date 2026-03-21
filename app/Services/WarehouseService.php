@@ -7,6 +7,7 @@ use App\Imports\WarehouseImport;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator as PaginationLengthAwarePaginator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WarehouseService
@@ -20,7 +21,10 @@ class WarehouseService
      */
     public function create(array $data): Warehouse
     {
-        return Warehouse::create($data);
+        $warehouse = Warehouse::create($data);
+        MasterDataService::clearCache();
+
+        return $warehouse;
     }
 
     /**
@@ -33,6 +37,8 @@ class WarehouseService
     {
         unset($data['id']);
         $warehouse->update($data);
+        MasterDataService::clearCache();
+
         return $warehouse;
     }
 
@@ -44,6 +50,23 @@ class WarehouseService
      */
     public function index(?string $keyword, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
+        if ($keyword === null || $keyword === '') {
+            $page = max(1, (int) request()->input('page', 1));
+            /** @var PaginationLengthAwarePaginator $paginator */
+            $paginator = MasterLookupCacheService::remember(
+                "warehouses:index:page:{$page}:per-page:{$perPage}",
+                function () use ($perPage) {
+                    $query = Warehouse::query()
+                        ->with('parent:id,code,name')
+                        ->orderByDesc('id');
+
+                    return $query->paginate($perPage)->withQueryString();
+                }
+            );
+
+            return $paginator;
+        }
+
         $query = Warehouse::query()
             ->with('parent:id,code,name')
             ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
@@ -63,6 +86,7 @@ class WarehouseService
     public function destroy(Warehouse $warehouse): void
     {
         $warehouse->delete();
+        MasterDataService::clearCache();
     }
 
     /**
@@ -91,6 +115,8 @@ class WarehouseService
             return null;
         }
         $warehouse->restore();
+        MasterDataService::clearCache();
+
         return $warehouse;
     }
 
@@ -101,7 +127,12 @@ class WarehouseService
         if (empty($ids)) {
             return 0;
         }
-        return (int) Warehouse::onlyTrashed()->whereIn('id', $ids)->restore();
+        $restored = (int) Warehouse::onlyTrashed()->whereIn('id', $ids)->restore();
+        if ($restored > 0) {
+            MasterDataService::clearCache();
+        }
+
+        return $restored;
     }
 
     /**
@@ -116,6 +147,8 @@ class WarehouseService
             return false;
         }
         $warehouse->forceDelete();
+        MasterDataService::clearCache();
+
         return true;
     }
 
@@ -126,7 +159,12 @@ class WarehouseService
         if (empty($ids)) {
             return 0;
         }
-        return Warehouse::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+        $deleted = Warehouse::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+        if ($deleted > 0) {
+            MasterDataService::clearCache();
+        }
+
+        return $deleted;
     }
 
     /**
@@ -138,6 +176,7 @@ class WarehouseService
     public function updateStatus(array $ids, bool $isActive): void
     {
         Warehouse::query()->whereIn('id', $ids)->update(['is_active' => $isActive]);
+        MasterDataService::clearCache();
     }
 
     /**
@@ -153,6 +192,8 @@ class WarehouseService
         }
         $warehouse->is_active = !$warehouse->is_active;
         $warehouse->save();
+        MasterDataService::clearCache();
+
         return ['is_active' => $warehouse->is_active];
     }
 
@@ -163,11 +204,18 @@ class WarehouseService
      */
     public function warehouseList(int $perPage = 20): array
     {
-        $warehouses = Warehouse::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->paginate($perPage)
-            ->withQueryString();
+        $page = max(1, (int) request()->input('page', 1));
+        /** @var PaginationLengthAwarePaginator $warehouses */
+        $warehouses = MasterLookupCacheService::remember(
+            "warehouses:list:active:page:{$page}:per-page:{$perPage}",
+            function () use ($perPage) {
+                return Warehouse::query()
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->paginate($perPage)
+                    ->withQueryString();
+            }
+        );
         return [
             'warehouses' => $warehouses,
         ];
@@ -196,7 +244,10 @@ class WarehouseService
      */
     public function importWarehouses(UploadedFile $file): array
     {
-        return WarehouseImport::import($file);
+        $summary = WarehouseImport::import($file);
+        MasterDataService::clearCache();
+
+        return $summary;
     }
 
     public function exportWarehouses(?array $ids = null): StreamedResponse

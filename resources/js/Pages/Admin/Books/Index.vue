@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -15,10 +15,17 @@ import apiClient from '@/api/axios';
 import { booksApi } from '@/api/books';
 import { toast } from '@/store/toast';
 
+const page = usePage();
+const pageKind = computed(() => page.props.pageKind ?? 'print');
+const resourceKindFilter = computed(() => page.props.resourceKindFilter ?? '');
+const pageLabel = computed(() => (pageKind.value === 'digital' ? 'Tài liệu số' : 'Sách in'));
+
 const books = ref([]);
 
 const classifications = ref([]);
 const classificationDetails = ref([]);
+const classificationDetailsLoaded = ref(false);
+let booksSearchDebounce = null;
 const selectedClassificationId = ref('');
 const loading = ref(false);
 
@@ -123,8 +130,9 @@ const loadBooks = async () => {
     try {
         const response = await apiClient.get('/books', {
             params: {
-                per_page: 200,
+                per_page: 50,
                 keyword: filterValues.value.searchKeyword || undefined,
+                ...(resourceKindFilter.value ? { resource_kind: resourceKindFilter.value } : {}),
             },
         });
         const payload = response?.data;
@@ -157,6 +165,7 @@ const loadClassifications = async () => {
 };
 
 const loadClassificationDetails = async () => {
+    if (classificationDetailsLoaded.value) return;
     try {
         const response = await apiClient.get('/classification-details', {
             params: {
@@ -171,16 +180,36 @@ const loadClassificationDetails = async () => {
                 ? paginator
                 : [];
         classificationDetails.value = items;
+        classificationDetailsLoaded.value = true;
     } catch (e) {
         // eslint-disable-next-line no-console
         console.error('Failed to load classification details', e);
         classificationDetails.value = [];
+        classificationDetailsLoaded.value = false;
     }
 };
 
 onMounted(async () => {
-    await Promise.all([loadBooks(), loadClassifications(), loadClassificationDetails()]);
+    await loadClassifications();
 });
+
+watch(
+    () => page.props.resourceKindFilter ?? '',
+    () => {
+        loadBooks();
+    },
+    { immediate: true },
+);
+
+watch(
+    () => filterValues.value.searchKeyword,
+    () => {
+        if (booksSearchDebounce) clearTimeout(booksSearchDebounce);
+        booksSearchDebounce = setTimeout(() => {
+            loadBooks();
+        }, 350);
+    },
+);
 
 const hasSelection = computed(() => selectedIds.value.size > 0);
 const isAllSelected = computed(
@@ -228,13 +257,15 @@ const emptyForm = () => ({
 
 const form = ref(emptyForm());
 
-const openAddModal = () => {
+const openAddModal = async () => {
+    await loadClassificationDetails();
     isEditing.value = false;
     form.value = emptyForm();
     showModal.value = true;
 };
 
-const openEditModal = (book) => {
+const openEditModal = async (book) => {
+    await loadClassificationDetails();
     isEditing.value = true;
     form.value = {
         id: book.id ?? null,
@@ -544,18 +575,17 @@ const uploadCover = async (file) => {
 </script>
 
 <template>
-    <Head title="Danh mục – Sách in" />
+    <Head :title="`Danh mục – ${pageLabel}`" />
     <AdminLayout
         title="Danh mục tài liệu"
         :breadcrumbs="[
-            { label: 'Trang chủ' },
             { label: 'Danh mục tài liệu' },
-            { label: 'Sách in' },
+            { label: pageLabel },
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Sách in theo danh mục</h2>
+                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">{{ pageLabel }} theo danh mục</h2>
                 <Button variant="outline" size="sm" class="gap-1.5" @click="showTrashDrawer = true">
                     <Icon icon="lucide:trash-2" class="w-4 h-4" />
                     Thùng rác
@@ -567,7 +597,7 @@ const uploadCover = async (file) => {
                 :selected-count="selectedIds.size"
                 update-file-label="Cập nhật ảnh bìa"
                 :show-update-file="true"
-                add-label="Thêm sách in"
+                :add-label="pageKind === 'digital' ? 'Thêm tài liệu số' : 'Thêm sách in'"
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"

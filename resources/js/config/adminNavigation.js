@@ -9,7 +9,8 @@ export const adminNavigation = [
         icon: 'lucide:panels-top-left',
         active: ['admin.books.*'],
         children: [
-            { name: 'Sách in', href: 'admin.books.index', active: 'admin.books.*' },
+            { name: 'Sách in', href: 'admin.books.index', active: 'admin.books.index' },
+            { name: 'Tài liệu số', href: 'admin.books.digital', active: 'admin.books.digital' },
         ],
     },
     {

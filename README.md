@@ -410,13 +410,15 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
+**Dữ liệu mẫu:** `BookSampleSeeder` tạo vài đầu sách **in** (kho `KHO-GT`), **tài liệu số** và **hybrid** (kho `KHO-SO` / kết hợp), một bản ghi **thesis_metadata** (đồ án mẫu). Chạy lại: `php artisan db:seed` (hoặc chỉ `php artisan db:seed --class=BookSampleSeeder`).
+
 **Tài khoản mặc định (sau khi chạy seed):**
 
 | Vai trò      | Email                 | Mật khẩu  |
 |-------------|------------------------|-----------|
-| Admin       | `admin@example.com`    | `password` |
-| Thủ thư     | `librarian@example.com`| `password` |
-| Người dùng  | `user@example.com`     | `password` |
+| Admin       | `admin@utc.edu.vn`     | `password` |
+| Thủ thư     | `librarian@utc.edu.vn` | `password` |
+| Người dùng  | `student@st.utc.edu.vn`| `password` |
 
 Chỉ tạo tài khoản nếu chưa tồn tại (theo email). Nên đổi mật khẩu sau lần đăng nhập đầu.
 
@@ -453,6 +455,8 @@ composer test
 
 - **API:** [docs/API.md](docs/API.md) — Mô tả API v1, endpoint, rate limit.
 - **Kiến trúc:** [ARCHITECTURE.md](ARCHITECTURE.md) — REST API, Auth, Cache, Health.
+- **ERD (chốt thiết kế DB):** [docs/ERD.md](docs/ERD.md) — Quan hệ bảng hiện tại + mở rộng tài liệu số / luận–đồ án (Mermaid).
+- **Tài liệu số (PDF):** `POST /api/v1/books/{book}/digital-assets` (multipart `file`, PDF tối đa 50MB; tùy chọn `is_primary`, `visibility`, `embargo_until`), `DELETE /api/v1/books/{book}/digital-assets/{digital_asset}` — cần quyền admin/thủ thư như các API sách khác.
 
 ### Dùng Postman collection
 

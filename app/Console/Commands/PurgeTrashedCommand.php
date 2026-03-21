@@ -6,6 +6,8 @@ namespace App\Console\Commands;
 
 use App\Models\Book;
 use App\Models\BookCopy;
+use App\Models\DigitalAsset;
+use App\Models\ThesisMetadata;
 use App\Models\Department;
 use App\Models\Faculty;
 use App\Models\Loan;
@@ -30,6 +32,8 @@ final class PurgeTrashedCommand extends Command
         $models = [
             User::class,
             Warehouse::class,
+            DigitalAsset::class,
+            ThesisMetadata::class,
             Book::class,
             BookCopy::class,
             Faculty::class,

@@ -436,9 +436,7 @@ export function useUsersAdminPage(props) {
         }
     };
 
-    const openImportModal = () => {
-        // TODO: sẽ triển khai import excel sau
-    };
+    const openImportModal = () => {};
 
     const closeAvatarModal = () => {
         showAvatarModal.value = false;

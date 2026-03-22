@@ -1,18 +1,8 @@
-/**
- * Chuỗi giao diện admin — một chỗ để chỉnh copy / sau này gắn i18n.
- * Quy ước: nhóm theo màn hình / ngữ cảnh (toast ngắn, lỗi client form, …).
- */
-
-/** Toast rút gọn cho lưu form modal (đồng bộ UX) */
 export const toastShort = {
     ok: 'Thành công',
     fail: 'Không thành công',
 };
 
-/**
- * Lỗi validation phía client — form sách (trước khi gọi API).
- * Key trùng field trên form để dễ map.
- */
 export const bookFormClientError = {
     titleRequired: 'Vui lòng nhập tên sách.',
     warehouseEmpty: 'Vui lòng chọn hoặc nhập kho sách.',
@@ -36,5 +26,4 @@ export const userFormClientError = {
     passwordMin: 'Mật khẩu tối thiểu 6 ký tự',
 };
 
-/** Fallback khi không parse được lỗi từ response (dùng chung API helper) */
 export const apiGenericFallback = 'Có lỗi xảy ra.';

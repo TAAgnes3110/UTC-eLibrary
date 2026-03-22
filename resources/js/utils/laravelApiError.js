@@ -6,10 +6,6 @@ function firstValidationMessage(value) {
     return '';
 }
 
-/**
- * Laravel FormRequest 422: errors thường ở `data.errors`.
- * Một số wrapper có thể đặt ở `data.data.errors`.
- */
 export function extractLaravelValidationErrors(error) {
     const data = error?.response?.data;
     if (!data || typeof data !== 'object') return null;
@@ -42,7 +38,6 @@ export const BOOK_ERROR_DISPLAY_KEYS = new Set([
 
 export const WAREHOUSE_ERROR_DISPLAY_KEYS = new Set(['code', 'name', 'general']);
 
-/** Các key hiển thị trên form tài khoản (UserRequest: user_type ↔ role). */
 export const USER_ERROR_DISPLAY_KEYS = new Set([
     'name',
     'email',
@@ -59,16 +54,6 @@ function appendMessage(out, target, msg) {
     else out[target] = msg;
 }
 
-/**
- * Lấy object { fieldKey: message } từ Laravel validation errors (422).
- * Dùng fieldMap để map tên API (vd warehouse_id) → tên field trên form (vd warehouse).
- * Key lồng nhau / thesis_metadata.* → `general` nếu không map được.
- *
- * @param {unknown} error — thường là AxiosError
- * @param {Record<string, string>} [fieldMap]
- * @param {Set<string>} [displayKeys] — field nào có ô hiển thị lỗi; key lạ gộp `general`
- * @returns {Record<string, string>}
- */
 export function getFieldErrorsFromAxiosError(error, fieldMap = {}, displayKeys = BOOK_ERROR_DISPLAY_KEYS) {
     const errs = extractLaravelValidationErrors(error);
     if (!errs) return {};
@@ -129,12 +114,6 @@ export const USER_FORM_FIELD_MAP = {
     is_active: 'general',
 };
 
-/**
- * Lấy chuỗi thông báo lỗi từ response Laravel (422: errors + message).
- * @param {unknown} error — thường là AxiosError
- * @param {string} [fallback]
- * @returns {string}
- */
 export function getLaravelErrorMessage(error, fallback = apiGenericFallback) {
     const data = error?.response?.data;
     if (!data || typeof data !== 'object') {

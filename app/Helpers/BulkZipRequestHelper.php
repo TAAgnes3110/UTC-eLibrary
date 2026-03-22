@@ -7,9 +7,7 @@ namespace App\Helpers;
 use Illuminate\Http\Request;
 final class BulkZipRequestHelper
 {
-    /**
-     * @return list<int>|null null = không lọc theo id (cập nhật mọi bản ghi có mã khớp trong zip)
-     */
+    /** @return list<int>|null */
     public static function parseFilterIds(Request $request): ?array
     {
         if (!$request->has('ids')) {

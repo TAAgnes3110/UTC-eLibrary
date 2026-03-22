@@ -159,7 +159,6 @@ client.interceptors.response.use(
     }
 );
 
-// Backward compat: Pages đang dùng window.axios
 if (typeof window !== 'undefined') {
     window.axios = client;
 }

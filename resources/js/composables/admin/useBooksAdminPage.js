@@ -296,9 +296,6 @@ export function useBooksAdminPage() {
 
     const form = ref(emptyForm());
 
-    /**
-     * Kiểm tra toàn bộ ô bắt buộc một lần — hiển thị đồng thời mọi lỗi (không dừng ở field đầu tiên).
-     */
     async function collectBookClientErrors() {
         const errors = {};
         const title = String(form.value.title || '').trim();

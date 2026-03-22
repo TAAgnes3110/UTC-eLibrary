@@ -42,7 +42,7 @@ class Init
 
             $domain = $request->headers->get('domain', request()->getHost());
             $allowedDomains = config('api.allowed_domains', []);
-            if (!empty($allowedDomains) && !in_array($domain, $allowedDomains, true)) {
+            if (!empty($allowedDomains) && !$this->isDomainAllowed($domain, $allowedDomains)) {
                 return ApiResponse::error(__('Domain không được phép gọi API.'), 403);
             }
 
@@ -66,5 +66,51 @@ class Init
         } catch (\Exception $e) {
             return ApiResponse::error(__('Lỗi xác thực: ') . $e->getMessage(), 401);
         }
+    }
+
+    /**
+     * Cho phép khớp vừa chuỗi đầy đủ (origin) vừa host:port — tránh 403 khi host chỉ gửi
+     * "utc-lib.rf.gd" mà API_ALLOWED_DOMAINS là "https://utc-lib.rf.gd", hoặc khi header
+     * "domain" bị proxy/hosting strip và Laravel fallback sang getHost().
+     *
+     * @param  array<int, string>  $allowedDomains
+     */
+    private function isDomainAllowed(string $domain, array $allowedDomains): bool
+    {
+        foreach ($allowedDomains as $allowed) {
+            $allowed = trim($allowed);
+            if ($allowed === '') {
+                continue;
+            }
+            if ($domain === $allowed) {
+                return true;
+            }
+            $requestKey = $this->normalizeDomainKey($domain);
+            $allowedKey = $this->normalizeDomainKey($allowed);
+            if ($requestKey !== null && $allowedKey !== null && strcasecmp($requestKey, $allowedKey) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizeDomainKey(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        if (str_contains($value, '://')) {
+            $host = parse_url($value, PHP_URL_HOST);
+            if ($host === null || $host === '') {
+                return null;
+            }
+            $port = parse_url($value, PHP_URL_PORT);
+
+            return $port ? "{$host}:{$port}" : $host;
+        }
+
+        return $value;
     }
 }

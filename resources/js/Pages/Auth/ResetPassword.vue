@@ -9,93 +9,25 @@ import StatusAlert from "@/Components/Auth/StatusAlert.vue";
 import OtpInput from "@/Components/Auth/OtpInput.vue";
 import ResendOtp from "@/Components/Auth/ResendOtp.vue";
 import { Lock, KeyRound, ArrowRight, Eye, EyeOff } from "lucide-vue-next";
-import { ref } from "vue";
-import { Head, Link, useForm, router } from "@inertiajs/vue3";
-
-const showPassword = ref(false);
-const showConfirmPassword = ref(false);
-const step = ref("otp");
-const otpInputRef = ref(null);
+import { Head, Link } from "@inertiajs/vue3";
+import { useResetPasswordPage } from "@/composables/auth/useResetPasswordPage";
 
 const props = defineProps({
     email: String,
     status: String,
 });
 
-const form = useForm({
-    email: props.email || "",
-    otp: "",
-    password: "",
-    password_confirmation: "",
-});
-
-const localStatus = ref(props.status || '')
-
-const resendOtp = () => {
-    form.processing = true;
-    form.clearErrors();
-    localStatus.value = '';
-    window.axios
-        .post("/auth/resend-otp", { email: form.email, name: 'Người dùng' })
-        .then((response) => {
-            form.processing = false;
-            otpInputRef.value?.reset();
-            form.reset("otp");
-            localStatus.value = response.data.messages || 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.';
-        })
-        .catch((error) => {
-            form.processing = false;
-            if (error.response?.data?.messages) {
-                form.setError("otp", error.response.data.messages);
-            } else {
-                form.setError("otp", "Không thể gửi lại OTP.");
-            }
-        });
-};
-
-const submit = () => {
-    if (step.value === "otp") {
-        if (!form.otp || form.otp.length !== 6) {
-            form.setError('otp', "Vui lòng nhập mã OTP 6 chữ số.");
-            return;
-        }
-        form.clearErrors('otp');
-        step.value = "password";
-        return;
-    }
-
-    form.processing = true;
-    form.clearErrors();
-    localStatus.value = '';
-    window.axios
-        .post("/auth/reset-password", {
-            email: form.email,
-            otp: form.otp,
-            password: form.password,
-            password_confirmation: form.password_confirmation,
-        })
-        .then((response) => {
-            form.processing = false;
-            window.location.href = window.route("login");
-        })
-        .catch((error) => {
-            form.processing = false;
-            form.reset("password", "password_confirmation");
-            if (error.response?.status === 422) {
-                const errs = error.response.data.errors;
-                for (let key in errs) {
-                    form.setError(key, errs[key][0]);
-                }
-            } else if (error.response?.status === 400) {
-                form.setError("otp", error.response.data.messages || "Mã OTP không hợp lệ.");
-                step.value = "otp";
-            } else if (error.response?.data?.messages) {
-                form.setError("password", error.response.data.messages);
-            } else {
-                form.setError("password", "Đã có lỗi xảy ra.");
-            }
-        });
-};
+const {
+    showPassword,
+    showConfirmPassword,
+    step,
+    otpInputRef,
+    form,
+    localStatus,
+    email,
+    resendOtp,
+    submit,
+} = useResetPasswordPage(props);
 </script>
 
 <template>

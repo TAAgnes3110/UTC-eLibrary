@@ -23,7 +23,7 @@ class CheckRoleOrPermission
         if (!$currentUser) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Bạn cần đăng nhập để sử dụng chức năng này.',
+                'message' => __('Bạn cần đăng nhập để sử dụng chức năng này.'),
             ], 401);
         }
 
@@ -37,7 +37,7 @@ class CheckRoleOrPermission
 
         return response()->json([
             'status' => 'error',
-            'message' => 'Bạn chưa được cấp quyền để sử dụng chức năng này.',
+            'message' => __('Không đủ quyền.'),
         ], 403);
     }
 }

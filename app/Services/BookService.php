@@ -317,13 +317,15 @@ class BookService
     /**
      * Bulk update book cover từ zip (file name = book.book_code).
      *
-     * @return array{updated:int,skipped:int}
+     * @param  list<int>|null  $onlyBookIds  Nếu có — chỉ cập nhật sách có id thuộc danh sách (tick chọn trên admin).
+     * @return array{updated:int, skipped:int, selected_count?: int, selected_missing?: int}
      */
-    public function bulkUpdateCoverFromZip(UploadedFile $zipFile): array
+    public function bulkUpdateCoverFromZip(UploadedFile $zipFile, ?array $onlyBookIds = null): array
     {
         $tmpDir = FileHelpers::extractZipToTemp($zipFile, 'book-covers');
         $updated = 0;
         $skipped = 0;
+        $updatedBookIds = [];
 
         try {
             $iterator = new \RecursiveIteratorIterator(
@@ -333,12 +335,16 @@ class BookService
                 if (!$fileInfo->isFile()) {
                     continue;
                 }
+                if (FileHelpers::shouldSkipZipExtractedFile($fileInfo)) {
+                    $skipped++;
+                    continue;
+                }
                 $ext = strtolower($fileInfo->getExtension() ?: '');
                 if (!in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
                     $skipped++;
                     continue;
                 }
-                $code = $fileInfo->getBasename('.' . $ext);
+                $code = trim($fileInfo->getBasename('.' . $ext));
                 if ($code === '') {
                     $skipped++;
                     continue;
@@ -349,11 +355,15 @@ class BookService
                     $skipped++;
                     continue;
                 }
+                if ($onlyBookIds !== null && $onlyBookIds !== [] && !in_array((int) $book->id, $onlyBookIds, true)) {
+                    $skipped++;
+                    continue;
+                }
 
                 $uploaded = new UploadedFile(
                     $fileInfo->getPathname(),
                     $fileInfo->getBasename(),
-                    'image/' . $ext,
+                    FileHelpers::mimeForImageExtension($ext),
                     null,
                     true
                 );
@@ -361,6 +371,7 @@ class BookService
                     $baseName = $book->book_code ?: (string) $book->id;
                     FileHelpers::updateModelImage($book, $uploaded, 'books', 'cover_image', $baseName);
                     $updated++;
+                    $updatedBookIds[] = (int) $book->id;
                 } catch (\Throwable) {
                     $skipped++;
                 }
@@ -369,6 +380,13 @@ class BookService
             FileHelpers::removeDirectory($tmpDir);
         }
 
-        return ['updated' => $updated, 'skipped' => $skipped];
+        $out = ['updated' => $updated, 'skipped' => $skipped];
+        if ($onlyBookIds !== null && $onlyBookIds !== []) {
+            $uniqueUpdated = array_values(array_unique($updatedBookIds));
+            $out['selected_count'] = count($onlyBookIds);
+            $out['selected_missing'] = count(array_diff($onlyBookIds, $uniqueUpdated));
+        }
+
+        return $out;
     }
 }

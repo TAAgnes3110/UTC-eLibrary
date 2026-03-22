@@ -38,6 +38,9 @@ class WarehouseRequest extends BaseRequest
             'name.required' => 'Tên kho không được để trống',
             'name.string' => 'Tên kho phải là chuỗi',
             'name.max' => 'Tên kho không được vượt quá 255 ký tự',
+            'parent_id.exists' => 'Kho cha không tồn tại trong hệ thống',
+            'parent_id.integer' => 'Kho cha không hợp lệ',
+            'is_active.boolean' => 'Trạng thái hoạt động không hợp lệ',
         ];
     }
 }

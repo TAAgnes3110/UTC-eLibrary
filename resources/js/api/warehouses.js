@@ -46,9 +46,7 @@ export const warehousesApi = {
         });
     },
     import(formData) {
-        return client.post('/warehouses/import', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-        }).then((r) => r.data);
+        return client.post('/warehouses/import', formData).then((r) => r.data);
     },
 };
 

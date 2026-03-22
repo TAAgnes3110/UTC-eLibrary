@@ -361,13 +361,13 @@ Laravel mặc định: Mail/, Observers/, Providers/. Trang web Inertia: **Http/
 
 | Thư mục | Vai trò |
 |--------|--------|
-| **api/** | Axios + gọi API theo module (users, books, auth, masterData) |
+| **api/** | Axios + gọi API theo module (users, books, auth, axios) |
 | **components/** | UI dùng chung (Table, Modal, Button, Admin/*) |
-| **composables/** | Logic tái sử dụng (useAuth, useTable) |
+| **composables/** | Logic tái sử dụng (useTable, các trang Admin/Auth) |
 | **config/** | Nav, enums (adminNavigation, readerNavigation, enums) |
 | **Layouts/** | Layout Inertia (Admin, Reader, Auth) |
 | **Pages/** | Màn hình (Admin/*, Reader/*, Auth/*) |
-| **store/** | Trạng thái (auth, masterData) |
+| **store/** | Trạng thái (toast) |
 | **utils/** | cn(), format, hằng số FE |
 
 **API:** `routes/api.php` → prefix `/api/v1`, controller `Api\*`. **Web:** `routes/web.php` → Frontend controllers.

@@ -24,6 +24,38 @@ final class FileHelpers
     public const EXCEL_EXTENSIONS = ['xlsx', 'xls', 'csv'];
     public const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
+    public static function mimeForImageExtension(string $ext): string
+    {
+        return match (strtolower($ext)) {
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            default => 'application/octet-stream',
+        };
+    }
+
+    /** Bỏ qua file rác thường gặp trong zip (macOS __MACOSX, ._*, file ẩn). */
+    public static function shouldSkipZipExtractedFile(\SplFileInfo $fileInfo): bool
+    {
+        $path = str_replace('\\', '/', $fileInfo->getPathname());
+        if (str_contains($path, '/__MACOSX/')) {
+            return true;
+        }
+        $name = $fileInfo->getFilename();
+        if ($name === '' || $name === '.' || $name === '..') {
+            return true;
+        }
+        if (str_starts_with($name, '._')) {
+            return true;
+        }
+        if (str_starts_with($name, '.')) {
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Lưu file upload lên Storage.
      * Trả về đường dẫn tương đối (để lưu DB).

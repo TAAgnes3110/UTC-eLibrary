@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\ApiResponse;
 use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
+use App\Helpers\BulkZipRequestHelper;
 use App\Http\Requests\UserRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -217,8 +218,9 @@ class UserController extends Controller
         if (!$file) {
             return ApiResponse::error(__('Vui lòng chọn một file .zip hợp lệ.'), 422);
         }
+        $onlyUserIds = BulkZipRequestHelper::parseFilterIds($request);
         try {
-            $summary = $this->userService->bulkUpdateAvatarFromZip($file);
+            $summary = $this->userService->bulkUpdateAvatarFromZip($file, $onlyUserIds);
             return ApiResponse::success($summary, __('messages.success_update'));
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);

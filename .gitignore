@@ -31,6 +31,10 @@ LPT1
 /public/build
 /public/hot
 /public/storage
+
+# Ảnh upload thử nghiệm local (FileHelpers lưu public/upload/{table})
+/public/upload/**
+!/public/upload/.gitkeep
 /storage/*.key
 /storage/pail
 /vendor

@@ -80,10 +80,6 @@ class ApiRoutesTest extends TestCase
             'master-data' => ['GET', "{$base}/master-data"],
             'me profile' => ['GET', "{$base}/me/profile"],
             'me profile put' => ['PUT', "{$base}/me/profile", ['name' => 'x', 'email' => 'x@x.com']],
-            'me dashboard' => ['GET', "{$base}/me/dashboard"],
-            'me loans' => ['GET', "{$base}/me/loans"],
-            'me card' => ['GET', "{$base}/me/card"],
-            'me profile-change-requests page-data' => ['GET', "{$base}/me/profile-change-requests/page-data"],
             'users index' => ['GET', "{$base}/users"],
             'users trash' => ['GET', "{$base}/users/trash"],
             'books index' => ['GET', "{$base}/books"],
@@ -91,8 +87,10 @@ class ApiRoutesTest extends TestCase
             'roles index' => ['GET', "{$base}/roles"],
             'permissions index' => ['GET', "{$base}/permissions"],
             'faculties index' => ['GET', "{$base}/faculties"],
-            'categories index' => ['GET', "{$base}/categories"],
-            'profile-change-requests index' => ['GET', "{$base}/profile-change-requests"],
+            'classifications index' => ['GET', "{$base}/classifications"],
+            'classification-details index' => ['GET', "{$base}/classification-details"],
+            'warehouses index' => ['GET', "{$base}/warehouses"],
+            'authors index' => ['GET', "{$base}/authors"],
         ];
     }
 }

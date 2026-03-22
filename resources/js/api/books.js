@@ -43,25 +43,13 @@ export const booksApi = {
         });
     },
     import(formData) {
-        return client
-            .post('/books/import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            })
-            .then((r) => r.data);
+        return client.post('/books/import', formData).then((r) => r.data);
     },
     updateCover(id, formData) {
-        return client
-            .post(`/books/${id}/image`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            })
-            .then((r) => r.data);
+        return client.post(`/books/${id}/image`, formData).then((r) => r.data);
     },
     bulkUpdateCover(formData) {
-        return client
-            .post('/books/image-bulk', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            })
-            .then((r) => r.data);
+        return client.post('/books/image-bulk', formData).then((r) => r.data);
     },
 };
 

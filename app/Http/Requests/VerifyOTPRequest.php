@@ -11,4 +11,13 @@ class VerifyOTPRequest extends BaseRequest
             'otp' => ['required'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'Email không được để trống.',
+            'email.email' => 'Email không hợp lệ.',
+            'otp.required' => 'Vui lòng nhập mã OTP.',
+        ];
+    }
 }

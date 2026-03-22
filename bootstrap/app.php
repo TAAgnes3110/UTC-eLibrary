@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Middleware\CheckLogin;
 use App\Http\Middleware\CheckRoleOrPermission;
 use App\Http\Middleware\Init;
 use App\Http\Middleware\LogApiRequests;
@@ -23,7 +22,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'init' => Init::class,
-            'login' => CheckLogin::class,
             'role_or_permission' => CheckRoleOrPermission::class,
             'log.api' => LogApiRequests::class,
         ]);
@@ -35,7 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             if ($request->is('api/*')) {
-                return \App\Helpers\ApiResponse::error($e->getMessage() ?: __('Unauthenticated.'), 401);
+                return \App\Helpers\ApiResponse::error($e->getMessage() ?: __('Bạn cần đăng nhập để tiếp tục.'), 401);
             }
         });
     })->create();

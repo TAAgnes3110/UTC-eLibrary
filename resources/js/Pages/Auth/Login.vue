@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, useForm } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import AuthLayout from "@/Layouts/AuthLayout.vue";
 import BrandHeader from "@/Components/Auth/BrandHeader.vue";
 import AuthCardTitle from "@/Components/Auth/AuthCardTitle.vue";
@@ -7,60 +7,13 @@ import AuthFooter from "@/Components/Auth/AuthFooter.vue";
 import SubmitButton from "@/Components/Auth/SubmitButton.vue";
 import FormField from "@/Components/Auth/FormField.vue";
 import { User, Lock, Eye, EyeOff, ArrowRight, LogIn } from "lucide-vue-next";
-import { ref } from "vue";
+import { useLoginPage } from "@/composables/auth/useLoginPage";
 
 const { status } = defineProps({
     status: String,
 });
 
-const showPassword = ref(false);
-
-const form = useForm({
-    login: "",
-    password: "",
-    remember: false,
-});
-
-const submit = () => {
-    form.processing = true;
-    axios
-        .post(window.route("login"), {
-            login: form.login,
-            password: form.password,
-            remember: form.remember,
-        })
-        .then((response) => {
-            if (response.data.token) {
-                localStorage.setItem("token", response.data.token);
-                localStorage.setItem(
-                    "user",
-                    JSON.stringify(response.data.user),
-                );
-                form.reset("password");
-                window.location.href = window.route("dashboard");
-            } else {
-                form.errors.login =
-                    "Lỗi hệ thống: Không nhận được Token xác thực.";
-                form.processing = false;
-            }
-        })
-        .catch((error) => {
-            form.processing = false;
-            const status = error.response?.status;
-            if (status === 401) {
-                form.errors.login =
-                    error.response.data.messages ||
-                    "Thông tin đăng nhập không chính xác.";
-                form.reset("password");
-            } else if (status === 422) {
-                const errors = error.response.data.errors;
-                if (errors?.login) form.errors.login = errors.login[0];
-                if (errors?.password) form.errors.password = errors.password[0];
-            } else {
-                form.errors.login = "Đã có lỗi xảy ra. Vui lòng thử lại sau.";
-            }
-        });
-};
+const { showPassword, form, submit } = useLoginPage();
 </script>
 
 <template>
@@ -281,12 +234,6 @@ const submit = () => {
                                     >Tạo tài khoản ngay</span
                                 >
                                 <ArrowRight :size="16" class="text-blue-400" />
-                            </Link>
-                            <Link
-                                :href="route('library.search')"
-                                class="mt-2 text-xs text-slate-400 hover:text-blue-400 underline"
-                            >
-                                Vào thư viện (Tra cứu sách)
                             </Link>
                         </div>
                     </div>

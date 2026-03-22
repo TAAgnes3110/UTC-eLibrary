@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyOTPRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
@@ -93,21 +94,17 @@ class AuthController extends Controller
     }
 
     /**
-     * @param Request $request
+     * @param ResetPasswordRequest $request
      * @return JsonResponse
      */
-    public function resetPassword(Request $request): JsonResponse
+    public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|string|size:6',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+        $validated = $request->validated();
 
         $result = $this->authService->resetPassword(
-            $request->email,
-            $request->otp,
-            $request->password
+            $validated['email'],
+            $validated['otp'],
+            $validated['password']
         );
 
         if (isset($result['error'])) {

@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, useForm } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
 import AuthLayout from "@/Layouts/AuthLayout.vue";
 import BrandHeader from "@/Components/Auth/BrandHeader.vue";
 import AuthCardTitle from "@/Components/Auth/AuthCardTitle.vue";
@@ -21,61 +21,15 @@ import {
     Home,
     ChevronDown,
 } from "lucide-vue-next";
-import { ref } from "vue";
+import { useRegisterPage } from "@/composables/auth/useRegisterPage";
 
-const form = useForm({
-    code: "",
-    name: "",
-    email: "",
-    phone: "",
-    date_of_birth: "",
-    gender: "male",
-    address: "",
-    password: "",
-    password_confirmation: "",
-});
-
-const dateInputRef = ref(null);
-const showPassword = ref(false);
-const showPasswordConfirmation = ref(false);
-
-const submit = () => {
-    form.processing = true;
-    form.clearErrors();
-    window.axios
-        .post("/auth/register", {
-            code: form.code,
-            name: form.name,
-            email: form.email,
-            phone: form.phone,
-            date_of_birth: form.date_of_birth,
-            gender: form.gender,
-            address: form.address,
-            password: form.password,
-            password_confirmation: form.password_confirmation,
-        })
-        .then((response) => {
-            form.processing = false;
-            if (response.data.status === "success" || response.status === 200) {
-                window.location.href = window.route("verify-otp") + "?email=" + form.email;
-            }
-        })
-        .catch((error) => {
-            form.processing = false;
-            form.password = "";
-            form.password_confirmation = "";
-            if (error.response?.status === 422) {
-                const errs = error.response.data.errors;
-                for (let key in errs) {
-                    form.setError(key, errs[key][0]);
-                }
-            } else if (error.response?.data?.messages) {
-                form.setError("email", error.response.data.messages);
-            } else {
-                form.setError("email", "Đã có lỗi xảy ra. Vui lòng thử lại sau.");
-            }
-        });
-};
+const {
+    form,
+    dateInputRef,
+    showPassword,
+    showPasswordConfirmation,
+    submit,
+} = useRegisterPage();
 </script>
 
 <template>
@@ -354,12 +308,6 @@ const submit = () => {
                             class="inline-flex items-center justify-center gap-3 w-full h-12 rounded-2xl border-2 border-white/10 bg-white/5 text-base font-black text-white hover:bg-white/10 hover:border-blue-500/30 transition-all duration-300 active:scale-[0.98] shadow-lg shadow-black/20"
                         >
                             <span class="leading-none">ĐĂNG NHẬP NGAY</span>
-                        </Link>
-                        <Link
-                            :href="route('library.search')"
-                            class="mt-2 block text-xs text-slate-400 hover:text-blue-400 underline"
-                        >
-                            Vào thư viện (Tra cứu sách không cần đăng nhập)
                         </Link>
                     </div>
                 </div>

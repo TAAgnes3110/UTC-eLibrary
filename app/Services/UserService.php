@@ -132,14 +132,15 @@ class UserService
         return ['is_active' => $user->is_active];
     }
 
+    /**
+     * Danh sách cho trang Inertia admin — cùng query với API index (không lọc keyword/type).
+     *
+     * @return array{users: LengthAwarePaginator, roles: array}
+     */
     public function adminList(int $perPage = 20): array
     {
-        $users = User::query()
-            ->with(['faculty:id,code,name', 'department:id,code,name,faculty_id'])
-            ->orderByDesc('name')
-            ->paginate($perPage);
         return [
-            'users' => $users,
+            'users' => $this->index(null, false, $perPage),
             'roles' => RoleType::getRoleTypes(),
         ];
     }
@@ -164,13 +165,15 @@ class UserService
     /**
      * Bulk update avatar từ zip (file name = user.code).
      *
-     * @return array{updated:int,skipped:int}
+     * @param  list<int>|null  $onlyUserIds
+     * @return array{updated:int, skipped:int, selected_count?: int, selected_missing?: int}
      */
-    public function bulkUpdateAvatarFromZip(UploadedFile $zipFile): array
+    public function bulkUpdateAvatarFromZip(UploadedFile $zipFile, ?array $onlyUserIds = null): array
     {
         $tmpDir = FileHelpers::extractZipToTemp($zipFile, 'avatars');
         $updated = 0;
         $skipped = 0;
+        $updatedUserIds = [];
 
         try {
             $iterator = new \RecursiveIteratorIterator(
@@ -180,12 +183,16 @@ class UserService
                 if (!$fileInfo->isFile()) {
                     continue;
                 }
+                if (FileHelpers::shouldSkipZipExtractedFile($fileInfo)) {
+                    $skipped++;
+                    continue;
+                }
                 $ext = strtolower($fileInfo->getExtension() ?: '');
                 if (!in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
                     $skipped++;
                     continue;
                 }
-                $code = $fileInfo->getBasename('.' . $ext);
+                $code = trim($fileInfo->getBasename('.' . $ext));
                 if ($code === '') {
                     $skipped++;
                     continue;
@@ -195,17 +202,22 @@ class UserService
                     $skipped++;
                     continue;
                 }
+                if ($onlyUserIds !== null && $onlyUserIds !== [] && !in_array((int) $user->id, $onlyUserIds, true)) {
+                    $skipped++;
+                    continue;
+                }
 
                 $uploaded = new UploadedFile(
                     $fileInfo->getPathname(),
                     $fileInfo->getBasename(),
-                    'image/' . $ext,
+                    FileHelpers::mimeForImageExtension($ext),
                     null,
                     true
                 );
                 try {
                     FileHelpers::updateModelImage($user, $uploaded, 'users', 'avatar', $user->code ?: (string) $user->id);
                     $updated++;
+                    $updatedUserIds[] = (int) $user->id;
                 } catch (\Throwable) {
                     $skipped++;
                 }
@@ -214,6 +226,13 @@ class UserService
             FileHelpers::removeDirectory($tmpDir);
         }
 
-        return ['updated' => $updated, 'skipped' => $skipped];
+        $out = ['updated' => $updated, 'skipped' => $skipped];
+        if ($onlyUserIds !== null && $onlyUserIds !== []) {
+            $uniqueUpdated = array_values(array_unique($updatedUserIds));
+            $out['selected_count'] = count($onlyUserIds);
+            $out['selected_missing'] = count(array_diff($onlyUserIds, $uniqueUpdated));
+        }
+
+        return $out;
     }
 }

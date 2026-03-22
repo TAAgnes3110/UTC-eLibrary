@@ -3,67 +3,34 @@
 namespace App\Http\Controllers\Frontend\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\LoginRequest;
-use App\Enums\RoleType;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
-use Illuminate\Validation\ValidationException;
 
+/**
+ * Trang đăng nhập (GET) và đăng xuất (POST). Đăng nhập: POST /login → Api\AuthController (JSON + JWT + session).
+ */
 class AuthenticatedSessionController extends Controller
 {
-
-  public function create(): Response
-  {
-    return Inertia::render('Auth/Login', [
-      'canResetPassword' => Route::has('password.request'),
-      'status' => session('status'),
-    ]);
-  }
-
-  public function store(LoginRequest $request): RedirectResponse
-  {
-    $loginField = $request->input('login');
-    $password = $request->input('password');
-    $remember = $request->boolean('remember');
-
-    $user = User::query()
-      ->where('email', $loginField)
-      ->orWhere('code', $loginField)
-      ->first();
-
-    if (!$user) {
-      throw ValidationException::withMessages([
-        'login' => __('Tài khoản không tồn tại trong hệ thống'),
-      ]);
+    public function create(): Response
+    {
+        return Inertia::render('Auth/Login', [
+            'canResetPassword' => Route::has('password.request'),
+            'status' => session('status'),
+        ]);
     }
 
-    if (!Auth::guard('web')->attempt(['email' => $user->email, 'password' => $password], $remember)) {
-      throw ValidationException::withMessages([
-        'login' => __('Tài khoản hoặc mật khẩu không chính xác'),
-      ]);
+    public function destroy(Request $request): RedirectResponse
+    {
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+
+        $request->session()->regenerateToken();
+
+        return redirect('/');
     }
-
-    $request->session()->regenerate();
-
-    $role = $user->user_type instanceof \BackedEnum ? $user->user_type->value : (string) $user->user_type;
-    $isStaff = in_array($role, RoleType::staffRoles(), true);
-
-    return redirect()->intended(route($isStaff ? 'admin.dashboard' : 'library.dashboard'));
-  }
-
-  public function destroy(Request $request): RedirectResponse
-  {
-    Auth::guard('web')->logout();
-
-    $request->session()->invalidate();
-
-    $request->session()->regenerateToken();
-
-    return redirect('/');
-  }
 }

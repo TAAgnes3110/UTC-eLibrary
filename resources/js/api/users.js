@@ -35,11 +35,7 @@ export const usersApi = {
         return client.post(`/users/${id}/toggle-status`).then((r) => r.data);
     },
     updateAvatar(id, formData) {
-        return client
-            .post(`/users/${id}/avatar`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            })
-            .then((r) => r.data);
+        return client.post(`/users/${id}/avatar`, formData).then((r) => r.data);
     },
     export(params = {}) {
         return client.get('/users/export', {
@@ -48,10 +44,6 @@ export const usersApi = {
         });
     },
     bulkUpdateAvatar(formData) {
-        return client
-            .post('/users/avatar-bulk', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            })
-            .then((r) => r.data);
+        return client.post('/users/avatar-bulk', formData).then((r) => r.data);
     },
 };

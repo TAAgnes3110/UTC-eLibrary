@@ -43,6 +43,12 @@ client.interceptors.request.use(
             console.log('data', safeJson(config.data || null));
             console.groupEnd();
         }
+        if (config.data instanceof FormData) {
+            if (config.headers && typeof config.headers === 'object') {
+                delete config.headers['Content-Type'];
+                delete config.headers['content-type'];
+            }
+        }
         const token = localStorage.getItem('token');
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
@@ -94,6 +100,11 @@ client.interceptors.response.use(
         }
 
         if (!response || response.status !== 401) {
+            return Promise.reject(error);
+        }
+
+        const reqPath = (originalRequest.url || '').split('?')[0];
+        if (/^\/auth\/(login|register|verify-otp|reset-password|resend-otp)/.test(reqPath)) {
             return Promise.reject(error);
         }
 

@@ -44,6 +44,13 @@ class BookRequest extends BaseRequest
             'thesis_metadata.keywords' => ['sometimes', 'nullable', 'string'],
             'thesis_metadata.abstract_text' => ['sometimes', 'nullable', 'string'],
             'thesis_metadata.params' => ['sometimes', 'nullable', 'array'],
+            'registration_number' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'book_code' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'summary' => ['sometimes', 'nullable', 'string'],
+            'published_year' => ['sometimes', 'nullable', 'integer', 'min:1900', 'max:2100'],
+            'price' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'classification_id' => ['sometimes', 'nullable', 'integer', 'exists:classifications,id'],
+            'classification_detail_id' => ['sometimes', 'nullable', 'integer', 'exists:classification_details,id'],
         ];
     }
 
@@ -57,6 +64,11 @@ class BookRequest extends BaseRequest
             'quantity.required' => __('Số lượng không được để trống'),
             'quantity.integer' => __('Số lượng phải là một số nguyên'),
             'quantity.min' => __('Số lượng không được nhỏ hơn 0'),
+            'classification_id.exists' => __('Phân loại sách không tồn tại'),
+            'classification_detail_id.exists' => __('Phân loại chi tiết không tồn tại'),
+            'published_year.min' => __('Năm xuất bản không hợp lệ'),
+            'published_year.max' => __('Năm xuất bản không hợp lệ'),
+            'price.min' => __('Giá không được âm'),
         ];
     }
 }

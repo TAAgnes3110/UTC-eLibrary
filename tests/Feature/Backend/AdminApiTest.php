@@ -6,7 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Test các route API admin (users, books, faculties, categories, roles, profile-change-requests)
+ * Test các route API admin (users, books, faculties, classifications, roles, warehouses)
  * với token có quyền SUPER_ADMIN.
  *
  * @see routes/api.php
@@ -59,15 +59,15 @@ class AdminApiTest extends TestCase
     }
 
     /**
-     * GET /api/v1/categories với admin token trả 200.
+     * GET /api/v1/classifications với admin token trả 200.
      *
      * @return void
      */
-    public function test_categories_index_returns_200_with_admin_token(): void
+    public function test_classifications_index_returns_200_with_admin_token(): void
     {
         [, $token] = $this->createAdminUserAndToken();
 
-        $response = $this->getJson('/api/v1/categories', $this->apiTokenHeaders($token));
+        $response = $this->getJson('/api/v1/classifications', $this->apiTokenHeaders($token));
 
         $response->assertStatus(200)->assertJsonStructure(['status', 'data']);
     }
@@ -101,19 +101,16 @@ class AdminApiTest extends TestCase
     }
 
     /**
-     * GET /api/v1/profile-change-requests với admin token trả 200.
+     * GET /api/v1/warehouses với admin token trả 200.
      *
      * @return void
      */
-    public function test_profile_change_requests_index_returns_200_with_admin_token(): void
+    public function test_warehouses_index_returns_200_with_admin_token(): void
     {
         [, $token] = $this->createAdminUserAndToken();
 
-        $response = $this->getJson('/api/v1/profile-change-requests', $this->apiTokenHeaders($token));
+        $response = $this->getJson('/api/v1/warehouses', $this->apiTokenHeaders($token));
 
-        $response->assertStatus(200)->assertJsonStructure([
-            'status',
-            'data' => ['data', 'meta', 'faculties', 'departments', 'statusFilter'],
-        ]);
+        $response->assertStatus(200)->assertJsonStructure(['status', 'data']);
     }
 }

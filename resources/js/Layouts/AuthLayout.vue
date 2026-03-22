@@ -1,6 +1,5 @@
 <script setup>
-import { useColorMode } from '@vueuse/core'
-
+import AppToastContainer from '@/Components/Shared/AppToastContainer.vue';
 </script>
 
 <template>
@@ -16,5 +15,6 @@ import { useColorMode } from '@vueuse/core'
         <div class="relative z-10 w-full max-w-4xl min-w-0 flex-1 flex flex-col items-center justify-center py-4 sm:p-6">
             <slot />
         </div>
+        <AppToastContainer />
     </div>
 </template>

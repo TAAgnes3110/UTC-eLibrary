@@ -40,9 +40,9 @@ php artisan test tests/Feature/Backend/ApiRoutesTest.php
 | File | Mô tả |
 |------|-------|
 | `Feature/Backend/ApiRoutesTest.php` | Health, refresh 401, protected routes 401 |
-| `Feature/Backend/AdminApiTest.php` | Users, books, faculties, categories, roles, profile-change-requests (admin) |
+| `Feature/Backend/AdminApiTest.php` | Users, books, faculties, classifications, roles, warehouses (admin token) |
 | `Feature/Backend/AuthApiTest.php` | Register, verify OTP, login, logout |
-| `Feature/Backend/ReaderApiTest.php` | /me/dashboard, loans, card, profile |
+| `Feature/Backend/Api/UserUpdateTest.php` | Cập nhật user qua API |
 | `Feature/Backend/MasterDataApiTest.php` | /master-data |
 | `Feature/Backend/ActsAsApiUser.php` | Trait tạo user + JWT token |
 

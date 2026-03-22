@@ -33,11 +33,21 @@ class RegisterRequest extends BaseRequest
     public function messages(): array
     {
         return [
-            'code.required' => 'Mã không được để trống',
-            'code.unique' => 'Mã đã tồn tại',
-            'email.unique' => 'Email đã tồn tại',
-            'password.min' => 'Mật khẩu tối thiểu 8 ký tự',
-            'password.confirmed' => 'Xác nhận mật khẩu không đúng',
+            'code.required' => 'Mã định danh không được để trống.',
+            'code.max' => 'Mã định danh quá dài.',
+            'code.unique' => 'Mã định danh đã được sử dụng.',
+            'name.required' => 'Họ và tên không được để trống.',
+            'name.max' => 'Họ và tên quá dài.',
+            'email.required' => 'Email không được để trống.',
+            'email.email' => 'Email không hợp lệ.',
+            'email.max' => 'Email quá dài.',
+            'email.unique' => 'Email đã được đăng ký.',
+            'phone.unique' => 'Số điện thoại đã được sử dụng.',
+            'phone.max' => 'Số điện thoại không hợp lệ.',
+            'password.required' => 'Mật khẩu không được để trống.',
+            'password.min' => 'Mật khẩu tối thiểu 8 ký tự.',
+            'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
+            'user_type.in' => 'Loại tài khoản không hợp lệ.',
         ];
     }
 }

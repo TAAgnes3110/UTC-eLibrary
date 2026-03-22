@@ -37,20 +37,20 @@ class Init
                 $user = Auth::guard('web')->user();
             }
             if (!$user) {
-                return ApiResponse::error(__('Vui lòng đăng nhập để tiếp tục.'), 401);
+                return ApiResponse::error(__('Bạn cần đăng nhập để tiếp tục.'), 401);
             }
 
             $domain = $request->headers->get('domain', request()->getHost());
             $allowedDomains = config('api.allowed_domains', []);
             if (!empty($allowedDomains) && !$this->isDomainAllowed($domain, $allowedDomains)) {
-                return ApiResponse::error(__('Domain không được phép gọi API.'), 403);
+                return ApiResponse::error(__('Domain không được phép.'), 403);
             }
 
             $period = $request->headers->get('period', date('Y') . '-' . (date('Y') + 1));
             if (config('api.validate_period_format', false)) {
                 $pattern = config('api.period_pattern', '/^\d{4}-\d{4}$/');
                 if (!preg_match($pattern, $period)) {
-                    return ApiResponse::error(__('Định dạng period không hợp lệ (ví dụ: 2025-2026).'), 403);
+                    return ApiResponse::error(__('Sai định dạng period (VD: 2025-2026).'), 403);
                 }
             }
             $currentPerson = $user;
@@ -64,7 +64,7 @@ class Init
 
             return $next($request);
         } catch (\Exception $e) {
-            return ApiResponse::error(__('Lỗi xác thực: ') . $e->getMessage(), 401);
+            return ApiResponse::error(__('Lỗi xác thực.'), 401);
         }
     }
 

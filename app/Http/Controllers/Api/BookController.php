@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\ApiResponse;
 use App\Exports\BookImportTemplateExport;
 use App\Http\Controllers\Controller;
+use App\Helpers\BulkZipRequestHelper;
 use App\Http\Requests\BookRequest;
 use App\Http\Resources\BookResource;
 use App\Models\Book;
@@ -194,8 +195,9 @@ class BookController extends Controller
         if (!$file) {
             return ApiResponse::error(__('Vui lòng chọn một file .zip hợp lệ.'), 422);
         }
+        $onlyBookIds = BulkZipRequestHelper::parseFilterIds($request);
         try {
-            $summary = $this->bookService->bulkUpdateCoverFromZip($file);
+            $summary = $this->bookService->bulkUpdateCoverFromZip($file, $onlyBookIds);
             return ApiResponse::success($summary, __('messages.success_update'));
         } catch (\InvalidArgumentException $e) {
             return ApiResponse::error($e->getMessage(), 422);

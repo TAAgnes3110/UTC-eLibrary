@@ -1,5 +1,4 @@
 <script setup>
-import { ref } from "vue";
 import AuthLayout from "@/Layouts/AuthLayout.vue";
 import BrandHeader from "@/Components/Auth/BrandHeader.vue";
 import AuthCardTitle from "@/Components/Auth/AuthCardTitle.vue";
@@ -9,70 +8,15 @@ import StatusAlert from "@/Components/Auth/StatusAlert.vue";
 import OtpInput from "@/Components/Auth/OtpInput.vue";
 import ResendOtp from "@/Components/Auth/ResendOtp.vue";
 import { ShieldCheck, ArrowRight, Undo2 } from "lucide-vue-next";
-import { Head, Link, useForm, router } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
+import { useVerifyOtpPage } from "@/composables/auth/useVerifyOtpPage";
 
 const props = defineProps({
     email: String,
     status: String,
 });
 
-const form = useForm({
-    email: props.email ?? "",
-    otp: "",
-});
-
-const otpInputRef = ref(null);
-
-const localStatus = ref(props.status || '')
-
-const submit = () => {
-    form.processing = true
-    form.clearErrors()
-    localStatus.value = ''
-    window.axios.post('/auth/verify-otp', {
-        email: form.email,
-        otp: form.otp
-    })
-    .then(response => {
-        form.processing = false;
-        if (response.data.status === 'success' || response.status === 200) {
-            window.location.href = window.route('login');
-        }
-    })
-    .catch(error => {
-        form.processing = false
-        if (error.response?.status === 422) {
-            const errs = error.response.data.errors
-            if (errs?.otp) form.setError('otp', errs.otp[0])
-            if (errs?.email) form.setError('email', errs.email[0])
-        } else if (error.response?.data?.messages) {
-            form.setError('otp', error.response.data.messages)
-        } else {
-            form.setError('otp', 'Đã có lỗi xảy ra.')
-        }
-    })
-}
-
-const resendOtp = () => {
-    form.processing = true
-    form.clearErrors()
-    localStatus.value = ''
-    window.axios.post('/auth/resend-otp', { email: form.email })
-    .then(response => {
-        form.processing = false
-        otpInputRef.value?.reset()
-        form.reset('otp')
-        localStatus.value = response.data.messages || 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.'
-    })
-    .catch(error => {
-        form.processing = false
-        if (error.response?.data?.messages) {
-            form.setError('otp', error.response.data.messages)
-        } else {
-            form.setError('otp', 'Lỗi không thể gửi lại mã OTP.')
-        }
-    })
-}
+const { form, otpInputRef, localStatus, email, submit, resendOtp } = useVerifyOtpPage(props);
 </script>
 
 <template>

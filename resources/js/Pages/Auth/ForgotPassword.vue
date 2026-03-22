@@ -6,30 +6,10 @@ import AuthFooter from "@/Components/Auth/AuthFooter.vue";
 import SubmitButton from "@/Components/Auth/SubmitButton.vue";
 import FormField from "@/Components/Auth/FormField.vue";
 import { Mail, ArrowRight } from "lucide-vue-next";
-import { Head, Link, useForm } from "@inertiajs/vue3";
+import { Head, Link } from "@inertiajs/vue3";
+import { useForgotPasswordPage } from "@/composables/auth/useForgotPasswordPage";
 
-const form = useForm({
-    email: "",
-});
-
-const submit = () => {
-    form.processing = true;
-    form.clearErrors();
-    window.axios
-        .post("/auth/resend-otp", { email: form.email, name: 'Người dùng' })
-        .then((response) => {
-            form.processing = false;
-            window.location.href = window.route("password.reset") + "?email=" + form.email;
-        })
-        .catch((error) => {
-            form.processing = false;
-            if (error.response?.data?.messages) {
-                form.setError("email", error.response.data.messages);
-            } else {
-                form.setError("email", "Có lỗi xảy ra. Vui lòng thử lại sau.");
-            }
-        });
-};
+const { form, submit } = useForgotPasswordPage();
 </script>
 
 <template>

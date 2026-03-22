@@ -7,11 +7,6 @@ use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
 use App\Http\Controllers\Frontend\Admin\WarehousePageController;
-use App\Http\Controllers\Frontend\Reader\CardController as ReaderCardController;
-use App\Http\Controllers\Frontend\Reader\LibraryController as ReaderLibraryController;
-use App\Http\Controllers\Frontend\Reader\PageController as ReaderPageController;
-use App\Http\Controllers\Frontend\Reader\ProfileChangeRequestController as ReaderProfileChangeRequestController;
-use App\Http\Controllers\Frontend\Reader\ProfileController as ReaderProfileController;
 use App\Http\Controllers\Frontend\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Frontend\Auth\NewPasswordController;
 use App\Http\Controllers\Frontend\Auth\PasswordResetLinkController;
@@ -24,14 +19,9 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [BackendAuthController::class, 'login']);
     Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
-    Route::post('register', [RegisteredUserController::class, 'store']);
     Route::get('verify-otp', [RegisteredUserController::class, 'verifyOtpPage'])->name('verify-otp');
-    Route::post('verify-otp', [RegisteredUserController::class, 'verifyOtp']);
-    Route::post('verify-otp/resend', [RegisteredUserController::class, 'resendOtp'])->name('verify-otp.resend');
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
     Route::get('reset-password', [NewPasswordController::class, 'create'])->name('password.reset');
-    Route::post('reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 Route::get('/auth/microsoft', [SocialAuthController::class, 'redirectToMicrosoft'])->name('auth.microsoft');
 Route::get('/auth/microsoft/callback', [SocialAuthController::class, 'handleMicrosoftCallback']);
@@ -51,15 +41,4 @@ Route::middleware('auth')->group(function () {
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
     });
 
-    Route::prefix('library')->name('library.')->group(function () {
-        Route::get('/', [ReaderLibraryController::class, 'dashboard'])->name('dashboard');
-        Route::get('/search', [ReaderLibraryController::class, 'search'])->name('search');
-        Route::get('/saved', [ReaderPageController::class, 'saved'])->name('saved');
-        Route::get('/card', ReaderCardController::class)->name('card');
-        Route::get('/profile/change-request', [ReaderProfileChangeRequestController::class, 'index'])->name('profile.change-request');
-        Route::get('/profile', [ReaderProfileController::class, 'edit'])->name('profile.edit');
-        Route::get('/loans', [ReaderLibraryController::class, 'loans'])->name('loans');
-        Route::get('/intro', [ReaderPageController::class, 'intro'])->name('intro');
-        Route::get('/rules', [ReaderPageController::class, 'rules'])->name('rules');
-    });
 });

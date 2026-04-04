@@ -38,7 +38,7 @@ final class UserExport
         ];
 
         $query = User::query()->with($with)->orderBy('id');
-        if (!empty($ids)) {
+        if (! empty($ids)) {
             $query->whereIn('id', $ids);
         }
 
@@ -80,4 +80,3 @@ final class UserExport
         return FileHelpers::downloadExcel($rows, 'FileNguoiDung.xlsx', $headers);
     }
 }
-

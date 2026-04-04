@@ -22,7 +22,7 @@ class CmsAndContentSeeder extends Seeder
                 'title' => 'Giới thiệu Thư viện Trường Đại học Giao thông Vận tải',
                 'type' => 'intro',
                 'excerpt' => 'Thông tin tổng quan về Trung tâm Thông tin – Thư viện Trường Đại học Giao thông Vận tải.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <p>Trung tâm Thông tin – Thư viện Trường Đại học Giao thông Vận tải là đơn vị phục vụ đào tạo, nghiên cứu khoa học và học tập của cán bộ, giảng viên, sinh viên toàn trường.</p>
 <p>Thư viện cung cấp các dịch vụ: đọc tại chỗ, mượn về nhà, tra cứu tài liệu, hỗ trợ tư vấn thông tin, phục vụ học liệu điện tử và các cơ sở dữ liệu trực tuyến.</p>
 HTML,
@@ -32,7 +32,7 @@ HTML,
                 'title' => 'Chức năng, nhiệm vụ',
                 'type' => 'intro',
                 'excerpt' => 'Chức năng, nhiệm vụ chính của Trung tâm Thông tin – Thư viện.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <ul>
   <li>Thu thập, xử lý, tổ chức và lưu trữ tài liệu phục vụ đào tạo và nghiên cứu khoa học.</li>
   <li>Cung cấp dịch vụ thông tin – thư viện cho cán bộ, giảng viên, sinh viên và học viên.</li>
@@ -47,7 +47,7 @@ HTML,
                 'title' => 'Lịch sử, thành tích',
                 'type' => 'intro',
                 'excerpt' => 'Lược sử hình thành và phát triển của Thư viện Trường ĐH GTVT.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <p>Thư viện Trường Đại học Giao thông Vận tải được hình thành và phát triển cùng với quá trình xây dựng và trưởng thành của Nhà trường.</p>
 <p>Qua nhiều giai đoạn, Thư viện từng bước hiện đại hóa cơ sở vật chất, bổ sung nguồn tài liệu phong phú về lĩnh vực giao thông vận tải, xây dựng, kinh tế, công nghệ thông tin và nhiều ngành liên quan.</p>
 HTML,
@@ -57,7 +57,7 @@ HTML,
                 'title' => 'Quy định sử dụng Thư viện',
                 'type' => 'rule',
                 'excerpt' => 'Quy định sử dụng tài liệu, không gian và dịch vụ tại Thư viện UTC.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <ul>
   <li>Giữ trật tự, không gây ồn ào, không sử dụng điện thoại trong phòng đọc.</li>
   <li>Giữ gìn tài liệu, không viết vẽ, gạch xóa, làm rách hoặc làm bẩn sách.</li>
@@ -72,7 +72,7 @@ HTML,
                 'title' => 'Thủ tục làm thẻ Thư viện',
                 'type' => 'rule',
                 'excerpt' => 'Hướng dẫn đăng ký và sử dụng thẻ thư viện.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <ol>
   <li>Sinh viên, học viên, cán bộ, giảng viên của Trường được đăng ký sử dụng Thư viện.</li>
   <li>Chuẩn bị: thẻ sinh viên hoặc giấy tờ tùy thân, ảnh thẻ theo yêu cầu (nếu cần).</li>
@@ -87,7 +87,7 @@ HTML,
                 'title' => 'Lịch phục vụ Thư viện',
                 'type' => 'rule',
                 'excerpt' => 'Giờ mở cửa và lịch phục vụ tại các phòng đọc, phòng mượn.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <p>Giờ mở cửa chung: <strong>08:15 - 16:45</strong> (từ thứ Hai đến thứ Sáu, trừ ngày lễ, Tết theo quy định của Nhà trường).</p>
 <p>Các phòng đọc, phòng mượn có thể có lịch phục vụ cụ thể, được Thư viện thông báo trên website và tại bảng tin.</p>
 HTML,
@@ -98,7 +98,7 @@ HTML,
                 'title' => 'Thủ tục nộp luận văn, luận án',
                 'type' => 'rule',
                 'excerpt' => 'Quy định về việc nộp và lưu chiểu luận văn, luận án tại Thư viện.',
-                'content' => <<<HTML
+                'content' => <<<'HTML'
 <ol>
   <li>Người học hoàn thành luận văn, luận án theo quy định của Nhà trường.</li>
   <li>Nộp bản in và/hoặc bản số (file PDF) cho Thư viện theo hướng dẫn của đơn vị quản lý đào tạo.</li>
@@ -207,4 +207,3 @@ HTML,
         }
     }
 }
-

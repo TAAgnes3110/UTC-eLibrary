@@ -30,4 +30,3 @@ class CmsPage extends BaseModel
         ];
     }
 }
-

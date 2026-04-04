@@ -6,35 +6,31 @@ class Helpers
 {
     /**
      * Generate a random numeric string.
-     *
-     * @param int $length
-     * @param string $prefix
-     * @return string
      */
     public static function generateRandomNumber(int $length = 10, string $prefix = ''): string
     {
-        $characters       = '0123456789';
+        $characters = '0123456789';
         $charactersLength = strlen($characters);
-        $randomString     = $prefix;
+        $randomString = $prefix;
         for ($i = 0; $i < $length; $i++) {
             $randomString .= $characters[rand(0, $charactersLength - 1)];
         }
+
         return $randomString;
     }
 
     /**
      * Merge two arrays, avoiding duplicates.
      *
-     * @param array|null $arr
-     * @param array|null $arr2
-     * @return array
+     * @param  array|null  $arr
+     * @param  array|null  $arr2
      */
     public static function ArrMerge($arr, $arr2): array
     {
         if ($arr) {
             if ($arr2) {
                 foreach ($arr2 as $value) {
-                    if (!in_array($value, $arr)) {
+                    if (! in_array($value, $arr)) {
                         $arr[] = $value;
                     }
                 }
@@ -42,6 +38,7 @@ class Helpers
         } else {
             return $arr2;
         }
+
         return $arr;
     }
 }

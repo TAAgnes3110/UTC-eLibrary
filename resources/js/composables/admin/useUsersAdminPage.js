@@ -1,13 +1,18 @@
 import { ref, computed, onMounted } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import { fetchMasterDataPayload } from '@/api/masterData';
 import { usersApi } from '@/api/users';
+import { facultyDisplayLabel, periodDisplayLabel, matchFacultyId, matchPeriodId } from '@/utils/lookupMatch';
 import { toast } from '@/store/toast';
 import { USER_FORM_FIELD_MAP, USER_ERROR_DISPLAY_KEYS } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, userFormClientError } from '@/constants/adminUiMessages';
 
-function collectUserClientErrors(form, isEditing) {
+function collectUserClientErrors(form, isEditing, resolved = {}) {
     const errors = {};
+    const facultyId = resolved.facultyId ?? null;
+    const periodId = resolved.periodId ?? null;
+
     if (!String(form.name ?? '').trim()) errors.name = userFormClientError.nameRequired;
     if (!String(form.email ?? '').trim()) errors.email = userFormClientError.emailRequired;
     if (!String(form.code ?? '').trim()) errors.code = userFormClientError.codeRequired;
@@ -23,6 +28,19 @@ function collectUserClientErrors(form, isEditing) {
         if (!pwc) errors.password_confirmation = userFormClientError.passwordConfirmRequired;
         else if (pw && pwc && pw !== pwc) errors.password_confirmation = userFormClientError.passwordConfirmMismatch;
     }
+    const role = form.role;
+    const facultyLookup = String(form.faculty_lookup ?? '').trim();
+    const periodLookup = String(form.period_lookup ?? '').trim();
+
+    if (role === 'STUDENT') {
+        if (!facultyLookup) errors.faculty_id = userFormClientError.facultyRequiredStudent;
+        else if (!facultyId) errors.faculty_id = userFormClientError.facultyNoMatch;
+        if (!periodLookup) errors.period_id = userFormClientError.periodRequiredStudent;
+        else if (!periodId) errors.period_id = userFormClientError.periodNoMatch;
+    } else if (role === 'TEACHER') {
+        if (!facultyLookup) errors.faculty_id = userFormClientError.facultyRequiredTeacher;
+        else if (!facultyId) errors.faculty_id = userFormClientError.facultyNoMatch;
+    }
     return { ok: Object.keys(errors).length === 0, errors };
 }
 
@@ -37,13 +55,40 @@ export function useUsersAdminPage(props) {
     const usersData = ref(null);
     const rolesData = ref(null);
     const loadingFallback = ref(false);
+    const facultiesFromApi = ref([]);
+    const periodsFromApi = ref([]);
 
     const syncFromProps = () => {
         usersData.value = props.users;
         rolesData.value = props.roles;
     };
 
-    onMounted(syncFromProps);
+    const loadFacultiesPeriodsIfNeeded = async () => {
+        const fromPageFaculties = props.faculties ?? [];
+        const fromPagePeriods = props.periods ?? [];
+        const needFaculties = fromPageFaculties.length === 0;
+        const needPeriods = fromPagePeriods.length === 0;
+        if (!needFaculties && !needPeriods) {
+            return;
+        }
+        try {
+            const data = await fetchMasterDataPayload();
+            if (needFaculties && Array.isArray(data.faculties)) {
+                facultiesFromApi.value = data.faculties;
+            }
+            if (needPeriods && Array.isArray(data.periods)) {
+                periodsFromApi.value = data.periods;
+            }
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Không tải được master-data (khoa / niên khóa):', e);
+        }
+    };
+
+    onMounted(() => {
+        syncFromProps();
+        loadFacultiesPeriodsIfNeeded();
+    });
 
     const fetchUsers = async () => {
         loadingFallback.value = true;
@@ -97,6 +142,11 @@ export function useUsersAdminPage(props) {
         phone: '',
         code: '',
         role: 'MEMBER',
+        faculty_id: null,
+        period_id: null,
+        faculty_lookup: '',
+        period_lookup: '',
+        class_code: '',
         is_active: true,
         password: '',
         password_confirmation: '',
@@ -115,6 +165,16 @@ export function useUsersAdminPage(props) {
     const roleOptions = computed(() => {
         const roles = rolesData.value ?? props.roles;
         return roles?.length ? roles : [];
+    });
+
+    const facultiesOptions = computed(() => {
+        const fromPage = props.faculties ?? [];
+        return fromPage.length ? fromPage : facultiesFromApi.value;
+    });
+
+    const periodsOptions = computed(() => {
+        const fromPage = props.periods ?? [];
+        return fromPage.length ? fromPage : periodsFromApi.value;
     });
 
     const ROLE_FILTER_OPTIONS = computed(() => ({
@@ -183,6 +243,11 @@ export function useUsersAdminPage(props) {
         form.clearErrors();
         clearUserFormErrors();
         form.role = 'MEMBER';
+        form.faculty_id = null;
+        form.period_id = null;
+        form.faculty_lookup = '';
+        form.period_lookup = '';
+        form.class_code = '';
         form.is_active = true;
         showModal.value = true;
     };
@@ -198,6 +263,25 @@ export function useUsersAdminPage(props) {
         form.phone = user.phone || '';
         form.code = user.code;
         form.role = user.role;
+        form.faculty_id = user.faculty_id ?? null;
+        form.period_id = user.period_id ?? null;
+        {
+            const facList = facultiesOptions.value;
+            const perList = periodsOptions.value;
+            form.faculty_lookup = user.faculty
+                ? facultyDisplayLabel(user.faculty)
+                : (() => {
+                      const f = facList.find((x) => Number(x.id) === Number(user.faculty_id));
+                      return f ? facultyDisplayLabel(f) : '';
+                  })();
+            form.period_lookup = user.period
+                ? periodDisplayLabel(user.period)
+                : (() => {
+                      const p = perList.find((x) => Number(x.id) === Number(user.period_id));
+                      return p ? periodDisplayLabel(p) : '';
+                  })();
+        }
+        form.class_code = user.class_code ?? '';
         form.is_active = !!user.is_active;
         form.password = '';
         form.password_confirmation = '';
@@ -226,7 +310,11 @@ export function useUsersAdminPage(props) {
         if (saveUserLoading.value) return;
         form.clearErrors();
         clearUserFormErrors();
-        const client = collectUserClientErrors(form, isEditing.value);
+        const facList = facultiesOptions.value;
+        const perList = periodsOptions.value;
+        const facultyId = matchFacultyId(facList, form.faculty_lookup);
+        const periodId = matchPeriodId(perList, form.period_lookup);
+        const client = collectUserClientErrors(form, isEditing.value, { facultyId, periodId });
         if (!client.ok) {
             setUserClientErrors(client.errors);
             toast.error(toastShort.fail);
@@ -239,6 +327,9 @@ export function useUsersAdminPage(props) {
             code: form.code,
             role: form.role,
             is_active: form.is_active,
+            faculty_id: facultyId != null ? Number(facultyId) : null,
+            period_id: periodId != null ? Number(periodId) : null,
+            class_code: String(form.class_code ?? '').trim() || null,
         };
         if (!isEditing.value) {
             payload.password = form.password;
@@ -548,6 +639,8 @@ export function useUsersAdminPage(props) {
         showFilterPanel,
         filteredUsers,
         roleOptions,
+        facultiesOptions,
+        periodsOptions,
         ROLE_FILTER_OPTIONS,
         formatDateTime,
         selectedIds,

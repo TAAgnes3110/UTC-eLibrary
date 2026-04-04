@@ -10,16 +10,24 @@ return new class extends Migration
     {
         Schema::create('loan_policies', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 50)->unique()->index();       
-            $table->string('name');                               
-            $table->string('user_type', 50)->nullable();          
-            $table->unsignedInteger('max_books')->default(0);     
-            $table->unsignedInteger('max_days')->default(0);      
+            $table->string('code', 50)->unique()->index();
+            $table->string('name');
+            $table->string('user_type', 50)->nullable();
+            $table->unsignedInteger('max_books')->default(0);
+            $table->unsignedInteger('max_days')->default(0);
             $table->unsignedTinyInteger('max_renewals')->default(0);
-            $table->decimal('overdue_fine_per_day', 10, 2)->default(0); 
-            $table->boolean('allow_home')->default(true);         
-            $table->boolean('allow_onsite')->default(true);       
-            $table->json('params')->nullable();                   
+            $table->decimal('overdue_fine_per_day', 10, 2)->default(0);
+            $table->boolean('allow_home')->default(true);
+            $table->boolean('allow_onsite')->default(true);
+            $table->json('params')->nullable();
+
+            $table->unsignedInteger('created_by')->nullable();
+            $table->unsignedInteger('updated_by')->nullable();
+            $table->unsignedInteger('deleted_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+
             $table->timestamps();
         });
     }
@@ -29,4 +37,3 @@ return new class extends Migration
         Schema::dropIfExists('loan_policies');
     }
 };
-

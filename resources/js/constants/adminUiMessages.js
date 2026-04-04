@@ -24,6 +24,11 @@ export const userFormClientError = {
     passwordConfirmRequired: 'Vui lòng nhập lại mật khẩu xác nhận.',
     passwordConfirmMismatch: 'Xác nhận mật khẩu không khớp',
     passwordMin: 'Mật khẩu tối thiểu 6 ký tự',
+    facultyRequiredStudent: 'Sinh viên cần chọn khoa.',
+    facultyRequiredTeacher: 'Giảng viên cần chọn khoa.',
+    periodRequiredStudent: 'Sinh viên cần chọn niên khóa.',
+    facultyNoMatch: 'Không tìm thấy khoa khớp — gõ mã hoặc tên hoặc chọn từ gợi ý.',
+    periodNoMatch: 'Không tìm thấy niên khóa khớp — gõ mã hoặc tên hoặc chọn từ gợi ý.',
 };
 
 export const apiGenericFallback = 'Có lỗi xảy ra.';

@@ -10,6 +10,7 @@ class WarehouseRequest extends BaseRequest
     {
         $id = $this->route('warehouse');
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
             'code' => [
                 $isUpdate ? 'sometimes' : 'required',

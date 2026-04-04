@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-
 class Customer extends BaseModel
 {
     protected $table = 'customers';
+
     public static string $tableName = 'customers';
+
     public $primaryKey = 'id';
 
     protected $fillable = [

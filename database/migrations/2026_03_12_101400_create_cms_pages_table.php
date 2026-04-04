@@ -18,6 +18,14 @@ return new class extends Migration
             $table->boolean('is_published')->default(true)->index();
             $table->timestamp('published_at')->nullable();
             $table->json('params')->nullable();
+
+            $table->unsignedInteger('created_by')->nullable();
+            $table->unsignedInteger('updated_by')->nullable();
+            $table->unsignedInteger('deleted_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+
             $table->timestamps();
         });
     }
@@ -27,4 +35,3 @@ return new class extends Migration
         Schema::dropIfExists('cms_pages');
     }
 };
-

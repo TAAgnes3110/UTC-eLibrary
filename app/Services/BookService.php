@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Enums\ResourceKind;
+use App\Enums\ResourceType;
 use App\Exports\BooksWorkbookExport;
 use App\Helpers\FileHelpers;
-use App\Models\Book;
 use App\Imports\BookImport;
+use App\Models\Book;
 use App\Models\ClassificationDetail;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,7 +32,7 @@ class BookService
             if (empty($bookData['registration_number'])) {
                 $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
             }
-            if (!empty($bookData['classification_detail_id']) && empty($bookData['book_code'])) {
+            if (! empty($bookData['classification_detail_id']) && empty($bookData['book_code'])) {
                 $classificationDetail = ClassificationDetail::findOrFail($bookData['classification_detail_id']);
                 $bookData['book_code'] = $this->generateBookCode($classificationDetail, $warehouse);
             }
@@ -52,34 +52,52 @@ class BookService
 
     public function update(Book $book, array $data): Book
     {
-        unset(
-            $data['id'],
-            $data['created_at'],
-            $data['updated_at'],
-        );
-        if (array_key_exists('cover_image', $data) && empty($data['cover_image'])) {
-            unset($data['cover_image']);
-        }
-        $syncThesis = array_key_exists('thesis_metadata', $data);
-        $thesisMeta = $data['thesis_metadata'] ?? null;
-        unset($data['thesis_metadata']);
+        return DB::transaction(function () use ($book, $data) {
+            unset(
+                $data['id'],
+                $data['created_at'],
+                $data['updated_at'],
+            );
+            if (array_key_exists('cover_image', $data) && empty($data['cover_image'])) {
+                unset($data['cover_image']);
+            }
+            $syncThesis = array_key_exists('thesis_metadata', $data);
+            $thesisMeta = $data['thesis_metadata'] ?? null;
+            unset($data['thesis_metadata']);
 
-        $book->update($data);
-        if ($syncThesis) {
-            $this->syncThesisMetadata($book, $thesisMeta);
-        }
+            $book->update($data);
+            if ($syncThesis) {
+                $this->syncThesisMetadata($book, $thesisMeta);
+            }
 
-        return $book->fresh([
+            return $book->fresh([
+                'classification:id,code,name',
+                'classificationDetail:id,code,name',
+                'warehouse:id,code,name',
+                'authors:id,name',
+                'publishers:id,name',
+                'thesisMetadata',
+            ]);
+        });
+    }
+
+    /**
+     * Chi tiết sách cho API (eager load đồng nhất, tránh N+1).
+     */
+    public function getForApiDetail(Book $book): Book
+    {
+        return $book->load([
             'classification:id,code,name',
-            'classificationDetail:id,code,name',
+            'classificationDetail:id,code,name,classification_id',
             'warehouse:id,code,name',
             'authors:id,name',
             'publishers:id,name',
+            'digitalAssets',
             'thesisMetadata',
         ]);
     }
 
-    public function index(?string $keyword, ?string $resourceKind, int $perPage = self::PER_PAGE): LengthAwarePaginator
+    public function index(?string $keyword, ?string $resourceType, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         $query = Book::query()
             ->with([
@@ -89,47 +107,49 @@ class BookService
                 'authors:id,name',
                 'publishers:id,name',
             ]);
-        $this->applyResourceKindFilter($query, $resourceKind);
+        $this->applyResourceTypeFilter($query, $resourceType);
         $query->when($keyword !== null && $keyword !== '', function ($q) use ($keyword) {
-                $q->where(function ($q) use ($keyword) {
-                    $q->where('title', 'like', "%{$keyword}%")
-                        ->orWhere('registration_number', 'like', "%{$keyword}%")
-                        ->orWhere('book_code', 'like', "%{$keyword}%")
-                        ->orWhere('published_year', 'like', "%{$keyword}%")
-                        ->orWhere('quantity', 'like', "%{$keyword}%");
-                    $q->orWhereHas('authors', function ($sub) use ($keyword) {
-                        $sub->where('name', 'like', "%{$keyword}%");
-                    });
-                    $q->orWhereHas('publishers', function ($sub) use ($keyword) {
-                        $sub->where('name', 'like', "%{$keyword}%");
-                    });
-                    $q->orWhereHas('classification', function ($sub) use ($keyword) {
-                        $sub->where('code', 'like', "%{$keyword}%")
-                            ->orWhere('name', 'like', "%{$keyword}%");
-                    });
-                    $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
-                        $sub->where('code', 'like', "%{$keyword}%")
-                            ->orWhere('name', 'like', "%{$keyword}%");
-                    });
-                    $q->orWhereHas('warehouse', function ($sub) use ($keyword) {
-                        $sub->where('code', 'like', "%{$keyword}%")
-                            ->orWhere('name', 'like', "%{$keyword}%");
-                    });
+            $q->where(function ($q) use ($keyword) {
+                $q->where('title', 'like', "%{$keyword}%")
+                    ->orWhere('registration_number', 'like', "%{$keyword}%")
+                    ->orWhere('book_code', 'like', "%{$keyword}%")
+                    ->orWhere('published_year', 'like', "%{$keyword}%")
+                    ->orWhere('quantity', 'like', "%{$keyword}%");
+                $q->orWhereHas('authors', function ($sub) use ($keyword) {
+                    $sub->where('name', 'like', "%{$keyword}%");
+                });
+                $q->orWhereHas('publishers', function ($sub) use ($keyword) {
+                    $sub->where('name', 'like', "%{$keyword}%");
+                });
+                $q->orWhereHas('classification', function ($sub) use ($keyword) {
+                    $sub->where('code', 'like', "%{$keyword}%")
+                        ->orWhere('name', 'like', "%{$keyword}%");
+                });
+                $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
+                    $sub->where('code', 'like', "%{$keyword}%")
+                        ->orWhere('name', 'like', "%{$keyword}%");
+                });
+                $q->orWhereHas('warehouse', function ($sub) use ($keyword) {
+                    $sub->where('code', 'like', "%{$keyword}%")
+                        ->orWhere('name', 'like', "%{$keyword}%");
                 });
             });
+        });
+
         return $query->paginate($perPage)->withQueryString();
     }
 
     /**
-     * @param array<string, mixed>|null $meta
+     * @param  array<string, mixed>|null  $meta
      */
     private function syncThesisMetadata(Book $book, mixed $meta): void
     {
         if ($meta === null || (is_array($meta) && $meta === [])) {
             $book->thesisMetadata()->delete();
+
             return;
         }
-        if (!is_array($meta)) {
+        if (! is_array($meta)) {
             return;
         }
         if (empty($meta['work_type'])) {
@@ -154,35 +174,35 @@ class BookService
     }
 
     /**
-     * Lọc theo resource_kind; hỗ trợ nhiều giá trị cách nhau bởi dấu phẩy (vd: print,hybrid).
+     * Lọc theo resource_type; hỗ trợ nhiều giá trị cách nhau bởi dấu phẩy (vd: textbook,reference).
      *
      * @param  Builder<Book>  $query
      */
-    private function applyResourceKindFilter(Builder $query, ?string $resourceKind): void
+    private function applyResourceTypeFilter(Builder $query, ?string $resourceType): void
     {
-        if ($resourceKind === null || $resourceKind === '') {
+        if ($resourceType === null || $resourceType === '') {
             return;
         }
-        $allowed = ResourceKind::values();
-        $parts = array_unique(array_filter(array_map('trim', explode(',', $resourceKind))));
+        $allowed = ResourceType::values();
+        $parts = array_unique(array_filter(array_map('trim', explode(',', $resourceType))));
         $parts = array_values(array_filter($parts, static fn ($p) => in_array($p, $allowed, true)));
         if ($parts === []) {
             return;
         }
-        $includeNullAsPrint = in_array('print', $parts, true);
+        $includeNullAsReference = in_array('reference', $parts, true);
         if (count($parts) === 1) {
-            if ($includeNullAsPrint && $parts[0] === 'print') {
+            if ($includeNullAsReference && $parts[0] === 'reference') {
                 $query->where(function ($q) {
-                    $q->where('resource_kind', 'print')->orWhereNull('resource_kind');
+                    $q->where('resource_type', 'reference')->orWhereNull('resource_type');
                 });
             } else {
-                $query->where('resource_kind', $parts[0]);
+                $query->where('resource_type', $parts[0]);
             }
         } else {
-            $query->where(function ($q) use ($parts, $includeNullAsPrint) {
-                $q->whereIn('resource_kind', $parts);
-                if ($includeNullAsPrint) {
-                    $q->orWhereNull('resource_kind');
+            $query->where(function ($q) use ($parts, $includeNullAsReference) {
+                $q->whereIn('resource_type', $parts);
+                if ($includeNullAsReference) {
+                    $q->orWhereNull('resource_type');
                 }
             });
         }
@@ -196,6 +216,13 @@ class BookService
     public function trash(int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         return Book::onlyTrashed()
+            ->with([
+                'classification:id,code,name',
+                'classificationDetail:id,code,name',
+                'warehouse:id,code,name',
+                'authors:id,name',
+                'publishers:id,name',
+            ])
             ->orderByDesc('deleted_at')
             ->paginate($perPage)
             ->withQueryString();
@@ -204,10 +231,11 @@ class BookService
     public function restore(int $id): ?Book
     {
         $book = Book::onlyTrashed()->find($id);
-        if (!$book) {
+        if (! $book) {
             return null;
         }
         $book->restore();
+
         return $book;
     }
 
@@ -218,16 +246,18 @@ class BookService
         if (empty($ids)) {
             return 0;
         }
+
         return (int) Book::onlyTrashed()->whereIn('id', $ids)->restore();
     }
 
     public function forceDelete(int $id): bool
     {
         $book = Book::onlyTrashed()->find($id);
-        if (!$book) {
+        if (! $book) {
             return false;
         }
         $book->forceDelete();
+
         return true;
     }
 
@@ -238,6 +268,7 @@ class BookService
         if (empty($ids)) {
             return 0;
         }
+
         return Book::onlyTrashed()->whereIn('id', $ids)->forceDelete();
     }
 
@@ -248,6 +279,7 @@ class BookService
     {
         $baseName = $book->book_code ?: (string) $book->id;
         $path = FileHelpers::updateModelImage($book, $file, 'books', 'cover_image', $baseName);
+
         return ['cover_image' => $path];
     }
 
@@ -257,6 +289,7 @@ class BookService
             ->with(['classification:id,name', 'classificationDetail:id,name', 'warehouse:id,name'])
             ->orderByDesc('created_at')
             ->paginate($perPage);
+
         return [
             'books' => $books,
         ];
@@ -287,6 +320,7 @@ class BookService
         if ($lastRegistration && preg_match('/(\d+)$/', $lastRegistration, $matches)) {
             $nextNumber = (int) $matches[1] + 1;
         }
+
         return sprintf('%s-%04d', $warehouse->code, $nextNumber);
     }
 
@@ -311,6 +345,7 @@ class BookService
             $nextOrder = (int) $matches[1] + 1;
         }
         $orderPart = str_pad((string) $nextOrder, 4, '0', STR_PAD_LEFT);
+
         return sprintf('%s-%s-%s', $shortClassificationCode, $warehouse->code, $orderPart);
     }
 
@@ -332,31 +367,36 @@ class BookService
                 new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
             );
             foreach ($iterator as $fileInfo) {
-                if (!$fileInfo->isFile()) {
+                if (! $fileInfo->isFile()) {
                     continue;
                 }
                 if (FileHelpers::shouldSkipZipExtractedFile($fileInfo)) {
                     $skipped++;
+
                     continue;
                 }
                 $ext = strtolower($fileInfo->getExtension() ?: '');
-                if (!in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
+                if (! in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
                     $skipped++;
+
                     continue;
                 }
-                $code = trim($fileInfo->getBasename('.' . $ext));
+                $code = trim($fileInfo->getBasename('.'.$ext));
                 if ($code === '') {
                     $skipped++;
+
                     continue;
                 }
 
                 $book = Book::query()->where('book_code', $code)->first();
-                if (!$book) {
+                if (! $book) {
                     $skipped++;
+
                     continue;
                 }
-                if ($onlyBookIds !== null && $onlyBookIds !== [] && !in_array((int) $book->id, $onlyBookIds, true)) {
+                if ($onlyBookIds !== null && $onlyBookIds !== [] && ! in_array((int) $book->id, $onlyBookIds, true)) {
                     $skipped++;
+
                     continue;
                 }
 

@@ -10,16 +10,27 @@ use App\Models\User;
 class CurrentUser
 {
     public int $id = 0;
+
     public string $name = '';
+
     public string $email = '';
+
     public string $phone = '';
+
     public string $code = '';
+
     public string $avatar = '';
+
     public string $user_type = '';
+
     public int $is_admin = 0;
+
     public array $roles = [];
+
     public array $permissions = [];
+
     private User $user;
+
     private bool $rolesAndPermissionsLoaded = false;
 
     public function __construct(User $user)
@@ -45,8 +56,6 @@ class CurrentUser
 
     /**
      * Load Spatie roles & permissions một lần khi cần (tránh query mỗi request nếu không dùng).
-     *
-     * @return void
      */
     private function ensureRolesAndPermissions(): void
     {
@@ -78,11 +87,27 @@ class CurrentUser
         if ($this->user_type === RoleType::LIBRARIAN->value) {
             return true;
         }
+
         return $this->hasRole(RoleType::LIBRARIAN->value);
     }
+
     public function isMember(): bool
     {
-        return $this->user_type === RoleType::MEMBER->value;
+        return in_array(
+            $this->user_type,
+            [RoleType::MEMBER->value, RoleType::STUDENT->value, RoleType::TEACHER->value],
+            true,
+        );
+    }
+
+    public function isStudent(): bool
+    {
+        return $this->user_type === RoleType::STUDENT->value;
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->user_type === RoleType::TEACHER->value;
     }
 
     /** Nhân viên thư viện: Thủ thư, Admin, SuperAdmin (theo user_type, không query). */
@@ -95,8 +120,7 @@ class CurrentUser
      * Kiểm tra có một trong các role hoặc permission (chuỗi dạng "ROLE_A|permission_b").
      * SuperAdmin luôn true. Gọi lần đầu sẽ load roles/permissions từ DB.
      *
-     * @param string $rolesOrPermission Danh sách role hoặc permission, phân tách bằng |.
-     * @return bool
+     * @param  string  $rolesOrPermission  Danh sách role hoặc permission, phân tách bằng |.
      */
     public function hasRoleOrPermission(string $rolesOrPermission): bool
     {
@@ -114,14 +138,14 @@ class CurrentUser
                 return true;
             }
         }
+
         return false;
     }
 
     /**
      * Kiểm tra có một trong các role (chuỗi dạng "ROLE_A|ROLE_B"). SuperAdmin luôn true.
      *
-     * @param string $role Danh sách role phân tách bằng |.
-     * @return bool
+     * @param  string  $role  Danh sách role phân tách bằng |.
      */
     public function hasRole(string $role): bool
     {
@@ -138,14 +162,14 @@ class CurrentUser
                 return true;
             }
         }
+
         return false;
     }
 
     /**
      * Kiểm tra có một trong các permission (chuỗi dạng "a|b|c"). SuperAdmin luôn true.
      *
-     * @param string $permission Danh sách permission phân tách bằng |.
-     * @return bool
+     * @param  string  $permission  Danh sách permission phân tách bằng |.
      */
     public function hasPermission(string $permission): bool
     {
@@ -162,6 +186,7 @@ class CurrentUser
                 return true;
             }
         }
+
         return false;
     }
 }

@@ -27,7 +27,7 @@ class AuthService
             ->orWhereHas('libraryCard', fn ($q) => $q->where('card_number', $loginField))
             ->first();
 
-        if (!$user || !$token = JWTAuth::attempt(['email' => $user->email, 'password' => $password])) {
+        if (! $user || ! $token = JWTAuth::attempt(['email' => $user->email, 'password' => $password])) {
             return ['error' => __('messages.invalid_credentials')];
         }
 
@@ -48,11 +48,12 @@ class AuthService
             $data['name'] = $customer ? $customer->name : 'Người dùng';
         }
 
-        Cache::put('register_' . $data['email'], $data, now()->addMinutes(15));
+        Cache::put('register_'.$data['email'], $data, now()->addMinutes(15));
         $result = $this->otpService->sendOtp($data['email'], $data['name']);
 
-        if (!$result['status']) {
+        if (! $result['status']) {
             $code = isset($result['seconds_left']) ? 429 : 500;
+
             return ['error' => $result['message'], 'code' => $code];
         }
 
@@ -65,17 +66,18 @@ class AuthService
     public function verifyRegister(string $email, string $otp): array
     {
         $check = $this->otpService->verifyOtp($email, $otp);
-        if (!$check['status']) {
+        if (! $check['status']) {
             return ['error' => $check['message']];
         }
 
-        $pendingUser = Cache::get('register_' . $email);
-        if (!$pendingUser) {
+        $pendingUser = Cache::get('register_'.$email);
+        if (! $pendingUser) {
             return ['error' => __('Phiên đăng ký đã hết hạn hoặc không tồn tại.')];
         }
 
         if ($existingUser = User::duplicate($pendingUser)->first()) {
-            Cache::forget('register_' . $email);
+            Cache::forget('register_'.$email);
+
             return ['error' => AuthHelper::duplicateUserMessage($existingUser, $pendingUser)];
         }
 
@@ -84,15 +86,10 @@ class AuthService
             $user = User::create($pendingUser);
             $user->email_verified_at = now();
             $user->save();
-            $user->libraryCard()->create([
-                'card_number' => $user->code,
-                'status' => 'active',
-                'is_active' => true,
-                'issue_date' => now(),
-            ]);
             DB::commit();
-            Cache::forget('register_' . $email);
+            Cache::forget('register_'.$email);
             $token = JWTAuth::fromUser($user);
+
             return [
                 'user' => $user,
                 'token' => $token,
@@ -100,7 +97,8 @@ class AuthService
             ];
         } catch (\Throwable $e) {
             DB::rollBack();
-            return ['error' => 'Lỗi tạo tài khoản: ' . $e->getMessage()];
+
+            return ['error' => 'Lỗi tạo tài khoản: '.$e->getMessage()];
         }
     }
 
@@ -110,17 +108,18 @@ class AuthService
     public function resetPassword(string $email, string $otp, string $password): array
     {
         $check = $this->otpService->verifyOtp($email, $otp);
-        if (!$check['status']) {
+        if (! $check['status']) {
             return ['error' => $check['message']];
         }
 
         $user = User::where('email', $email)->first();
-        if (!$user) {
+        if (! $user) {
             return ['error' => __('Tài khoản không tồn tại.')];
         }
 
         $user->password = bcrypt($password);
         $user->save();
+
         return ['message' => __('messages.success_reset_password')];
     }
 }

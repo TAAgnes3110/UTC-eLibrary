@@ -51,7 +51,7 @@ class ClassificationDetailSeeder extends Seeder
 
         foreach ($items as $item) {
             $classification = $classificationMap[$item['classification_code']] ?? null;
-            if (!$classification) {
+            if (! $classification) {
                 continue;
             }
 
@@ -67,4 +67,3 @@ class ClassificationDetailSeeder extends Seeder
         }
     }
 }
-

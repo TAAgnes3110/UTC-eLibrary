@@ -11,20 +11,4 @@ return [
     | Ví dụ: ['https://your-app.com', 'https://admin.your-app.com']
     */
     'allowed_domains' => array_filter(array_map('trim', explode(',', env('API_ALLOWED_DOMAINS', '')))),
-
-    /*
-    |--------------------------------------------------------------------------
-    | API Security: Validate period format
-    |--------------------------------------------------------------------------
-    | Nếu true, header "period" phải khớp pattern (vd: 2025-2026).
-    | Pattern: năm-năm, 4 chữ số mỗi bên.
-    */
-    'validate_period_format' => (bool) env('API_VALIDATE_PERIOD', false),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default period format (regex)
-    |--------------------------------------------------------------------------
-    */
-    'period_pattern' => '/^\d{4}-\d{4}$/',
 ];

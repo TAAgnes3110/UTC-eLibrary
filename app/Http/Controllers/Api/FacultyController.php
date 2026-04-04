@@ -8,6 +8,7 @@ use App\Http\Requests\FacultyRequest;
 use App\Http\Resources\FacultyResource;
 use App\Models\Faculty;
 use App\Services\FacultyService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,7 +25,7 @@ class FacultyController extends Controller
             $request->has('page'),
             (int) $request->input('per_page', 15)
         );
-        if ($result instanceof \Illuminate\Contracts\Pagination\LengthAwarePaginator) {
+        if ($result instanceof LengthAwarePaginator) {
             return ApiResponse::success([
                 'data' => FacultyResource::collection($result->items()),
                 'meta' => [
@@ -37,6 +38,7 @@ class FacultyController extends Controller
                 ],
             ]);
         }
+
         return ApiResponse::success(FacultyResource::collection($result));
     }
 
@@ -48,18 +50,21 @@ class FacultyController extends Controller
     public function store(FacultyRequest $request): JsonResponse
     {
         $faculty = $this->facultyService->create($request->validated());
+
         return ApiResponse::success(new FacultyResource($faculty), __('messages.success_create'), 201);
     }
 
     public function update(FacultyRequest $request, Faculty $faculty): JsonResponse
     {
         $faculty = $this->facultyService->update($faculty, $request->validated());
+
         return ApiResponse::success(new FacultyResource($faculty));
     }
 
     public function destroy(Faculty $faculty): JsonResponse
     {
         $this->facultyService->delete($faculty);
+
         return ApiResponse::success(null, null, 204);
     }
 }

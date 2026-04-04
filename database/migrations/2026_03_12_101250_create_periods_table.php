@@ -10,12 +10,12 @@ return new class extends Migration
     {
         Schema::create('periods', function (Blueprint $table) {
             $table->increments('id');
-            $table->string('name');
-            $table->string('code')->unique();
-            $table->date('start_date')->nullable();
-            $table->date('end_date')->nullable();
-            $table->tinyInteger('status')->default(1);
-            $table->json('params')->nullable();
+            $table->string('code', 40)->unique();
+            $table->string('name', 150);
+            $table->unsignedSmallInteger('start_year')->nullable();
+            $table->unsignedSmallInteger('end_year')->nullable();
+            $table->boolean('is_active')->default(true)->index();
+            $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
         });
     }

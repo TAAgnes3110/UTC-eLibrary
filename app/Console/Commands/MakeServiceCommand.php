@@ -28,11 +28,11 @@ class MakeServiceCommand extends Command
     {
         $name = Str::studly(trim($this->argument('name')));
 
-        if (!Str::endsWith($name, 'Service')) {
+        if (! Str::endsWith($name, 'Service')) {
             $name .= 'Service';
         }
 
-        $path = app_path('Services/' . $name . '.php');
+        $path = app_path('Services/'.$name.'.php');
 
         if (file_exists($path)) {
             $this->error("Service [{$name}] already exists.");
@@ -46,7 +46,7 @@ class MakeServiceCommand extends Command
         $stub = str_replace('{{ class }}', $name, $stub);
 
         $directory = dirname($path);
-        if (!is_dir($directory)) {
+        if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 

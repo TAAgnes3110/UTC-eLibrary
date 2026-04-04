@@ -11,7 +11,7 @@ if (! extension_loaded('pdo_sqlite')) {
     putenv('DB_CONNECTION=mysql');
     $_ENV['DB_CONNECTION'] = 'mysql';
 
-    $envFile = dirname(__DIR__) . '/.env';
+    $envFile = dirname(__DIR__).'/.env';
     $vars = ['DB_DATABASE' => 'elibrary', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '3306', 'DB_USERNAME' => 'root', 'DB_PASSWORD' => ''];
     if (file_exists($envFile)) {
         $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -32,11 +32,11 @@ if (! extension_loaded('pdo_sqlite')) {
         }
     }
 
-    $testDb = ($vars['DB_DATABASE'] ?? 'elibrary') . '_test';
+    $testDb = ($vars['DB_DATABASE'] ?? 'elibrary').'_test';
     if ($testDb === '_test') {
         $testDb = 'elibrary_test';
     }
-    putenv('DB_DATABASE=' . $testDb);
+    putenv('DB_DATABASE='.$testDb);
     $_ENV['DB_DATABASE'] = $testDb;
 
     // Tự tạo DB test nếu chưa có
@@ -59,4 +59,4 @@ if (! extension_loaded('pdo_sqlite')) {
     }
 }
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';

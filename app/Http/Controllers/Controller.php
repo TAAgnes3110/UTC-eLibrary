@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller as BaseController;
 
 /**
@@ -18,10 +19,6 @@ class Controller extends BaseController
 
     /**
      * Trả về JSON với UTF-8, unescaped unicode.
-     *
-     * @param mixed $data
-     * @param int $code
-     * @return JsonResponse
      */
     protected function jsonResponse(mixed $data, int $code = 200): JsonResponse
     {
@@ -30,11 +27,6 @@ class Controller extends BaseController
 
     /**
      * Chuẩn success: { "success": true, "data": ..., "message": ... }
-     *
-     * @param mixed $data
-     * @param string|null $message
-     * @param int $code
-     * @return JsonResponse
      */
     protected function success(mixed $data = null, ?string $message = null, int $code = 200): JsonResponse
     {
@@ -45,16 +37,12 @@ class Controller extends BaseController
         if ($message !== null) {
             $body['message'] = $message;
         }
+
         return $this->jsonResponse($body, $code);
     }
 
     /**
      * Chuẩn lỗi: { "success": false, "message": ..., "errors": ... }
-     *
-     * @param string $message
-     * @param int $code
-     * @param mixed $errors
-     * @return JsonResponse
      */
     protected function error(string $message, int $code = 400, mixed $errors = null): JsonResponse
     {
@@ -62,15 +50,14 @@ class Controller extends BaseController
         if ($errors !== null) {
             $body['errors'] = $errors;
         }
+
         return $this->jsonResponse($body, $code);
     }
 
     /**
      * Trả về response HTML (Content-Type text/html).
      *
-     * @param string $html
-     * @param int $code
-     * @return \Illuminate\Http\Response
+     * @return Response
      */
     protected function jsonResponseHtml(string $html, int $code = 200)
     {

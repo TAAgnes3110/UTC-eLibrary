@@ -10,21 +10,29 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->increments('id');
-            $table->string('code')->unique()->index();
-            $table->string('name')->index();
+            $table->string('code')->unique()->index()->comment('Số CCCD/CMND hoặc mã định danh cá nhân duy nhất (đăng nhập/đối chiếu thẻ)');
+            $table->string('name')->index()->comment('Họ tên');
             $table->string('email')->unique()->index();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('phone')->nullable()->unique()->index();
+            $table->string('phone')->nullable()->unique()->index()->comment('Số điện thoại');
             $table->string('user_type', 20)->default('MEMBER')->index();
             $table->string('avatar')->nullable();
             $table->date('date_of_birth')->nullable();
             $table->string('gender', 10)->nullable();
             $table->text('address')->nullable();
-            $table->unsignedInteger('faculty_id')->nullable();
-            $table->unsignedInteger('department_id')->nullable();
-            $table->string('cohort', 20)->nullable()->index();
+            $table->unsignedInteger('faculty_id')->nullable()->comment('Khoa');
+            $table->unsignedInteger('department_id')->nullable()->comment('Bộ môn/Trường con');
+            $table->string('cohort', 20)->nullable()->index()->comment('Niên khóa/Khoá');
             $table->boolean('is_active')->default(true);
+
+            $table->unsignedInteger('created_by')->nullable()->comment('Người tạo bản ghi');
+            $table->unsignedInteger('updated_by')->nullable()->comment('Người cập nhật bản ghi');
+            $table->unsignedInteger('deleted_by')->nullable()->comment('Người xóa (soft/hard) - nếu có');
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();

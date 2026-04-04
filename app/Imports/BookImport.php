@@ -55,6 +55,7 @@ final class BookImport
         'tac gia (ngan cach bang dau , hoac ;)',
         'authors',
     ];
+
     public const PUBLISHERS_ALIASES = [
         'nhà xuất bản',
         'nha xuat ban',
@@ -82,13 +83,21 @@ final class BookImport
     ];
 
     public const PUBLISHED_YEAR_ALIASES = ['năm xuất bản', 'nam xuat ban', 'published_year'];
+
     public const PAGES_ALIASES = ['số trang', 'so trang', 'pages'];
+
     public const BOOK_SIZE_ALIASES = ['khổ sách', 'kho sach', 'book_size'];
+
     public const PRICE_ALIASES = ['giá tiền', 'gia tien', 'price'];
+
     public const QUANTITY_ALIASES = ['số lượng', 'so luong', 'số lượng (*)', 'so luong (*)', 'quantity'];
+
     public const CABINET_ALIASES = ['tủ', 'tu', 'tủ (cabinet)', 'tu (cabinet)', 'cabinet'];
+
     public const SHELF_ALIASES = ['kệ', 'ke', 'kệ (shelf)', 'ke (shelf)', 'shelf'];
+
     public const SUMMARY_ALIASES = ['tóm tắt', 'tom tat', 'summary'];
+
     public const NOTES_ALIASES = ['ghi chú', 'ghi chu', 'notes'];
 
     public static function import(UploadedFile $file): array
@@ -114,21 +123,22 @@ final class BookImport
                 $quantity = (int) (FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::QUANTITY_ALIASES)) ?? 0);
 
                 $missing = [];
-                if (!$title) {
+                if (! $title) {
                     $missing[] = 'Tên sách (*)';
                 }
-                if (!$warehouseCode) {
+                if (! $warehouseCode) {
                     $missing[] = 'Kho sách (*)';
                 }
                 if ($quantity <= 0) {
                     $missing[] = 'Số lượng (*) (phải > 0)';
                 }
-                if (!empty($missing)) {
+                if (! empty($missing)) {
                     $errors[] = [
                         'row' => $row['_row_number'] ?? null,
-                        'message' => 'Thiếu/không hợp lệ: ' . implode('; ', $missing) . '.',
+                        'message' => 'Thiếu/không hợp lệ: '.implode('; ', $missing).'.',
                     ];
                     $skipped++;
+
                     continue;
                 }
 
@@ -137,35 +147,38 @@ final class BookImport
                     $classificationDetail = ClassificationDetail::query()
                         ->where('code', $classificationDetailCode)
                         ->first();
-                    if (!$classificationDetail) {
+                    if (! $classificationDetail) {
                         $errors[] = [
                             'row' => $row['_row_number'] ?? null,
                             'message' => "Phân loại sách chi tiết không tồn tại: \"{$classificationDetailCode}\".",
                         ];
                         $skipped++;
+
                         continue;
                     }
                 }
                 $classification = null;
-                if (!$classificationDetail && $classificationCode) {
+                if (! $classificationDetail && $classificationCode) {
                     $classification = Classification::query()->where('code', $classificationCode)->first();
-                    if (!$classification) {
+                    if (! $classification) {
                         $errors[] = [
                             'row' => $row['_row_number'] ?? null,
                             'message' => "Phân loại sách không tồn tại: \"{$classificationCode}\".",
                         ];
                         $skipped++;
+
                         continue;
                     }
                 }
 
                 $warehouse = Warehouse::query()->where('code', $warehouseCode)->first();
-                if (!$warehouse) {
+                if (! $warehouse) {
                     $errors[] = [
                         'row' => $row['_row_number'] ?? null,
                         'message' => "Kho sách không tồn tại: \"{$warehouseCode}\".",
                     ];
                     $skipped++;
+
                     continue;
                 }
 
@@ -182,7 +195,7 @@ final class BookImport
                 if ($registrationNumber) {
                     $book = Book::query()->where('registration_number', $registrationNumber)->first();
                 }
-                if (!$book && $bookCode) {
+                if (! $book && $bookCode) {
                     $book = Book::query()->where('book_code', $bookCode)->first();
                 }
                 $registrationNumber = $registrationNumber ?: self::generateRegistrationNumber($warehouse);
@@ -264,13 +277,14 @@ final class BookImport
         }
 
         $orderPart = str_pad((string) $nextOrder, 4, '0', STR_PAD_LEFT);
+
         return sprintf('%s-%s-%s', $shortClassificationCode, $warehouse->code, $orderPart);
     }
 
     private static function syncAuthors(Book $book, ?string $authorsRaw): void
     {
         $authorNames = self::splitNames($authorsRaw);
-        if (!$authorNames) {
+        if (! $authorNames) {
             return;
         }
         $authorIds = [];
@@ -291,7 +305,7 @@ final class BookImport
     private static function syncPublishers(Book $book, ?string $publishersRaw): void
     {
         $publisherNames = self::splitNames($publishersRaw);
-        if (!$publisherNames) {
+        if (! $publisherNames) {
             return;
         }
         $publisherIds = [];
@@ -319,7 +333,7 @@ final class BookImport
         // Support separators: "," or ";" (also fullwidth variants)
         $parts = preg_split('/[;,，；]+/u', $raw) ?: [];
         $parts = array_values(array_filter(array_map('trim', $parts), static fn ($v) => $v !== ''));
+
         return array_values(array_unique($parts));
     }
 }
-

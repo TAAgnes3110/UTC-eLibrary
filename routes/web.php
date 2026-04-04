@@ -1,9 +1,9 @@
 <?php
 
-use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController as BackendAuthController;
 use App\Http\Controllers\Frontend\Admin\BookPageController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
+use App\Http\Controllers\Frontend\Admin\LibraryCardPageController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
 use App\Http\Controllers\Frontend\Admin\WarehousePageController;
@@ -39,6 +39,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
+        Route::get('/library-cards', [LibraryCardPageController::class, 'manage'])->name('library-cards.manage');
+        Route::get('/library-cards/approve', [LibraryCardPageController::class, 'approve'])->name('library-cards.approve');
+        Route::get('/library-cards/quick', [LibraryCardPageController::class, 'quick'])->name('library-cards.quick');
     });
 
 });

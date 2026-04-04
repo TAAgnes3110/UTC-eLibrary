@@ -18,8 +18,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/faculties với admin token trả 200.
-     *
-     * @return void
      */
     public function test_faculties_index_returns_200_with_admin_token(): void
     {
@@ -32,8 +30,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/faculties với member token trả 403.
-     *
-     * @return void
      */
     public function test_faculties_index_returns_403_with_member_token(): void
     {
@@ -46,8 +42,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/users với admin token trả 200.
-     *
-     * @return void
      */
     public function test_users_index_returns_200_with_admin_token(): void
     {
@@ -60,8 +54,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/classifications với admin token trả 200.
-     *
-     * @return void
      */
     public function test_classifications_index_returns_200_with_admin_token(): void
     {
@@ -74,8 +66,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/books với admin token trả 200.
-     *
-     * @return void
      */
     public function test_books_index_returns_200_with_admin_token(): void
     {
@@ -88,8 +78,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/roles với admin token trả 200.
-     *
-     * @return void
      */
     public function test_roles_index_returns_200_with_admin_token(): void
     {
@@ -102,8 +90,6 @@ class AdminApiTest extends TestCase
 
     /**
      * GET /api/v1/warehouses với admin token trả 200.
-     *
-     * @return void
      */
     public function test_warehouses_index_returns_200_with_admin_token(): void
     {

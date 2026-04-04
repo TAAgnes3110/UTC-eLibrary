@@ -10,10 +10,10 @@ return new class extends Migration
     {
         Schema::create('loans', function (Blueprint $table) {
             $table->id();
-            $table->unsignedInteger('user_id'); 
-            $table->foreignId('book_copy_id')->constrained('book_copies')->cascadeOnDelete(); 
-            $table->foreignId('loan_policy_id')->nullable()->constrained('loan_policies')->nullOnDelete(); 
-            $table->unsignedInteger('librarian_id')->nullable(); 
+            $table->unsignedInteger('user_id');
+            $table->foreignId('book_copy_id')->constrained('book_copies')->cascadeOnDelete();
+            $table->foreignId('loan_policy_id')->nullable()->constrained('loan_policies')->nullOnDelete();
+            $table->unsignedInteger('librarian_id')->nullable();
 
             $table->date('loan_date')->index();
             $table->date('due_date')->index();
@@ -22,14 +22,30 @@ return new class extends Migration
             $table->unsignedSmallInteger('overdue_days')->default(0);
             $table->decimal('overdue_fine', 10, 2)->default(0);
 
-            $table->string('status', 20)->default('active')->index(); 
-            $table->string('condition_on_loan', 30)->nullable();      
+            $table->string('status', 20)->default('active')->index();
+            $table->string('condition_on_loan', 30)->nullable();
             $table->string('condition_on_return', 30)->nullable();
 
             $table->unsignedTinyInteger('renewal_count')->default(0);
 
             $table->text('notes')->nullable();
             $table->json('params')->nullable();
+
+            $table->boolean('is_lost')->default(false)->index();
+            $table->timestamp('lost_at')->nullable()->index();
+            $table->decimal('compensation_amount', 12, 2)->nullable();
+            $table->enum('compensation_status', ['unpaid', 'paid'])->default('unpaid')->index();
+            $table->timestamp('compensated_at')->nullable();
+            $table->unsignedInteger('compensated_by')->nullable()->index();
+            $table->text('compensation_note')->nullable();
+
+            $table->unsignedInteger('created_by')->nullable();
+            $table->unsignedInteger('updated_by')->nullable();
+            $table->unsignedInteger('deleted_by')->nullable();
+
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
 
             $table->timestamps();
             $table->softDeletes();
@@ -38,6 +54,7 @@ return new class extends Migration
 
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('librarian_id')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('compensated_by')->references('id')->on('users')->nullOnDelete();
         });
     }
 
@@ -46,4 +63,3 @@ return new class extends Migration
         Schema::dropIfExists('loans');
     }
 };
-

@@ -31,6 +31,14 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    faculties: {
+        type: Array,
+        default: () => [],
+    },
+    periods: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const {
@@ -55,6 +63,8 @@ const {
     showFilterPanel,
     filteredUsers,
     roleOptions,
+    facultiesOptions,
+    periodsOptions,
     ROLE_FILTER_OPTIONS,
     formatDateTime,
     selectedIds,
@@ -165,6 +175,8 @@ const {
             :is-editing="isEditing"
             :form="form"
             :role-options="roleOptions"
+            :faculties="facultiesOptions"
+            :periods="periodsOptions"
             :field-errors="userFormErrors"
             :clear-field-error="clearUserFieldError"
             :save-loading="saveUserLoading"

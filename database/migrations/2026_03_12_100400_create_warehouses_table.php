@@ -15,7 +15,16 @@ return new class extends Migration
             $table->foreignId('parent_id')->nullable()->constrained('warehouses')->nullOnDelete();
             $table->boolean('is_active')->default(true)->index();
             $table->json('params')->nullable();
+
+            $table->unsignedInteger('created_by')->nullable();
+            $table->unsignedInteger('updated_by')->nullable();
+            $table->unsignedInteger('deleted_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -24,4 +33,3 @@ return new class extends Migration
         Schema::dropIfExists('warehouses');
     }
 };
-

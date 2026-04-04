@@ -19,7 +19,7 @@ return [
         'client_secret' => env('AZURE_CLIENT_SECRET'),
         'redirect' => env('AZURE_REDIRECT_URI', 'http://localhost:8000/auth/microsoft/callback'),
         'tenant' => env('AZURE_TENANT_ID', 'organizations'),
-        'proxy' => env('PROXY')
+        'proxy' => env('PROXY'),
     ],
 
     'postmark' => [

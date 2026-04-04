@@ -10,6 +10,7 @@ class ClassificationDetailRequest extends BaseRequest
     {
         $id = $this->route('classification_detail');
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
             'code' => [
                 $isUpdate ? 'sometimes' : 'required',

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\RoleType;
+use App\Models\Department;
+use App\Models\Faculty;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -12,6 +14,7 @@ class UserUpdateTest extends TestCase
     use RefreshDatabase;
 
     protected User $admin;
+
     protected User $user;
 
     protected function setUp(): void
@@ -25,10 +28,10 @@ class UserUpdateTest extends TestCase
         ]);
 
         $this->user = User::factory()->create([
-            'code' => 'U001',
+            'code' => '001122334455',
             'email' => 'user1@utc.edu.vn',
             'phone' => '0900000001',
-            'user_type' => RoleType::MEMBER,
+            'user_type' => RoleType::STUDENT,
             'is_active' => true,
         ]);
     }
@@ -46,7 +49,7 @@ class UserUpdateTest extends TestCase
 
         $response->assertOk();
         $this->assertEquals('Tên mới', $this->user->fresh()->name);
-        $this->assertEquals('U001', $this->user->fresh()->code);
+        $this->assertEquals('001122334455', $this->user->fresh()->code);
         $this->assertEquals('user1@utc.edu.vn', $this->user->fresh()->email);
     }
 
@@ -93,10 +96,10 @@ class UserUpdateTest extends TestCase
     /** @test */
     public function cannot_change_code_via_update_endpoint()
     {
-        $response = $this->putAsAdmin(['code' => 'NEWCODE']);
+        $response = $this->putAsAdmin(['code' => '009998887776']);
 
         $response->assertOk();
-        $this->assertEquals('U001', $this->user->fresh()->code);
+        $this->assertEquals('001122334455', $this->user->fresh()->code);
     }
 
     /** @test */
@@ -124,13 +127,13 @@ class UserUpdateTest extends TestCase
     /** @test */
     public function can_update_faculty_department_and_status()
     {
-        $faculty = \App\Models\Faculty::create([
+        $faculty = Faculty::create([
             'code' => 'F01',
             'name' => 'Khoa thử nghiệm',
             'is_active' => true,
         ]);
 
-        $department = \App\Models\Department::create([
+        $department = Department::create([
             'faculty_id' => $faculty->id,
             'code' => 'D01',
             'name' => 'Bộ môn thử nghiệm',
@@ -161,4 +164,3 @@ class UserUpdateTest extends TestCase
         $this->assertEquals(RoleType::LIBRARIAN, $this->user->fresh()->user_type);
     }
 }
-

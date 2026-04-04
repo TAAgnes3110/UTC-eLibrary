@@ -1,6 +1,9 @@
 <?php
 
+use App\Providers\AppServiceProvider;
+use App\Providers\EmailProvider;
+
 return [
-    App\Providers\AppServiceProvider::class,
-    App\Providers\EmailProvider::class,
+    AppServiceProvider::class,
+    EmailProvider::class,
 ];

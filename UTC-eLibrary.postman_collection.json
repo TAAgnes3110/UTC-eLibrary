@@ -1,14 +1,13 @@
 {
   "info": {
     "name": "UTC-eLibrary API",
-    "description": "Postman collection cho UTC-eLibrary. Bảo mật theo backend: domain/period + Bearer token.",
+    "description": "Postman collection cho UTC-eLibrary. Bảo mật theo backend: header domain + Bearer token.",
     "_postman_id": "7b3a2c31-9c64-4e6c-b3c0-6e6d4c3b2b10",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     { "key": "BASE_URL", "value": "http://localhost" },
     { "key": "DOMAIN", "value": "http://localhost" },
-    { "key": "PERIOD", "value": "2025-2026" },
     { "key": "token", "value": "" },
     { "key": "otp", "value": "" },
 
@@ -30,11 +29,9 @@
         "type": "text/javascript",
         "exec": [
           "const domain = pm.variables.get('DOMAIN');",
-          "const period = pm.variables.get('PERIOD');",
           "const token = pm.variables.get('token');",
           "",
           "pm.request.headers.upsert({ key: 'domain', value: domain });",
-          "pm.request.headers.upsert({ key: 'period', value: period });",
           "pm.request.headers.upsert({ key: 'Accept', value: 'application/json' });",
           "pm.request.headers.upsert({ key: 'User-Agent', value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36' });",
           "",

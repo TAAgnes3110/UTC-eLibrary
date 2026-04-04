@@ -95,6 +95,7 @@ const {
                                 />
                                 <ResendOtp
                                     :loading="form.processing"
+                                    :duration="30"
                                     @resend="resendOtp"
                                 />
                             </div>

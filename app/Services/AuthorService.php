@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Author;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class AuthorService
 {
@@ -18,6 +19,7 @@ class AuthorService
     {
         $author->fill($data);
         $author->save();
+
         return $author;
     }
 
@@ -27,6 +29,14 @@ class AuthorService
             ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
                 $q->where('name', 'like', "%{$keyword}%");
             }));
+
         return $query->paginate($perPage)->withQueryString();
+    }
+
+    public function delete(Author $author): void
+    {
+        DB::transaction(static function () use ($author) {
+            $author->delete();
+        });
     }
 }

@@ -9,18 +9,23 @@ class RegisterRequest extends BaseRequest
 {
     protected function prepareForValidation(): void
     {
+        // Nếu user không chọn role thì mặc định là MEMBER (member/bạn đọc legacy).
         $this->merge(['user_type' => $this->input('user_type') ?? RoleType::MEMBER->value]);
     }
 
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'max:255', 'unique:users,code'],
+            'code' => ['required', 'string', 'regex:/^\d{9,12}$/', 'unique:users,code'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
-            'user_type' => [Rule::in([RoleType::GUEST->value, RoleType::MEMBER->value])],
+            'user_type' => [Rule::in([
+                RoleType::STUDENT->value,
+                RoleType::TEACHER->value,
+                RoleType::MEMBER->value, // Legacy: giữ để tương thích dữ liệu cũ
+            ])],
             'organization' => ['nullable', 'string', 'max:255'],
             'province' => ['nullable', 'string', 'max:100'],
             'date_of_birth' => ['nullable', 'date'],
@@ -33,9 +38,9 @@ class RegisterRequest extends BaseRequest
     public function messages(): array
     {
         return [
-            'code.required' => 'Mã định danh không được để trống.',
-            'code.max' => 'Mã định danh quá dài.',
-            'code.unique' => 'Mã định danh đã được sử dụng.',
+            'code.required' => 'Số CCCD/CMND không được để trống.',
+            'code.regex' => 'Số CCCD/CMND phải gồm 9–12 chữ số.',
+            'code.unique' => 'Số định danh này đã được đăng ký tài khoản.',
             'name.required' => 'Họ và tên không được để trống.',
             'name.max' => 'Họ và tên quá dài.',
             'email.required' => 'Email không được để trống.',

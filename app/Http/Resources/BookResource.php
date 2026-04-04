@@ -14,7 +14,7 @@ class BookResource extends JsonResource
     public function toArray(Request $request): array
     {
         $coverImage = $this->cover_image;
-        if (!empty($coverImage) && !str_starts_with($coverImage, 'http')) {
+        if (! empty($coverImage) && ! str_starts_with($coverImage, 'http')) {
             $coverImage = Storage::disk('public')->exists($coverImage)
                 ? asset(ltrim($coverImage, '/'))
                 : null;
@@ -23,9 +23,9 @@ class BookResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
-            'resource_kind' => $this->resource_kind instanceof \BackedEnum
-                ? $this->resource_kind->value
-                : ($this->resource_kind ?? 'print'),
+            'resource_type' => $this->resource_type instanceof \BackedEnum
+                ? $this->resource_type->value
+                : ($this->resource_type ?? 'reference'),
             'access_mode' => $this->access_mode instanceof \BackedEnum
                 ? $this->access_mode->value
                 : ($this->access_mode ?? 'circulation_only'),
@@ -102,8 +102,7 @@ class BookResource extends JsonResource
                 'params' => $this->thesisMetadata->params ?? [],
             ] : null),
 
-            'digital_assets' => $this->whenLoaded('digitalAssets', fn () =>
-                DigitalAssetResource::collection($this->digitalAssets)),
+            'digital_assets' => $this->whenLoaded('digitalAssets', fn () => DigitalAssetResource::collection($this->digitalAssets)),
 
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
@@ -111,4 +110,3 @@ class BookResource extends JsonResource
         ];
     }
 }
-

@@ -60,6 +60,7 @@ const { form, otpInputRef, localStatus, email, submit, resendOtp } = useVerifyOt
                         <div class="flex items-center justify-end gap-2 pr-1">
                             <ResendOtp
                                 :loading="form.processing"
+                                :duration="30"
                                 @resend="resendOtp"
                             />
                         </div>

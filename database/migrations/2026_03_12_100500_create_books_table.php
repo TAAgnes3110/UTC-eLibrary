@@ -32,13 +32,25 @@ return new class extends Migration
             $table->foreignId('classification_id')->nullable()->constrained('classifications')->nullOnDelete();
             $table->foreignId('classification_detail_id')->nullable()->constrained('classification_details')->nullOnDelete();
             $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete()->required();
+
+            $table->string('resource_type', 20)->default('reference')->comment('Loại tài liệu: textbook, reference, thesis, journal, digital');
+            $table->string('access_mode', 20)->default('circulation_only');
+
             $table->json('params')->nullable();
+
+            $table->unsignedInteger('created_by')->nullable();
+            $table->unsignedInteger('updated_by')->nullable();
+            $table->unsignedInteger('deleted_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
 
             $table->timestamps();
             $table->softDeletes();
 
             $table->index(['classification_id', 'classification_detail_id']);
             $table->index(['warehouse_id']);
+            $table->index(['resource_type', 'classification_id'], 'books_resource_type_classification_idx');
         });
     }
 
@@ -47,4 +59,3 @@ return new class extends Migration
         Schema::dropIfExists('books');
     }
 };
-

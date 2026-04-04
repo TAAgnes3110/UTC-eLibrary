@@ -14,6 +14,7 @@ class ClassificationService
     {
         $classification = Classification::create($data);
         MasterDataService::clearCache();
+
         return $classification;
     }
 
@@ -22,6 +23,7 @@ class ClassificationService
         unset($data['id'], $data['created_at'], $data['updated_at']);
         $classification->update($data);
         MasterDataService::clearCache();
+
         return $classification;
     }
 

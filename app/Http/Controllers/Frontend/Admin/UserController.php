@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Frontend\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
+use App\Models\Faculty;
+use App\Models\Period;
 use App\Services\UserService;
 use Inertia\Response;
 
@@ -11,8 +13,7 @@ class UserController extends Controller
 {
     public function __construct(
         private readonly UserService $userService,
-    ) {
-    }
+    ) {}
 
     public function index(): Response
     {
@@ -32,6 +33,15 @@ class UserController extends Controller
         return inertia('Admin/Users/Index', [
             'users' => $users,
             'roles' => $payload['roles'],
+            'faculties' => Faculty::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'code', 'name']),
+            'periods' => Period::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'code', 'name', 'start_year', 'end_year']),
         ]);
     }
 }

@@ -3,25 +3,33 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Period extends BaseModel
+class Period extends Model
 {
-    protected $table = 'periods';
-    public static string $tableName = 'periods';
-    public $primaryKey = 'id';
-
     protected $fillable = [
-        'name',
         'code',
-        'start_date',
-        'end_date',
-        'status',
-        'params',
+        'name',
+        'start_year',
+        'end_year',
+        'is_active',
+        'sort_order',
     ];
 
-    protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
-        'params' => 'array',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function libraryCards(): HasMany
+    {
+        return $this->hasMany(LibraryCard::class);
+    }
+
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
 }

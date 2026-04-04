@@ -25,12 +25,14 @@ class RoleService
     {
         $role = Role::findOrFail($id);
         $role->load('permissions');
+
         return $role;
     }
 
     public function update(Role $role, array $validated): Role
     {
         $role->update(['name' => $validated['name']]);
+
         return $role;
     }
 
@@ -43,12 +45,14 @@ class RoleService
     public function addPermission(Role $role, string $permissionName): Role
     {
         $role->givePermissionTo($permissionName);
+
         return $role->load('permissions');
     }
 
     public function removePermission(Role $role, string $permissionName): Role
     {
         $role->revokePermissionTo($permissionName);
+
         return $role->load('permissions');
     }
 }

@@ -29,12 +29,14 @@ class RoleController extends Controller
             'name' => 'required|string|unique:roles,name',
         ]);
         $role = $this->roleService->store($validated);
+
         return ApiResponse::success($role, __('Thêm vai trò thành công.'), 201);
     }
 
     public function show($id): JsonResponse
     {
         $role = $this->roleService->show($id);
+
         return ApiResponse::success($role);
     }
 
@@ -42,15 +44,17 @@ class RoleController extends Controller
     {
         $role = Role::findOrFail($id);
         $validated = $request->validate([
-            'name' => 'required|string|unique:roles,name,' . $role->id,
+            'name' => 'required|string|unique:roles,name,'.$role->id,
         ]);
         $role = $this->roleService->update($role, $validated);
+
         return ApiResponse::success($role);
     }
 
     public function destroy($id): JsonResponse
     {
         $this->roleService->destroy($id);
+
         return ApiResponse::success(null, __('Xóa vai trò thành công.'));
     }
 
@@ -61,6 +65,7 @@ class RoleController extends Controller
         ]);
         $role = Role::findOrFail($id);
         $role = $this->roleService->addPermission($role, $request->permission);
+
         return ApiResponse::success($role, __('Đã gán quyền cho vai trò.'));
     }
 
@@ -71,6 +76,7 @@ class RoleController extends Controller
         ]);
         $role = Role::findOrFail($id);
         $role = $this->roleService->removePermission($role, $request->permission);
+
         return ApiResponse::success($role, __('Đã thu hồi quyền khỏi vai trò.'));
     }
 }

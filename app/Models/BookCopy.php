@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\BookPhysicalCondition;
+use App\Enums\BookStatus;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class BookCopy extends BaseModel
@@ -13,12 +15,20 @@ class BookCopy extends BaseModel
         'barcode',
         'call_number',
         'status',
+        'physical_condition',
         'warehouse_id',
         'location',
         'params',
     ];
 
+    protected $attributes = [
+        'status' => 1,
+        'physical_condition' => 'good',
+    ];
+
     protected $casts = [
+        'status' => BookStatus::class,
+        'physical_condition' => BookPhysicalCondition::class,
         'params' => 'array',
     ];
 
@@ -37,4 +47,3 @@ class BookCopy extends BaseModel
         return $this->hasMany(Loan::class);
     }
 }
-

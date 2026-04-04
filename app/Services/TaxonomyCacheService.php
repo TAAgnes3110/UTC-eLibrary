@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 class TaxonomyCacheService
 {
     private const COHORTS_CACHE_KEY = 'taxonomy:cohorts';
+
     private const COHORTS_CACHE_TTL = 3600;
 
     public function getCohorts(): array
@@ -29,4 +30,3 @@ class TaxonomyCacheService
         Cache::forget(self::COHORTS_CACHE_KEY);
     }
 }
-

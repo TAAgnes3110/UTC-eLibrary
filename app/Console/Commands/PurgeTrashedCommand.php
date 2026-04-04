@@ -6,11 +6,11 @@ namespace App\Console\Commands;
 
 use App\Models\Book;
 use App\Models\BookCopy;
-use App\Models\DigitalAsset;
-use App\Models\ThesisMetadata;
 use App\Models\Department;
+use App\Models\DigitalAsset;
 use App\Models\Faculty;
 use App\Models\Loan;
+use App\Models\ThesisMetadata;
 use App\Models\User;
 use App\Models\Warehouse;
 use Carbon\Carbon;
@@ -19,6 +19,7 @@ use Illuminate\Console\Command;
 final class PurgeTrashedCommand extends Command
 {
     protected $signature = 'trash:purge {--days=30 : Số ngày giữ trong thùng rác}';
+
     protected $description = 'Force delete các bản ghi đã xóa mềm quá hạn';
 
     public function handle(): int
@@ -51,7 +52,7 @@ final class PurgeTrashedCommand extends Command
         }
 
         $this->info(sprintf('Done. Total deleted: %d (older than %d days)', $total, $days));
+
         return self::SUCCESS;
     }
 }
-

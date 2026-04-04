@@ -23,8 +23,9 @@ class EmailOTPController extends Controller
         try {
             $result = $this->otpService->sendOtp($email, $name);
 
-            if (!$result['status']) {
+            if (! $result['status']) {
                 $statusCode = isset($result['seconds_left']) ? 429 : 500;
+
                 return ApiResponse::json(['status' => 'error', 'messages' => $result['message']], $statusCode);
             }
 
@@ -42,6 +43,7 @@ class EmailOTPController extends Controller
     public function checkOTP(string $email, string $otp): array
     {
         $result = $this->otpService->verifyOtp($email, $otp);
+
         return [
             'status' => $result['status'],
             'message' => $result['message'],

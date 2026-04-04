@@ -3,9 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Enums\AccessMode;
-use App\Enums\ResourceKind;
+use App\Enums\ResourceType;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class BookRequest extends BaseRequest
@@ -18,6 +17,7 @@ class BookRequest extends BaseRequest
     public function rules(): array
     {
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
             'title' => [
                 $isUpdate ? 'sometimes' : 'required',
@@ -33,7 +33,7 @@ class BookRequest extends BaseRequest
                 'integer',
                 'min:0',
             ],
-            'resource_kind' => ['sometimes', 'nullable', Rule::enum(ResourceKind::class)],
+            'resource_type' => ['sometimes', 'nullable', Rule::enum(ResourceType::class)],
             'access_mode' => ['sometimes', 'nullable', Rule::enum(AccessMode::class)],
             'thesis_metadata' => ['sometimes', 'nullable', 'array'],
             'thesis_metadata.work_type' => ['sometimes', 'nullable', 'string', 'max:40'],
@@ -54,7 +54,8 @@ class BookRequest extends BaseRequest
         ];
     }
 
-    public function messages(): array {
+    public function messages(): array
+    {
         return [
             'title.required' => __('Tên sách không được để trống'),
             'title.string' => __('Tên sách phải là một chuỗi'),

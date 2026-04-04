@@ -20,26 +20,28 @@ class ImageUploadHelper
      * Lưu một ảnh upload vào thư mục cho trước, tự sinh tên file.
      * Extension lấy từ file gốc, chuẩn hóa về jpg/png/gif/webp.
      *
-     * @param UploadedFile $file File ảnh từ request
-     * @param string $directory Thư mục trong storage/app/public
-     * @param string|null $prefix Tiền tố tên file
+     * @param  UploadedFile  $file  File ảnh từ request
+     * @param  string  $directory  Thư mục trong storage/app/public
+     * @param  string|null  $prefix  Tiền tố tên file
      * @return string Đường dẫn tương đối để lưu DB
+     *
      * @throws \InvalidArgumentException Nếu không phải ảnh hoặc vượt dung lượng
      */
     public static function storeImage(UploadedFile $file, string $directory, ?string $prefix = null): string
     {
         $ext = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-        if (!in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
+        if (! in_array($ext, self::ALLOWED_EXTENSIONS, true)) {
             $ext = 'jpg';
         }
         if ($file->getSize() > self::MAX_SIZE_MB * 1024 * 1024) {
-            throw new \InvalidArgumentException('File vượt quá ' . self::MAX_SIZE_MB . 'MB.');
+            throw new \InvalidArgumentException('File vượt quá '.self::MAX_SIZE_MB.'MB.');
         }
         $directory = trim($directory, '/');
         $name = $prefix
-            ? $prefix . '.' . $ext
-            : Str::uuid()->toString() . '.' . $ext;
+            ? $prefix.'.'.$ext
+            : Str::uuid()->toString().'.'.$ext;
         $path = $file->storeAs($directory, $name, 'public');
+
         return $path;
     }
 
@@ -63,11 +65,11 @@ class ImageUploadHelper
      * - Lưu file mới vào thư mục: upload/{table}
      * - Gán path mới vào $attribute và save model
      *
-     * @param Model $model    Model Eloquent cần cập nhật
-     * @param UploadedFile $file  File upload
-     * @param string $table       Tên bảng (vd: users, books, warehouses, documents, ...)
-     * @param string $attribute   Tên field lưu path ảnh trên model (vd: avatar, cover_image)
-     * @param string|null $baseName Tên file cơ sở (mặc định: code hoặc id)
+     * @param  Model  $model  Model Eloquent cần cập nhật
+     * @param  UploadedFile  $file  File upload
+     * @param  string  $table  Tên bảng (vd: users, books, warehouses, documents, ...)
+     * @param  string  $attribute  Tên field lưu path ảnh trên model (vd: avatar, cover_image)
+     * @param  string|null  $baseName  Tên file cơ sở (mặc định: code hoặc id)
      * @return string Đường dẫn ảnh đã lưu
      */
     public static function updateModelImage(

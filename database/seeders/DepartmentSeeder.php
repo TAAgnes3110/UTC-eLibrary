@@ -37,7 +37,7 @@ class DepartmentSeeder extends Seeder
 
         foreach ($byFaculty as $facultyCode => $departments) {
             $faculty = Faculty::where('code', $facultyCode)->first();
-            if (!$faculty) {
+            if (! $faculty) {
                 continue;
             }
             foreach ($departments as $item) {

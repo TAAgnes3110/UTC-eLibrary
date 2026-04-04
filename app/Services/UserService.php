@@ -6,26 +6,18 @@ use App\Enums\RoleType;
 use App\Helpers\FileHelpers;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 
 class UserService
 {
     private const PER_PAGE = 50;
 
-    /**
-     * @param array $data
-     * @return User
-     */
     public function create(array $data): User
     {
         return User::create($data);
     }
 
-    /**
-     * @param User $user
-     * @param array $data
-     * @return User
-     */
     public function update(User $user, array $data): User
     {
         unset(
@@ -34,30 +26,29 @@ class UserService
             $data['created_at'],
             $data['updated_at'],
             $data['email_verified_at'],
-            $data['card_number'],
-            $data['issue_date'],
-            $data['expiry_date']
         );
         if (array_key_exists('password', $data) && empty($data['password'])) {
             unset($data['password']);
         }
         $user->update($data);
+
         return $user;
     }
 
     public function index(?string $keyword, bool $typeReader = false, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         $query = User::query()
-            ->with(['faculty:id,code,name', 'department:id,name,faculty_id'])
+            ->with(['faculty:id,code,name', 'department:id,name,faculty_id', 'period:id,code,name'])
             ->when($typeReader, fn ($q) => $q->whereIn('user_type', RoleType::readerTypes()))
             ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
-                $q->where('id', 'like', '%' . $keyword . '%')
+                $q->where('id', 'like', '%'.$keyword.'%')
                     ->orWhere('name', 'like', "%{$keyword}%")
                     ->orWhere('code', 'like', "%{$keyword}%")
                     ->orWhere('email', 'like', "%{$keyword}%")
                     ->orWhere('phone', 'like', "%{$keyword}%");
             }))
             ->orderByDesc('name');
+
         return $query->paginate($perPage)->withQueryString();
     }
 
@@ -74,14 +65,14 @@ class UserService
             ->withQueryString();
     }
 
-    /** @return User|null */
     public function restore(int $id): ?User
     {
         $user = User::onlyTrashed()->find($id);
-        if (!$user) {
+        if (! $user) {
             return null;
         }
         $user->restore();
+
         return $user;
     }
 
@@ -92,16 +83,18 @@ class UserService
         if (empty($ids)) {
             return 0;
         }
+
         return (int) User::onlyTrashed()->whereIn('id', $ids)->restore();
     }
 
     public function forceDelete(int $id): bool
     {
         $user = User::onlyTrashed()->find($id);
-        if (!$user) {
+        if (! $user) {
             return false;
         }
         $user->forceDelete();
+
         return true;
     }
 
@@ -112,6 +105,7 @@ class UserService
         if (empty($ids)) {
             return 0;
         }
+
         return User::onlyTrashed()->whereIn('id', $ids)->forceDelete();
     }
 
@@ -124,11 +118,12 @@ class UserService
     public function toggleStatus(int $id): ?array
     {
         $user = User::find($id);
-        if (!$user) {
+        if (! $user) {
             return null;
         }
-        $user->is_active = !$user->is_active;
+        $user->is_active = ! $user->is_active;
         $user->save();
+
         return ['is_active' => $user->is_active];
     }
 
@@ -145,10 +140,9 @@ class UserService
         ];
     }
 
-    /** @return \Illuminate\Database\Eloquent\Collection */
-    public function readers(): \Illuminate\Database\Eloquent\Collection
+    public function readers(): Collection
     {
-        return User::with(['faculty:id,code,name', 'department:id,name,faculty_id'])
+        return User::with(['faculty:id,code,name', 'department:id,name,faculty_id', 'period:id,code,name'])
             ->whereIn('user_type', RoleType::readerTypes())
             ->get();
     }
@@ -159,6 +153,7 @@ class UserService
     public function updateAvatar(User $user, UploadedFile $file): array
     {
         $path = FileHelpers::updateModelImage($user, $file, 'users', 'avatar', $user->code ?: (string) $user->id);
+
         return ['avatar' => $path];
     }
 
@@ -180,30 +175,35 @@ class UserService
                 new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
             );
             foreach ($iterator as $fileInfo) {
-                if (!$fileInfo->isFile()) {
+                if (! $fileInfo->isFile()) {
                     continue;
                 }
                 if (FileHelpers::shouldSkipZipExtractedFile($fileInfo)) {
                     $skipped++;
+
                     continue;
                 }
                 $ext = strtolower($fileInfo->getExtension() ?: '');
-                if (!in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
+                if (! in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
                     $skipped++;
+
                     continue;
                 }
-                $code = trim($fileInfo->getBasename('.' . $ext));
+                $code = trim($fileInfo->getBasename('.'.$ext));
                 if ($code === '') {
                     $skipped++;
+
                     continue;
                 }
                 $user = User::query()->where('code', $code)->first();
-                if (!$user) {
+                if (! $user) {
                     $skipped++;
+
                     continue;
                 }
-                if ($onlyUserIds !== null && $onlyUserIds !== [] && !in_array((int) $user->id, $onlyUserIds, true)) {
+                if ($onlyUserIds !== null && $onlyUserIds !== [] && ! in_array((int) $user->id, $onlyUserIds, true)) {
                     $skipped++;
+
                     continue;
                 }
 

@@ -12,12 +12,12 @@
 */
 
 return [
-    'data_input_error'   => 'Dữ liệu không hợp lệ.',
+    'data_input_error' => 'Dữ liệu không hợp lệ.',
     'error_203' => 'Thông tin không có thẩm quyền.',
     'error_204' => 'Không có nội dung.',
-    'error_400' => "Đường dẫn không đúng.",
-    'error_401' => "Bạn cần đăng nhập.",
-    'error_403' => "Bạn chưa được phân quyền để sử dụng chức năng này.",
+    'error_400' => 'Đường dẫn không đúng.',
+    'error_401' => 'Bạn cần đăng nhập.',
+    'error_403' => 'Bạn chưa được phân quyền để sử dụng chức năng này.',
     'error_404' => 'Không tìm thấy dữ liệu phù hợp.',
     'error_405' => 'Phương thức không được phép.',
     'error_406' => 'Không được chấp nhận.',

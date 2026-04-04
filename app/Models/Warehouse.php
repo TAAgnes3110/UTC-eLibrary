@@ -42,4 +42,3 @@ class Warehouse extends BaseModel
         return $this->hasMany(BookCopy::class);
     }
 }
-

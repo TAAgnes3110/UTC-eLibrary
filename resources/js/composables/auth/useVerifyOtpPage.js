@@ -77,6 +77,8 @@ export function useVerifyOtpPage(props) {
             });
     };
 
+    const email = computed(() => form.email);
+
     return {
         form,
         otpInputRef,

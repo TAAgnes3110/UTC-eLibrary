@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace App\Helpers;
 
 use Illuminate\Http\Request;
+
 final class BulkZipRequestHelper
 {
     /** @return list<int>|null */
     public static function parseFilterIds(Request $request): ?array
     {
-        if (!$request->has('ids')) {
+        if (! $request->has('ids')) {
             return null;
         }
         $v = $request->input('ids');
@@ -18,7 +19,7 @@ final class BulkZipRequestHelper
             $raw = $v;
         } elseif (is_string($v) && $v !== '') {
             $decoded = json_decode($v, true);
-            if (!is_array($decoded)) {
+            if (! is_array($decoded)) {
                 return null;
             }
             $raw = $decoded;

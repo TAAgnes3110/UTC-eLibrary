@@ -40,9 +40,8 @@ class PublisherController extends Controller
 
     public function destroy(Publisher $publisher): JsonResponse
     {
-        $publisher->delete();
+        $this->publisherService->delete($publisher);
 
         return ApiResponse::success(null, __('Xóa nhà xuất bản thành công.'), 204);
     }
 }
-

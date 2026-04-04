@@ -45,5 +45,3 @@ class WarehouseSeeder extends Seeder
         // Không tạo kho con; 3 kho chính đã đủ cho mô hình UTC hiện tại.
     }
 }
-
-

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use App\Enums\UploadDirectory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -22,6 +23,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 final class FileHelpers
 {
     public const EXCEL_EXTENSIONS = ['xlsx', 'xls', 'csv'];
+
     public const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
     public static function mimeForImageExtension(string $ext): string
@@ -71,7 +73,7 @@ final class FileHelpers
 
         $name = $filename ? trim($filename) : Str::uuid()->toString();
         if ($ext !== '') {
-            $name .= '.' . $ext;
+            $name .= '.'.$ext;
         }
 
         return $file->storeAs($directory, $name, $disk);
@@ -98,6 +100,7 @@ final class FileHelpers
         ?string $filename = null
     ): string {
         self::deleteIfExists($oldPath, $disk);
+
         return self::storeUploadedFile($file, $disk, $directory, $filename);
     }
 
@@ -130,19 +133,19 @@ final class FileHelpers
         ?string $baseName = null,
         string $disk = 'public'
     ): string {
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             throw new \InvalidArgumentException(__('File không hợp lệ.'));
         }
         $ext = strtolower($file->getClientOriginalExtension() ?: '');
-        if (!in_array($ext, self::IMAGE_EXTENSIONS, true)) {
-            throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ') . implode(', ', self::IMAGE_EXTENSIONS) . '.');
+        if (! in_array($ext, self::IMAGE_EXTENSIONS, true)) {
+            throw new \InvalidArgumentException(__('Chỉ chấp nhận ảnh: ').implode(', ', self::IMAGE_EXTENSIONS).'.');
         }
 
         self::deleteIfExists((string) ($model->{$attribute} ?? null), $disk);
 
         $baseName ??= $model->code ?? (string) $model->id;
-        $directory = \App\Enums\UploadDirectory::forTable($table);
-        $path = $file->storeAs(trim($directory, '/'), $baseName . '.' . $ext, $disk);
+        $directory = UploadDirectory::forTable($table);
+        $path = $file->storeAs(trim($directory, '/'), $baseName.'.'.$ext, $disk);
 
         $model->{$attribute} = $path;
         $model->save();
@@ -155,6 +158,7 @@ final class FileHelpers
         if ($file instanceof UploadedFile) {
             return strtolower($file->getClientOriginalExtension() ?: '');
         }
+
         return strtolower(pathinfo((string) $file, PATHINFO_EXTENSION));
     }
 
@@ -171,7 +175,7 @@ final class FileHelpers
     public static function readExcel(UploadedFile|string $file, int $headerRow = 1, ?int $sheetIndex = 0): array
     {
         $filePath = $file instanceof UploadedFile ? ($file->getRealPath() ?: '') : (string) $file;
-        if ($filePath === '' || !is_file($filePath)) {
+        if ($filePath === '' || ! is_file($filePath)) {
             return ['headers' => [], 'rows' => [], 'total_rows' => 0];
         }
 
@@ -179,9 +183,10 @@ final class FileHelpers
         $worksheet = $spreadsheet->getSheet($sheetIndex ?? 0);
         $data = $worksheet->toArray(null, true, true, true);
 
-        if (empty($data) || !isset($data[$headerRow])) {
+        if (empty($data) || ! isset($data[$headerRow])) {
             $spreadsheet->disconnectWorksheets();
             unset($spreadsheet);
+
             return ['headers' => [], 'rows' => [], 'total_rows' => 0];
         }
 
@@ -243,7 +248,7 @@ final class FileHelpers
     /**
      * Download một workbook (nhiều sheet).
      *
-     * @param array<int,array{title:string,headers?:array<int,string>,rows?:array<int,array<int,mixed>>}> $sheets
+     * @param  array<int,array{title:string,headers?:array<int,string>,rows?:array<int,array<int,mixed>>}>  $sheets
      */
     public static function downloadWorkbook(array $sheets, string $filename = 'template.xlsx'): StreamedResponse
     {
@@ -260,11 +265,11 @@ final class FileHelpers
     }
 
     /**
-     * @param array<int,array{title:string,headers?:array<int,string>,rows?:array<int,array<int,mixed>>}> $sheets
+     * @param  array<int,array{title:string,headers?:array<int,string>,rows?:array<int,array<int,mixed>>}>  $sheets
      */
     public static function createWorkbook(array $sheets): Spreadsheet
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $defs = array_values($sheets);
         if (empty($defs)) {
             return $spreadsheet;
@@ -275,18 +280,19 @@ final class FileHelpers
         self::fillWorksheetTable($sheet0, $first['rows'] ?? [], $first['headers'] ?? null);
         for ($i = 1; $i < count($defs); $i++) {
             $def = $defs[$i];
-            $ws = new Worksheet($spreadsheet, (string) ($def['title'] ?? ('Sheet ' . ($i + 1))));
+            $ws = new Worksheet($spreadsheet, (string) ($def['title'] ?? ('Sheet '.($i + 1))));
             $spreadsheet->addSheet($ws);
             self::fillWorksheetTable($ws, $def['rows'] ?? [], $def['headers'] ?? null);
         }
 
         $spreadsheet->setActiveSheetIndex(0);
+
         return $spreadsheet;
     }
 
     public static function createSpreadsheet(array $data, ?array $headers = null): Spreadsheet
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $worksheet = $spreadsheet->getActiveSheet();
         $worksheet->setTitle('Sheet 1');
         self::fillWorksheetTable($worksheet, $data, $headers);
@@ -300,25 +306,25 @@ final class FileHelpers
 
         $rowIndex = 1;
 
-        if ($headers === null && !empty($data)) {
+        if ($headers === null && ! empty($data)) {
             $firstRow = reset($data);
             if (is_array($firstRow) && count(array_filter(array_keys($firstRow), 'is_string')) > 0) {
                 $headers = array_keys($firstRow);
             }
         }
 
-        if (!empty($headers)) {
+        if (! empty($headers)) {
             $colIndex = 1;
             foreach ($headers as $header) {
                 $colLetter = Coordinate::stringFromColumnIndex($colIndex);
-                $worksheet->setCellValue($colLetter . $rowIndex, is_string($header) ? $header : '');
+                $worksheet->setCellValue($colLetter.$rowIndex, is_string($header) ? $header : '');
                 $colIndex++;
             }
 
             $lastColIndex = count($headers);
             $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
 
-            $worksheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
+            $worksheet->getStyle('A1:'.$lastCol.'1')->applyFromArray([
                 'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
                 'alignment' => [
                     'horizontal' => Alignment::HORIZONTAL_CENTER,
@@ -337,20 +343,20 @@ final class FileHelpers
         }
 
         $lastColIndex = 1;
-        if (!empty($data)) {
+        if (! empty($data)) {
             $dataValues = [];
             foreach ($data as $row) {
                 $dataValues[] = is_array($row) ? array_values($row) : (array) $row;
             }
 
-            $itemCountRow = !empty($dataValues[0]) ? count($dataValues[0]) : 1;
-            $lastColIndex = max(!empty($headers) ? count($headers) : 1, $itemCountRow);
+            $itemCountRow = ! empty($dataValues[0]) ? count($dataValues[0]) : 1;
+            $lastColIndex = max(! empty($headers) ? count($headers) : 1, $itemCountRow);
 
-            $worksheet->fromArray($dataValues, null, 'A' . $rowIndex, true);
+            $worksheet->fromArray($dataValues, null, 'A'.$rowIndex, true);
 
             $lastCol = Coordinate::stringFromColumnIndex($lastColIndex);
             $lastRow = $rowIndex + count($dataValues) - 1;
-            $worksheet->getStyle('A' . $rowIndex . ':' . $lastCol . $lastRow)->applyFromArray([
+            $worksheet->getStyle('A'.$rowIndex.':'.$lastCol.$lastRow)->applyFromArray([
                 'borders' => [
                     'allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FFDDDDDD']],
                 ],
@@ -383,6 +389,7 @@ final class FileHelpers
             $normalized = preg_replace('/\s+/', ' ', $normalized) ?: $normalized;
             $headers[$colLetter] = $normalized;
         }
+
         return $headers;
     }
 
@@ -393,6 +400,7 @@ final class FileHelpers
                 return false;
             }
         }
+
         return true;
     }
 
@@ -418,6 +426,7 @@ final class FileHelpers
                 return trim((string) $row[$alias]);
             }
         }
+
         return null;
     }
 
@@ -446,13 +455,14 @@ final class FileHelpers
             return null;
         }
         $year = (int) trim((string) $value);
+
         return ($year >= 1900 && $year <= 2100) ? $year : null;
     }
 
     /**
      * Tạo ZIP từ danh sách path trên Storage.
      *
-     * @param string[] $paths Relative paths theo disk
+     * @param  string[]  $paths  Relative paths theo disk
      */
     public static function createZipFromDiskPaths(
         array $paths,
@@ -466,18 +476,18 @@ final class FileHelpers
         $diskRef = Storage::disk($disk);
         $zipFullPath = $diskRef->path($zipPath);
         $zipDir = dirname($zipFullPath);
-        if (!is_dir($zipDir)) {
+        if (! is_dir($zipDir)) {
             @mkdir($zipDir, 0775, true);
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($zipFullPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
             return false;
         }
 
         $added = 0;
         foreach ($paths as $p) {
-            if (!$diskRef->exists($p)) {
+            if (! $diskRef->exists($p)) {
                 continue;
             }
             $zip->addFile($diskRef->path($p), basename($p));
@@ -487,6 +497,7 @@ final class FileHelpers
 
         if ($added === 0) {
             @unlink($zipFullPath);
+
             return false;
         }
 
@@ -503,7 +514,7 @@ final class FileHelpers
      */
     public static function extractZipToTemp(UploadedFile $zipFile, string $prefix = 'tmp'): string
     {
-        if (!$zipFile->isValid()) {
+        if (! $zipFile->isValid()) {
             throw new \InvalidArgumentException(__('File zip không hợp lệ.'));
         }
         $ext = strtolower($zipFile->getClientOriginalExtension() ?: '');
@@ -511,12 +522,12 @@ final class FileHelpers
             throw new \InvalidArgumentException(__('Chỉ chấp nhận file .zip.'));
         }
 
-        $tmpDir = storage_path('app/tmp/' . $prefix . '-' . Str::uuid()->toString());
-        if (!is_dir($tmpDir)) {
+        $tmpDir = storage_path('app/tmp/'.$prefix.'-'.Str::uuid()->toString());
+        if (! is_dir($tmpDir)) {
             mkdir($tmpDir, 0775, true);
         }
 
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         if ($zip->open($zipFile->getRealPath()) !== true) {
             throw new \InvalidArgumentException(__('Không thể đọc file zip.'));
         }
@@ -528,7 +539,7 @@ final class FileHelpers
 
     public static function removeDirectory(string $dir): void
     {
-        if ($dir === '' || !is_dir($dir)) {
+        if ($dir === '' || ! is_dir($dir)) {
             return;
         }
         try {

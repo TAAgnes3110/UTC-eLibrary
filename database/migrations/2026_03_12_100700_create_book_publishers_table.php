@@ -13,6 +13,14 @@ return new class extends Migration
             $table->foreignId('book_id')->constrained('books')->cascadeOnDelete();
             $table->foreignId('publisher_id')->constrained('publishers')->cascadeOnDelete();
             $table->unsignedSmallInteger('order')->default(0);
+
+            $table->unsignedInteger('created_by')->nullable();
+            $table->unsignedInteger('updated_by')->nullable();
+            $table->unsignedInteger('deleted_by')->nullable();
+            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+
             $table->timestamps();
 
             $table->unique(['book_id', 'publisher_id']);
@@ -24,4 +32,3 @@ return new class extends Migration
         Schema::dropIfExists('book_publishers');
     }
 };
-

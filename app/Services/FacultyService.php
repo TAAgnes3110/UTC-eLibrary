@@ -20,6 +20,7 @@ class FacultyService
         if ($paginate) {
             return $query->paginate($perPage)->withQueryString();
         }
+
         return $query->get();
     }
 
@@ -27,6 +28,7 @@ class FacultyService
     {
         $faculty = Faculty::create($data);
         MasterDataService::clearCache();
+
         return $faculty;
     }
 
@@ -34,6 +36,7 @@ class FacultyService
     {
         $faculty->update($data);
         MasterDataService::clearCache();
+
         return $faculty;
     }
 

@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Traits\HasAuditFields;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Loan extends BaseModel
 {
-    use SoftDeletes;
     use HasAuditFields;
+    use SoftDeletes;
 
     protected $fillable = [
         'user_id',
@@ -58,4 +58,3 @@ class Loan extends BaseModel
         return $this->belongsTo(LoanPolicy::class, 'loan_policy_id');
     }
 }
-

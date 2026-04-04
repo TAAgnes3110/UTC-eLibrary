@@ -42,7 +42,7 @@ export const SEARCH_IN_OPTIONS = [
 export function useBooksAdminPage() {
     const page = usePage();
     const pageKind = computed(() => page.props.pageKind ?? 'print');
-    const resourceKindFilter = computed(() => page.props.resourceKindFilter ?? '');
+    const resourceTypeFilter = computed(() => page.props.resourceTypeFilter ?? '');
     const pageLabel = computed(() => (pageKind.value === 'digital' ? 'Tài liệu số' : 'Sách in'));
 
     const books = ref([]);
@@ -171,7 +171,7 @@ export function useBooksAdminPage() {
                 params: {
                     per_page: 50,
                     keyword: filterValues.value.searchKeyword || undefined,
-                    ...(resourceKindFilter.value ? { resource_kind: resourceKindFilter.value } : {}),
+                    ...(resourceTypeFilter.value ? { resource_type: resourceTypeFilter.value } : {}),
                 },
             });
             const payload = response?.data;
@@ -233,7 +233,7 @@ export function useBooksAdminPage() {
     });
 
     watch(
-        () => page.props.resourceKindFilter ?? '',
+        () => page.props.resourceTypeFilter ?? '',
         () => {
             loadBooks();
         },
@@ -292,6 +292,7 @@ export function useBooksAdminPage() {
         classification_detail: '',
         warehouse: '',
         quantity: 1,
+        resource_type: pageKind.value === 'digital' ? 'digital' : 'reference',
     });
 
     const form = ref(emptyForm());
@@ -397,6 +398,7 @@ export function useBooksAdminPage() {
                 : '',
             warehouse: book.warehouse?.name || '',
             quantity: book.quantity ?? 1,
+            resource_type: book.resource_type || (pageKind.value === 'digital' ? 'digital' : 'reference'),
         };
         showModal.value = true;
     };
@@ -415,7 +417,9 @@ export function useBooksAdminPage() {
             title,
             warehouse_id: warehouseId,
             quantity: qty,
-            resource_kind: pageKind.value === 'digital' ? 'digital' : 'print',
+            resource_type:
+                String(form.value.resource_type || '').trim() ||
+                (pageKind.value === 'digital' ? 'digital' : 'reference'),
         };
         const reg = String(form.value.registration_number || '').trim();
         if (reg) payload.registration_number = reg;

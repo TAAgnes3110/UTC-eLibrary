@@ -14,4 +14,3 @@ final class WarehouseImportTemplateExport
         return FileHelpers::downloadExcel([], 'Mẫu nhập kho sách.xlsx', ['Mã', 'Tên']);
     }
 }
-

@@ -13,12 +13,12 @@ use Illuminate\Support\Facades\Storage;
 class DigitalAssetService
 {
     /**
-     * @param array{storage_disk?: string, is_primary?: bool, visibility?: string, embargo_until?: string|null} $attrs
+     * @param  array{storage_disk?: string, is_primary?: bool, visibility?: string, embargo_until?: string|null}  $attrs
      */
     public function store(Book $book, UploadedFile $file, array $attrs = []): DigitalAsset
     {
         $disk = $attrs['storage_disk'] ?? 'public';
-        $dir = UploadDirectory::forTable('digital-assets') . '/' . $book->id;
+        $dir = UploadDirectory::forTable('digital-assets').'/'.$book->id;
 
         return DB::transaction(function () use ($book, $file, $attrs, $disk, $dir) {
             $path = FileHelpers::storeUploadedFile($file, $disk, $dir);
@@ -29,7 +29,7 @@ class DigitalAssetService
             $hasAny = DigitalAsset::query()->where('book_id', $book->id)->exists();
             $isPrimary = array_key_exists('is_primary', $attrs)
                 ? (bool) $attrs['is_primary']
-                : !$hasAny;
+                : ! $hasAny;
 
             if ($isPrimary) {
                 DigitalAsset::query()->where('book_id', $book->id)->update(['is_primary' => false]);

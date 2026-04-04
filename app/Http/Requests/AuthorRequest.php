@@ -2,16 +2,13 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
-
 class AuthorRequest extends BaseRequest
 {
     public function rules(): array
     {
         $id = $this->route('author');
         $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
+
         return [
             'name' => [
                 $isUpdate ? 'sometimes' : 'required',
@@ -29,4 +26,3 @@ class AuthorRequest extends BaseRequest
         ];
     }
 }
-

@@ -229,8 +229,8 @@ function errClass(key) {
                         />
                         <p v-if="fieldErrors.description" class="text-xs text-red-500 font-medium">{{ fieldErrors.description }}</p>
                     </div>
-                    <p v-if="fieldErrors.resource_kind" class="sm:col-span-2 text-xs text-red-500 font-medium">
-                        {{ fieldErrors.resource_kind }}
+                    <p v-if="fieldErrors.resource_type" class="sm:col-span-2 text-xs text-red-500 font-medium">
+                        {{ fieldErrors.resource_type }}
                     </p>
                 </div>
                 <div

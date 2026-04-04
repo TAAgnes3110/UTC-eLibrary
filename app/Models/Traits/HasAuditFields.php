@@ -47,4 +47,3 @@ trait HasAuditFields
         return $this->belongsTo(User::class, 'deleted_by');
     }
 }
-

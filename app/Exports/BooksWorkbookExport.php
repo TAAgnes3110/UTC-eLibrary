@@ -24,7 +24,7 @@ final class BooksWorkbookExport
                 'publishers:id,name',
             ]);
 
-        if (!empty($ids)) {
+        if (! empty($ids)) {
             $query->whereIn('id', $ids);
         }
 
@@ -128,4 +128,3 @@ final class BooksWorkbookExport
         ], 'FileSach.xlsx');
     }
 }
-

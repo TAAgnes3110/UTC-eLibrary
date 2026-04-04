@@ -16,6 +16,7 @@ trait DecodesBackendResponse
             return [];
         }
         $body = json_decode($content, true);
+
         return is_array($body) ? $body : [];
     }
 
@@ -23,6 +24,7 @@ trait DecodesBackendResponse
     protected function backendData(Response $response): array
     {
         $body = $this->decodeBackendResponse($response);
+
         return $body['data'] ?? $body;
     }
 }

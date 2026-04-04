@@ -12,7 +12,7 @@ class BookPageController extends Controller
     {
         return Inertia::render('Admin/Books/Index', [
             'pageKind' => 'print',
-            'resourceKindFilter' => 'print,hybrid',
+            'resourceTypeFilter' => 'reference,textbook,thesis,journal',
         ]);
     }
 
@@ -20,7 +20,7 @@ class BookPageController extends Controller
     {
         return Inertia::render('Admin/Books/Index', [
             'pageKind' => 'digital',
-            'resourceKindFilter' => 'digital,hybrid',
+            'resourceTypeFilter' => 'digital',
         ]);
     }
 }

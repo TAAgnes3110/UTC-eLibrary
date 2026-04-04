@@ -451,7 +451,7 @@ composer test
 
 ## 📁 Tài liệu thêm
  
-- **Postman collection:** [`UTC-eLibrary.postman_collection.json`](UTC-eLibrary.postman_collection.json) — import để test nhanh API v1 (tự set header `domain`, `period` và `Authorization: Bearer <token>` nếu đã khai báo `token`).
+- **Postman collection:** [`UTC-eLibrary.postman_collection.json`](UTC-eLibrary.postman_collection.json) — import để test nhanh API v1 (tự set header `domain` và `Authorization: Bearer <token>` nếu đã khai báo `token`).
 
 - **API:** [docs/API.md](docs/API.md) — Mô tả API v1, endpoint, rate limit.
 - **Kiến trúc:** [ARCHITECTURE.md](ARCHITECTURE.md) — REST API, Auth, Cache, Health.
@@ -463,7 +463,7 @@ composer test
 1. Import file `UTC-eLibrary.postman_collection.json` vào Postman.
 2. Mở `Variables` trong collection và cấu hình:
    - `BASE_URL` (ví dụ: `http://localhost:8000`)
-   - `DOMAIN` và `PERIOD` (collection sẽ tự đẩy vào header)
+   - `DOMAIN` (collection sẽ tự đẩy vào header)
    - `token` (JWT) cho các request cần xác thực
    - `otp` cho luồng xác thực OTP (nếu cần)
 3. Chạy request mong muốn; script `prerequest` của collection sẽ tự gắn header cần thiết trước khi gửi.

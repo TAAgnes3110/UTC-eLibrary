@@ -3,18 +3,22 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\RoleType;
+use App\Models\Traits\HasAuditFields;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
-use App\Enums\RoleType;
-use App\Models\Traits\HasAuditFields;
 
 class User extends Authenticatable implements JWTSubject
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, HasAuditFields, \Spatie\Permission\Traits\HasRoles;
+    /** @use HasFactory<UserFactory> */
+    use HasAuditFields, HasFactory, Notifiable, SoftDeletes, \Spatie\Permission\Traits\HasRoles;
 
     protected $table = 'users';
 
@@ -32,6 +36,8 @@ class User extends Authenticatable implements JWTSubject
         'faculty_id',
         'department_id',
         'cohort',
+        'period_id',
+        'class_code',
         'is_active',
     ];
 
@@ -51,34 +57,41 @@ class User extends Authenticatable implements JWTSubject
         ];
     }
 
-    public function libraryCard(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function libraryCard(): HasOne
     {
         return $this->hasOne(LibraryCard::class);
     }
-    public function faculty(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+
+    public function faculty(): BelongsTo
     {
         return $this->belongsTo(Faculty::class);
     }
 
-    public function department(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
     }
 
-    public function loans(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function period(): BelongsTo
+    {
+        return $this->belongsTo(Period::class);
+    }
+
+    public function loans(): HasMany
     {
         return $this->hasMany(Loan::class);
     }
 
     public function scopeDuplicate($query, array $data, ?int $excludeId = null)
     {
-        return $query->when($excludeId, fn($q) => $q->where('id', '!=', $excludeId))
+        return $query->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))
             ->where(function ($q) use ($data) {
                 $q->where('email', $data['email'])
                     ->orWhere('code', $data['code'])
-                    ->when(!empty($data['phone']), fn($q) => $q->orWhere('phone', $data['phone']));
+                    ->when(! empty($data['phone']), fn ($q) => $q->orWhere('phone', $data['phone']));
             });
     }
+
     public function getJWTIdentifier()
     {
         return $this->getKey();
@@ -94,7 +107,7 @@ class User extends Authenticatable implements JWTSubject
             'phone' => $this->phone,
             'avatar' => $this->avatar,
             'roles' => $this->getRoleNames(),
-            'permissions' => $this->getPermissionNames()
+            'permissions' => $this->getPermissionNames(),
         ];
     }
 }

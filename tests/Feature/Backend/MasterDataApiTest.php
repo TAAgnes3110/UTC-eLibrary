@@ -17,8 +17,6 @@ class MasterDataApiTest extends TestCase
 
     /**
      * GET /api/v1/master-data không có token trả 401.
-     *
-     * @return void
      */
     public function test_master_data_requires_auth(): void
     {
@@ -27,8 +25,6 @@ class MasterDataApiTest extends TestCase
 
     /**
      * GET /api/v1/master-data với token trả faculties, departments, cohorts, role_types.
-     *
-     * @return void
      */
     public function test_master_data_returns_structure(): void
     {
@@ -41,6 +37,7 @@ class MasterDataApiTest extends TestCase
             'data' => [
                 'faculties',
                 'departments',
+                'periods',
                 'cohorts',
                 'role_types',
             ],

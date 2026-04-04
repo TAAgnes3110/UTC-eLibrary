@@ -10,25 +10,26 @@ use Spatie\Permission\Models\Role;
 trait ActsAsApiUser
 {
     /**
-     * Tạo user (MEMBER) + JWT token để gọi API /me/*, master-data.
+     * Tạo user (STUDENT) + JWT token để gọi API /me/*, master-data.
      *
      * @return array{0: User, 1: string}
      */
     protected function createUserAndToken(array $overrides = []): array
     {
         $user = User::factory()->create(array_merge([
-            'user_type' => RoleType::MEMBER,
+            'user_type' => RoleType::STUDENT,
             'email' => 'reader@test.com',
             'password' => 'password',
         ], $overrides));
         $token = JWTAuth::fromUser($user);
+
         return [$user, $token];
     }
 
     /**
      * Tạo user có role SUPER_ADMIN + JWT token để gọi API admin.
      *
-     * @param array<string, mixed> $overrides
+     * @param  array<string, mixed>  $overrides
      * @return array{0: User, 1: string}
      */
     protected function createAdminUserAndToken(array $overrides = []): array
@@ -44,11 +45,12 @@ trait ActsAsApiUser
         ], $overrides));
         $user->assignRole($role);
         $token = JWTAuth::fromUser($user);
+
         return [$user, $token];
     }
 
     protected function apiTokenHeaders(string $token): array
     {
-        return ['Authorization' => 'Bearer ' . $token];
+        return ['Authorization' => 'Bearer '.$token];
     }
 }

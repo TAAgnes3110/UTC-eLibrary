@@ -20,24 +20,28 @@ class AuthorController extends Controller
     {
         $keyword = (string) $request->query('keyword', '');
         $authors = $this->authorService->index($keyword ?: null);
+
         return ApiResponse::success($authors);
     }
 
     public function store(AuthorRequest $request): JsonResponse
     {
         $author = $this->authorService->create($request->validated());
+
         return ApiResponse::success($author, __('Thêm tác giả thành công.'), 201);
     }
 
     public function update(AuthorRequest $request, Author $author): JsonResponse
     {
         $author = $this->authorService->update($author, $request->validated());
+
         return ApiResponse::success($author, __('Cập nhật tác giả thành công.'));
     }
 
     public function destroy(Author $author): JsonResponse
     {
-        $author->delete();
+        $this->authorService->delete($author);
+
         return ApiResponse::success(null, __('Xóa tác giả thành công.'), 204);
     }
 }

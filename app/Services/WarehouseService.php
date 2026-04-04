@@ -13,11 +13,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class WarehouseService
 {
     private const PER_PAGE = 50;
-    
+
     /**
      * Tạo kho mới
-     * @param array $data
-     * @return Warehouse
      */
     public function create(array $data): Warehouse
     {
@@ -29,9 +27,6 @@ class WarehouseService
 
     /**
      * Cập nhật kho
-     * @param Warehouse $warehouse
-     * @param array $data
-     * @return Warehouse
      */
     public function update(Warehouse $warehouse, array $data): Warehouse
     {
@@ -44,9 +39,6 @@ class WarehouseService
 
     /**
      * Danh sách kho
-     * @param ?string $keyword
-     * @param int $perPage
-     * @return LengthAwarePaginator
      */
     public function index(?string $keyword, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
@@ -80,8 +72,6 @@ class WarehouseService
 
     /**
      * Xóa mềm kho
-     * @param Warehouse $warehouse
-     * @return void
      */
     public function destroy(Warehouse $warehouse): void
     {
@@ -91,8 +81,6 @@ class WarehouseService
 
     /**
      * Danh sách kho đã xóa
-     * @param int $perPage
-     * @return LengthAwarePaginator
      */
     public function trash(int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
@@ -105,13 +93,11 @@ class WarehouseService
 
     /**
      * Khôi phục kho
-     * @param int $id
-     * @return ?Warehouse
      */
     public function restore(int $id): ?Warehouse
     {
         $warehouse = Warehouse::onlyTrashed()->find($id);
-        if (!$warehouse) {
+        if (! $warehouse) {
             return null;
         }
         $warehouse->restore();
@@ -137,13 +123,11 @@ class WarehouseService
 
     /**
      * Xóa vĩnh viễn kho
-     * @param int $id
-     * @return bool
      */
     public function forceDelete(int $id): bool
     {
         $warehouse = Warehouse::onlyTrashed()->find($id);
-        if (!$warehouse) {
+        if (! $warehouse) {
             return false;
         }
         $warehouse->forceDelete();
@@ -169,9 +153,6 @@ class WarehouseService
 
     /**
      * Cập nhật trạng thái kho
-     * @param array $ids
-     * @param bool $isActive
-     * @return void
      */
     public function updateStatus(array $ids, bool $isActive): void
     {
@@ -181,16 +162,16 @@ class WarehouseService
 
     /**
      * Chuyển đổi trạng thái kho
-     * @param int $id
+     *
      * @return ?array{is_active: bool} null nếu lỗi (kho không tồn tại)
      */
     public function toggleStatus(int $id): ?array
     {
         $warehouse = Warehouse::find($id);
-        if (!$warehouse) {
+        if (! $warehouse) {
             return null;
         }
-        $warehouse->is_active = !$warehouse->is_active;
+        $warehouse->is_active = ! $warehouse->is_active;
         $warehouse->save();
         MasterDataService::clearCache();
 
@@ -199,7 +180,7 @@ class WarehouseService
 
     /**
      * Danh sách kho
-     * @param int $perPage
+     *
      * @return array{warehouses: LengthAwarePaginator}
      */
     public function warehouseList(int $perPage = 20): array
@@ -216,6 +197,7 @@ class WarehouseService
                     ->withQueryString();
             }
         );
+
         return [
             'warehouses' => $warehouses,
         ];
@@ -223,7 +205,7 @@ class WarehouseService
 
     /**
      * Danh sách kho đã xóa
-     * @param int $perPage
+     *
      * @return LengthAwarePaginator
      */
     public function trashList(int $perPage = 20): array
@@ -232,6 +214,7 @@ class WarehouseService
             ->orderByDesc('deleted_at')
             ->paginate($perPage)
             ->withQueryString();
+
         return [
             'warehouses' => $warehouses,
         ];
@@ -239,8 +222,6 @@ class WarehouseService
 
     /**
      * Import danh sách kho từ file Excel/CSV (sync).
-     *
-     * @return array
      */
     public function importWarehouses(UploadedFile $file): array
     {

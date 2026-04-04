@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 abstract class BaseModel extends Model
 {
     use HasFactory;
+
     public array $arrParams = [];
 
     public function __construct(array $attributes = [])
@@ -27,19 +28,22 @@ abstract class BaseModel extends Model
 
     public function getArrParams(): array
     {
-        if (!empty($this->params) && is_array($this->params)) {
+        if (! empty($this->params) && is_array($this->params)) {
             return $this->params;
         }
-        if (!empty($this->params) && is_string($this->params)) {
+        if (! empty($this->params) && is_string($this->params)) {
             $decoded = json_decode($this->params, true);
+
             return is_array($decoded) ? $decoded : [];
         }
+
         return [];
     }
 
     public function addParam($key, $value)
     {
         $this->arrParams[$key] = $value;
+
         return $this;
     }
 
@@ -48,6 +52,7 @@ abstract class BaseModel extends Model
         if (isset($this->arrParams[$key])) {
             $this->arrParams[$key] = $value;
         }
+
         return $this;
     }
 
@@ -56,6 +61,7 @@ abstract class BaseModel extends Model
         if (isset($this->arrParams[$key])) {
             unset($this->arrParams[$key]);
         }
+
         return $this;
     }
 
@@ -66,12 +72,14 @@ abstract class BaseModel extends Model
         } else {
             $this->arrParams[$key] = $amount;
         }
+
         return $this;
     }
 
     public function toParams()
     {
         $this->params = $this->arrParams;
+
         return $this;
     }
 
@@ -81,6 +89,7 @@ abstract class BaseModel extends Model
         if ($currentCustomer && isset($currentCustomer->id) && $currentCustomer->id > 0) {
             return $query->where('customer_id', $currentCustomer->id);
         }
+
         return $query;
     }
 }

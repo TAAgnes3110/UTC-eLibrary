@@ -1,26 +1,28 @@
 <?php
 
+use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\EmailOTPController;
-use App\Http\Controllers\Api\FacultyController;
-use App\Http\Controllers\Api\MasterDataController;
-use App\Http\Controllers\Api\PermissionController;
-use App\Http\Controllers\Api\ProfileController;
-use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\AuthorController;
+use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Api\ClassificationController;
 use App\Http\Controllers\Api\ClassificationDetailController;
-use App\Http\Controllers\Api\AuthorController;
-use App\Http\Controllers\Api\PublisherController;
-use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Api\DigitalAssetController;
+use App\Http\Controllers\Api\EmailOTPController;
+use App\Http\Controllers\Api\FacultyController;
+use App\Http\Controllers\Api\LibraryCardController;
+use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\MeLibraryCardController;
+use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PublisherController;
+use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Route;
-
-use App\Enums\RoleType;
 
 // Health check: GET /api/health (no auth, no throttle) - Logging & Monitoring
 Route::get('health', function () {
@@ -28,25 +30,26 @@ Route::get('health', function () {
     try {
         DB::connection()->getPdo();
         $checks['database'] = true;
-    } catch (\Throwable) {
+    } catch (Throwable) {
         //
     }
     $driver = config('cache.default');
     try {
         Cache::store($driver)->put('health_ping', true, 10);
         $checks['cache'] = Cache::store($driver)->get('health_ping') === true;
-    } catch (\Throwable) {
+    } catch (Throwable) {
         //
     }
     if ($driver === 'redis') {
         try {
-            \Illuminate\Support\Facades\Redis::connection()->ping();
+            Redis::connection()->ping();
             $checks['redis'] = true;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             $checks['redis'] = false;
         }
     }
     $ok = $checks['database'] && $checks['cache'] && ($checks['redis'] !== false);
+
     return response()->json([
         'status' => $ok ? 'ok' : 'degraded',
         'checks' => $checks,
@@ -75,12 +78,14 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'me', 'middleware' => ['init']], function () {
         Route::get('profile', [ProfileController::class, 'show']);
         Route::put('profile', [ProfileController::class, 'update']);
+        Route::put('password', [ProfileController::class, 'updatePassword']);
+        Route::get('library-card', [MeLibraryCardController::class, 'show']);
     });
 
     Route::get('master-data', [MasterDataController::class, 'index'])->middleware(['init']);
 
     Route::group(['middleware' => ['init']], function () {
-        Route::middleware(['role_or_permission:' . RoleType::SUPER_ADMIN->value . '|role_prefix_' . RoleType::ADMIN->value . '|role_prefix_' . RoleType::LIBRARIAN->value])->group(function () {
+        Route::middleware(['role_or_permission:'.RoleType::SUPER_ADMIN->value.'|role_prefix_'.RoleType::ADMIN->value.'|role_prefix_'.RoleType::LIBRARIAN->value])->group(function () {
             Route::apiResource('faculties', FacultyController::class);
 
             Route::group(['prefix' => '/users'], function () {
@@ -188,6 +193,10 @@ Route::prefix('v1')->group(function () {
                 Route::post('/{id}/image', [BookController::class, 'updateImage']);
                 Route::post('/image-bulk', [BookController::class, 'bulkUpdateImage']);
             });
+
+            Route::get('library-cards', [LibraryCardController::class, 'index']);
+            Route::get('library-cards/{library_card}', [LibraryCardController::class, 'show']);
+            Route::patch('library-cards/{library_card}', [LibraryCardController::class, 'update']);
         });
     });
 });

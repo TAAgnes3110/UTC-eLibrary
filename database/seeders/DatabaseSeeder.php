@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
             ClassificationDetailSeeder::class,
             DefaultUsersSeeder::class,
             CmsAndContentSeeder::class,
+            PeriodSeeder::class,
+            LibraryCardSeeder::class,
             BookSampleSeeder::class,
         ]);
     }

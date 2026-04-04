@@ -41,18 +41,22 @@ const {
 
             <!-- Registration Card -->
             <div
-                class="w-full max-w-[600px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[2.5rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700"
+                class="w-full max-w-[680px] bg-slate-900/60 backdrop-blur-3xl shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] rounded-[2.5rem] border border-white/10 overflow-hidden animate-in zoom-in-95 fade-in duration-700"
             >
-                <div class="px-5 py-5 sm:px-8">
+                <div class="px-4 py-4 sm:px-6 sm:py-5">
                     <AuthCardTitle title="ĐĂNG KÝ">
                         <template #icon
                             ><UserPlus :size="24" class="animate-pulse"
                         /></template>
                     </AuthCardTitle>
 
-                    <form @submit.prevent="submit" class="space-y-4">
+                    <form
+                        @submit.prevent="submit"
+                        class="space-y-3"
+                        novalidate
+                    >
                         <!-- Primary Identity Group -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <FormField
                                 id="name"
                                 label="Họ và tên"
@@ -65,8 +69,7 @@ const {
                                     type="text"
                                     placeholder="Nhập họ và tên"
                                     v-model="form.name"
-                                    class="h-12 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
-                                    required
+                                    class="h-11 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
                                 />
                             </FormField>
                             <FormField
@@ -83,14 +86,13 @@ const {
                                     type="text"
                                     placeholder="Nhập số định danh"
                                     v-model="form.code"
-                                    class="h-12 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
-                                    required
+                                    class="h-11 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
                                 />
                             </FormField>
                         </div>
 
                         <!-- Contact Group -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <FormField
                                 id="email"
                                 label="Email cá nhân"
@@ -103,8 +105,7 @@ const {
                                     type="email"
                                     placeholder="example@email.com"
                                     v-model="form.email"
-                                    class="h-12 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
-                                    required
+                                    class="h-11 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
                                 />
                             </FormField>
                             <FormField
@@ -118,106 +119,110 @@ const {
                                     type="tel"
                                     placeholder="0xxxxxxxxx"
                                     v-model="form.phone"
-                                    class="h-12 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
+                                    class="h-11 w-full border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300"
+                                />
+                            </FormField>
+                        </div>
+                        <!-- Personal Details Group -->
+                        <div
+                            class="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr] gap-3"
+                        >
+                            <FormField
+                                id="date_of_birth"
+                                label="Ngày sinh"
+                                :error="form.errors.date_of_birth"
+                            >
+                                <template #icon>
+                                    <Calendar
+                                        :size="18"
+                                        class="cursor-pointer hover:text-blue-300"
+                                        @click="dateInputRef?.showPicker()"
+                                    />
+                                </template>
+                                <input
+                                    ref="dateInputRef"
+                                    id="date_of_birth"
+                                    type="date"
+                                    v-model="form.date_of_birth"
+                                    class="premium-date-input h-11 w-full border border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 outline-none shadow-inner transition-all duration-300 [color-scheme:dark]"
+                                />
+                            </FormField>
+
+                            <FormField
+                                id="gender"
+                                label="Giới tính"
+                                :error="form.errors.gender"
+                            >
+                                <template #icon><Users :size="18" /></template>
+                                <select
+                                    id="gender"
+                                    v-model="form.gender"
+                                    class="h-10 w-full border border-white/5 bg-white/5 pl-11 pr-10 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner appearance-none outline-none transition-all duration-300 cursor-pointer"
+                                >
+                                    <option
+                                        value="male"
+                                        class="bg-slate-900 border-none py-2"
+                                    >
+                                        Nam
+                                    </option>
+                                    <option
+                                        value="female"
+                                        class="bg-slate-900 border-none py-2"
+                                    >
+                                        Nữ
+                                    </option>
+                                    <option
+                                        value="other"
+                                        class="bg-slate-900 border-none py-2"
+                                    >
+                                        Khác
+                                    </option>
+                                </select>
+                                <ChevronDown
+                                    class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-blue-400"
+                                    :size="14"
+                                />
+                            </FormField>
+
+                            <FormField
+                                id="user_type"
+                                label="Vai trò"
+                                :error="form.errors.user_type"
+                            >
+                                <template #icon><Users :size="18" /></template>
+                                <select
+                                    id="user_type"
+                                    v-model="form.user_type"
+                                    class="h-10 w-full border border-white/5 bg-white/5 pl-11 pr-10 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner appearance-none outline-none cursor-pointer transition-all duration-300"
+                                >
+                                    <option
+                                        value="TEACHER"
+                                        class="bg-slate-900 py-2"
+                                    >
+                                        Giáo viên
+                                    </option>
+                                    <option
+                                        value="STUDENT"
+                                        class="bg-slate-900 py-2"
+                                    >
+                                        Sinh viên
+                                    </option>
+                                    <option
+                                        value="MEMBER"
+                                        class="bg-slate-900 py-2"
+                                    >
+                                        Bạn đọc
+                                    </option>
+                                </select>
+                                <ChevronDown
+                                    class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-blue-400"
+                                    :size="14"
                                 />
                             </FormField>
                         </div>
 
-                        <!-- Personal Details Group -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div class="space-y-2 group">
-                                <label
-                                    for="date_of_birth"
-                                    class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 transition-colors group-focus-within:text-blue-400"
-                                    >Ngày sinh</label
-                                >
-                                <div
-                                    class="relative group-focus-within:ring-2 ring-blue-500/20 rounded-xl transition-all duration-300"
-                                >
-                                    <Calendar
-                                        class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-blue-400 cursor-pointer hover:text-blue-300 z-10"
-                                        :size="18"
-                                        @click="dateInputRef?.showPicker()"
-                                    />
-                                    <input
-                                        ref="dateInputRef"
-                                        id="date_of_birth"
-                                        type="date"
-                                        v-model="form.date_of_birth"
-                                        class="premium-date-input h-12 w-full border border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 outline-none shadow-inner transition-all duration-300 [color-scheme:dark]"
-                                    />
-                                </div>
-                            </div>
-                            <div class="space-y-2 group">
-                                <label
-                                    for="gender"
-                                    class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 transition-colors group-focus-within:text-blue-400"
-                                    >Giới tính</label
-                                >
-                                <div
-                                    class="relative group-focus-within:ring-2 ring-blue-500/20 rounded-xl transition-all duration-300"
-                                >
-                                    <Users
-                                        class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 transition-colors group-focus-within:text-blue-400"
-                                        :size="18"
-                                    />
-                                    <select
-                                        id="gender"
-                                        v-model="form.gender"
-                                        class="h-12 w-full border border-white/5 bg-white/5 pl-11 pr-10 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner appearance-none outline-none transition-all duration-300 cursor-pointer"
-                                    >
-                                        <option
-                                            value="male"
-                                            class="bg-slate-900 border-none py-2"
-                                        >
-                                            Nam
-                                        </option>
-                                        <option
-                                            value="female"
-                                            class="bg-slate-900 border-none py-2"
-                                        >
-                                            Nữ
-                                        </option>
-                                        <option
-                                            value="other"
-                                            class="bg-slate-900 border-none py-2"
-                                        >
-                                            Khác
-                                        </option>
-                                    </select>
-                                    <ChevronDown
-                                        class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-blue-400"
-                                        :size="14"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Address Field -->
-                        <div class="space-y-1 group">
-                            <label
-                                for="address"
-                                class="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 transition-colors group-focus-within:text-blue-400"
-                                >Địa chỉ cư trú</label
-                            >
-                            <div
-                                class="relative group-focus-within:ring-2 ring-blue-500/20 rounded-xl transition-all duration-300"
-                            >
-                                <Home
-                                    class="absolute left-3.5 top-3 text-slate-500 transition-colors group-focus-within:text-blue-400"
-                                    :size="18"
-                                />
-                                <textarea
-                                    id="address"
-                                    placeholder="Nhập địa chỉ cư trú hiện tại"
-                                    v-model="form.address"
-                                    class="w-full min-h-[50px] border-white/5 bg-white/5 pl-11 pr-4 py-2 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300 outline-none resize-none leading-relaxed text-sm"
-                                ></textarea>
-                            </div>
-                        </div>
-
                         <!-- Password Group -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <FormField
                                 id="password"
                                 label="Mật khẩu"
@@ -230,12 +235,11 @@ const {
                                     :type="showPassword ? 'text' : 'password'"
                                     placeholder="8+ ký tự"
                                     v-model="form.password"
-                                    class="h-12 w-full border-white/5 bg-white/5 pl-11 pr-12 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-500/5 focus:border-blue-500/50 shadow-inner ring-0 transition-all duration-300"
+                                    class="h-11 w-full border-white/5 bg-white/5 pl-11 pr-12 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-500/5 focus:border-blue-500/50 shadow-inner ring-0 transition-all duration-300"
                                     :class="{
                                         'border-red-500/50 focus:border-red-500/60':
                                             form.errors.password,
                                     }"
-                                    required
                                 />
                                 <button
                                     type="button"
@@ -262,12 +266,11 @@ const {
                                     "
                                     placeholder="Nhập lại mật khẩu"
                                     v-model="form.password_confirmation"
-                                    class="h-12 w-full border-white/5 bg-white/5 pl-11 pr-12 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-500/5 focus:border-blue-500/50 shadow-inner ring-0 transition-all duration-300"
+                                    class="h-11 w-full border-white/5 bg-white/5 pl-11 pr-12 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-500/5 focus:border-blue-500/50 shadow-inner ring-0 transition-all duration-300"
                                     :class="{
                                         'border-red-500/50 focus:border-red-500/60':
                                             form.errors.password_confirmation,
                                     }"
-                                    required
                                 />
                                 <button
                                     type="button"
@@ -286,7 +289,22 @@ const {
                             </FormField>
                         </div>
 
-                        <div class="pt-2">
+                        <!-- Address Field -->
+                        <FormField
+                            id="address"
+                            label="Địa chỉ cư trú"
+                            :error="form.errors.address"
+                        >
+                            <template #icon><Home :size="18" /></template>
+                            <textarea
+                                id="address"
+                                placeholder="Nhập địa chỉ cư trú hiện tại"
+                                v-model="form.address"
+                                class="w-full min-h-[40px] border-white/5 bg-white/5 pl-11 pr-4 py-1.5 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300 outline-none resize-none leading-relaxed text-sm"
+                            ></textarea>
+                        </FormField>
+
+                        <div class="pt-1">
                             <SubmitButton :loading="form.processing">
                                 Đăng ký
                                 <ArrowRight
@@ -298,7 +316,7 @@ const {
                     </form>
 
                     <div
-                        class="text-center mt-2 pt-2 border-t border-white/5 space-y-2"
+                        class="text-center mt-1 pt-1 border-t border-white/5 space-y-2"
                     >
                         <p class="text-slate-500 font-semibold text-[13px]">
                             Bạn đã là thành viên?

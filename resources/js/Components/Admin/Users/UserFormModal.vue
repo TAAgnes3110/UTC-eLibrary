@@ -3,12 +3,15 @@ import { ref, computed } from 'vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { facultyDisplayLabel, periodDisplayLabel } from '@/utils/lookupMatch';
 
 const props = defineProps({
     show: { type: Boolean, required: true },
     isEditing: { type: Boolean, required: true },
     form: { type: Object, required: true },
     roleOptions: { type: Array, default: () => [] },
+    faculties: { type: Array, default: () => [] },
+    periods: { type: Array, default: () => [] },
     fieldErrors: { type: Object, default: () => ({}) },
     clearFieldError: { type: Function, default: () => () => {} },
     saveLoading: { type: Boolean, default: false },
@@ -21,9 +24,34 @@ const showPasswordConfirmation = ref(false);
 
 const title = computed(() => (props.isEditing ? 'Chỉnh sửa tài khoản' : 'Thêm tài khoản'));
 
+const isStudent = computed(() => props.form.role === 'STUDENT');
+const isTeacher = computed(() => props.form.role === 'TEACHER');
+
 function errClass(key) {
     return props.fieldErrors[key] ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700';
 }
+
+function onRoleChange() {
+    props.clearFieldError('role');
+    const r = props.form.role;
+    if (r === 'TEACHER') {
+        props.form.period_id = null;
+        props.form.period_lookup = '';
+        props.form.class_code = '';
+    } else if (r !== 'STUDENT') {
+        props.form.faculty_id = null;
+        props.form.faculty_lookup = '';
+        props.form.period_id = null;
+        props.form.period_lookup = '';
+        props.form.class_code = '';
+    }
+}
+
+const selectBaseClass =
+    'w-full min-h-11 px-3 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm';
+
+const lookupInputClass =
+    'w-full min-h-11 px-3 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500';
 </script>
 
 <template>
@@ -107,9 +135,8 @@ function errClass(key) {
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Phân quyền</label>
                         <select
                             v-model="form.role"
-                            class="w-full h-10 px-3 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                            :class="errClass('role')"
-                            @change="clearFieldError('role')"
+                            :class="[selectBaseClass, errClass('role')]"
+                            @change="onRoleChange"
                         >
                             <option v-for="r in roleOptions" :key="r.id ?? r.value ?? r.role" :value="r.id ?? r.value ?? r.role">
                                 {{ r.text ?? r.label ?? r.name ?? r.id ?? r.value }}
@@ -117,6 +144,65 @@ function errClass(key) {
                         </select>
                         <p v-if="fieldErrors.role" class="text-xs text-red-500 font-medium mt-1">{{ fieldErrors.role }}</p>
                     </div>
+
+                    <template v-if="isStudent || isTeacher">
+                        <div class="sm:col-span-2 space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Khoa <span class="text-rose-500">*</span>
+                            </label>
+                            <input
+                                v-model="form.faculty_lookup"
+                                type="text"
+                                list="user-account-faculty-datalist"
+                                autocomplete="off"
+                                :class="[lookupInputClass, errClass('faculty_id')]"
+                                placeholder="Gõ mã / tên khoa hoặc chọn gợi ý"
+                                @input="clearFieldError('faculty_id')"
+                            />
+                            <datalist id="user-account-faculty-datalist">
+                                <option v-for="f in faculties" :key="f.id" :value="facultyDisplayLabel(f)" />
+                            </datalist>
+                            <p v-if="fieldErrors.faculty_id" class="text-xs text-red-500 font-medium mt-1">
+                                {{ fieldErrors.faculty_id }}
+                            </p>
+                        </div>
+                    </template>
+
+                    <template v-if="isStudent">
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                Niên khóa <span class="text-rose-500">*</span>
+                            </label>
+                            <input
+                                v-model="form.period_lookup"
+                                type="text"
+                                list="user-account-period-datalist"
+                                autocomplete="off"
+                                :class="[lookupInputClass, errClass('period_id')]"
+                                placeholder="Gõ K63 / 2022 hoặc chọn gợi ý (K… và khoảng năm)"
+                                @input="clearFieldError('period_id')"
+                            />
+                            <datalist id="user-account-period-datalist">
+                                <option v-for="p in periods" :key="p.id" :value="periodDisplayLabel(p)" />
+                            </datalist>
+                            <p v-if="fieldErrors.period_id" class="text-xs text-red-500 font-medium mt-1">
+                                {{ fieldErrors.period_id }}
+                            </p>
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Lớp</label>
+                            <Input
+                                v-model="form.class_code"
+                                class="min-h-11 rounded-lg dark:bg-slate-800"
+                                :class="errClass('class_code')"
+                                placeholder="Ví dụ: D21CQCN01-N"
+                                @update:model-value="clearFieldError('class_code')"
+                            />
+                            <p v-if="fieldErrors.class_code" class="text-xs text-red-500 font-medium mt-1">
+                                {{ fieldErrors.class_code }}
+                            </p>
+                        </div>
+                    </template>
 
                     <template v-if="!isEditing">
                         <div class="space-y-1.5">

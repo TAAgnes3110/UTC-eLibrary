@@ -9,6 +9,7 @@ use App\Models\Classification;
 use App\Models\ClassificationDetail;
 use App\Models\Warehouse;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class BookImportTemplateExport
@@ -89,7 +90,7 @@ final class BookImportTemplateExport
 
         $applyRows = 2000;
         for ($r = 2; $r <= $applyRows; $r++) {
-            $dvClassification = new DataValidation();
+            $dvClassification = new DataValidation;
             $dvClassification->setType(DataValidation::TYPE_LIST);
             $dvClassification->setErrorStyle(DataValidation::STYLE_STOP);
             $dvClassification->setAllowBlank(true);
@@ -98,9 +99,9 @@ final class BookImportTemplateExport
             $dvClassification->setShowDropDown(true);
             $dvClassification->setFormula1($classificationListFormula);
             // Column C: Phân loại sách
-            $sheet1->getCell('C' . $r)->setDataValidation(clone $dvClassification);
+            $sheet1->getCell('C'.$r)->setDataValidation(clone $dvClassification);
 
-            $dvDetail = new DataValidation();
+            $dvDetail = new DataValidation;
             $dvDetail->setType(DataValidation::TYPE_LIST);
             $dvDetail->setErrorStyle(DataValidation::STYLE_STOP);
             $dvDetail->setAllowBlank(true);
@@ -109,9 +110,9 @@ final class BookImportTemplateExport
             $dvDetail->setShowDropDown(true);
             $dvDetail->setFormula1($detailListFormula);
             // Column D: Phân loại sách chi tiết
-            $sheet1->getCell('D' . $r)->setDataValidation(clone $dvDetail);
+            $sheet1->getCell('D'.$r)->setDataValidation(clone $dvDetail);
 
-            $dvWarehouse = new DataValidation();
+            $dvWarehouse = new DataValidation;
             $dvWarehouse->setType(DataValidation::TYPE_LIST);
             $dvWarehouse->setErrorStyle(DataValidation::STYLE_STOP);
             $dvWarehouse->setAllowBlank(true);
@@ -120,11 +121,11 @@ final class BookImportTemplateExport
             $dvWarehouse->setShowDropDown(true);
             $dvWarehouse->setFormula1($warehouseListFormula);
             // Column H: Kho sách
-            $sheet1->getCell('H' . $r)->setDataValidation(clone $dvWarehouse);
+            $sheet1->getCell('H'.$r)->setDataValidation(clone $dvWarehouse);
         }
 
         return response()->streamDownload(function () use ($spreadsheet) {
-            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer = new Xlsx($spreadsheet);
             $writer->save('php://output');
             $spreadsheet->disconnectWorksheets();
         }, 'Mau_nhap_sach.xlsx', [
@@ -133,4 +134,3 @@ final class BookImportTemplateExport
         ]);
     }
 }
-

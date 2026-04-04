@@ -30,7 +30,7 @@ export const BOOK_ERROR_DISPLAY_KEYS = new Set([
     'registration_number',
     'book_code',
     'description',
-    'resource_kind',
+    'resource_type',
     'authors',
     'publisher',
     'general',
@@ -46,6 +46,9 @@ export const USER_ERROR_DISPLAY_KEYS = new Set([
     'role',
     'password',
     'password_confirmation',
+    'faculty_id',
+    'period_id',
+    'class_code',
     'general',
 ]);
 
@@ -91,7 +94,7 @@ export const BOOK_FORM_FIELD_MAP = {
     registration_number: 'registration_number',
     book_code: 'book_code',
     summary: 'description',
-    resource_kind: 'resource_kind',
+    resource_type: 'resource_type',
 };
 
 export const WAREHOUSE_FORM_FIELD_MAP = {
@@ -111,6 +114,9 @@ export const USER_FORM_FIELD_MAP = {
     role: 'role',
     password: 'password',
     password_confirmation: 'password_confirmation',
+    faculty_id: 'faculty_id',
+    period_id: 'period_id',
+    class_code: 'class_code',
     is_active: 'general',
 };
 

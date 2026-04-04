@@ -6,21 +6,21 @@ use App\Models\Faculty;
 use Illuminate\Database\Seeder;
 
 /**
- * Các Khoa – Bộ môn tại UTC (Hà Nội).
- * 12 khoa chính + 1 bộ môn trực thuộc trường.
+ * Các khoa tại Đại học Giao thông Vận tải (UTC).
+ * Bảy khoa nền theo mô tả nghiệp vụ + các đơn vị bổ trợ trong hệ thống.
  */
 class FacultySeeder extends Seeder
 {
     public function run(): void
     {
         $items = [
-            ['code' => 'CT_XDCTGT', 'name' => 'Khoa Công trình – Xây dựng Công trình Giao thông', 'params' => ['description' => 'Xây dựng Công trình Giao thông.']],
-            ['code' => 'CK', 'name' => 'Khoa Cơ khí', 'params' => ['description' => 'Kỹ thuật cơ khí, ô tô, máy móc.']],
-            ['code' => 'VT', 'name' => 'Khoa Vận tải – Kinh tế', 'params' => ['description' => 'Quản lý vận tải, kinh tế vận tải, Logistics.']],
-            ['code' => 'DDT', 'name' => 'Khoa Điện – Điện tử', 'params' => ['description' => 'Điện, điện tử, điều khiển tự động.']],
-            ['code' => 'CNTT', 'name' => 'Khoa Công nghệ thông tin', 'params' => ['description' => 'CNTT, phần mềm, mạng.']],
-            ['code' => 'KHCB', 'name' => 'Khoa Khoa học cơ bản', 'params' => ['description' => 'Toán, Lý, Hóa, Anh văn.']],
-            ['code' => 'LLCT', 'name' => 'Khoa Lý luận chính trị', 'params' => ['description' => 'Giáo dục chính trị.']],
+            ['code' => 'CT_XDCTGT', 'name' => 'Khoa Công trình', 'params' => ['description' => 'Chuyên về xây dựng cầu đường, hạ tầng giao thông.']],
+            ['code' => 'CK', 'name' => 'Khoa Cơ khí', 'params' => ['description' => 'Đào tạo kỹ thuật cơ khí, máy xây dựng, ô tô.']],
+            ['code' => 'DDT', 'name' => 'Khoa Điện – Điện tử', 'params' => ['description' => 'Bao gồm kỹ thuật điện tử, viễn thông, tự động hóa.']],
+            ['code' => 'CNTT', 'name' => 'Khoa Công nghệ thông tin', 'params' => ['description' => 'Đào tạo khoa học máy tính, kỹ thuật phần mềm, hệ thống thông tin.']],
+            ['code' => 'VT', 'name' => 'Khoa Vận tải – Kinh tế', 'params' => ['description' => 'Quản lý vận tải, logistics, kinh tế xây dựng.']],
+            ['code' => 'KHCB', 'name' => 'Khoa Khoa học cơ bản', 'params' => ['description' => 'Giảng dạy toán, lý, hóa nền tảng.']],
+            ['code' => 'LLCT', 'name' => 'Khoa Lý luận chính trị', 'params' => ['description' => 'Giảng dạy các môn Mác-Lênin, tư tưởng Hồ Chí Minh.']],
             ['code' => 'GDQP', 'name' => 'Khoa Giáo dục quốc phòng', 'params' => ['description' => 'GDQP & AN.']],
             ['code' => 'MT_ATGT', 'name' => 'Khoa Môi trường và An toàn giao thông', 'params' => ['description' => 'ATGT & môi trường.']],
             ['code' => 'KTXD', 'name' => 'Khoa Kỹ thuật xây dựng', 'params' => ['description' => 'Xây dựng kỹ thuật (dân dụng & công nghiệp).']],
@@ -32,7 +32,7 @@ class FacultySeeder extends Seeder
         foreach ($items as $item) {
             $params = $item['params'] ?? [];
             unset($item['params']);
-            Faculty::firstOrCreate(
+            Faculty::updateOrCreate(
                 ['code' => $item['code']],
                 array_merge($item, ['is_active' => true, 'params' => $params])
             );

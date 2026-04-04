@@ -9,11 +9,11 @@ use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyOTPRequest;
 use App\Http\Resources\UserResource;
-use App\Models\User;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 /**
@@ -25,10 +25,6 @@ class AuthController extends Controller
         private AuthService $authService
     ) {}
 
-    /**
-     * @param LoginRequest $request
-     * @return JsonResponse
-     */
     public function login(LoginRequest $request): JsonResponse
     {
         $remember = $request->boolean('remember');
@@ -49,6 +45,7 @@ class AuthController extends Controller
         }
 
         Auth::guard('web')->login($result['user'], $remember);
+
         return ApiResponse::json([
             'status' => 'success',
             'messages' => __('messages.success_login'),
@@ -57,26 +54,19 @@ class AuthController extends Controller
         ], 200);
     }
 
-    /**
-     * @param RegisterRequest $request
-     * @return JsonResponse
-     */
     public function register(RegisterRequest $request): JsonResponse
     {
         $result = $this->authService->register($request->validated());
 
         if (isset($result['error'])) {
             $code = $result['code'] ?? 400;
+
             return ApiResponse::json(['status' => 'error', 'messages' => $result['error']], $code);
         }
 
         return ApiResponse::json(['status' => 'success', 'messages' => $result['message']], 200);
     }
 
-    /**
-     * @param VerifyOTPRequest $request
-     * @return JsonResponse
-     */
     public function verifyRegister(VerifyOTPRequest $request): JsonResponse
     {
         $result = $this->authService->verifyRegister($request->email, $request->otp);
@@ -93,10 +83,6 @@ class AuthController extends Controller
         ], 200);
     }
 
-    /**
-     * @param ResetPasswordRequest $request
-     * @return JsonResponse
-     */
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -114,10 +100,6 @@ class AuthController extends Controller
         return ApiResponse::json(['status' => 'success', 'messages' => $result['message']], 200);
     }
 
-    /**
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function logout(Request $request): JsonResponse
     {
         try {
@@ -137,29 +119,21 @@ class AuthController extends Controller
         ], 200);
     }
 
-    /**
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function user(Request $request): JsonResponse
     {
         return ApiResponse::json(new UserResource($request->user()));
     }
 
-    /**
-     * @param Request $request
-     * @return JsonResponse
-     */
     public function refresh(Request $request): JsonResponse
     {
         $bearer = $request->bearerToken();
-        if (!$bearer) {
+        if (! $bearer) {
             return ApiResponse::json(['status' => 'error', 'messages' => __('Vui lòng gửi token.')], 401);
         }
 
         try {
             $token = JWTAuth::setToken($bearer)->refresh();
-        } catch (\PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException $e) {
+        } catch (TokenExpiredException $e) {
             return ApiResponse::json([
                 'status' => 'error',
                 'messages' => __('Token đã hết hạn, vui lòng đăng nhập lại.'),
@@ -169,6 +143,7 @@ class AuthController extends Controller
         }
 
         $ttl = (int) config('jwt.ttl', 60);
+
         return ApiResponse::json([
             'status' => 'success',
             'messages' => __('Cấp lại token thành công.'),

@@ -19,6 +19,7 @@ class SendOTP extends Mailable
     }
 
     public int $otp;
+
     public string $name;
 
     public function envelope(): Envelope

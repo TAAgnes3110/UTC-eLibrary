@@ -31,5 +31,16 @@ class LoanPolicy extends BaseModel
     {
         return $this->hasMany(Loan::class);
     }
-}
 
+    /**
+     * Policy áp dụng khi user_type khớp enum RoleType, hoặc cột null = mặc định cho mọi đối tượng.
+     */
+    public function appliesToUser(User $user): bool
+    {
+        if ($this->user_type === null || $this->user_type === '') {
+            return true;
+        }
+
+        return strcasecmp((string) $this->user_type, $user->user_type->value) === 0;
+    }
+}

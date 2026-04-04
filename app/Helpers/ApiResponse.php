@@ -9,18 +9,21 @@ use Illuminate\Http\JsonResponse;
 final class ApiResponse
 {
     private const KEY_STATUS = 'status';
+
     private const KEY_MESSAGES = 'messages';
+
     private const KEY_DATA = 'data';
+
     private const STATUS_SUCCESS = 'success';
+
     private const STATUS_ERROR = 'error';
 
     /**
      * Response thành công.
      *
-     * @param mixed $data Dữ liệu trả về (optional).
-     * @param string|null $message Thông báo (dùng key messages trong JSON).
-     * @param int $code HTTP status.
-     * @return JsonResponse
+     * @param  mixed  $data  Dữ liệu trả về (optional).
+     * @param  string|null  $message  Thông báo (dùng key messages trong JSON).
+     * @param  int  $code  HTTP status.
      */
     public static function success(mixed $data = null, ?string $message = null, int $code = 200): JsonResponse
     {
@@ -31,16 +34,16 @@ final class ApiResponse
         if ($data !== null) {
             $body[self::KEY_DATA] = $data;
         }
+
         return self::json($body, $code);
     }
 
     /**
      * Response lỗi.
      *
-     * @param string $message Thông báo lỗi.
-     * @param int $code HTTP status (mặc định 400).
-     * @param mixed $data Optional data (vd. validation errors).
-     * @return JsonResponse
+     * @param  string  $message  Thông báo lỗi.
+     * @param  int  $code  HTTP status (mặc định 400).
+     * @param  mixed  $data  Optional data (vd. validation errors).
      */
     public static function error(string $message, int $code = 400, mixed $data = null): JsonResponse
     {
@@ -51,14 +54,14 @@ final class ApiResponse
         if ($data !== null) {
             $body[self::KEY_DATA] = $data;
         }
+
         return self::json($body, $code);
     }
 
     /**
      * Response 410 Gone (không tìm thấy tài nguyên).
      *
-     * @param string|null $message Nếu null thì dùng messages.error_410.
-     * @return JsonResponse
+     * @param  string|null  $message  Nếu null thì dùng messages.error_410.
      */
     public static function notFound(?string $message = null): JsonResponse
     {
@@ -72,9 +75,8 @@ final class ApiResponse
     /**
      * Trả về JsonResponse với UTF-8, unescaped unicode.
      *
-     * @param mixed $data Array hoặc Arrayable/Jsonable (vd. JsonResource).
-     * @param int $code HTTP status.
-     * @return JsonResponse
+     * @param  mixed  $data  Array hoặc Arrayable/Jsonable (vd. JsonResource).
+     * @param  int  $code  HTTP status.
      */
     public static function json(mixed $data, int $code = 200): JsonResponse
     {

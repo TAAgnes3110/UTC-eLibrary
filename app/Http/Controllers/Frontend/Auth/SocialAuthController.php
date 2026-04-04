@@ -25,40 +25,35 @@ class SocialAuthController extends Controller
         } catch (Exception $e) {
             return redirect()
                 ->route('login')
-                ->with('status', 'Lỗi kết nối tài khoản Microsoft: ' . $e->getMessage());
+                ->with('status', 'Lỗi kết nối tài khoản Microsoft: '.$e->getMessage());
         }
         $email = $microsoftUser->getEmail();
         $name = $microsoftUser->getName();
         $msId = $microsoftUser->getId();
-        $code = $this->extractCodeFromEmail($email) ?? ('MS' . $msId);
+        $code = $this->extractCodeFromEmail($email) ?? ('MS'.$msId);
         $cohort = $this->extractCohortFromStudentCode($code);
         $userTypeData = $this->determineUserType($email, $microsoftUser);
 
         $user = User::where('email', $email)->first();
-        if (!$user) {
+        if (! $user) {
             $userData = array_merge([
                 'name' => $name,
                 'email' => $email,
                 'code' => $code,
                 'password' => Hash::make($msId),
                 'email_verified_at' => now(),
-                'user_type' => RoleType::MEMBER,
+                'user_type' => RoleType::STUDENT,
                 'avatar' => $microsoftUser->getAvatar(),
                 'cohort' => $cohort,
             ], $userTypeData);
             $user = User::create($userData);
-            $user->libraryCard()->create([
-                'card_number' => $code,
-                'status' => 'active',
-                'is_active' => true,
-                'issue_date' => now(),
-            ]);
         }
         Auth::login($user);
         request()->session()->regenerate();
         $staffRoles = RoleType::staffRoles();
         $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : ($user->user_type ?? null);
         $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
+
         return redirect()->intended(route($isStaff ? 'admin.dashboard' : 'dashboard'));
     }
 
@@ -68,6 +63,7 @@ class SocialAuthController extends Controller
         if (preg_match('/^[a-zA-Z]*(\d+)$/', $username, $matches)) {
             return $matches[1];
         }
+
         return null;
     }
 
@@ -81,15 +77,16 @@ class SocialAuthController extends Controller
             return null;
         }
         if (str_starts_with($code, '223')) {
-            return 'K' . substr($code, 3, 2);
+            return 'K'.substr($code, 3, 2);
         }
+
         return null;
     }
 
     private function determineUserType(string $email, $microsoftUser): array
     {
         return [
-            'user_type' => RoleType::MEMBER->value,
+            'user_type' => RoleType::STUDENT->value,
         ];
     }
 }

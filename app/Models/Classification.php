@@ -39,4 +39,3 @@ class Classification extends BaseModel
         return $this->hasMany(Book::class);
     }
 }
-

@@ -25,6 +25,7 @@ class PermissionController extends Controller
             'name' => 'required|string|unique:permissions,name',
         ]);
         $permission = $this->permissionService->store($validated);
+
         return ApiResponse::success($permission, __('Thêm quyền thành công.'), 201);
     }
 }

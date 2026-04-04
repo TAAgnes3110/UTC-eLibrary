@@ -21,4 +21,3 @@ class Publisher extends BaseModel
             ->withPivot('order');
     }
 }
-

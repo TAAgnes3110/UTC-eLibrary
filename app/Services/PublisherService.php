@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Publisher;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class PublisherService
 {
@@ -31,5 +32,11 @@ class PublisherService
 
         return $query->paginate($perPage)->withQueryString();
     }
-}
 
+    public function delete(Publisher $publisher): void
+    {
+        DB::transaction(static function () use ($publisher) {
+            $publisher->delete();
+        });
+    }
+}

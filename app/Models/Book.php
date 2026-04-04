@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\AccessMode;
-use App\Enums\ResourceKind;
+use App\Enums\BookPhysicalCondition;
+use App\Enums\BookStatus;
+use App\Enums\ResourceType;
 use App\Models\Traits\HasAuditFields;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -11,8 +13,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Book extends BaseModel
 {
-    use SoftDeletes;
     use HasAuditFields;
+    use SoftDeletes;
 
     protected static function booted(): void
     {
@@ -21,12 +23,14 @@ class Book extends BaseModel
             ThesisMetadata::withTrashed()->where('book_id', $book->id)->forceDelete();
         });
     }
+
     protected $appends = [
         'authors_label',
         'publishers_label',
         'status_label',
         'is_available',
     ];
+
     protected $fillable = [
         'registration_number',
         'book_code',
@@ -50,13 +54,14 @@ class Book extends BaseModel
         'classification_id',
         'classification_detail_id',
         'warehouse_id',
-        'resource_kind',
+        'resource_type',
         'access_mode',
         'params',
     ];
+
     protected $casts = [
         'params' => 'array',
-        'resource_kind' => ResourceKind::class,
+        'resource_type' => ResourceType::class,
         'access_mode' => AccessMode::class,
         'published_year' => 'integer',
         'pages' => 'integer',
@@ -74,10 +79,12 @@ class Book extends BaseModel
     {
         return $this->belongsTo(ClassificationDetail::class);
     }
+
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
     }
+
     public function authors()
     {
         return $this->belongsToMany(Author::class, 'book_authors')
@@ -85,6 +92,7 @@ class Book extends BaseModel
             ->withPivot('order')
             ->orderBy('book_authors.order');
     }
+
     public function publishers()
     {
         return $this->belongsToMany(Publisher::class, 'book_publishers')
@@ -92,6 +100,7 @@ class Book extends BaseModel
             ->withPivot('order')
             ->orderBy('book_publishers.order');
     }
+
     public function copies()
     {
         return $this->hasMany(BookCopy::class);
@@ -109,32 +118,40 @@ class Book extends BaseModel
 
     public function availableCopies()
     {
-        return $this->hasMany(BookCopy::class)->where('status', 'available');
+        return $this->hasMany(BookCopy::class)
+            ->where('status', BookStatus::AVAILABLE)
+            ->whereIn('physical_condition', BookPhysicalCondition::borrowableValues());
     }
+
     public function getAuthorsLabelAttribute(): string
     {
-        if (!$this->relationLoaded('authors')) {
+        if (! $this->relationLoaded('authors')) {
             $this->loadMissing('authors:id,name');
         }
+
         return $this->authors
             ? $this->authors->pluck('name')->implode('; ')
             : '';
     }
+
     public function getPublishersLabelAttribute(): string
     {
-        if (!$this->relationLoaded('publishers')) {
+        if (! $this->relationLoaded('publishers')) {
             $this->loadMissing('publishers:id,name');
         }
+
         return $this->publishers
             ? $this->publishers->pluck('name')->implode('; ')
             : '';
     }
+
     public function getIsAvailableAttribute(): bool
     {
         return (int) $this->quantity > 0;
     }
+
     public function getStatusLabelAttribute(): string
     {
-        return $this->is_available ? 'Còn' : 'Hết';    }
+        return $this->is_available ? 'Còn' : 'Hết';
+    }
 }
-

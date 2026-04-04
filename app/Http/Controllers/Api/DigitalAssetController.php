@@ -15,8 +15,7 @@ class DigitalAssetController extends Controller
 {
     public function __construct(
         private DigitalAssetService $digitalAssetService
-    ) {
-    }
+    ) {}
 
     public function store(Request $request, Book $book): JsonResponse
     {
@@ -29,7 +28,7 @@ class DigitalAssetController extends Controller
 
         $attrs = array_intersect_key($validated, array_flip(['is_primary', 'visibility', 'embargo_until']));
         $file = $request->file('file');
-        if (!$file) {
+        if (! $file) {
             return ApiResponse::error(__('Vui lòng chọn file PDF.'), 422);
         }
 

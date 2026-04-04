@@ -21,4 +21,3 @@ class Author extends BaseModel
             ->withPivot('order');
     }
 }
-

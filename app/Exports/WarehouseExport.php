@@ -13,7 +13,7 @@ final class WarehouseExport
     public static function stream(?array $ids = null): StreamedResponse
     {
         $query = Warehouse::query()->with('parent:id,code,name');
-        if (!empty($ids)) {
+        if (! empty($ids)) {
             $query->whereIn('id', $ids);
         }
 
@@ -26,4 +26,3 @@ final class WarehouseExport
         return FileHelpers::downloadExcel($rows, 'FileKhoSach.xlsx', ['Mã', 'Tên']);
     }
 }
-

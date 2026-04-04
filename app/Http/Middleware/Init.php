@@ -6,6 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Helpers\CurrentUser;
 use App\Models\Customer;
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
@@ -15,13 +16,11 @@ class Init
     /**
      * Khởi tạo biến global và kiểm tra đăng nhập.
      *
-     * @param Request $request
-     * @param Closure $next
-     * @return \Illuminate\Http\JsonResponse|mixed
+     * @return JsonResponse|mixed
      */
     public function handle(Request $request, Closure $next)
     {
-        global $currentSystem, $currentCustomer, $currentUser, $currentPerson, $role_prefix, $period, $domain, $bearer_token;
+        global $currentSystem, $currentCustomer, $currentUser, $currentPerson, $role_prefix, $domain, $bearer_token;
 
         $bearer_token = $request->bearerToken();
         $user = null;
@@ -33,31 +32,24 @@ class Init
                 } catch (\Exception $e) {
                 }
             }
-            if (!$user && Auth::guard('web')->check()) {
+            if (! $user && Auth::guard('web')->check()) {
                 $user = Auth::guard('web')->user();
             }
-            if (!$user) {
+            if (! $user) {
                 return ApiResponse::error(__('Bạn cần đăng nhập để tiếp tục.'), 401);
             }
 
             $domain = $request->headers->get('domain', request()->getHost());
             $allowedDomains = config('api.allowed_domains', []);
-            if (!empty($allowedDomains) && !$this->isDomainAllowed($domain, $allowedDomains)) {
+            if (! empty($allowedDomains) && ! $this->isDomainAllowed($domain, $allowedDomains)) {
                 return ApiResponse::error(__('Domain không được phép.'), 403);
             }
 
-            $period = $request->headers->get('period', date('Y') . '-' . (date('Y') + 1));
-            if (config('api.validate_period_format', false)) {
-                $pattern = config('api.period_pattern', '/^\d{4}-\d{4}$/');
-                if (!preg_match($pattern, $period)) {
-                    return ApiResponse::error(__('Sai định dạng period (VD: 2025-2026).'), 403);
-                }
-            }
             $currentPerson = $user;
             $currentUser = new CurrentUser($user);
-            $currentCustomer = Customer::first() ?? (object)['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
+            $currentCustomer = Customer::first() ?? (object) ['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
             $role_prefix = 'UTC_LIBRARY_';
-            $currentSystem = (object)[
+            $currentSystem = (object) [
                 'system' => 'LIBRARY',
                 'user_id' => $user->id,
             ];

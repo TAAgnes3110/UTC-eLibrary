@@ -13,14 +13,6 @@ function safeJson(obj) {
     }
 }
 
-function getDefaultPeriod() {
-    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_PERIOD) {
-        return import.meta.env.VITE_API_PERIOD;
-    }
-    const y = new Date().getFullYear();
-    return `${y}-${y + 1}`;
-}
-
 const client = axios.create({
     baseURL: '/api/v1',
     headers: {
@@ -55,7 +47,6 @@ client.interceptors.request.use(
         }
         if (typeof window !== 'undefined') {
             config.headers['domain'] = config.headers['domain'] ?? window.location.origin;
-            config.headers['period'] = config.headers['period'] ?? getDefaultPeriod();
         }
         return config;
     },

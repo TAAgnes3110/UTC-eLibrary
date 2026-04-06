@@ -14,42 +14,46 @@ const emit = defineEmits(['toggle-select-all', 'toggle-select', 'edit', 'delete'
 <template>
     <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full min-w-[1000px] text-left border-collapse">
                 <thead>
                     <tr class="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                        <th class="p-4 w-12">
-                            <input
-                                type="checkbox"
-                                :checked="isAllSelected"
-                                :indeterminate="hasSelection && !isAllSelected"
-                                class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                @change="emit('toggle-select-all')"
-                            />
+                        <th class="p-4 w-12 align-middle">
+                            <span class="admin-table-checkbox-wrap">
+                                <input
+                                    type="checkbox"
+                                    :checked="isAllSelected"
+                                    :indeterminate="hasSelection && !isAllSelected"
+                                    class="admin-table-checkbox"
+                                    @change="emit('toggle-select-all')"
+                                />
+                            </span>
                         </th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[120px]">Mã sách</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center">Tên sách</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tác giả</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Nhà xuất bản</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Phân loại</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Giá</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-center">Số lượng</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right w-[110px]">Trạng thái</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right w-[88px]">Thao tác</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 w-[120px]">Mã sách</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 text-center min-w-[200px]">Tên sách</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 min-w-[140px]">Tác giả</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 min-w-[140px]">Nhà xuất bản</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Phân loại</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 text-right">Giá</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 text-center">Số lượng</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 text-right w-[110px]">Trạng thái</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 w-[88px]">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     <tr v-for="book in books" :key="book.id" class="admin-table-row">
-                        <td class="p-4">
-                            <input
-                                type="checkbox"
-                                :checked="selectedIds.has(book.id)"
-                                class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                @change="emit('toggle-select', book.id)"
-                            />
+                        <td class="p-4 align-middle">
+                            <span class="admin-table-checkbox-wrap">
+                                <input
+                                    type="checkbox"
+                                    :checked="selectedIds.has(book.id)"
+                                    class="admin-table-checkbox"
+                                    @change="emit('toggle-select', book.id)"
+                                />
+                            </span>
                         </td>
                         <td class="p-4 text-center align-middle">
                             <p
-                                class="text-[12px] font-semibold text-slate-100 dark:text-slate-50 tracking-wide font-mono whitespace-nowrap"
+                                class="text-[12px] font-semibold text-slate-700 dark:text-slate-200 tracking-wide font-mono whitespace-nowrap"
                             >
                                 {{ book.book_code }}
                             </p>
@@ -73,10 +77,10 @@ const emit = defineEmits(['toggle-select-all', 'toggle-select', 'edit', 'delete'
                                         <Icon icon="lucide:camera" class="w-3.5 h-3.5 text-white" />
                                     </button>
                                 </div>
-                                <div class="flex-1 min-w-0">
+                                <div class="flex-1 min-w-0 max-w-[min(100%,22rem)]">
                                     <button
                                         type="button"
-                                        class="font-semibold text-slate-100 dark:text-white hover:text-blue-400 text-sm leading-snug line-clamp-2 text-left"
+                                        class="font-semibold text-slate-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 text-sm leading-snug line-clamp-2 text-left break-words"
                                         @click="emit('edit', book)"
                                     >
                                         {{ book.title }}
@@ -84,20 +88,20 @@ const emit = defineEmits(['toggle-select-all', 'toggle-select', 'edit', 'delete'
                                 </div>
                             </div>
                         </td>
-                        <td class="p-4 align-top">
-                            <p class="text-[12px] font-medium text-slate-100 dark:text-slate-100 line-clamp-2">
+                        <td class="p-4 align-top max-w-[220px]">
+                            <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words">
                                 {{ book.authors_label || '—' }}
                             </p>
                         </td>
-                        <td class="p-4 align-top">
-                            <p class="text-[12px] font-medium text-slate-100 dark:text-slate-100 line-clamp-2">
+                        <td class="p-4 align-top max-w-[220px]">
+                            <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words">
                                 {{ book.publishers_label || '—' }}
                             </p>
                         </td>
-                        <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300">
-                            {{ book.classification?.name || '—' }}
+                        <td class="p-4 text-[12px] text-slate-600 dark:text-slate-300 max-w-[200px]">
+                            <span class="line-clamp-2 break-words">{{ book.classification?.name || '—' }}</span>
                         </td>
-                        <td class="p-4 text-right text-[12px] text-slate-100 dark:text-slate-100">
+                        <td class="p-4 text-right text-[12px] text-slate-800 dark:text-slate-100">
                             <span class="font-semibold whitespace-nowrap">
                                 {{ (book.price ?? 0).toLocaleString('vi-VN') }} đ
                             </span>
@@ -125,8 +129,8 @@ const emit = defineEmits(['toggle-select-all', 'toggle-select', 'edit', 'delete'
                                 {{ (book.quantity ?? 0) > 0 ? 'Còn' : 'Hết' }}
                             </span>
                         </td>
-                        <td class="p-4">
-                            <div class="flex items-center justify-end gap-1">
+                        <td class="p-4 whitespace-nowrap">
+                            <div class="flex flex-nowrap items-center justify-start gap-1">
                                 <button
                                     type="button"
                                     class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded"

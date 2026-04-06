@@ -1,253 +1,236 @@
 <script setup>
+import { computed } from 'vue';
 import { Icon } from '@iconify/vue';
-import { computed, ref, watch } from 'vue';
+import { LIBRARY_CARD_STATUS, workflowQuyTrinhAdminLabel, holderLabel, statusLabel } from '@/config/libraryCardUi';
 
 const props = defineProps({
-    cards: { type: Array, required: true },
-    loading: { type: Boolean, default: false },
-    mode: { type: String, default: 'manage' },
-    clearSelectionToken: { type: Number, default: 0 },
+    rows: { type: Array, required: true },
+    selectedIds: { type: Array, required: true },
+    loadingFallback: { type: Boolean, default: false },
+    isAllSelected: { type: Boolean, required: true },
+    hasSelection: { type: Boolean, required: true },
+    /** Hiện nút duyệt (kích hoạt thẻ) khi workflow = pending_review */
+    showApprove: { type: Boolean, default: false },
+    /** Màn quản lý thẻ (đã thanh toán): ẩn cột quy trình */
+    showWorkflow: { type: Boolean, default: true },
+    /** Màn duyệt yêu cầu: ẩn cột trạng thái thẻ (Hoạt động/Khóa/…) */
+    showCardStatus: { type: Boolean, default: true },
+    /** Màn duyệt yêu cầu: ẩn ảnh; vẫn có checkbox / chọn tất cả */
+    reviewMode: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['edit', 'approve', 'selection-change', 'delete-soft', 'update-photo', 'toggle-lock']);
+const effectiveShowPhotoColumn = computed(() => !props.reviewMode);
 
-const selectedIds = ref(new Set());
-
-const hasSelection = computed(() => selectedIds.value.size > 0);
-
-const isAllSelected = computed(() => {
-    if (!props.cards.length) return false;
-    return props.cards.every((c) => selectedIds.value.has(c.id));
+const tableColspan = computed(() => {
+    let n = 7;
+    if (effectiveShowPhotoColumn.value) {
+        n += 1;
+    }
+    if (props.showWorkflow) {
+        n += 1;
+    }
+    if (props.showCardStatus) {
+        n += 1;
+    }
+    return n;
 });
 
-const toggleAll = (checked) => {
-    if (checked) {
-        props.cards.forEach((c) => selectedIds.value.add(c.id));
-    } else {
-        selectedIds.value.clear();
+const tableMinWidthClass = computed(() => {
+    if (props.reviewMode) {
+        return 'min-w-[800px]';
     }
-    emit('selection-change', Array.from(selectedIds.value));
-};
-
-const toggleOne = (id, checked) => {
-    if (checked) selectedIds.value.add(id);
-    else selectedIds.value.delete(id);
-    emit('selection-change', Array.from(selectedIds.value));
-};
-
-watch(
-    () => props.cards,
-    (nextCards) => {
-        const nextIds = new Set(nextCards.map((c) => c.id));
-        selectedIds.value = new Set(Array.from(selectedIds.value).filter((id) => nextIds.has(id)));
-        emit('selection-change', Array.from(selectedIds.value));
-    },
-    { immediate: true },
-);
-
-watch(
-    () => props.clearSelectionToken,
-    () => {
-        if (selectedIds.value.size === 0) return;
-        selectedIds.value = new Set();
-        emit('selection-change', []);
-    },
-);
-
-const lockLabel = (isActive) => {
-    return isActive === false ? 'Đã khóa' : 'Đang hoạt động';
-};
-
-const holderTypeLabel = (holderType) => {
-    if (holderType === 'external') return 'Bạn đọc ngoài';
-    if (holderType === 'student') return 'Sinh viên';
-    if (holderType === 'teacher') return 'Giáo viên';
-    if (holderType === 'member') return 'Nội bộ (cũ)';
-    return holderType || '—';
-};
-
-const holderTypeClass = (holderType) => {
-    if (holderType === 'external') {
-        return 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+    if (props.showWorkflow && props.showCardStatus) {
+        return 'min-w-[1020px]';
     }
-    if (holderType === 'student') {
-        return 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800';
+    if (props.showWorkflow || props.showCardStatus) {
+        return 'min-w-[960px]';
     }
-    if (holderType === 'teacher') {
-        return 'bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800';
-    }
-    if (holderType === 'member') {
-        return 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800';
-    }
-    return 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700';
-};
+    return 'min-w-[900px]';
+});
 
-const lockClass = (isActive) => {
-    return isActive === false
-        ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
-        : 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-};
-
-const lockActionClass = (isActive) => {
-    return isActive === false ? 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' : 'text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20';
-};
-
-const lockActionIcon = (isActive) => {
-    return isActive === false ? 'lucide:unlock' : 'lucide:lock';
-};
-
-const emptyText = computed(() => (props.loading ? 'Đang tải...' : 'Chưa có dữ liệu.'));
-
-const photoUrl = (path) => {
-    if (!path || typeof path !== 'string') return '/images/default-avatar.png';
-    if (path.startsWith('http://') || path.startsWith('https://')) return path;
-    if (path.startsWith('blob:')) return path;
-    if (path.startsWith('/')) return path;
-    return `/storage/${path.replace(/^\/+/, '')}`;
-};
+const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject']);
 </script>
 
 <template>
-    <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+    <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse min-w-[860px]">
-                <thead>
-                    <tr class="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                        <th class="p-4 w-12">
-                            <input
-                                type="checkbox"
-                                :checked="isAllSelected"
-                                :indeterminate="hasSelection && !isAllSelected"
-                                class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                @change="(e) => toggleAll(e.target.checked)"
-                            />
+            <table class="w-full text-left border-collapse" :class="tableMinWidthClass">
+                <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
+                    <tr>
+                        <th class="p-4 w-12 align-middle">
+                            <span class="admin-table-checkbox-wrap">
+                                <input
+                                    type="checkbox"
+                                    :checked="isAllSelected"
+                                    :indeterminate="hasSelection && !isAllSelected"
+                                    class="admin-table-checkbox"
+                                    @change="emit('toggle-all')"
+                                />
+                            </span>
                         </th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[130px]">Mã thẻ</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[120px]">Ảnh thẻ</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[200px]">Họ tên</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[140px]">Ngày sinh</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[140px]">Loại thẻ</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 w-[140px]">Trạng thái thẻ</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right w-[120px]">Thao tác</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Mã thẻ</th>
+                        <th
+                            v-if="effectiveShowPhotoColumn"
+                            class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                        >
+                            Ảnh thẻ
+                        </th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Họ tên</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Email</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Số điện thoại</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Loại thẻ</th>
+                        <th
+                            v-if="showWorkflow"
+                            class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                        >
+                            Quy trình
+                        </th>
+                        <th
+                            v-if="showCardStatus"
+                            class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                        >
+                            Trạng thái thẻ
+                        </th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[120px]">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tr v-if="loadingFallback">
+                        <td :colspan="tableColspan" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
+                    </tr>
+                    <tr v-else-if="!rows.length">
+                        <td :colspan="tableColspan" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Không có bản ghi.</td>
+                    </tr>
+                    <template v-else>
                     <tr
-                        v-for="card in cards"
-                        :key="card.id"
-                        :class="selectedIds.has(card.id) ? 'bg-blue-50 dark:bg-blue-900/15' : ''"
+                        v-for="row in rows"
+                        :key="row.id"
+                        :class="[selectedIds.includes(row.id) ? 'bg-blue-50 dark:bg-blue-900/15' : 'admin-table-row']"
                     >
-                        <td class="p-4">
-                            <input
-                                type="checkbox"
-                                :checked="selectedIds.has(card.id)"
-                                class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                @change="(e) => toggleOne(card.id, e.target.checked)"
-                            />
+                        <td class="p-4 align-middle">
+                            <span class="admin-table-checkbox-wrap">
+                                <input
+                                    type="checkbox"
+                                    :checked="selectedIds.includes(row.id)"
+                                    class="admin-table-checkbox"
+                                    @change="emit('toggle', row.id)"
+                                />
+                            </span>
                         </td>
-                        <td class="p-4">
-                            <p class="text-[12px] font-semibold text-slate-800 dark:text-slate-100 tracking-wide font-mono whitespace-nowrap">
-                                {{ card.card_number || '—' }}
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">
+                                {{ row.card_number || row.code || '—' }}
                             </p>
                         </td>
-                        <td class="p-4">
+                        <td v-if="effectiveShowPhotoColumn" class="p-4 align-middle">
                             <div
-                                class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden relative group/avatar cursor-default"
+                                class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden relative group/photo shrink-0"
                             >
                                 <img
-                                    :src="photoUrl(card.photo_path)"
-                                    :alt="card.full_name || 'Avatar'"
+                                    :src="row.photo_url || '/images/default-avatar.png'"
+                                    :alt="row.full_name || 'Ảnh thẻ'"
                                     class="h-full w-full object-cover"
                                 />
                                 <button
                                     type="button"
-                                    class="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center rounded-lg"
+                                    class="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center rounded-lg cursor-pointer min-w-[44px] min-h-[44px]"
                                     title="Cập nhật ảnh thẻ"
-                                    @click.stop="emit('update-photo', card)"
+                                    @click.stop="emit('photo', row)"
                                 >
                                     <Icon icon="lucide:camera" class="w-4 h-4 text-white" />
                                 </button>
                             </div>
                         </td>
-                        <td class="p-4">
-                            <p
-                                class="text-[12px] font-semibold text-slate-900 dark:text-white truncate"
-                                :title="card.full_name || card.user?.name || '—'"
-                            >
-                                {{ card.full_name || card.user?.name || '—' }}
+                        <td class="p-4 align-middle max-w-[200px] xl:max-w-[260px]">
+                            <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="row.full_name">
+                                {{ row.full_name }}
                             </p>
                         </td>
-                        <td class="p-4">
-                            <p class="text-[12px] font-semibold text-slate-800 dark:text-slate-100 truncate" :title="card.date_of_birth || '—'">
-                                {{ card.date_of_birth ? String(card.date_of_birth).slice(0, 10) : '—' }}
-                            </p>
+                        <td class="p-4 align-middle max-w-[220px] xl:max-w-[280px]">
+                            <p class="text-[12px] text-slate-600 dark:text-slate-300 truncate" :title="row.email">{{ row.email }}</p>
                         </td>
-                        <td class="p-4">
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <p class="text-[12px] text-slate-600 dark:text-slate-300">{{ row.phone || '—' }}</p>
+                        </td>
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <span class="text-[12px] text-slate-700 dark:text-slate-200">{{ holderLabel(row.holder_type) }}</span>
+                        </td>
+                        <td v-if="showWorkflow" class="p-4 align-middle whitespace-nowrap">
+                            <span class="text-[12px] text-slate-600 dark:text-slate-300">{{ workflowQuyTrinhAdminLabel(row.workflow_status) }}</span>
+                        </td>
+                        <td v-if="showCardStatus" class="p-4 align-middle">
                             <span
                                 :class="[
-                                    'inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold border',
-                                    holderTypeClass(card.holder_type),
+                                    'inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap',
+                                    LIBRARY_CARD_STATUS[Number(row.status)]?.class ?? 'bg-slate-500 dark:bg-slate-600 text-white',
                                 ]"
                             >
-                                {{ holderTypeLabel(card.holder_type) }}
+                                {{ statusLabel(row.status) }}
                             </span>
                         </td>
-                        <td class="p-4">
-                            <span :class="['inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold', lockClass(card.is_active)]">
-                                {{ lockLabel(card.is_active) }}
-                            </span>
-                        </td>
-                        <td class="p-4 text-right">
-                            <div class="flex items-center justify-end gap-2">
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <div class="flex flex-nowrap justify-start gap-0.5">
+                                <template v-if="reviewMode">
+                                    <button
+                                        v-if="showApprove && row.workflow_status === 'pending_review'"
+                                        type="button"
+                                        class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
+                                        title="Đồng ý — kích hoạt thẻ"
+                                        @click="emit('approve', row)"
+                                    >
+                                        <Icon icon="lucide:check-circle" class="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                        v-if="showApprove && row.workflow_status === 'pending_review'"
+                                        type="button"
+                                        class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                        title="Từ chối hồ sơ"
+                                        @click="emit('reject', row)"
+                                    >
+                                        <Icon icon="lucide:x-circle" class="w-3.5 h-3.5" />
+                                    </button>
+                                </template>
+                                <template v-else>
                                 <button
+                                    v-if="showApprove && row.workflow_status === 'pending_review'"
                                     type="button"
-                                    class="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                                    title="Chỉnh sửa chi tiết"
-                                    @click="emit('edit', card)"
+                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
+                                    title="Đồng ý — kích hoạt thẻ"
+                                    @click="emit('approve', row)"
                                 >
-                                    <Icon icon="lucide:pencil" class="w-4 h-4" />
+                                    <Icon icon="lucide:check-circle" class="w-3.5 h-3.5" />
                                 </button>
-
                                 <button
                                     type="button"
-                                    :class="[
-                                        'p-1.5 rounded-lg transition-colors',
-                                        lockActionClass(card.is_active),
-                                    ]"
-                                    :title="card.is_active === true ? 'Khóa thẻ' : 'Mở khóa thẻ'"
-                                    @click="emit('toggle-lock', card)"
+                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    title="Chỉnh sửa"
+                                    @click="emit('edit', row)"
                                 >
-                                    <Icon :icon="lockActionIcon(card.is_active)" class="w-4 h-4" />
+                                    <Icon icon="lucide:pencil" class="w-3.5 h-3.5" />
                                 </button>
-
                                 <button
-                                    v-if="mode === 'manage'"
                                     type="button"
-                                    class="p-1.5 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                    :title="Number(row.status) === 3 ? 'Mở khóa thẻ' : 'Khóa thẻ'"
+                                    @click="emit('lock', row)"
+                                >
+                                    <Icon :icon="Number(row.status) === 3 ? 'lucide:lock-open' : 'lucide:lock'" class="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
                                     title="Xóa mềm"
-                                    @click="emit('delete-soft', card)"
+                                    @click="emit('delete', row)"
                                 >
-                                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
+                                    <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
                                 </button>
-
-                                <button
-                                    v-if="mode === 'approve'"
-                                    type="button"
-                                    class="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors"
-                                    title="Duyệt yêu cầu cấp thẻ"
-                                    @click="emit('approve', card)"
-                                >
-                                    <Icon icon="lucide:check" class="w-4 h-4" />
-                                </button>
+                                </template>
                             </div>
                         </td>
                     </tr>
+                    </template>
                 </tbody>
             </table>
         </div>
-        <p v-if="cards.length === 0" class="p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
-            {{ emptyText }}
-        </p>
     </div>
 </template>
-

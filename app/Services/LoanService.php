@@ -150,7 +150,8 @@ class LoanService
     }
 
     /**
-     * Thẻ: workflow active, hạn thẻ; nếu có library_cards.code thì phải khớp users.code.
+     * Thẻ: workflow active, hạn thẻ. {@see LibraryCard::$code} là mã trên hồ sơ thẻ, không bắt buộc trùng {@see User::$code}
+     * (bạn đọc ngoài / không tài khoản vẫn có thẻ chỉ với dữ liệu thẻ).
      *
      * @throws ValidationException
      */
@@ -175,11 +176,6 @@ class LoanService
         if ($card->expiry_date !== null && Carbon::parse($card->expiry_date)->lt(Carbon::today())) {
             throw ValidationException::withMessages([
                 'library_card' => [__('Thẻ thư viện đã hết hạn.')],
-            ]);
-        }
-        if ($card->code !== null && $card->code !== '' && $user->code !== null && $user->code !== '' && strcasecmp((string) $card->code, (string) $user->code) !== 0) {
-            throw ValidationException::withMessages([
-                'library_card' => [__('Mã định danh trên thẻ (code) không khớp mã tài khoản (users.code).')],
             ]);
         }
     }

@@ -2,103 +2,36 @@
 
 namespace App\Services;
 
+use App\Enums\LibraryCardStatus;
 use App\Models\LibraryCard;
 use App\Models\User;
+use App\Services\LibraryCard\LibraryCardAccountService;
+use App\Services\LibraryCard\LibraryCardGuestService;
+use App\Services\LibraryCard\LibraryCardManagementService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
 
+/**
+ * Façade tương thích: logic tách {@see LibraryCardAccountService}, {@see LibraryCardGuestService}, {@see LibraryCardManagementService}.
+ */
 class LibraryCardService
 {
-    private const PER_PAGE = 30;
+    public const PAYMENT_DUE_DAYS = LibraryCardManagementService::PAYMENT_DUE_DAYS;
 
-    /** @var list<string> */
-    private const PAYMENT_ATTRIBUTE_KEYS = [
-        'payment_status',
-        'payment_amount',
-        'paid_at',
-        'payment_method',
-        'receipt_number',
-        'payment_collected_by',
-    ];
+    public const PER_PAGE = LibraryCardManagementService::PER_PAGE;
 
-    /**
-     * Thẻ của user (một-một); eager load nhẹ cho API.
-     */
-    public function getCardForUser(User $user): ?LibraryCard
-    {
-        return $user->libraryCard()
-            ->with([
-                'faculty:id,code,name',
-                'period:id,code,name,start_year,end_year',
-                'payment.collector:id,name',
-            ])
-            ->first();
-    }
-
-    /**
-     * Danh sách thẻ cho admin/thủ thư.
-     *
-     * @return LengthAwarePaginator<int, LibraryCard>
-     */
-    public function indexForAdmin(?string $workflowStatus, ?string $keyword, int $perPage = self::PER_PAGE): LengthAwarePaginator
-    {
-        $query = LibraryCard::query()
-            ->with([
-                'user:id,code,name,email,user_type',
-                'faculty:id,code,name',
-                'department:id,code,name',
-                'period:id,code,name,start_year,end_year',
-                'payment.collector:id,name',
-            ]);
-
-        if ($workflowStatus !== null && $workflowStatus !== '') {
-            $query->where('workflow_status', $workflowStatus);
-        }
-
-        if ($keyword !== null && $keyword !== '') {
-            $this->applyKeywordSearch($query, $keyword);
-        }
-
-        return $query->orderByDesc('updated_at')->paginate($perPage)->withQueryString();
-    }
-
-    public function getForAdminDetail(LibraryCard $libraryCard): LibraryCard
-    {
-        return $libraryCard->load([
-            'user:id,code,name,email,phone,user_type',
-            'faculty:id,code,name',
-            'department:id,code,name',
-            'period:id,code,name,start_year,end_year',
-            'reviewer:id,name',
-            'issuer:id,name',
-            'payment.collector:id,name',
-        ]);
-    }
+    public function __construct(
+        private LibraryCardAccountService $account,
+        private LibraryCardGuestService $guest,
+        private LibraryCardManagementService $management
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
      */
-    public function updateCard(LibraryCard $libraryCard, array $data): LibraryCard
+    public function createForUserHaveAccount(User $user, array $data): LibraryCard
     {
-        return DB::transaction(function () use ($libraryCard, $data) {
-            $paymentPatch = Arr::only($data, self::PAYMENT_ATTRIBUTE_KEYS);
-            $cardData = Arr::except($data, self::PAYMENT_ATTRIBUTE_KEYS);
-
-            if ($cardData !== []) {
-                $libraryCard->update($cardData);
-            }
-
-            if ($paymentPatch !== []) {
-                $libraryCard->payment()->updateOrCreate(
-                    ['library_card_id' => $libraryCard->id],
-                    $paymentPatch
-                );
-            }
-
-            return $this->getForAdminDetail($libraryCard->fresh());
-        });
+        return $this->account->createForUserHaveAccount($user, $data);
     }
 
     /**
@@ -106,53 +39,128 @@ class LibraryCardService
      */
     public function create(array $data): LibraryCard
     {
-        $paymentPatch = Arr::only($data, self::PAYMENT_ATTRIBUTE_KEYS);
-        $cardData = Arr::except($data, self::PAYMENT_ATTRIBUTE_KEYS);
+        return $this->guest->create($data);
+    }
 
-        return DB::transaction(function () use ($cardData, $paymentPatch) {
-            /** @var LibraryCard $card */
-            $card = LibraryCard::query()->create($cardData);
-            if ($paymentPatch !== []) {
-                $card->payment()->create(array_merge(
-                    ['library_card_id' => $card->id],
-                    $paymentPatch
-                ));
-            }
+    public function setPendingPaymentDeadline(LibraryCard $card): LibraryCard
+    {
+        return $this->management->setPendingPaymentDeadline($card);
+    }
 
-            return $this->getForAdminDetail($card);
-        });
+    public function approvePendingReviewAndActivate(LibraryCard $card, ?User $reviewer): LibraryCard
+    {
+        return $this->management->approvePendingReviewAndActivate($card, $reviewer);
+    }
+
+    public function rejectPendingReview(LibraryCard $card, ?string $notes, ?User $reviewer): LibraryCard
+    {
+        return $this->management->rejectPendingReview($card, $notes, $reviewer);
     }
 
     /**
-     * Tìm theo keyword: các cột thẻ + niên khóa + bảng thanh toán.
+     * @param  array<string, mixed>  $data
+     * @return array{holder_type: string, faculty_id: int, period_id: int, class_code: string}
      */
-    private function applyKeywordSearch(Builder $query, string $keyword): void
+    public function studentAffiliationPayload(array $data): array
     {
-        $like = '%'.$this->escapeLike($keyword).'%';
-
-        $query->where(function (Builder $q) use ($like) {
-            $q->where('card_number', 'like', $like)
-                ->orWhere('full_name', 'like', $like)
-                ->orWhere('email', 'like', $like)
-                ->orWhere('phone', 'like', $like)
-                ->orWhere('address', 'like', $like)
-                ->orWhere('class_code', 'like', $like)
-                ->orWhere('external_organization', 'like', $like)
-                ->orWhere('code', 'like', $like)
-                ->orWhereHas('payment', function (Builder $pq) use ($like) {
-                    $pq->where('payment_status', 'like', $like)
-                        ->orWhere('receipt_number', 'like', $like)
-                        ->orWhere('payment_method', 'like', $like);
-                })
-                ->orWhereHas('period', function (Builder $pq) use ($like) {
-                    $pq->where('name', 'like', $like)
-                        ->orWhere('code', 'like', $like);
-                });
-        });
+        return $this->management->studentAffiliationPayload($data);
     }
 
-    private function escapeLike(string $value): string
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{holder_type: string, faculty_id: int}
+     */
+    public function teacherAffiliationPayload(array $data): array
     {
-        return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $value);
+        return $this->management->teacherAffiliationPayload($data);
+    }
+
+    public function management(): LibraryCardManagementService
+    {
+        return $this->management;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updateLibraryCard(LibraryCard $card, array $data): LibraryCard
+    {
+        return $this->management->updateLibraryCard($card, $data);
+    }
+
+    public function setWorkflowStatus(LibraryCard $card, string $workflowStatus): LibraryCard
+    {
+        return $this->management->setWorkflowStatus($card, $workflowStatus);
+    }
+
+    public function setCardStatus(LibraryCard $card, LibraryCardStatus $status): LibraryCard
+    {
+        return $this->management->setCardStatus($card, $status);
+    }
+
+    public function linkOrphanGuestCardToNewUser(User $user): ?LibraryCard
+    {
+        return $this->management->linkOrphanGuestCardToNewUser($user);
+    }
+
+    /**
+     * @param  list<string>|null  $workflowStatuses
+     * @param  list<string>|null  $keywordColumns
+     */
+    public function index(
+        ?string $keyword,
+        int $perPage = self::PER_PAGE,
+        ?array $workflowStatuses = null,
+        ?string $holderType = null,
+        ?int $cardStatus = null,
+        ?array $keywordColumns = null,
+        bool $managementListOnly = false,
+    ): LengthAwarePaginator {
+        return $this->management->index($keyword, $perPage, $workflowStatuses, $holderType, $cardStatus, $keywordColumns, $managementListOnly);
+    }
+
+    public function updatePhoto(LibraryCard $card, UploadedFile $file): LibraryCard
+    {
+        return $this->management->updatePhoto($card, $file);
+    }
+
+    public function destroy(LibraryCard $card): void
+    {
+        $this->management->destroy($card);
+    }
+
+    public function trash(int $perPage = self::PER_PAGE): LengthAwarePaginator
+    {
+        return $this->management->trash($perPage);
+    }
+
+    public function restore(int $id): ?LibraryCard
+    {
+        return $this->management->restore($id);
+    }
+
+    public function restoreMany(array $ids): int
+    {
+        return $this->management->restoreMany($ids);
+    }
+
+    public function forceDeleteTrashed(int $id): bool
+    {
+        return $this->management->forceDeleteTrashed($id);
+    }
+
+    public function forceDeleteManyTrashed(array $ids): int
+    {
+        return $this->management->forceDeleteManyTrashed($ids);
+    }
+
+    public function cancelLibraryCardApplication(LibraryCard $card, ?string $reason = null): LibraryCard
+    {
+        return $this->management->cancelLibraryCardApplication($card, $reason);
+    }
+
+    public function permanentlyDeleteLibraryCard(LibraryCard $card): void
+    {
+        $this->management->permanentlyDeleteLibraryCard($card);
     }
 }

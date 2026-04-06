@@ -18,23 +18,25 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
 <template>
     <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+            <table class="w-full min-w-[720px] text-left border-collapse">
                 <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                     <tr>
-                        <th class="p-4 w-12">
-                            <input
-                                type="checkbox"
-                                :checked="isAllSelected"
-                                :indeterminate="hasSelection && !isAllSelected"
-                                class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                @change="emit('toggle-all')"
-                            />
+                        <th class="p-4 w-12 align-middle">
+                            <span class="admin-table-checkbox-wrap">
+                                <input
+                                    type="checkbox"
+                                    :checked="isAllSelected"
+                                    :indeterminate="hasSelection && !isAllSelected"
+                                    class="admin-table-checkbox"
+                                    @change="emit('toggle-all')"
+                                />
+                            </span>
                         </th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Mã kho</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Tên kho</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Cập nhật gần nhất</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400">Trạng thái</th>
-                        <th class="p-4 text-[11px] font-bold uppercase tracking-wider text-slate-400 text-right">Thao tác</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Mã kho</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Tên kho</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Cập nhật gần nhất</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Trạng thái</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300 w-[88px]">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -43,32 +45,39 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
                         :key="w.id"
                         :class="[selectedIds.includes(w.id) ? 'bg-blue-50 dark:bg-blue-900/15' : 'admin-table-row']"
                     >
-                        <td class="p-4">
-                            <input
-                                type="checkbox"
-                                :checked="selectedIds.includes(w.id)"
-                                class="rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500"
-                                @change="emit('toggle', w.id)"
-                            />
+                        <td class="p-4 align-middle">
+                            <span class="admin-table-checkbox-wrap">
+                                <input
+                                    type="checkbox"
+                                    :checked="selectedIds.includes(w.id)"
+                                    class="admin-table-checkbox"
+                                    @change="emit('toggle', w.id)"
+                                />
+                            </span>
                         </td>
-                        <td class="p-4">
+                        <td class="p-4 align-middle whitespace-nowrap">
                             <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">{{ w.code }}</p>
                         </td>
-                        <td class="p-4">
-                            <p class="font-semibold text-sm text-slate-900 dark:text-white">{{ w.name }}</p>
+                        <td class="p-4 align-middle max-w-[280px]">
+                            <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="w.name">{{ w.name }}</p>
                         </td>
-                        <td class="p-4">
-                            <p class="text-[12px] text-slate-600 dark:text-slate-300">
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <p class="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums">
                                 {{ formatDateTime(w.updated_at || w.created_at) }}
                             </p>
                         </td>
-                        <td class="p-4">
-                            <span :class="[statusClass(w.is_active), 'px-2 py-0.5 rounded text-[11px] font-semibold']">
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <span
+                                :class="[
+                                    statusClass(w.is_active),
+                                    'inline-flex whitespace-nowrap px-2 py-0.5 rounded text-[11px] font-semibold',
+                                ]"
+                            >
                                 {{ statusLabel(w.is_active) }}
                             </span>
                         </td>
-                        <td class="p-4">
-                            <div class="flex justify-end gap-0.5">
+                        <td class="p-4 align-middle whitespace-nowrap">
+                            <div class="flex flex-nowrap justify-start gap-0.5">
                                 <button
                                     type="button"
                                     class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"

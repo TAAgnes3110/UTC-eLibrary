@@ -3,16 +3,15 @@
 namespace App\Models;
 
 use App\Enums\LibraryCardStatus;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class LibraryCard extends Model
+class LibraryCard extends BaseModel
 {
-    use HasFactory;
+    use SoftDeletes;
 
     public const HOLDER_TYPE_STUDENT = 'student';
 
@@ -25,6 +24,8 @@ class LibraryCard extends Model
     public const WORKFLOW_PENDING_PAYMENT = 'pending_payment';
 
     public const WORKFLOW_PENDING_REVIEW = 'pending_review';
+
+    public const WORKFLOW_PENDING_PICKUP = 'pending_pickup';
 
     public const WORKFLOW_ACTIVE = 'active';
 
@@ -64,7 +65,6 @@ class LibraryCard extends Model
         'code',
         'workflow_status',
         'status',
-        'is_active',
         'issue_date',
         'expiry_date',
         'issued_by',
@@ -95,15 +95,28 @@ class LibraryCard extends Model
             'reviewed_at' => 'datetime',
             'revoked_at' => 'datetime',
             'params' => 'array',
-            'is_active' => 'boolean',
         ];
+    }
+
+    protected static function boot(): void
+    {
+        static::saving(function (LibraryCard $card) {
+            $fromAttributes = $card->getAttribute('params');
+            if (is_array($fromAttributes) && $fromAttributes !== []) {
+                $card->arrParams = array_replace_recursive($card->arrParams, $fromAttributes);
+            }
+        });
+
+        parent::boot();
     }
 
     protected static function booted(): void
     {
         static::creating(function (LibraryCard $card) {
             if ($card->card_number === null || $card->card_number === '') {
-                $card->card_number = static::generateCardNumber();
+                $card->card_number = filled($card->code)
+                    ? $card->code
+                    : static::generateCardNumber();
             }
         });
     }

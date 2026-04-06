@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Helpers;
 
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\ValidationException;
 
 final class ApiResponse
 {
@@ -70,6 +71,18 @@ final class ApiResponse
             410,
             []
         );
+    }
+
+    /**
+     * 422 — cùng cấu trúc {@see BaseRequest::failedValidation} (`message` + `errors`) khi Service ném {@link ValidationException}.
+     */
+    public static function validationError(ValidationException $exception): JsonResponse
+    {
+        return self::json([
+            self::KEY_STATUS => self::STATUS_ERROR,
+            'message' => __('messages.validation_error'),
+            'errors' => $exception->errors(),
+        ], $exception->status);
     }
 
     /**

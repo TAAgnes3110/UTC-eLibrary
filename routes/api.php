@@ -9,9 +9,11 @@ use App\Http\Controllers\Api\ClassificationDetailController;
 use App\Http\Controllers\Api\DigitalAssetController;
 use App\Http\Controllers\Api\EmailOTPController;
 use App\Http\Controllers\Api\FacultyController;
+use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
+use App\Http\Controllers\Api\LibraryCard\LibraryCardStaffController;
+use App\Http\Controllers\Api\LibraryCard\MeLibraryCardController;
 use App\Http\Controllers\Api\LibraryCardController;
 use App\Http\Controllers\Api\MasterDataController;
-use App\Http\Controllers\Api\MeLibraryCardController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublisherController;
@@ -79,7 +81,11 @@ Route::prefix('v1')->group(function () {
         Route::get('profile', [ProfileController::class, 'show']);
         Route::put('profile', [ProfileController::class, 'update']);
         Route::put('password', [ProfileController::class, 'updatePassword']);
-        Route::get('library-card', [MeLibraryCardController::class, 'show']);
+        Route::post('library-card', [MeLibraryCardController::class, 'store']);
+    });
+
+    Route::middleware(['throttle:auth'])->group(function () {
+        Route::post('library-cards/guest-register', [LibraryCardGuestController::class, 'store']);
     });
 
     Route::get('master-data', [MasterDataController::class, 'index'])->middleware(['init']);
@@ -173,6 +179,24 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/{publisher}', [PublisherController::class, 'destroy']);
             });
 
+            Route::group(['prefix' => 'library-cards'], function () {
+                Route::get('export', [LibraryCardController::class, 'export']);
+                Route::get('trash', [LibraryCardController::class, 'trash']);
+                Route::post('restore', [LibraryCardController::class, 'restoreMany']);
+                Route::post('restore/{id}', [LibraryCardController::class, 'restore']);
+                Route::post('force', [LibraryCardController::class, 'forceDeleteMany']);
+                Route::delete('force', [LibraryCardController::class, 'forceDeleteMany']);
+                Route::delete('force/{id}', [LibraryCardController::class, 'forceDelete']);
+                Route::post('{library_card}/approve-review', [LibraryCardStaffController::class, 'approveReview']);
+                Route::post('{library_card}/reject-review', [LibraryCardStaffController::class, 'rejectReview']);
+                Route::post('{library_card}/photo', [LibraryCardController::class, 'updatePhoto']);
+                Route::get('/', [LibraryCardController::class, 'index']);
+                Route::post('/', [LibraryCardController::class, 'store']);
+                Route::get('{library_card}', [LibraryCardController::class, 'show']);
+                Route::put('{library_card}', [LibraryCardController::class, 'update']);
+                Route::delete('{library_card}', [LibraryCardController::class, 'destroy']);
+            });
+
             Route::group(['prefix' => '/books'], function () {
                 Route::get('/', [BookController::class, 'index']);
                 Route::get('/trash', [BookController::class, 'trash']);
@@ -194,9 +218,6 @@ Route::prefix('v1')->group(function () {
                 Route::post('/image-bulk', [BookController::class, 'bulkUpdateImage']);
             });
 
-            Route::get('library-cards', [LibraryCardController::class, 'index']);
-            Route::get('library-cards/{library_card}', [LibraryCardController::class, 'show']);
-            Route::patch('library-cards/{library_card}', [LibraryCardController::class, 'update']);
         });
     });
 });

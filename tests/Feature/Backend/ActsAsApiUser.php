@@ -49,6 +49,23 @@ trait ActsAsApiUser
         return [$user, $token];
     }
 
+    /**
+     * Thủ thư (user_type LIBRARIAN) + JWT để gọi API nội bộ thư viện.
+     *
+     * @param  array<string, mixed>  $overrides
+     * @return array{0: User, 1: string}
+     */
+    protected function createLibrarianUserAndToken(array $overrides = []): array
+    {
+        $user = User::factory()->create(array_merge([
+            'user_type' => RoleType::LIBRARIAN,
+            'password' => 'password',
+        ], $overrides));
+        $token = JWTAuth::fromUser($user);
+
+        return [$user, $token];
+    }
+
     protected function apiTokenHeaders(string $token): array
     {
         return ['Authorization' => 'Bearer '.$token];

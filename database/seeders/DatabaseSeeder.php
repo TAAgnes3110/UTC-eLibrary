@@ -20,8 +20,8 @@ class DatabaseSeeder extends Seeder
             DefaultUsersSeeder::class,
             CmsAndContentSeeder::class,
             PeriodSeeder::class,
-            LibraryCardSeeder::class,
             BookSampleSeeder::class,
+            LibraryCardSampleSeeder::class,
         ]);
     }
 }

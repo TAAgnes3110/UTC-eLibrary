@@ -160,6 +160,15 @@
     padding-inline: 0.5rem 1rem;
   }
 
+  /** Select có icon mũi tên tùy chỉnh (Duyệt yêu cầu thẻ) */
+  .library-requests-filter-select {
+    @apply w-full rounded-lg border text-[13px] font-medium outline-none transition-all appearance-none cursor-pointer;
+    @apply min-h-[44px] h-11 pl-3 pr-10 py-2;
+    @apply bg-slate-50 border-slate-200 text-slate-800;
+    @apply focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500;
+    @apply dark:bg-slate-800/90 dark:border-slate-600 dark:text-slate-100 dark:focus:ring-blue-500/35;
+  }
+
   .admin-search-input-wrap {
     @apply relative flex-1 min-w-[200px];
   }
@@ -201,6 +210,33 @@
   .admin-table-row {
     @apply transition-colors;
     @apply hover:bg-slate-50 dark:hover:bg-[#2C3A4F];
+  }
+
+  /** Checkbox bảng admin: ô vuông nhẹ (rounded-sm), đồng bộ mọi màn; vùng bấm ≥44px */
+  .admin-table-checkbox-wrap {
+    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center;
+  }
+
+  /** Cột chọn gọn hơn (màn danh sách desktop) — vùng bấm ~36px */
+  .admin-table-checkbox-wrap--compact {
+    @apply inline-flex min-h-9 min-w-9 items-center justify-center;
+  }
+
+  /**
+   * Checkbox bảng admin — dark: chưa chọn = ô trắng đặc bo góc; chọn / bán chọn = nền xanh + tick/gạch trắng.
+   */
+  .admin-table-checkbox {
+    @apply h-[18px] w-[18px] shrink-0 cursor-pointer rounded-[5px] border-2;
+    @apply border-slate-300 bg-white accent-blue-600;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500/45 focus:ring-offset-0;
+    @apply dark:border-white dark:bg-white;
+    accent-color: rgb(37 99 235);
+  }
+
+  .dark .admin-table-checkbox:checked,
+  .dark .admin-table-checkbox:indeterminate {
+    @apply border-blue-600 bg-blue-600;
+    accent-color: rgb(37 99 235);
   }
 
   .premium-shadow {

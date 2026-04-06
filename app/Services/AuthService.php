@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\AuthHelper;
 use App\Models\Customer;
 use App\Models\User;
+use App\Services\LibraryCard\LibraryCardManagementService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
@@ -12,7 +13,8 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 class AuthService
 {
     public function __construct(
-        private OtpService $otpService
+        private OtpService $otpService,
+        private LibraryCardManagementService $libraryCardManagement
     ) {}
 
     /**
@@ -86,6 +88,7 @@ class AuthService
             $user = User::create($pendingUser);
             $user->email_verified_at = now();
             $user->save();
+            $this->libraryCardManagement->linkOrphanGuestCardToNewUser($user);
             DB::commit();
             Cache::forget('register_'.$email);
             $token = JWTAuth::fromUser($user);

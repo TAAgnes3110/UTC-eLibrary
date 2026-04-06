@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\EmailOtp;
 use App\Models\LibraryCard;
 use App\Models\User;
+use App\Services\LibraryCard\LibraryCardManagementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
@@ -81,6 +82,56 @@ class AuthApiTest extends TestCase
         $this->assertDatabaseMissing('library_cards', [
             'user_id' => $user->id,
         ]);
+    }
+
+    /**
+     * verify-otp: thẻ khách (user_id null) trùng mã định danh với user mới → gắn user_id.
+     */
+    public function test_verify_registration_links_orphan_library_card_with_matching_code(): void
+    {
+        $code = '012345679001';
+
+        LibraryCard::query()->create([
+            'user_id' => null,
+            'card_number' => $code,
+            'holder_type' => LibraryCard::HOLDER_TYPE_EXTERNAL,
+            'code' => $code,
+            'full_name' => 'Khách trước đăng ký',
+            'email' => 'orphan-card@example.com',
+            'phone' => '0900000001',
+            'address' => 'Hà Nội',
+            'date_of_birth' => '1990-01-01',
+            'photo_path' => 'photos/orphan.jpg',
+            'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+            'status' => LibraryCardStatus::ACTIVE,
+            'is_active' => true,
+        ]);
+
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Người mới',
+            'code' => $code,
+            'email' => 'linked-user@example.com',
+            'phone' => '0900000002',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ])->assertStatus(200);
+
+        $otpRecord = EmailOtp::where('email', 'linked-user@example.com')->firstOrFail();
+
+        $this->postJson('/api/v1/auth/verify-otp', [
+            'email' => 'linked-user@example.com',
+            'otp' => $otpRecord->otp,
+        ])->assertStatus(200)->assertJson(['status' => 'success']);
+
+        $user = User::where('email', 'linked-user@example.com')->firstOrFail();
+        $this->assertDatabaseHas('library_cards', [
+            'code' => $code,
+            'user_id' => $user->id,
+        ]);
+        $this->assertNull(
+            app(LibraryCardManagementService::class)->linkOrphanGuestCardToNewUser($user->fresh()),
+            'Đã có thẻ gắn user thì không liên kết thêm.'
+        );
     }
 
     /**

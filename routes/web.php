@@ -39,9 +39,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
-        Route::get('/library-cards', [LibraryCardPageController::class, 'manage'])->name('library-cards.manage');
-        Route::get('/library-cards/approve', [LibraryCardPageController::class, 'approve'])->name('library-cards.approve');
-        Route::get('/library-cards/quick', [LibraryCardPageController::class, 'quick'])->name('library-cards.quick');
+        Route::get('/library-cards', [LibraryCardPageController::class, 'index'])->name('library-cards.index');
+        Route::get('/library-cards/requests', [LibraryCardPageController::class, 'requests'])->name('library-cards.requests');
+        Route::get('/library-cards/counter', [LibraryCardPageController::class, 'counter'])->name('library-cards.counter');
     });
 
 });

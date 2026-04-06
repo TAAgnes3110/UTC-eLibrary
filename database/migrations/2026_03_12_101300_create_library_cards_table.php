@@ -13,13 +13,13 @@ return new class extends Migration
             $table->unsignedInteger('user_id')->nullable()->index();
             $table->unsignedInteger('period_id')->nullable()->index();
 
-            $table->string('card_number', 64)->unique()->index();
+            $table->string('card_number', 64)->index();
 
             $table->enum('holder_type', ['student', 'teacher', 'external'])
                 ->default('external')
                 ->index()
                 ->comment('Sinh viên / Giảng viên / Bạn đọc ngoài');
-
+            $table->string('code')->nullable()->index();
             $table->string('full_name', 150)->nullable();
             $table->string('email', 190)->nullable()->index();
             $table->string('phone', 20)->nullable()->index();
@@ -33,10 +33,8 @@ return new class extends Migration
             $table->string('photo_path')->nullable();
             $table->string('external_organization', 150)->nullable();
 
-            $table->string('code')->nullable()->index()->comment('Số CCCD/CMND hoặc mã định danh cá nhân — khớp users.code khi có tài khoản (cùng quy ước bảng users)');
-
-            $table->string('workflow_status', 32)->default('draft')->index()->comment('Quy trình: draft|pending_payment|pending_review|active|…');
-            $table->unsignedTinyInteger('status')->default(1)->index()->comment('LibraryCardStatus enum int');
+            $table->string('workflow_status', 32)->default('draft')->index();
+            $table->unsignedTinyInteger('status')->default(1)->index();
             $table->boolean('is_active')->default(true);
 
             $table->date('issue_date')->nullable();

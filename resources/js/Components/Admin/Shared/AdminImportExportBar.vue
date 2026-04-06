@@ -59,8 +59,12 @@ defineEmits([
                 <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
                 Xóa
             </button>
-            <span class="text-xs font-medium text-white dark:text-slate-400">Đã chọn {{ selectedCount }}</span>
-            <button type="button" @click="$emit('deselect-all')" class="text-xs font-medium text-white dark:text-slate-400 hover:underline">
+            <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Đã chọn {{ selectedCount }}</span>
+            <button
+                type="button"
+                class="text-xs font-medium text-slate-600 dark:text-slate-400 hover:underline"
+                @click="$emit('deselect-all')"
+            >
                 Bỏ chọn
             </button>
         </template>

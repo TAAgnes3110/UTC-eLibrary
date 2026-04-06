@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
 
 class LibraryCardResource extends JsonResource
 {
@@ -13,6 +14,16 @@ class LibraryCardResource extends JsonResource
     public function toArray(Request $request): array
     {
         $payment = $this->payment;
+
+        $photoPath = $this->photo_path;
+        $photoUrl = null;
+        if (! empty($photoPath) && ! str_starts_with((string) $photoPath, 'http')) {
+            if (Storage::disk('public')->exists($photoPath)) {
+                $photoUrl = asset(ltrim((string) $photoPath, '/'));
+            }
+        } elseif (! empty($photoPath) && str_starts_with((string) $photoPath, 'http')) {
+            $photoUrl = $photoPath;
+        }
 
         return [
             'id' => $this->id,
@@ -82,10 +93,10 @@ class LibraryCardResource extends JsonResource
                 : null,
 
             'photo_path' => $this->photo_path,
+            'photo_url' => $photoUrl,
             'external_organization' => $this->external_organization,
             'code' => $this->code,
             'status' => $this->status instanceof \BackedEnum ? $this->status->value : $this->status,
-            'is_active' => $this->is_active,
             'issue_date' => $this->issue_date?->toIso8601String(),
             'expiry_date' => $this->expiry_date?->toIso8601String(),
             'revoked_at' => $this->revoked_at?->toIso8601String(),

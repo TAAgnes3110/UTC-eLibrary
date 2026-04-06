@@ -2,58 +2,255 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LibraryCardStatus;
+use App\Enums\UploadDirectory;
+use App\Exports\LibraryCardExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\AdminLibraryCardUpdateRequest;
+use App\Http\Requests\LibraryCardRequest;
 use App\Http\Resources\LibraryCardResource;
 use App\Models\LibraryCard;
 use App\Services\LibraryCardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
+/**
+ * CRUD + trash / restore / force + trạng thái hoạt động (thủ thư/admin).
+ */
 class LibraryCardController extends Controller
 {
+    private const MAX_BULK_IDS = 200;
+
+    private const MAX_EXPORT_IDS = 500;
+
     public function __construct(
         private LibraryCardService $libraryCardService
     ) {}
 
-    /**
-     * GET /api/v1/library-cards — danh sách (admin/thủ thư).
-     */
     public function index(Request $request): JsonResponse
     {
-        $request->validate([
-            'workflow_status' => ['sometimes', 'nullable', 'string', 'max:32'],
-            'keyword' => ['sometimes', 'nullable', 'string', 'max:200'],
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-        ]);
-
-        $items = $this->libraryCardService->indexForAdmin(
-            $request->input('workflow_status'),
-            $request->input('keyword'),
-            (int) $request->input('per_page', 30),
+        $keyword = $request->input('keyword');
+        $perPage = max(1, min(100, (int) $request->input('per_page', LibraryCardService::PER_PAGE)));
+        $workflowStatuses = $this->parseWorkflowStatusFilter($request);
+        $holderType = $this->parseHolderTypeFilter($request);
+        $cardStatus = $this->parseCardStatusFilter($request);
+        $keywordColumns = $this->parseSearchInFilter($request);
+        $managementListOnly = $request->boolean('management');
+        $items = $this->libraryCardService->index(
+            $keyword,
+            $perPage,
+            $workflowStatuses,
+            $holderType,
+            $cardStatus,
+            $keywordColumns,
+            $managementListOnly,
         );
 
         return ApiResponse::success(LibraryCardResource::collection($items));
     }
 
-    /**
-     * GET /api/v1/library-cards/{library_card}
-     */
-    public function show(LibraryCard $libraryCard): JsonResponse
+    public function export(Request $request): StreamedResponse
     {
-        $card = $this->libraryCardService->getForAdminDetail($libraryCard);
+        $rawIds = $request->input('ids');
+        if (! is_array($rawIds) && $rawIds !== null && $rawIds !== '' && is_numeric($rawIds)) {
+            $request->merge(['ids' => [(int) $rawIds]]);
+        }
 
-        return ApiResponse::success(new LibraryCardResource($card));
+        $validated = $request->validate([
+            'ids' => ['sometimes', 'nullable', 'array', 'max:'.self::MAX_EXPORT_IDS],
+            'ids.*' => ['integer'],
+        ]);
+        $ids = $validated['ids'] ?? null;
+        $ids = is_array($ids) ? array_values(array_filter($ids, static fn ($v) => is_numeric($v))) : null;
+
+        return LibraryCardExport::stream($ids);
     }
 
     /**
-     * PATCH /api/v1/library-cards/{library_card}
+     * @return list<string>|null
      */
-    public function update(AdminLibraryCardUpdateRequest $request, LibraryCard $libraryCard): JsonResponse
+    private function parseWorkflowStatusFilter(Request $request): ?array
     {
-        $card = $this->libraryCardService->updateCard($libraryCard, $request->validated());
+        if (! $request->filled('workflow_status')) {
+            return null;
+        }
+        $raw = $request->input('workflow_status');
+        $candidates = is_array($raw)
+            ? $raw
+            : array_map('trim', explode(',', (string) $raw));
+        $allowed = [
+            LibraryCard::WORKFLOW_DRAFT,
+            LibraryCard::WORKFLOW_PENDING_PAYMENT,
+            LibraryCard::WORKFLOW_PENDING_REVIEW,
+            LibraryCard::WORKFLOW_PENDING_PICKUP,
+            LibraryCard::WORKFLOW_ACTIVE,
+            LibraryCard::WORKFLOW_REJECTED,
+            LibraryCard::WORKFLOW_CANCELLED,
+            LibraryCard::WORKFLOW_EXPIRED,
+            LibraryCard::WORKFLOW_REVOKED,
+        ];
+        $filtered = array_values(array_intersect($candidates, $allowed));
+
+        return $filtered === [] ? null : $filtered;
+    }
+
+    private function parseHolderTypeFilter(Request $request): ?string
+    {
+        if (! $request->filled('holder_type')) {
+            return null;
+        }
+        $v = (string) $request->input('holder_type');
+        $allowed = [
+            LibraryCard::HOLDER_TYPE_STUDENT,
+            LibraryCard::HOLDER_TYPE_TEACHER,
+            LibraryCard::HOLDER_TYPE_EXTERNAL,
+        ];
+
+        return in_array($v, $allowed, true) ? $v : null;
+    }
+
+    private function parseCardStatusFilter(Request $request): ?int
+    {
+        if (! $request->filled('status')) {
+            return null;
+        }
+        $n = (int) $request->input('status');
+        $allowed = LibraryCardStatus::values();
+
+        return in_array($n, $allowed, true) ? $n : null;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function parseSearchInFilter(Request $request): ?array
+    {
+        if (! $request->filled('search_in')) {
+            return null;
+        }
+        $raw = $request->input('search_in');
+        $candidates = is_array($raw)
+            ? $raw
+            : array_map('trim', explode(',', (string) $raw));
+        $allowed = ['card_number', 'code', 'full_name', 'email', 'phone'];
+        $filtered = array_values(array_intersect($candidates, $allowed));
+
+        return $filtered === [] ? null : $filtered;
+    }
+
+    public function show(LibraryCard $library_card): JsonResponse
+    {
+        $library_card->loadMissing([
+            'payment',
+            'period',
+            'faculty',
+            'department',
+            'user',
+        ]);
+
+        return ApiResponse::success(new LibraryCardResource($library_card));
+    }
+
+    public function store(LibraryCardRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        if ($request->hasFile('photo')) {
+            $dir = trim(UploadDirectory::forTable('library_cards'), '/');
+            $data['photo_path'] = $request->file('photo')->store($dir, 'public');
+        }
+        unset($data['photo']);
+        $card = $this->libraryCardService->create($data);
+        $card->loadMissing(['payment.collector', 'period', 'faculty', 'department', 'user']);
+
+        return ApiResponse::success(
+            new LibraryCardResource($card),
+            __('messages.success_create'),
+            201
+        );
+    }
+
+    public function updatePhoto(Request $request, LibraryCard $library_card): JsonResponse
+    {
+        $request->validate([
+            'photo' => 'required|image|max:10240',
+        ]);
+        $file = $request->file('photo');
+        if (! $file) {
+            return ApiResponse::error(__('Vui lòng chọn một file ảnh hợp lệ.'), 422);
+        }
+        try {
+            $card = $this->libraryCardService->updatePhoto($library_card, $file);
+            $card->loadMissing(['payment', 'period', 'faculty', 'department', 'user']);
+
+            return ApiResponse::success(new LibraryCardResource($card), __('messages.success_update'));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+    }
+
+    public function update(LibraryCardRequest $request, LibraryCard $library_card): JsonResponse
+    {
+        $card = $this->libraryCardService->updateLibraryCard($library_card, $request->validated());
+        $card->loadMissing(['payment', 'period', 'faculty', 'department', 'user']);
 
         return ApiResponse::success(new LibraryCardResource($card), __('messages.success_update'));
+    }
+
+    public function destroy(LibraryCard $library_card): JsonResponse
+    {
+        $this->libraryCardService->destroy($library_card);
+
+        return ApiResponse::success(null, __('messages.success_delete'));
+    }
+
+    public function trash(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->input('per_page', LibraryCardService::PER_PAGE)));
+        $items = $this->libraryCardService->trash($perPage);
+
+        return ApiResponse::success(LibraryCardResource::collection($items));
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $card = $this->libraryCardService->restore($id);
+        if ($card === null) {
+            return ApiResponse::notFound();
+        }
+        $card->loadMissing(['payment.collector', 'period', 'faculty', 'department', 'user']);
+
+        return ApiResponse::success(new LibraryCardResource($card), __('messages.success_restore'));
+    }
+
+    public function restoreMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array|max:'.self::MAX_BULK_IDS,
+            'ids.*' => 'integer',
+        ]);
+        $restored = $this->libraryCardService->restoreMany($request->input('ids', []));
+
+        return ApiResponse::success(['restored' => $restored], __('messages.success_restore'));
+    }
+
+    public function forceDelete(int $id): JsonResponse
+    {
+        if (! $this->libraryCardService->forceDeleteTrashed($id)) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
+
+        return ApiResponse::success(null, __('messages.success_force_delete'));
+    }
+
+    public function forceDeleteMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array|max:'.self::MAX_BULK_IDS,
+            'ids.*' => 'integer',
+        ]);
+        $deleted = $this->libraryCardService->forceDeleteManyTrashed($request->input('ids', []));
+
+        return ApiResponse::success(['deleted' => $deleted], __('messages.success_force_delete'));
     }
 }

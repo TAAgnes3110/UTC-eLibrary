@@ -41,4 +41,22 @@ class Helpers
 
         return $arr;
     }
+
+    /**
+     * Giá trị có thể coi là đã nhập: null, chuỗi rỗng/khoảng trắng, số ≤ 0 → false; còn lại → true.
+     */
+    public static function filled(mixed $value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+        if (is_string($value)) {
+            return trim($value) !== '';
+        }
+        if (is_int($value) || is_float($value)) {
+            return (int) $value > 0;
+        }
+
+        return true;
+    }
 }

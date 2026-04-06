@@ -28,21 +28,21 @@ export const adminNavigation = [
         href: 'admin.warehouses.index',
     },
     {
+        name: 'Thẻ thư viện',
+        icon: 'lucide:id-card',
+        active: ['admin.library-cards.*'],
+        children: [
+            { name: 'Quản lý thẻ', href: 'admin.library-cards.index', active: 'admin.library-cards.index' },
+            { name: 'Duyệt yêu cầu', href: 'admin.library-cards.requests', active: 'admin.library-cards.requests' },
+            { name: 'Cấp thẻ tại quầy', href: 'admin.library-cards.counter', active: 'admin.library-cards.counter' },
+        ],
+    },
+    {
         name: 'Cấu hình thư viện',
         icon: 'lucide:sliders',
         active: ['admin.loan-policies.*'],
         children: [
             { name: 'Quy định mượn trả', href: 'admin.loan-policies.index', active: 'admin.loan-policies.*' },
-        ],
-    },
-    {
-        name: 'Quản lý thẻ thư viện',
-        icon: 'lucide:badge-check',
-        active: ['admin.library-cards.manage', 'admin.library-cards.approve', 'admin.library-cards.quick'],
-        children: [
-            { name: 'Quản lý thẻ thư viện', href: 'admin.library-cards.manage', active: 'admin.library-cards.manage' },
-            { name: 'Duyệt yêu cầu cấp thẻ', href: 'admin.library-cards.approve', active: 'admin.library-cards.approve' },
-            { name: 'Cấp thẻ thư viện nhanh', href: 'admin.library-cards.quick', active: 'admin.library-cards.quick' },
         ],
     },
 ];

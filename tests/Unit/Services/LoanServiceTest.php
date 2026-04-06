@@ -15,7 +15,6 @@ use App\Models\Warehouse;
 use App\Services\LoanService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 
 class LoanServiceTest extends TestCase
@@ -31,15 +30,16 @@ class LoanServiceTest extends TestCase
             'holder_type' => LibraryCard::HOLDER_TYPE_EXTERNAL,
             'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
             'status' => LibraryCardStatus::ACTIVE,
-            'is_active' => true,
         ]);
 
         $this->expectException(AuthorizationException::class);
         app(LoanService::class)->assertCanBorrowForHome($user);
     }
 
-    public function test_card_code_mismatch_fails_card_validation(): void
+    public function test_card_code_may_differ_from_user_code_without_failing_validation(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $user = User::factory()->create(['code' => '001112223334', 'user_type' => RoleType::STUDENT]);
         LibraryCard::query()->create([
             'user_id' => $user->id,
@@ -49,10 +49,8 @@ class LoanServiceTest extends TestCase
             'code' => '888877776666',
             'expiry_date' => now()->addYear()->toDateString(),
             'status' => LibraryCardStatus::ACTIVE,
-            'is_active' => true,
         ]);
 
-        $this->expectException(ValidationException::class);
         app(LoanService::class)->assertReaderCardForLoan($user->fresh('libraryCard'));
     }
 
@@ -122,7 +120,6 @@ class LoanServiceTest extends TestCase
             'code' => '009998887761',
             'expiry_date' => now()->addYear()->toDateString(),
             'status' => LibraryCardStatus::ACTIVE,
-            'is_active' => true,
         ]);
 
         $librarian = User::factory()->create(['user_type' => RoleType::LIBRARIAN]);

@@ -33,9 +33,8 @@ return new class extends Migration
             $table->string('photo_path')->nullable();
             $table->string('external_organization', 150)->nullable();
 
-            $table->string('workflow_status', 32)->default('draft')->index();
-            $table->unsignedTinyInteger('status')->default(1)->index();
-            $table->boolean('is_active')->default(true);
+            $table->string('workflow_status', 32)->default('draft')->index()->comment('draft|pending_payment|pending_review|…');
+            $table->unsignedTinyInteger('status')->default(1)->index()->comment('LibraryCardStatus enum int');
 
             $table->date('issue_date')->nullable();
             $table->date('expiry_date')->nullable();
@@ -48,11 +47,10 @@ return new class extends Migration
             $table->timestamp('revoked_at')->nullable();
             $table->text('revoked_reason')->nullable();
 
-            $table->unsignedInteger('created_by')->nullable();
-            $table->unsignedInteger('updated_by')->nullable();
-            $table->unsignedInteger('deleted_by')->nullable();
+            $table->userAuditColumns();
 
             $table->timestamps();
+            $table->softDeletes();
 
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('period_id')->references('id')->on('periods')->nullOnDelete();
@@ -60,9 +58,6 @@ return new class extends Migration
             $table->foreign('department_id')->references('id')->on('departments')->nullOnDelete();
             $table->foreign('issued_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('reviewed_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
 
             $table->index(['holder_type', 'status'], 'library_cards_type_status_index');
         });

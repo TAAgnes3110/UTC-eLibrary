@@ -37,12 +37,4 @@ export const adminNavigation = [
             { name: 'Cấp thẻ tại quầy', href: 'admin.library-cards.counter', active: 'admin.library-cards.counter' },
         ],
     },
-    {
-        name: 'Cấu hình thư viện',
-        icon: 'lucide:sliders',
-        active: ['admin.loan-policies.*'],
-        children: [
-            { name: 'Quy định mượn trả', href: 'admin.loan-policies.index', active: 'admin.loan-policies.*' },
-        ],
-    },
 ];

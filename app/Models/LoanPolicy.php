@@ -27,11 +27,6 @@ class LoanPolicy extends BaseModel
         'allow_onsite' => 'boolean',
     ];
 
-    public function loans()
-    {
-        return $this->hasMany(Loan::class);
-    }
-
     /**
      * Policy áp dụng khi user_type khớp enum RoleType, hoặc cột null = mặc định cho mọi đối tượng.
      */

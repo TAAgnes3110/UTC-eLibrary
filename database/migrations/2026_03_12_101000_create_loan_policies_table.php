@@ -10,23 +10,18 @@ return new class extends Migration
     {
         Schema::create('loan_policies', function (Blueprint $table) {
             $table->id();
-            $table->string('code', 50)->unique()->index();
+            $table->string('code', 50)->unique();
             $table->string('name');
-            $table->string('user_type', 50)->nullable();
-            $table->unsignedInteger('max_books')->default(0);
-            $table->unsignedInteger('max_days')->default(0);
-            $table->unsignedTinyInteger('max_renewals')->default(0);
-            $table->decimal('overdue_fine_per_day', 10, 2)->default(0);
-            $table->boolean('allow_home')->default(true);
-            $table->boolean('allow_onsite')->default(true);
-            $table->json('params')->nullable();
+            $table->string('user_type', 50)->nullable()->index()->comment('Khớp RoleType/user; null = mặc định mọi đối tượng');
+            $table->unsignedInteger('max_books')->default(0)->comment('Số đầu sách mượn tối đa đồng thời');
+            $table->unsignedInteger('max_days')->default(0)->comment('Thời hạn mượn (ngày)');
+            $table->unsignedTinyInteger('max_renewals')->default(0)->comment('Số lần gia hạn tối đa');
+            $table->decimal('overdue_fine_per_day', 10, 2)->default(0)->comment('Phạt mỗi ngày trễ hạn');
+            $table->boolean('allow_home')->default(true)->comment('Được mượn về nhà');
+            $table->boolean('allow_onsite')->default(true)->comment('Được đọc/mượn tại chỗ');
+            $table->json('params')->nullable()->comment('Mở rộng cấu hình');
 
-            $table->unsignedInteger('created_by')->nullable();
-            $table->unsignedInteger('updated_by')->nullable();
-            $table->unsignedInteger('deleted_by')->nullable();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+            $table->userAuditColumns();
 
             $table->timestamps();
         });

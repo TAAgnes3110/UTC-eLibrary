@@ -39,6 +39,7 @@ class LibraryCardManagementService
         ?int $cardStatus = null,
         ?array $keywordColumns = null,
         bool $managementListOnly = false,
+        ?string $sortBy = null,
     ): LengthAwarePaginator {
         $query = LibraryCard::query()
             ->with([
@@ -47,8 +48,7 @@ class LibraryCardManagementService
                 'faculty',
                 'department',
                 'user:id,name,email,code',
-            ])
-            ->orderByDesc('id');
+            ]);
 
         if ($managementListOnly) {
             $query->whereIn('workflow_status', [
@@ -85,6 +85,16 @@ class LibraryCardManagementService
                     $q->orWhere($col, 'like', "%{$kw}%");
                 }
             });
+        }
+
+        if ($sortBy === 'oldest') {
+            $query->orderBy('created_at')->orderBy('id');
+        } elseif ($sortBy === 'name_asc') {
+            $query->orderBy('full_name')->orderByDesc('id');
+        } elseif ($sortBy === 'name_desc') {
+            $query->orderByDesc('full_name')->orderByDesc('id');
+        } else {
+            $query->orderByDesc('created_at')->orderByDesc('id');
         }
 
         return $query->paginate($perPage)->withQueryString();

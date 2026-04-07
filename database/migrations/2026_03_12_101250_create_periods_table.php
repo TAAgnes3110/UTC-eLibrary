@@ -18,10 +18,18 @@ return new class extends Migration
             $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
         });
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->foreign('period_id')->references('id')->on('periods')->nullOnDelete();
+        });
     }
 
     public function down(): void
     {
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropForeign(['period_id']);
+        });
+
         Schema::dropIfExists('periods');
     }
 };

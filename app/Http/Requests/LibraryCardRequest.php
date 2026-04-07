@@ -205,11 +205,11 @@ class LibraryCardRequest extends BaseRequest
     {
         return [
             'code.required' => __('Mã định danh không được để trống'),
-            'code.unique' => __('Mã định danh đã được đăng ký'),
+            'code.unique' => __('Mã định danh đã được sử dụng'),
             'full_name.required' => __('Họ và tên không được để trống'),
             'email.required' => __('Email không được để trống'),
             'email.email' => __('Email không hợp lệ'),
-            'email.unique' => __('Email đã được đăng ký'),
+            'email.unique' => __('Email đã được sử dụng'),
             'date_of_birth.required' => __('Ngày sinh không được để trống'),
             'date_of_birth.date' => __('Ngày sinh không hợp lệ'),
             'photo_path.required' => __('Ảnh thẻ không được để trống'),
@@ -218,7 +218,7 @@ class LibraryCardRequest extends BaseRequest
             'phone.required' => __('Số điện thoại không được để trống'),
             'phone.string' => __('Số điện thoại phải là một chuỗi'),
             'phone.max' => __('Số điện thoại không được vượt quá 20 ký tự'),
-            'phone.unique' => __('Số điện thoại đã tồn tại'),
+            'phone.unique' => __('Số điện thoại đã được sử dụng'),
             'address.unique' => __('Địa chỉ đã tồn tại'),
             'holder_type.in' => __('Loại thẻ không hợp lệ'),
             'faculty_id.required' => __('Khoa không được để trống'),

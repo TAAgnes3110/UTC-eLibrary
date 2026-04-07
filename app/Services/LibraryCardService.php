@@ -115,8 +115,9 @@ class LibraryCardService
         ?int $cardStatus = null,
         ?array $keywordColumns = null,
         bool $managementListOnly = false,
+        ?string $sortBy = null,
     ): LengthAwarePaginator {
-        return $this->management->index($keyword, $perPage, $workflowStatuses, $holderType, $cardStatus, $keywordColumns, $managementListOnly);
+        return $this->management->index($keyword, $perPage, $workflowStatuses, $holderType, $cardStatus, $keywordColumns, $managementListOnly, $sortBy);
     }
 
     public function updatePhoto(LibraryCard $card, UploadedFile $file): LibraryCard

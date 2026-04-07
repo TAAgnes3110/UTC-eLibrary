@@ -9,7 +9,6 @@ use App\Models\BookCopy;
 use App\Models\Department;
 use App\Models\DigitalAsset;
 use App\Models\Faculty;
-use App\Models\Loan;
 use App\Models\ThesisMetadata;
 use App\Models\User;
 use App\Models\Warehouse;
@@ -39,7 +38,6 @@ final class PurgeTrashedCommand extends Command
             BookCopy::class,
             Faculty::class,
             Department::class,
-            Loan::class,
         ];
 
         $total = 0;

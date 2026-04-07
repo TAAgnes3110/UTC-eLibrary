@@ -20,6 +20,7 @@ function translateEnglishRegisterError(key, message) {
         name: 'Họ và tên không được để trống.',
         code: 'Mã định danh không được để trống.',
         email: 'Email không được để trống.',
+        phone: 'Số điện thoại không được để trống.',
         password: 'Mật khẩu không được để trống.',
         password_confirmation: 'Xác nhận mật khẩu không được để trống.',
         user_type: 'Loại tài khoản không hợp lệ.',

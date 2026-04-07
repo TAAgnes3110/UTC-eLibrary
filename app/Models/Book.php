@@ -106,6 +106,11 @@ class Book extends BaseModel
         return $this->hasMany(BookCopy::class);
     }
 
+    public function loanItems(): HasMany
+    {
+        return $this->hasMany(LoanItem::class);
+    }
+
     public function digitalAssets(): HasMany
     {
         return $this->hasMany(DigitalAsset::class);

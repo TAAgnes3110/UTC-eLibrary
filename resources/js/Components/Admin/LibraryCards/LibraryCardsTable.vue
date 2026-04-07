@@ -91,7 +91,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                         >
                             Trạng thái thẻ
                         </th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[120px]">Thao tác</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[220px]">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -169,25 +169,27 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                             </span>
                         </td>
                         <td class="p-4 align-middle whitespace-nowrap">
-                            <div class="flex flex-nowrap justify-start gap-0.5">
+                            <div class="flex flex-nowrap justify-start gap-1">
                                 <template v-if="reviewMode">
                                     <button
                                         v-if="showApprove && row.workflow_status === 'pending_review'"
                                         type="button"
-                                        class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
+                                        class="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
                                         title="Đồng ý — kích hoạt thẻ"
                                         @click="emit('approve', row)"
                                     >
-                                        <Icon icon="lucide:check-circle" class="w-3.5 h-3.5" />
+                                        <Icon icon="lucide:check-circle-2" class="w-3.5 h-3.5 shrink-0" />
+                                        <span class="leading-none">Đồng ý</span>
                                     </button>
                                     <button
                                         v-if="showApprove && row.workflow_status === 'pending_review'"
                                         type="button"
-                                        class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                        class="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[12px] font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45 transition-colors"
                                         title="Từ chối hồ sơ"
                                         @click="emit('reject', row)"
                                     >
-                                        <Icon icon="lucide:x-circle" class="w-3.5 h-3.5" />
+                                        <Icon icon="lucide:x-circle" class="w-3.5 h-3.5 shrink-0" />
+                                        <span class="leading-none">Từ chối</span>
                                     </button>
                                 </template>
                                 <template v-else>

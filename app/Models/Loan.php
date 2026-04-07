@@ -2,28 +2,26 @@
 
 namespace App\Models;
 
-use App\Models\Traits\HasAuditFields;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Loan extends BaseModel
 {
-    use HasAuditFields;
-    use SoftDeletes;
+    public const STATUS_BORROWING = 'dang_muon';
+
+    public const STATUS_RETURNED = 'da_tra';
+
+    public const STATUS_OVERDUE = 'qua_han';
 
     protected $fillable = [
-        'user_id',
+        'library_card_id',
         'book_copy_id',
-        'loan_policy_id',
-        'librarian_id',
+        'user_id',
         'loan_date',
         'due_date',
         'return_date',
-        'overdue_days',
-        'overdue_fine',
         'status',
-        'condition_on_loan',
-        'condition_on_return',
-        'renewal_count',
         'notes',
         'params',
     ];
@@ -32,29 +30,42 @@ class Loan extends BaseModel
         'loan_date' => 'date',
         'due_date' => 'date',
         'return_date' => 'date',
-        'overdue_days' => 'integer',
-        'overdue_fine' => 'decimal:2',
-        'renewal_count' => 'integer',
         'params' => 'array',
     ];
 
-    public function user()
+    /**
+     * Bạn đọc có tài khoản: loan → library_card → user.
+     */
+    public function reader(): HasOneThrough
     {
-        return $this->belongsTo(User::class);
+        return $this->hasOneThrough(
+            User::class,
+            LibraryCard::class,
+            'id',
+            'id',
+            'library_card_id',
+            'user_id'
+        );
     }
 
-    public function librarian()
+    public function librarian(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'librarian_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function bookCopy()
+    public function bookCopy(): BelongsTo
     {
         return $this->belongsTo(BookCopy::class);
     }
 
-    public function policy()
+    public function libraryCard(): BelongsTo
     {
-        return $this->belongsTo(LoanPolicy::class, 'loan_policy_id');
+        return $this->belongsTo(LibraryCard::class);
+    }
+
+    /** Chi tiết đầu sách trên phiếu (sach + số lượng + tình trạng + phạt dòng). */
+    public function items(): HasMany
+    {
+        return $this->hasMany(LoanItem::class);
     }
 }

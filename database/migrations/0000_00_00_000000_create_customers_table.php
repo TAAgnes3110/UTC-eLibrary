@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('code')->nullable();
             $table->json('params')->nullable();
-            $table->tinyInteger('status')->default(1);
+            $table->tinyInteger('status')->default(1)->index()->comment('Trạng thái bản ghi (domain-specific)');
             $table->timestamps();
         });
     }

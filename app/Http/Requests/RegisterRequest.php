@@ -20,7 +20,7 @@ class RegisterRequest extends BaseRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone'],
+            'phone' => ['required', 'string', 'max:20', 'unique:users,phone'],
             'user_type' => [Rule::in([
                 RoleType::STUDENT->value,
                 RoleType::TEACHER->value,
@@ -47,6 +47,7 @@ class RegisterRequest extends BaseRequest
             'email.email' => 'Email không hợp lệ.',
             'email.max' => 'Email quá dài.',
             'email.unique' => 'Email đã được đăng ký.',
+            'phone.required' => 'Số điện thoại không được để trống.',
             'phone.unique' => 'Số điện thoại đã được sử dụng.',
             'phone.max' => 'Số điện thoại không hợp lệ.',
             'password.required' => 'Mật khẩu không được để trống.',

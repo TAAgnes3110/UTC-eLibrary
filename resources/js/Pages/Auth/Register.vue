@@ -112,6 +112,7 @@ const {
                                 id="phone"
                                 label="Số điện thoại"
                                 :error="form.errors.phone"
+                                required
                             >
                                 <template #icon><Phone :size="18" /></template>
                                 <input

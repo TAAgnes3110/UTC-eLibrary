@@ -47,6 +47,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
             ? {
                   searchIn: defaultSearchIn(),
                   holderType: '',
+                  sortBy: 'newest',
               }
             : {}),
     });
@@ -119,6 +120,9 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 if (fv.holderType) {
                     params.holder_type = fv.holderType;
                 }
+                if (fv.sortBy) {
+                    params.sort_by = fv.sortBy;
+                }
                 const searchIn = buildSearchInQueryParam();
                 if (searchIn) {
                     params.search_in = searchIn;
@@ -156,6 +160,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         };
         watch(() => filterValues.value.holderType, reloadRequestsFilters);
         watch(() => filterValues.value.searchIn, reloadRequestsFilters, { deep: true });
+        watch(() => filterValues.value.sortBy, reloadRequestsFilters);
     }
 
     const selectedIds = ref([]);

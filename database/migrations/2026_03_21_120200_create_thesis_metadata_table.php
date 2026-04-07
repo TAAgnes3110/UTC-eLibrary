@@ -22,15 +22,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            // Audit columns
-            $table->unsignedInteger('created_by')->nullable();
-            $table->unsignedInteger('updated_by')->nullable();
-            $table->unsignedInteger('deleted_by')->nullable();
-
             $table->foreign('supervisor_user_id')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+            $table->userAuditColumns();
         });
     }
 

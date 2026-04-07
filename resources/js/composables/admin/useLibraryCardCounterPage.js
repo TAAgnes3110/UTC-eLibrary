@@ -62,6 +62,44 @@ function resolveAddressForApi(f) {
     return `(Chưa cung cấp) — ${key}`;
 }
 
+function firstErrorText(errors, field) {
+    const arr = errors?.[field];
+    return Array.isArray(arr) && arr.length ? String(arr[0]) : '';
+}
+
+function buildDuplicateFriendlyMessage(error) {
+    const status = error?.response?.status;
+    const data = error?.response?.data || {};
+    if (status !== 422) {
+        return String(data?.messages || data?.message || 'Không tạo được thẻ.');
+    }
+
+    const errors = data?.errors || {};
+    const codeErr = firstErrorText(errors, 'code');
+    const emailErr = firstErrorText(errors, 'email');
+    const phoneErr = firstErrorText(errors, 'phone');
+
+    const duplicated = [];
+    if (codeErr.toLowerCase().includes('đã')) duplicated.push('mã định danh');
+    if (emailErr.toLowerCase().includes('đã')) duplicated.push('email');
+    if (phoneErr.toLowerCase().includes('đã')) duplicated.push('số điện thoại');
+
+    if (duplicated.length === 1) {
+        return `${duplicated[0].charAt(0).toUpperCase() + duplicated[0].slice(1)} đã được sử dụng.`;
+    }
+    if (duplicated.length > 1) {
+        const msg = `${duplicated.join(', ')} đã được sử dụng.`;
+        return msg.charAt(0).toUpperCase() + msg.slice(1);
+    }
+
+    const firstFieldError = Object.values(errors).flat().find(Boolean);
+    if (firstFieldError) {
+        return String(firstFieldError);
+    }
+
+    return String(data?.messages || data?.message || 'Dữ liệu không hợp lệ.');
+}
+
 /**
  * Cấp thẻ tại quầy — 2 luồng: đã có tài khoản / chưa có tài khoản.
  * @param {object} props faculties, periods
@@ -156,6 +194,10 @@ export function useLibraryCardCounterPage(props) {
             toast.error('Họ tên và email là bắt buộc.', { title: 'Thiếu thông tin' });
             return;
         }
+        if (!String(f.phone || '').trim()) {
+            toast.error('Số điện thoại là bắt buộc.', { title: 'Thiếu thông tin' });
+            return;
+        }
         if (!String(f.code || '').trim()) {
             toast.error('Mã định danh không được để trống.', { title: 'Thiếu thông tin' });
             return;
@@ -224,8 +266,7 @@ export function useLibraryCardCounterPage(props) {
             toast.success('Đã tạo hồ sơ thẻ.', { title: 'Thành công' });
             setFlowMode(flowMode.value);
         } catch (e) {
-            const msg = e?.response?.data?.messages || e?.response?.data?.message || 'Không tạo được thẻ.';
-            toast.error(msg, { title: 'Lỗi' });
+            toast.error(buildDuplicateFriendlyMessage(e), { title: 'Lỗi' });
         } finally {
             submitLoading.value = false;
         }

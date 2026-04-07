@@ -2,24 +2,29 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Post extends BaseModel
+class SiteContent extends BaseModel
 {
-    use HasFactory;
+    public const KIND_PAGE = 'page';
 
-    protected $table = 'posts';
+    public const KIND_POST = 'post';
+
+    public const KIND_SERVICE = 'service';
+
+    protected $table = 'site_contents';
 
     protected $fillable = [
+        'kind',
         'slug',
         'title',
         'excerpt',
         'content',
-        'type',
+        'subtype',
+        'author_id',
         'is_published',
         'published_at',
-        'author_id',
         'params',
     ];
 
@@ -35,5 +40,15 @@ class Post extends BaseModel
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'author_id');
+    }
+
+    public function scopeKind(Builder $query, string $kind): Builder
+    {
+        return $query->where('kind', $kind);
+    }
+
+    public function scopePublished(Builder $query): Builder
+    {
+        return $query->where('is_published', true);
     }
 }

@@ -187,19 +187,6 @@ function onPhotoChange(e) {
                                     <option v-for="f in c.faculties" :key="f.id" :value="String(f.id)">{{ f.code }} — {{ f.name }}</option>
                                 </select>
                             </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="text-xs font-semibold text-slate-500">Niên khóa</label>
-                                    <select v-model="c.form.period_id" class="admin-filter-select w-full mt-1 min-h-[44px]">
-                                        <option value="">—</option>
-                                        <option v-for="p in c.periods" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="text-xs font-semibold text-slate-500">Lớp / mã lớp</label>
-                                    <input v-model="c.form.class_code" type="text" class="admin-filter-input w-full mt-1 min-h-[44px]" />
-                                </div>
-                            </div>
                         </template>
 
                         <template v-if="c.form.holder_type === c.LibraryCard.HOLDER_EXTERNAL">

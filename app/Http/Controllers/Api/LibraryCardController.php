@@ -37,6 +37,7 @@ class LibraryCardController extends Controller
         $cardStatus = $this->parseCardStatusFilter($request);
         $keywordColumns = $this->parseSearchInFilter($request);
         $managementListOnly = $request->boolean('management');
+        $sortBy = $this->parseSortByFilter($request);
         $items = $this->libraryCardService->index(
             $keyword,
             $perPage,
@@ -45,6 +46,7 @@ class LibraryCardController extends Controller
             $cardStatus,
             $keywordColumns,
             $managementListOnly,
+            $sortBy,
         );
 
         return ApiResponse::success(LibraryCardResource::collection($items));
@@ -137,6 +139,17 @@ class LibraryCardController extends Controller
         $filtered = array_values(array_intersect($candidates, $allowed));
 
         return $filtered === [] ? null : $filtered;
+    }
+
+    private function parseSortByFilter(Request $request): ?string
+    {
+        if (! $request->filled('sort_by')) {
+            return null;
+        }
+        $v = (string) $request->input('sort_by');
+        $allowed = ['newest', 'oldest', 'name_asc', 'name_desc'];
+
+        return in_array($v, $allowed, true) ? $v : null;
     }
 
     public function show(LibraryCard $library_card): JsonResponse

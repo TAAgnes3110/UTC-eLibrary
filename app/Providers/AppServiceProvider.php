@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Enums\RoleType;
+use App\Support\Database\MigrationBlueprintMacros;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -29,6 +30,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        MigrationBlueprintMacros::register();
+
         if (str_contains(config('app.url'), 'https')) {
             URL::forceScheme('https');
         }

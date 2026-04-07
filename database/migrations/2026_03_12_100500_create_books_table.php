@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('books', function (Blueprint $table) {
             $table->id();
-            $table->string('registration_number')->nullable()->unique()->index();
+            $table->string('registration_number')->nullable()->unique();
             $table->string('book_code')->nullable()->index();
             $table->string('title')->required()->index();
             $table->string('sub_title')->nullable();
@@ -31,19 +31,14 @@ return new class extends Migration
             $table->string('cover_image')->nullable();
             $table->foreignId('classification_id')->nullable()->constrained('classifications')->nullOnDelete();
             $table->foreignId('classification_detail_id')->nullable()->constrained('classification_details')->nullOnDelete();
-            $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete()->required();
+            $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
 
             $table->string('resource_type', 20)->default('reference')->comment('Loại tài liệu: textbook, reference, thesis, journal, digital');
-            $table->string('access_mode', 20)->default('circulation_only');
+            $table->string('access_mode', 20)->default('circulation_only')->comment('circulation_only|onsite|digital|…');
 
             $table->json('params')->nullable();
 
-            $table->unsignedInteger('created_by')->nullable();
-            $table->unsignedInteger('updated_by')->nullable();
-            $table->unsignedInteger('deleted_by')->nullable();
-            $table->foreign('created_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('updated_by')->references('id')->on('users')->nullOnDelete();
-            $table->foreign('deleted_by')->references('id')->on('users')->nullOnDelete();
+            $table->userAuditColumns();
 
             $table->timestamps();
             $table->softDeletes();

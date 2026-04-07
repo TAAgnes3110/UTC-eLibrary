@@ -2,9 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\CmsPage;
-use App\Models\LibraryService;
-use App\Models\Post;
+use App\Models\SiteContent;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
@@ -15,12 +13,11 @@ class CmsAndContentSeeder extends Seeder
     {
         $now = now();
 
-        // Giới thiệu & Quy định chính (bám theo cấu trúc lib.utc.edu.vn)
         $pages = [
             [
                 'slug' => 'gioi-thieu-thu-vien-utc',
                 'title' => 'Giới thiệu Thư viện Trường Đại học Giao thông Vận tải',
-                'type' => 'intro',
+                'subtype' => 'intro',
                 'excerpt' => 'Thông tin tổng quan về Trung tâm Thông tin – Thư viện Trường Đại học Giao thông Vận tải.',
                 'content' => <<<'HTML'
 <p>Trung tâm Thông tin – Thư viện Trường Đại học Giao thông Vận tải là đơn vị phục vụ đào tạo, nghiên cứu khoa học và học tập của cán bộ, giảng viên, sinh viên toàn trường.</p>
@@ -30,7 +27,7 @@ HTML,
             [
                 'slug' => 'chuc-nang-nhiem-vu-thu-vien',
                 'title' => 'Chức năng, nhiệm vụ',
-                'type' => 'intro',
+                'subtype' => 'intro',
                 'excerpt' => 'Chức năng, nhiệm vụ chính của Trung tâm Thông tin – Thư viện.',
                 'content' => <<<'HTML'
 <ul>
@@ -45,7 +42,7 @@ HTML,
             [
                 'slug' => 'lich-su-thanh-tich-thu-vien',
                 'title' => 'Lịch sử, thành tích',
-                'type' => 'intro',
+                'subtype' => 'intro',
                 'excerpt' => 'Lược sử hình thành và phát triển của Thư viện Trường ĐH GTVT.',
                 'content' => <<<'HTML'
 <p>Thư viện Trường Đại học Giao thông Vận tải được hình thành và phát triển cùng với quá trình xây dựng và trưởng thành của Nhà trường.</p>
@@ -55,7 +52,7 @@ HTML,
             [
                 'slug' => 'quy-dinh-su-dung-thu-vien',
                 'title' => 'Quy định sử dụng Thư viện',
-                'type' => 'rule',
+                'subtype' => 'rule',
                 'excerpt' => 'Quy định sử dụng tài liệu, không gian và dịch vụ tại Thư viện UTC.',
                 'content' => <<<'HTML'
 <ul>
@@ -70,7 +67,7 @@ HTML,
             [
                 'slug' => 'thu-tuc-lam-the-thu-vien',
                 'title' => 'Thủ tục làm thẻ Thư viện',
-                'type' => 'rule',
+                'subtype' => 'rule',
                 'excerpt' => 'Hướng dẫn đăng ký và sử dụng thẻ thư viện.',
                 'content' => <<<'HTML'
 <ol>
@@ -85,7 +82,7 @@ HTML,
             [
                 'slug' => 'lich-phuc-vu-thu-vien',
                 'title' => 'Lịch phục vụ Thư viện',
-                'type' => 'rule',
+                'subtype' => 'rule',
                 'excerpt' => 'Giờ mở cửa và lịch phục vụ tại các phòng đọc, phòng mượn.',
                 'content' => <<<'HTML'
 <p>Giờ mở cửa chung: <strong>08:15 - 16:45</strong> (từ thứ Hai đến thứ Sáu, trừ ngày lễ, Tết theo quy định của Nhà trường).</p>
@@ -96,7 +93,7 @@ HTML,
             [
                 'slug' => 'thu-tuc-nop-luan-van-luan-an',
                 'title' => 'Thủ tục nộp luận văn, luận án',
-                'type' => 'rule',
+                'subtype' => 'rule',
                 'excerpt' => 'Quy định về việc nộp và lưu chiểu luận văn, luận án tại Thư viện.',
                 'content' => <<<'HTML'
 <ol>
@@ -113,21 +110,17 @@ HTML,
             $params = $data['params'] ?? [];
             unset($data['params']);
 
-            CmsPage::firstOrCreate(
+            SiteContent::firstOrCreate(
                 ['slug' => $data['slug']],
-                [
-                    'title' => $data['title'],
-                    'excerpt' => $data['excerpt'] ?? null,
-                    'content' => $data['content'] ?? null,
-                    'type' => $data['type'],
+                array_merge($data, [
+                    'kind' => SiteContent::KIND_PAGE,
                     'is_published' => true,
                     'published_at' => $now,
                     'params' => $params,
-                ]
+                ])
             );
         }
 
-        // Dịch vụ thư viện: mượn về, đọc tại chỗ, tra cứu theo yêu cầu...
         $services = [
             [
                 'code' => 'MUON_VE_NHA',
@@ -157,33 +150,40 @@ HTML,
         ];
 
         foreach ($services as $service) {
-            LibraryService::firstOrCreate(
-                ['code' => $service['code']],
-                array_merge($service, [
-                    'is_active' => true,
+            $slug = Str::slug($service['code']);
+            SiteContent::firstOrCreate(
+                ['slug' => $slug],
+                [
+                    'kind' => SiteContent::KIND_SERVICE,
+                    'title' => $service['name'],
+                    'excerpt' => null,
+                    'content' => $service['description'],
+                    'subtype' => $service['code'],
+                    'author_id' => null,
+                    'is_published' => true,
+                    'published_at' => $now,
                     'params' => [],
-                ])
+                ]
             );
         }
 
-        // Một vài tin tức / thông báo mẫu
         $admin = User::where('email', 'admin@utc.edu.vn')->first();
         $authorId = $admin?->id;
 
         $posts = [
             [
                 'title' => 'Giới thiệu sách mới: Lý thuyết thiết kế và tính toán cầu hiện đại',
-                'type' => 'news',
+                'subtype' => 'news',
                 'excerpt' => 'Giới thiệu tới bạn đọc cuốn sách về lý thuyết thiết kế và tính toán cầu hiện đại cho ngành GTVT.',
             ],
             [
                 'title' => 'Khảo sát chất lượng dịch vụ Thư viện kỳ II',
-                'type' => 'announcement',
+                'subtype' => 'announcement',
                 'excerpt' => 'Thư viện tổ chức khảo sát ý kiến bạn đọc về chất lượng dịch vụ kỳ II nhằm nâng cao hiệu quả phục vụ.',
             ],
             [
                 'title' => 'Hướng dẫn tân sinh viên sử dụng Thư viện',
-                'type' => 'announcement',
+                'subtype' => 'announcement',
                 'excerpt' => 'Thông tin dành cho tân sinh viên về cách đăng ký thẻ và sử dụng các dịch vụ tại Thư viện.',
             ],
         ];
@@ -191,13 +191,14 @@ HTML,
         foreach ($posts as $item) {
             $slug = Str::slug($item['title']);
 
-            Post::firstOrCreate(
+            SiteContent::firstOrCreate(
                 ['slug' => $slug],
                 [
+                    'kind' => SiteContent::KIND_POST,
                     'title' => $item['title'],
                     'excerpt' => $item['excerpt'] ?? null,
                     'content' => null,
-                    'type' => $item['type'],
+                    'subtype' => $item['subtype'],
                     'is_published' => true,
                     'published_at' => $now,
                     'author_id' => $authorId,

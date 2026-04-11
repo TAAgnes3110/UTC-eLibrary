@@ -4,6 +4,7 @@ import { libraryCardsApi } from '@/api/libraryCards';
 import { toast } from '@/store/toast';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { LIBRARY_CARD_SEARCH_IN_OPTIONS } from '@/config/libraryCardUi';
+import { extractApiPaginator } from '@/utils/adminPagination';
 
 const FIELD_MAP = {
     full_name: 'full_name',
@@ -70,39 +71,6 @@ export function useLibraryCardsAdminPage(props, options = {}) {
     const facultiesList = computed(() => props.faculties ?? []);
     const periodsList = computed(() => props.periods ?? []);
 
-    /**
-     * API thẻ: ApiResponse bọc ResourceCollection + paginator — khi JSON hóa, `payload.data`
-     * có thể là mảng bản ghi trực tiếp (không có `data` lồng) hoặc object phân trang.
-     */
-    function extractPaginator(payload) {
-        const inner = payload?.data;
-        if (Array.isArray(inner)) {
-            return {
-                items: inner,
-                meta: {
-                    current_page: 1,
-                    last_page: 1,
-                    total: inner.length,
-                },
-            };
-        }
-        if (inner && typeof inner === 'object' && Array.isArray(inner.data)) {
-            const items = inner.data;
-            return {
-                items,
-                meta: {
-                    current_page: inner.current_page ?? 1,
-                    last_page: inner.last_page ?? 1,
-                    total: inner.total ?? items.length,
-                },
-            };
-        }
-        return {
-            items: [],
-            meta: { current_page: 1, last_page: 1, total: 0 },
-        };
-    }
-
     const loadCards = async () => {
         loadingFallback.value = true;
         try {
@@ -132,9 +100,14 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 params,
             });
             const payload = response?.data;
-            const { items, meta: m } = extractPaginator(payload);
+            const { items, meta: m } = extractApiPaginator(payload, 50);
             cards.value = items;
-            meta.value = m;
+            meta.value = {
+                current_page: m.current_page,
+                last_page: m.last_page,
+                total: m.total,
+            };
+            pageNum.value = m.current_page;
         } catch (e) {
             console.error('loadCards', e);
             cards.value = [];

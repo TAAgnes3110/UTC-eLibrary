@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AuthController as BackendAuthController;
 use App\Http\Controllers\Frontend\Admin\BookPageController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\LibraryCardPageController;
+use App\Http\Controllers\Frontend\Admin\LibrarySettingsPageController;
+use App\Http\Controllers\Frontend\Admin\LoanPageController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
 use App\Http\Controllers\Frontend\Admin\WarehousePageController;
@@ -39,9 +41,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
+        Route::get('/library-settings', [LibrarySettingsPageController::class, 'index'])->name('library-settings.index');
         Route::get('/library-cards', [LibraryCardPageController::class, 'index'])->name('library-cards.index');
         Route::get('/library-cards/requests', [LibraryCardPageController::class, 'requests'])->name('library-cards.requests');
         Route::get('/library-cards/counter', [LibraryCardPageController::class, 'counter'])->name('library-cards.counter');
+        Route::get('/loans', [LoanPageController::class, 'index'])->name('loans.index');
+        Route::get('/loans/create', [LoanPageController::class, 'create'])->name('loans.create');
+        Route::get('/loans/{loan}', [LoanPageController::class, 'show'])->name('loans.show');
+        Route::get('/loans/{loan}/edit', [LoanPageController::class, 'edit'])->name('loans.edit');
+        Route::get('/loans/{loan}/return', [LoanPageController::class, 'returnPage'])->name('loans.return');
     });
 
 });

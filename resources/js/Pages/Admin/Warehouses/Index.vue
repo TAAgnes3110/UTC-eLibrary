@@ -9,11 +9,14 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import WarehousesTable from '@/Components/Admin/Warehouses/WarehousesTable.vue';
 import WarehouseFormModal from '@/Components/Admin/Warehouses/WarehouseFormModal.vue';
 import { useWarehousesAdminPage, WAREHOUSES_SEARCH_IN_OPTIONS } from '@/composables/admin/useWarehousesAdminPage';
 
 const {
+    warehousesPagination,
+    goWarehousesPage,
     loading,
     showModal,
     showDeleteModal,
@@ -125,6 +128,14 @@ const {
                 @toggle="toggleSelect"
                 @edit="openEditModal"
                 @delete="confirmDelete"
+            />
+
+            <AdminPaginationBar
+                always-show
+                :current-page="warehousesPagination.current_page"
+                :last-page="warehousesPagination.last_page"
+                :disabled="loading"
+                @go-page="goWarehousesPage"
             />
         </div>
 

@@ -4,13 +4,27 @@ namespace App\Enums;
 
 enum LoanStatus: string
 {
-    case PENDING = 'pending';
+    /** Đã mượn (chưa trả). */
+    case BORROWED = 'da_muon';
 
-    case ACTIVE = 'active';
+    case RETURNED = 'da_tra';
 
-    case OVERDUE = 'overdue';
+    case OVERDUE = 'qua_han';
 
-    case RETURNED = 'returned';
+    public function label(): string
+    {
+        return match ($this) {
+            self::BORROWED => 'Đang mượn',
+            self::RETURNED => 'Đã trả',
+            self::OVERDUE => 'Quá hạn',
+        };
+    }
 
-    case PARTIAL = 'partial';
+    /**
+     * @return list<string>
+     */
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
 }

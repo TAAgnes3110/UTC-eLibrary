@@ -31,7 +31,9 @@ class UserController extends Controller
     {
         $keyword = $request->input('keyword');
         $typeReader = $request->input('type') === 'reader';
-        $items = $this->userService->index($keyword, $typeReader);
+        $perPage = (int) $request->input('per_page', 50);
+        $perPage = $perPage < 1 ? 50 : min($perPage, 100);
+        $items = $this->userService->index($keyword, $typeReader, $perPage);
 
         return ApiResponse::success(UserResource::collection($items));
     }

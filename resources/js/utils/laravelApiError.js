@@ -38,6 +38,33 @@ export const BOOK_ERROR_DISPLAY_KEYS = new Set([
 
 export const WAREHOUSE_ERROR_DISPLAY_KEYS = new Set(['code', 'name', 'general']);
 
+export const LOAN_POLICY_ERROR_DISPLAY_KEYS = new Set([
+    'code',
+    'name',
+    'user_type',
+    'max_books',
+    'max_days',
+    'max_renewals',
+    'overdue_fine_per_day',
+    'allow_home',
+    'allow_onsite',
+    'params',
+    'general',
+]);
+
+export const LOAN_POLICY_FORM_FIELD_MAP = {
+    code: 'code',
+    name: 'name',
+    user_type: 'user_type',
+    max_books: 'max_books',
+    max_days: 'max_days',
+    max_renewals: 'max_renewals',
+    overdue_fine_per_day: 'overdue_fine_per_day',
+    allow_home: 'allow_home',
+    allow_onsite: 'allow_onsite',
+    params: 'params',
+};
+
 export const USER_ERROR_DISPLAY_KEYS = new Set([
     'name',
     'email',

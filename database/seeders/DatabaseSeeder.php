@@ -18,10 +18,12 @@ class DatabaseSeeder extends Seeder
             ClassificationSeeder::class,
             ClassificationDetailSeeder::class,
             DefaultUsersSeeder::class,
+            LoanPoliciesSeeder::class,
             CmsAndContentSeeder::class,
             PeriodSeeder::class,
             BookSampleSeeder::class,
             LibraryCardSampleSeeder::class,
+            ManagementPaginationSeeder::class,
         ]);
     }
 }

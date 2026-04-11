@@ -13,6 +13,8 @@ use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardStaffController;
 use App\Http\Controllers\Api\LibraryCard\MeLibraryCardController;
 use App\Http\Controllers\Api\LibraryCardController;
+use App\Http\Controllers\Api\LoanController;
+use App\Http\Controllers\Api\LoanPoliciesController;
 use App\Http\Controllers\Api\MasterDataController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
@@ -163,6 +165,22 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{warehouse}', [WarehouseController::class, 'show']);
                 Route::put('/{warehouse}', [WarehouseController::class, 'update']);
                 Route::delete('/{warehouse}', [WarehouseController::class, 'destroy']);
+            });
+
+            Route::group(['prefix' => 'loan-policies'], function () {
+                Route::get('/', [LoanPoliciesController::class, 'index']);
+                Route::post('/', [LoanPoliciesController::class, 'store']);
+                Route::put('/{loan_policy}', [LoanPoliciesController::class, 'update']);
+            });
+
+            Route::group(['prefix' => 'loans'], function () {
+                Route::get('/', [LoanController::class, 'index']);
+                Route::get('/export', [LoanController::class, 'export']);
+                Route::post('/', [LoanController::class, 'store']);
+                Route::get('/{loan}', [LoanController::class, 'show']);
+                Route::put('/{loan}', [LoanController::class, 'update']);
+                Route::delete('/{loan}', [LoanController::class, 'destroy']);
+                Route::post('/{loan}/return', [LoanController::class, 'return']);
             });
 
             Route::group(['prefix' => '/authors'], function () {

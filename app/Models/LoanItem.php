@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LoanItemCondition;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LoanItem extends BaseModel
@@ -14,13 +15,13 @@ class LoanItem extends BaseModel
         'condition_on_return',
         'fine_amount',
         'notes',
-        'params',
     ];
 
     protected $casts = [
         'quantity' => 'integer',
+        'condition_on_loan' => LoanItemCondition::class,
+        'condition_on_return' => LoanItemCondition::class,
         'fine_amount' => 'decimal:2',
-        'params' => 'array',
     ];
 
     public function loan(): BelongsTo

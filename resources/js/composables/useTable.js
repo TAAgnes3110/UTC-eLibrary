@@ -1,5 +1,6 @@
 /**
- * Composable: logic bảng (selection, pagination, loading) — dùng chung cho Admin list pages.
+ * Composable: logic bảng (selection, pagination meta, loading) — dùng chung cho Admin list pages.
+ * Giao diện phân trang: `AdminPaginationBar.vue`, hàm `buildAdminPaginationItems` — `@/utils/adminPagination`.
  */
 import { ref, computed } from 'vue';
 

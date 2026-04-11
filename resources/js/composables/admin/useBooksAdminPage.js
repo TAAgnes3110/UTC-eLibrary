@@ -7,6 +7,9 @@ import { toast } from '@/store/toast';
 import { BOOK_FORM_FIELD_MAP } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
+import { extractApiPaginator } from '@/utils/adminPagination';
+
+const BOOKS_PER_PAGE = 50;
 
 function matchLookupId(list, text) {
     const raw = (text || '').trim();
@@ -46,6 +49,13 @@ export function useBooksAdminPage() {
     const pageLabel = computed(() => (pageKind.value === 'digital' ? 'Tài liệu số' : 'Sách in'));
 
     const books = ref([]);
+    const booksPageNum = ref(1);
+    const booksListMeta = ref({
+        current_page: 1,
+        last_page: 1,
+        per_page: BOOKS_PER_PAGE,
+        total: 0,
+    });
     const warehouses = ref([]);
     const saveBookLoading = ref(false);
 
@@ -74,6 +84,22 @@ export function useBooksAdminPage() {
     });
 
     const showFilterPanel = ref(false);
+
+    const booksPagination = computed(() => ({
+        current_page: booksListMeta.value.current_page,
+        last_page: booksListMeta.value.last_page,
+        per_page: booksListMeta.value.per_page,
+        total: booksListMeta.value.total,
+    }));
+
+    const goBooksPage = (page) => {
+        const p = Number(page);
+        if (!Number.isFinite(p) || p < 1 || p > booksListMeta.value.last_page) {
+            return;
+        }
+        booksPageNum.value = p;
+        loadBooks();
+    };
 
     const showModal = ref(false);
     const isEditing = ref(false);
@@ -169,23 +195,32 @@ export function useBooksAdminPage() {
         try {
             const response = await apiClient.get('/books', {
                 params: {
-                    per_page: 50,
+                    per_page: BOOKS_PER_PAGE,
+                    page: booksPageNum.value,
                     keyword: filterValues.value.searchKeyword || undefined,
                     ...(resourceTypeFilter.value ? { resource_type: resourceTypeFilter.value } : {}),
                 },
             });
             const payload = response?.data;
-            const paginator = payload?.data;
-            const items = Array.isArray(paginator?.data)
-                ? paginator.data
-                : Array.isArray(paginator)
-                  ? paginator
-                  : [];
+            const { items, meta } = extractApiPaginator(payload, BOOKS_PER_PAGE);
             books.value = items;
+            booksListMeta.value = {
+                current_page: meta.current_page,
+                last_page: meta.last_page,
+                per_page: meta.per_page,
+                total: meta.total,
+            };
+            booksPageNum.value = meta.current_page;
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error('Failed to load books', e);
             books.value = [];
+            booksListMeta.value = {
+                current_page: 1,
+                last_page: 1,
+                per_page: BOOKS_PER_PAGE,
+                total: 0,
+            };
         } finally {
             loading.value = false;
         }
@@ -235,6 +270,7 @@ export function useBooksAdminPage() {
     watch(
         () => page.props.resourceTypeFilter ?? '',
         () => {
+            booksPageNum.value = 1;
             loadBooks();
         },
         { immediate: true },
@@ -245,6 +281,7 @@ export function useBooksAdminPage() {
         () => {
             if (booksSearchDebounce) clearTimeout(booksSearchDebounce);
             booksSearchDebounce = setTimeout(() => {
+                booksPageNum.value = 1;
                 loadBooks();
             }, 350);
         },
@@ -770,6 +807,8 @@ export function useBooksAdminPage() {
         pageKind,
         pageLabel,
         books,
+        booksPagination,
+        goBooksPage,
         warehouses,
         saveBookLoading,
         loading,

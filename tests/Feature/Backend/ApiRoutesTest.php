@@ -3,7 +3,6 @@
 namespace Tests\Feature\Backend;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -42,11 +41,12 @@ class ApiRoutesTest extends TestCase
     /**
      * Các route bảo vệ trả 401 khi không có token.
      *
+     * @dataProvider protectedRoutesProvider
+     *
      * @param  string  $method  GET, POST, PUT, PATCH, DELETE
      * @param  string  $uri  URL route
      * @param  array<string, mixed>  $data  Dữ liệu body (POST/PUT)
      */
-    #[DataProvider('protectedRoutesProvider')]
     public function test_protected_routes_return_401_without_auth(
         string $method,
         string $uri,
@@ -65,7 +65,15 @@ class ApiRoutesTest extends TestCase
             $response = $this->deleteJson($uri);
         }
 
-        $this->assertContains($response->status(), $allowedStatuses);
+        if (! in_array($response->status(), $allowedStatuses, true)) {
+            throw new \RuntimeException(sprintf(
+                'Unexpected status %s for %s %s. Allowed: %s',
+                $response->status(),
+                $method,
+                $uri,
+                implode(', ', $allowedStatuses)
+            ));
+        }
     }
 
     /**
@@ -179,6 +187,9 @@ class ApiRoutesTest extends TestCase
             'library-cards approve-review' => ['POST', "{$base}/library-cards/1/approve-review", [], [401, 404]],
             'library-cards reject-review' => ['POST', "{$base}/library-cards/1/reject-review", [], [401, 404]],
             'library-cards photo' => ['POST', "{$base}/library-cards/1/photo", [], [401, 404]],
+            'loan-policies index' => ['GET', "{$base}/loan-policies"],
+            'loan-policies store' => ['POST', "{$base}/loan-policies", []],
+            'loan-policies update' => ['PUT', "{$base}/loan-policies/1", ['name' => 'x'], [401, 404]],
         ];
     }
 }

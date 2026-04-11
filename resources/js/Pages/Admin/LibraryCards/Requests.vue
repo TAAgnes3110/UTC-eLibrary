@@ -3,6 +3,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import LibraryCardsTable from '@/Components/Admin/LibraryCards/LibraryCardsTable.vue';
 import { useLibraryCardsAdminPage } from '@/composables/admin/useLibraryCardsAdminPage';
@@ -120,27 +121,12 @@ const lc = useLibraryCardsAdminPage(props, { screen: 'requests' });
                 @reject="lc.onReject"
             />
 
-            <div v-if="lc.meta.last_page > 1" class="flex items-center justify-center gap-2 flex-wrap">
-                <button
-                    type="button"
-                    class="admin-filter-btn min-h-[44px] !h-auto py-2.5 px-4 disabled:opacity-50 disabled:pointer-events-none"
-                    :disabled="lc.pageNum <= 1"
-                    @click="lc.goPage(lc.pageNum - 1)"
-                >
-                    Trước
-                </button>
-                <span class="text-sm text-slate-600 dark:text-slate-300">
-                    Trang {{ lc.meta.current_page }} / {{ lc.meta.last_page }}
-                </span>
-                <button
-                    type="button"
-                    class="admin-filter-btn min-h-[44px] !h-auto py-2.5 px-4 disabled:opacity-50 disabled:pointer-events-none"
-                    :disabled="lc.pageNum >= lc.meta.last_page"
-                    @click="lc.goPage(lc.pageNum + 1)"
-                >
-                    Sau
-                </button>
-            </div>
+            <AdminPaginationBar
+                :current-page="lc.pageNum"
+                :last-page="lc.meta.last_page"
+                :disabled="lc.loadingFallback"
+                @go-page="lc.goPage"
+            />
 
             <p class="text-xs text-slate-500 dark:text-slate-400">
                 <Icon icon="lucide:info" class="inline w-3.5 h-3.5 -mt-0.5" />

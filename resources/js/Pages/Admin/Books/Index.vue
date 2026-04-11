@@ -9,6 +9,7 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
 import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
 import { useBooksAdminPage, SEARCH_IN_OPTIONS } from '@/composables/admin/useBooksAdminPage';
@@ -17,6 +18,9 @@ const {
     pageKind,
     pageLabel,
     books,
+    booksPagination,
+    goBooksPage,
+    loading,
     warehouses,
     saveBookLoading,
     classifications,
@@ -134,6 +138,14 @@ const {
                 @edit="openEditModal"
                 @delete="openDeleteOne"
                 @cover="openCoverModal"
+            />
+
+            <AdminPaginationBar
+                always-show
+                :current-page="booksPagination.current_page"
+                :last-page="booksPagination.last_page"
+                :disabled="loading"
+                @go-page="goBooksPage"
             />
         </div>
 

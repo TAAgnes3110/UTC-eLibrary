@@ -41,9 +41,4 @@ class BookCopy extends BaseModel
     {
         return $this->belongsTo(Warehouse::class);
     }
-
-    public function loans()
-    {
-        return $this->hasMany(Loan::class);
-    }
 }

@@ -28,6 +28,12 @@ export const adminNavigation = [
         href: 'admin.warehouses.index',
     },
     {
+        name: 'Cấu hình thư viện',
+        icon: 'lucide:scale',
+        active: ['admin.library-settings.*'],
+        href: 'admin.library-settings.index',
+    },
+    {
         name: 'Thẻ thư viện',
         icon: 'lucide:id-card',
         active: ['admin.library-cards.*'],
@@ -36,5 +42,11 @@ export const adminNavigation = [
             { name: 'Duyệt yêu cầu', href: 'admin.library-cards.requests', active: 'admin.library-cards.requests' },
             { name: 'Cấp thẻ tại quầy', href: 'admin.library-cards.counter', active: 'admin.library-cards.counter' },
         ],
+    },
+    {
+        name: 'Phiếu mượn',
+        icon: 'lucide:book-open-check',
+        active: ['admin.loans.*'],
+        href: 'admin.loans.index',
     },
 ];

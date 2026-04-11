@@ -1,9 +1,12 @@
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { warehousesApi } from '@/api/warehouses';
+import { extractApiPaginator } from '@/utils/adminPagination';
 import { toast } from '@/store/toast';
 import { WAREHOUSE_FORM_FIELD_MAP, WAREHOUSE_ERROR_DISPLAY_KEYS } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort } from '@/constants/adminUiMessages';
+
+const WAREHOUSES_PER_PAGE = 50;
 
 export const WAREHOUSES_SEARCH_IN_OPTIONS = [
     { key: 'code', label: 'Mã kho' },
@@ -12,6 +15,13 @@ export const WAREHOUSES_SEARCH_IN_OPTIONS = [
 
 export function useWarehousesAdminPage() {
     const warehousesData = ref({ data: [] });
+    const warehousesPageNum = ref(1);
+    const warehousesListMeta = ref({
+        current_page: 1,
+        last_page: 1,
+        per_page: WAREHOUSES_PER_PAGE,
+        total: 0,
+    });
     const loading = ref(false);
     const showModal = ref(false);
     const showDeleteModal = ref(false);
@@ -40,21 +50,63 @@ export function useWarehousesAdminPage() {
 
     const showFilterPanel = ref(false);
 
+    const warehousesPagination = computed(() => ({
+        current_page: warehousesListMeta.value.current_page,
+        last_page: warehousesListMeta.value.last_page,
+        per_page: warehousesListMeta.value.per_page,
+        total: warehousesListMeta.value.total,
+    }));
+
+    const goWarehousesPage = (page) => {
+        const p = Number(page);
+        if (!Number.isFinite(p) || p < 1 || p > warehousesListMeta.value.last_page) {
+            return;
+        }
+        warehousesPageNum.value = p;
+        fetchWarehouses();
+    };
+
     const fetchWarehouses = async () => {
         loading.value = true;
         try {
             const payload = await warehousesApi.list({
-                keyword: filterValues.value.searchKeyword || '',
+                keyword: filterValues.value.searchKeyword?.trim() || '',
+                page: warehousesPageNum.value,
+                per_page: WAREHOUSES_PER_PAGE,
             });
-            const data = payload?.data ?? payload;
-            const items = Array.isArray(data) ? data : (data?.data ?? []);
+            const { items, meta } = extractApiPaginator(payload, WAREHOUSES_PER_PAGE);
             warehousesData.value = { data: items };
+            warehousesListMeta.value = {
+                current_page: meta.current_page,
+                last_page: meta.last_page,
+                per_page: meta.per_page,
+                total: meta.total,
+            };
+            warehousesPageNum.value = meta.current_page;
         } catch (e) {
             console.error('Lỗi khi tải danh sách kho sách:', e);
             warehousesData.value = { data: [] };
+            warehousesListMeta.value = {
+                current_page: 1,
+                last_page: 1,
+                per_page: WAREHOUSES_PER_PAGE,
+                total: 0,
+            };
         }
         loading.value = false;
     };
+
+    let warehousesSearchDebounce = null;
+    watch(
+        () => filterValues.value.searchKeyword,
+        () => {
+            if (warehousesSearchDebounce) clearTimeout(warehousesSearchDebounce);
+            warehousesSearchDebounce = setTimeout(() => {
+                warehousesPageNum.value = 1;
+                fetchWarehouses();
+            }, 350);
+        },
+    );
 
     onMounted(() => {
         fetchWarehouses();
@@ -356,6 +408,8 @@ export function useWarehousesAdminPage() {
 
     return {
         warehousesData,
+        warehousesPagination,
+        goWarehousesPage,
         loading,
         showModal,
         showDeleteModal,

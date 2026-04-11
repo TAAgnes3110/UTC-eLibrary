@@ -9,6 +9,7 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
+import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import UsersTable from '@/Components/Admin/Users/UsersTable.vue';
 import UserFormModal from '@/Components/Admin/Users/UserFormModal.vue';
 import UserToggleConfirmModal from '@/Components/Admin/Users/UserToggleConfirmModal.vue';
@@ -42,6 +43,8 @@ const props = defineProps({
 });
 
 const {
+    usersPagination,
+    goUsersPage,
     loadingFallback,
     showModal,
     showDeleteModal,
@@ -167,6 +170,13 @@ const {
                 @toggle-status="openToggleConfirm"
                 @delete="confirmDelete"
                 @avatar="openAvatarModal"
+            />
+
+            <AdminPaginationBar
+                :current-page="usersPagination.current_page"
+                :last-page="usersPagination.last_page"
+                :disabled="loadingFallback"
+                @go-page="goUsersPage"
             />
         </div>
 

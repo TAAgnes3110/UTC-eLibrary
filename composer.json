@@ -17,6 +17,7 @@
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "^3.1",
         "php-open-source-saver/jwt-auth": "^2.8",
+        "predis/predis": "^3.4",
         "socialiteproviders/microsoft-azure": "^5.2",
         "spatie/laravel-permission": "^6.24",
         "tightenco/ziggy": "^2.0"

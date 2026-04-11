@@ -1,5 +1,6 @@
-import { ref, computed, onMounted } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { ref, computed, onMounted, watch } from 'vue';
+import { router, useForm } from '@inertiajs/vue3';
+import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
 import { fetchMasterDataPayload } from '@/api/masterData';
 import { usersApi } from '@/api/users';
 import { facultyDisplayLabel, periodDisplayLabel, matchFacultyId, matchPeriodId } from '@/utils/lookupMatch';
@@ -7,6 +8,7 @@ import { toast } from '@/store/toast';
 import { USER_FORM_FIELD_MAP, USER_ERROR_DISPLAY_KEYS } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, userFormClientError } from '@/constants/adminUiMessages';
+import { extractApiPaginator } from '@/utils/adminPagination';
 
 function collectUserClientErrors(form, isEditing, resolved = {}) {
     const errors = {};
@@ -90,20 +92,49 @@ export function useUsersAdminPage(props) {
         loadFacultiesPeriodsIfNeeded();
     });
 
+    watch(
+        () => props.users,
+        () => {
+            syncFromProps();
+        },
+        { deep: true },
+    );
+
+    const usersPagination = computed(() => {
+        const src = usersData.value ?? props.users ?? {};
+        return {
+            current_page: Number(src.current_page) || 1,
+            last_page: Number(src.last_page) || 1,
+            per_page: Number(src.per_page) || 20,
+            total: Number(src.total) || 0,
+        };
+    });
+
+    const goUsersPage = (page) => {
+        const p = Number(page);
+        const { last_page: last } = usersPagination.value;
+        if (!Number.isFinite(p) || p < 1 || p > last) {
+            return;
+        }
+        router.get(route('admin.users.index'), { page: p }, { preserveState: true, preserveScroll: true });
+    };
+
     const fetchUsers = async () => {
         loadingFallback.value = true;
         try {
-            const payload = await usersApi.list();
-            const items = Array.isArray(payload) ? payload : (payload?.data ?? []);
-            const meta = payload?.meta ?? {};
+            const src = usersData.value ?? props.users ?? {};
+            const page = Number(src.current_page) || 1;
+            const perPage = Number(src.per_page) || 20;
+            const payload = await usersApi.list({ page, per_page: perPage });
+            const { items, meta } = extractApiPaginator(payload, 20);
             usersData.value = {
                 data: items,
-                current_page: meta?.current_page ?? 1,
-                last_page: meta?.last_page ?? 1,
-                per_page: meta?.per_page ?? 20,
-                total: meta?.total ?? items.length,
-                from: meta?.from ?? null,
-                to: meta?.to ?? null,
+                current_page: meta.current_page,
+                last_page: meta.last_page,
+                per_page: meta.per_page,
+                total: meta.total,
+                from: meta.from,
+                to: meta.to,
             };
         } catch (e) {
             console.error('Lỗi khi tải lại danh sách tài khoản:', e);
@@ -617,6 +648,8 @@ export function useUsersAdminPage(props) {
     };
 
     return {
+        usersPagination,
+        goUsersPage,
         loadingFallback,
         showModal,
         showDeleteModal,

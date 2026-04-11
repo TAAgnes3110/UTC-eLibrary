@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\RoleType;
+
 class LoanPolicy extends BaseModel
 {
     protected $fillable = [
@@ -37,5 +39,39 @@ class LoanPolicy extends BaseModel
         }
 
         return strcasecmp((string) $this->user_type, $user->user_type->value) === 0;
+    }
+
+    /**
+     * Chính sách theo {@see RoleType} (một dòng / user_type — seed 3 nhóm: STUDENT, TEACHER, MEMBER).
+     */
+    public static function forRoleTypeValue(?string $roleTypeValue): ?self
+    {
+        if ($roleTypeValue === null || $roleTypeValue === '') {
+            return null;
+        }
+
+        return static::query()->where('user_type', $roleTypeValue)->first();
+    }
+
+    public static function forUser(User $user): ?self
+    {
+        $value = $user->user_type instanceof RoleType
+            ? $user->user_type->value
+            : (string) ($user->user_type ?? '');
+
+        return static::forRoleTypeValue($value);
+    }
+
+    /**
+     * Ánh xạ loại thẻ thư viện → policy: thẻ đa năng = student|teacher; độc giả ngoài = MEMBER.
+     */
+    public static function forLibraryHolderType(?string $holderType): ?self
+    {
+        return match ($holderType) {
+            LibraryCard::HOLDER_TYPE_STUDENT => static::forRoleTypeValue(RoleType::STUDENT->value),
+            LibraryCard::HOLDER_TYPE_TEACHER => static::forRoleTypeValue(RoleType::TEACHER->value),
+            LibraryCard::HOLDER_TYPE_EXTERNAL => static::forRoleTypeValue(RoleType::MEMBER->value),
+            default => null,
+        };
     }
 }

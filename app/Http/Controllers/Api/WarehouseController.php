@@ -25,7 +25,9 @@ class WarehouseController extends Controller
     public function index(Request $request): JsonResponse
     {
         $keyword = $request->input('keyword');
-        $items = $this->warehouseService->index($keyword);
+        $perPage = (int) $request->input('per_page', 50);
+        $perPage = $perPage < 1 ? 50 : min($perPage, 100);
+        $items = $this->warehouseService->index($keyword, $perPage);
 
         return ApiResponse::success(WarehouseResoure::collection($items));
     }

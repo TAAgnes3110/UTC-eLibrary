@@ -417,6 +417,18 @@ npm install
 - Copy `.env.example` thành `.env`
 - Cấu hình database và các biến môi trường (xem mục Redis/OAuth trong `.env.example` nếu cần)
 
+**Redis cache (khuyến nghị cho production và hỗ trợ cache tags):**
+
+- Mặc định `.env.example` đã để `CACHE_STORE=redis`
+- Thiết lập tối thiểu:
+  - `REDIS_HOST`, `REDIS_PORT`, `REDIS_USERNAME`, `REDIS_PASSWORD`
+  - `REDIS_DB=0`, `REDIS_CACHE_DB=0` (nhiều Redis Cloud chỉ hỗ trợ DB 0)
+- Nếu nhà cung cấp yêu cầu TLS, dùng:
+  - `REDIS_URL=rediss://default:<password>@<host>:<port>`
+- Sau khi đổi env:
+  - `php artisan config:clear`
+  - kiểm tra nhanh: `php artisan tinker --execute="cache()->put('redis_test','ok',60); dump(cache()->get('redis_test'));"`
+
 **4. Chạy migration và seeder**
 
 ```bash

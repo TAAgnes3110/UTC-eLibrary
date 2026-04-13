@@ -13,6 +13,7 @@ const props = defineProps({
     searchPlaceholder: { type: String, default: 'Tìm trong thùng rác...' },
     enableBulkDelete: { type: Boolean, default: true },
     enableBulkRestore: { type: Boolean, default: true },
+    importantFields: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['close', 'restore', 'restore-many', 'force-delete', 'force-delete-many']);
@@ -25,13 +26,62 @@ const getLabel = (item) => {
     return item[key] ?? item.title ?? item.name ?? item.code ?? `#${item.id}`;
 };
 
+const DEFAULT_IMPORTANT_FIELDS = [
+    { key: 'loan_code', label: 'Mã phiếu' },
+    { key: 'card_number', label: 'Mã thẻ' },
+    { key: 'library_card_number', label: 'Mã thẻ' },
+    { key: 'code', label: 'Mã' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'SĐT' },
+    { key: 'status_label', label: 'Trạng thái' },
+    { key: 'status_text', label: 'Trạng thái' },
+    { key: 'loan_type', label: 'Hình thức' },
+    { key: 'holder_type', label: 'Loại thẻ' },
+    { key: 'resource_type', label: 'Loại tài liệu' },
+];
+
+const normalizeMetaValue = (value) => {
+    if (value == null) return '';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return '';
+    return String(value).trim();
+};
+
+const getImportantDetails = (item) => {
+    const fields = props.importantFields.length > 0 ? props.importantFields : DEFAULT_IMPORTANT_FIELDS;
+    const currentLabel = String(getLabel(item));
+    const out = [];
+    const used = new Set();
+
+    for (const field of fields) {
+        const key = field?.key;
+        const label = field?.label || key;
+        if (!key || !label) continue;
+        const raw = item?.[key];
+        const value = normalizeMetaValue(raw);
+        if (!value) continue;
+        if (value === currentLabel) continue;
+        const sig = `${label}:${value}`.toLowerCase();
+        if (used.has(sig)) continue;
+        used.add(sig);
+        out.push({ key, label, value });
+        if (out.length >= 4) break;
+    }
+
+    return out;
+};
+
 const filteredItems = computed(() => {
     const kw = keyword.value.trim().toLowerCase();
     if (!kw) return props.items;
     return props.items.filter((item) => {
         const label = String(getLabel(item)).toLowerCase();
-        const code = String(item.code ?? '').toLowerCase();
-        return label.includes(kw) || code.includes(kw);
+        const code = String(item.code ?? item.loan_code ?? '').toLowerCase();
+        const meta = getImportantDetails(item)
+            .map((x) => `${x.label} ${x.value}`)
+            .join(' ')
+            .toLowerCase();
+        return label.includes(kw) || code.includes(kw) || meta.includes(kw);
     });
 });
 
@@ -213,8 +263,17 @@ const formatDate = (v) => {
                                     @change="toggleSelect(item.id)"
                                 />
                                 <div class="min-w-0 flex-1">
-                                <p class="font-medium text-sm text-slate-900 dark:text-white truncate">{{ getLabel(item) }}</p>
-                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Xóa lúc {{ formatDate(item.deleted_at) }}</p>
+                                    <p class="font-medium text-sm text-slate-900 dark:text-white truncate">{{ getLabel(item) }}</p>
+                                    <div class="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                                        <p
+                                            v-for="meta in getImportantDetails(item)"
+                                            :key="`${item.id}-${meta.key}`"
+                                            class="text-[11px] text-slate-600 dark:text-slate-300"
+                                        >
+                                            <span class="font-medium">{{ meta.label }}:</span> {{ meta.value }}
+                                        </p>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Xóa lúc {{ formatDate(item.deleted_at) }}</p>
                                 </div>
                             </div>
                             <div class="flex items-center gap-1 shrink-0">

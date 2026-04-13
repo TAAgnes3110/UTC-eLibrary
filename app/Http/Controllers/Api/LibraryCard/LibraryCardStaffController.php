@@ -8,7 +8,7 @@ use App\Http\Requests\LibraryCardApproveReviewRequest;
 use App\Http\Requests\LibraryCardRejectReviewRequest;
 use App\Http\Resources\LibraryCardResource;
 use App\Models\LibraryCard;
-use App\Services\LibraryCardService;
+use App\Services\LibraryCard\LibraryCardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 

@@ -37,6 +37,7 @@ defineEmits(['search', 'update:modelValue']);
                 :placeholder="searchPlaceholder"
                 class="admin-search-input"
                 @input="$emit('update:modelValue', $event.target?.value ?? '')"
+                @keydown.enter.prevent="$emit('search')"
             />
         </div>
         <button type="button" class="admin-search-btn" @click="$emit('search')">

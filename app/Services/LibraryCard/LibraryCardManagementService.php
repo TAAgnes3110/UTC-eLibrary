@@ -101,6 +101,42 @@ class LibraryCardManagementService
     }
 
     /**
+     * Tra cứu thẻ theo mã in trên thẻ để lập phiếu mượn (chỉ thẻ đủ điều kiện lưu hành).
+     *
+     * @return array{status: 'not_found'|'not_eligible'|'locked', card?: never}|array{status: 'ok', card: LibraryCard}
+     */
+    public function resolveForLoanByCardNumber(string $rawCardNumber): array
+    {
+        $n = trim($rawCardNumber);
+        if ($n === '') {
+            return ['status' => 'not_found'];
+        }
+
+        $card = LibraryCard::query()->where('card_number', $n)->first();
+        if ($card === null) {
+            return ['status' => 'not_found'];
+        }
+
+        $allowedWorkflows = [
+            LibraryCard::WORKFLOW_ACTIVE,
+            LibraryCard::WORKFLOW_PENDING_PICKUP,
+        ];
+
+        if (! in_array((string) $card->workflow_status, $allowedWorkflows, true)) {
+            return ['status' => 'not_eligible'];
+        }
+
+        $cardStatus = $card->status instanceof LibraryCardStatus
+            ? $card->status
+            : LibraryCardStatus::tryFrom((int) $card->status);
+        if ($cardStatus === LibraryCardStatus::LOCKED) {
+            return ['status' => 'locked'];
+        }
+
+        return ['status' => 'ok', 'card' => $card];
+    }
+
+    /**
      * Cập nhật ảnh thẻ (upload file).
      */
     public function updatePhoto(LibraryCard $card, UploadedFile $file): LibraryCard

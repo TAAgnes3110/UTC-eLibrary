@@ -17,6 +17,7 @@ import { useWarehousesAdminPage, WAREHOUSES_SEARCH_IN_OPTIONS } from '@/composab
 const {
     warehousesPagination,
     goWarehousesPage,
+    searchWarehouses,
     loading,
     showModal,
     showDeleteModal,
@@ -96,7 +97,7 @@ const {
                 v-model="filterValues.searchKeyword"
                 search-placeholder="Nhập từ khóa để tìm..."
                 :show-filter-button="false"
-                @search="() => {}"
+                @search="searchWarehouses"
             >
                 <template #filters>
                     <div class="flex items-center gap-3">

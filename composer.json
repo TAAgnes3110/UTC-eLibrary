@@ -60,6 +60,10 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "deploy:shared-hosting": [
+            "composer install --no-dev --prefer-dist --optimize-autoloader",
+            "@php artisan optimize:clear --ansi"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

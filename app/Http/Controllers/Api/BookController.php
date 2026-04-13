@@ -28,14 +28,34 @@ class BookController extends Controller
         $request->validate([
             'resource_type' => ['sometimes', 'nullable', 'string', 'max:100'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:200'],
+            'search_in' => ['sometimes', 'nullable', 'string'],
         ]);
         $keyword = $request->input('keyword');
         $resourceType = $request->input('resource_type');
         $perPage = (int) $request->input('per_page', 50);
+        $searchColumns = $this->parseSearchInFilter($request);
 
-        $items = $this->bookService->index($keyword, $resourceType, $perPage);
+        $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns);
 
         return ApiResponse::success(BookResource::collection($items));
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function parseSearchInFilter(Request $request): ?array
+    {
+        if (! $request->filled('search_in')) {
+            return null;
+        }
+        $raw = $request->input('search_in');
+        $candidates = is_array($raw)
+            ? $raw
+            : array_map('trim', explode(',', (string) $raw));
+        $allowed = ['code', 'title', 'author', 'publisher', 'place', 'year', 'classification'];
+        $filtered = array_values(array_intersect($candidates, $allowed));
+
+        return $filtered === [] ? null : $filtered;
     }
 
     /**

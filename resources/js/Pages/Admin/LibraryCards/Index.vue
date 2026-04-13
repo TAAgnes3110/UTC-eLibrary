@@ -3,6 +3,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
+import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
@@ -61,7 +62,55 @@ function goCounter() {
                 search-placeholder="Mã thẻ, mã định danh, họ tên, email, SĐT..."
                 :show-filter-button="false"
                 @search="() => lc.searchCards()"
-            />
+            >
+                <template #filters>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <AdminFilterPanel
+                            :options="lc.LIBRARY_CARD_SEARCH_IN_OPTIONS"
+                            v-model:model-value="lc.filterValues.searchIn"
+                            :show="lc.showFilterPanel"
+                            @update:show="lc.showFilterPanel = $event"
+                        />
+                        <div class="relative">
+                            <select v-model="lc.filterValues.holderType" class="admin-filter-select !h-9 !py-0 leading-9 w-[170px] max-w-full pr-9">
+                                <option value="">Loại thẻ: Tất cả</option>
+                                <option value="student">Thẻ sinh viên</option>
+                                <option value="teacher">Thẻ giảng viên</option>
+                                <option value="external">Thẻ bạn đọc ngoài</option>
+                            </select>
+                            <Icon
+                                icon="lucide:chevron-down"
+                                class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                            />
+                        </div>
+                        <div class="relative">
+                            <select v-model="lc.filterValues.status" class="admin-filter-select !h-9 !py-0 leading-9 w-[170px] max-w-full pr-9">
+                                <option value="">Trạng thái: Tất cả</option>
+                                <option value="1">Hoạt động</option>
+                                <option value="2">Hết hạn</option>
+                                <option value="3">Khóa</option>
+                                <option value="4">Chờ</option>
+                            </select>
+                            <Icon
+                                icon="lucide:chevron-down"
+                                class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                            />
+                        </div>
+                        <div class="relative">
+                            <select v-model="lc.filterValues.sortBy" class="admin-filter-select !h-9 !py-0 leading-9 w-[112px] max-w-full pr-9">
+                                <option value="newest">Mới nhất</option>
+                                <option value="oldest">Cũ nhất</option>
+                                <option value="name_asc">Tên A-Z</option>
+                                <option value="name_desc">Tên Z-A</option>
+                            </select>
+                            <Icon
+                                icon="lucide:chevron-down"
+                                class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                            />
+                        </div>
+                    </div>
+                </template>
+            </AdminFilterSearch>
 
             <LibraryCardsTable
                 :rows="lc.cards"
@@ -137,6 +186,13 @@ function goCounter() {
             :show="lc.showTrashDrawer"
             title="Thùng rác — thẻ thư viện"
             item-label-key="full_name"
+            :important-fields="[
+                { key: 'card_number', label: 'Mã thẻ' },
+                { key: 'code', label: 'Mã định danh' },
+                { key: 'holder_type', label: 'Loại thẻ' },
+                { key: 'status', label: 'Trạng thái' },
+                { key: 'email', label: 'Email' },
+            ]"
             :items="lc.trashedCards"
             :loading="lc.loadingTrash"
             @close="lc.showTrashDrawer = false"

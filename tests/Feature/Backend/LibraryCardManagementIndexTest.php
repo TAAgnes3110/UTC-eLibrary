@@ -4,7 +4,7 @@ namespace Tests\Feature\Backend;
 
 use App\Enums\LibraryCardStatus;
 use App\Models\LibraryCard;
-use App\Services\LibraryCardService;
+use App\Services\LibraryCard\LibraryCardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

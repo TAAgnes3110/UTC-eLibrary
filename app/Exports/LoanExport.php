@@ -13,8 +13,9 @@ final class LoanExport
 {
     /**
      * @param  Builder<Loan>  $query
+     * @param  list<int>|null  $idOrder  Thứ tự dòng khi xuất theo lựa chọn (ổn định trên SQLite/MySQL).
      */
-    public static function stream(Builder $query): StreamedResponse
+    public static function stream(Builder $query, ?array $idOrder = null): StreamedResponse
     {
         $headers = [
             'ID',
@@ -30,10 +31,17 @@ final class LoanExport
             'Updated at',
         ];
 
-        $rows = $query
+        $collection = $query
             ->with(['libraryCard:id,card_number,full_name', 'createdBy:id,name'])
-            ->orderByDesc('id')
-            ->get()
+            ->get();
+
+        if ($idOrder !== null && $idOrder !== []) {
+            $collection = $collection->sortBy(
+                fn (Loan $l) => ($i = array_search((int) $l->id, $idOrder, true)) === false ? PHP_INT_MAX : $i
+            )->values();
+        }
+
+        $rows = $collection
             ->map(function (Loan $l) {
                 return [
                     $l->id,

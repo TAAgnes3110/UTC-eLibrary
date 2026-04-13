@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LoanItem extends BaseModel
 {
+    protected static bool $persistParamsToDatabase = false;
+
     protected $fillable = [
         'loan_id',
         'book_id',

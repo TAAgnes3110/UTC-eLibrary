@@ -25,4 +25,25 @@ export const loansApi = {
     returnBooks(id, payload) {
         return client.post(`/loans/${id}/return`, payload).then((r) => r.data);
     },
+    bulkDelete(payload) {
+        return client.post('/loans/bulk-delete', payload).then((r) => r.data);
+    },
+    bulkReturn(payload) {
+        return client.post('/loans/bulk-return', payload).then((r) => r.data);
+    },
+    trash(params = {}) {
+        return client.get('/loans/trash', { params }).then((r) => r.data);
+    },
+    restore(id) {
+        return client.post(`/loans/restore/${id}`).then((r) => r.data);
+    },
+    restoreMany(ids = []) {
+        return client.post('/loans/restore', { ids }).then((r) => r.data);
+    },
+    forceDelete(id) {
+        return client.delete(`/loans/force/${id}`).then((r) => r.data);
+    },
+    forceDeleteMany(ids = []) {
+        return client.post('/loans/force', { ids }).then((r) => r.data);
+    },
 };

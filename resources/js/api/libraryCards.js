@@ -4,6 +4,9 @@ export const libraryCardsApi = {
     list(params = {}) {
         return client.get('/library-cards', { params }).then((r) => r.data);
     },
+    lookupForLoan(params = {}) {
+        return client.get('/library-cards/lookup-for-loan', { params }).then((r) => r.data);
+    },
     get(id) {
         return client.get(`/library-cards/${id}`).then((r) => r.data);
     },

@@ -85,17 +85,18 @@ class LoanHelper
     }
 
     /**
-     * Đếm số lượng sách đang mượn về nhà theo nhóm giáo trình/tham khảo và tổng.
+     * Đếm số lượng sách đang mượn theo nhóm giáo trình/tham khảo và tổng.
+     * Dùng cho hạn mức theo chính sách thẻ.
      *
      * @return array{textbook:int,reference:int,total:int}
      */
-    public function currentHomeBorrowCounts(LibraryCard $card): array
+    public function currentOutstandingBorrowCounts(LibraryCard $card): array
     {
         $existingByType = LoanItem::query()
             ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
             ->join('books', 'loan_items.book_id', '=', 'books.id')
             ->where('loans.library_card_id', $card->id)
-            ->where('loans.loan_type', Loan::TYPE_HOME)
+            ->whereIn('loans.loan_type', [Loan::TYPE_HOME, Loan::TYPE_ONSITE])
             ->whereIn('loans.status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
             ->selectRaw('books.resource_type as resource_type, COALESCE(SUM(loan_items.quantity), 0) as total_quantity')
             ->groupBy('books.resource_type')
@@ -112,15 +113,15 @@ class LoanHelper
     }
 
     /**
-     * Kiểm tra vượt hạn mức mượn về nhà theo policy của loại thẻ hiện tại.
+     * Kiểm tra vượt hạn mức (tổng / giáo trình / tham khảo) cho mọi hình thức mượn.
      */
-    public function assertCanBorrowHome(
+    public function assertBorrowWithinPolicyLimits(
         LibraryCard $card,
         int $newTextbook,
         int $newReference,
         int $newTotal
     ): void {
-        $current = $this->currentHomeBorrowCounts($card);
+        $current = $this->currentOutstandingBorrowCounts($card);
         $limits = $this->loanPoliciesService->getBorrowLimitsForHolderType((string) $card->holder_type);
 
         if (($current['textbook'] + $newTextbook) > $limits['max_textbooks']) {

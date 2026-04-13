@@ -6,11 +6,13 @@ use App\Enums\LibraryCardStatus;
 use App\Enums\UploadDirectory;
 use App\Exports\LibraryCardExport;
 use App\Helpers\ApiResponse;
+use App\Helpers\LoanHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LibraryCardRequest;
 use App\Http\Resources\LibraryCardResource;
 use App\Models\LibraryCard;
-use App\Services\LibraryCardService;
+use App\Services\LibraryCard\LibraryCardService;
+use App\Services\LoanPoliciesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -25,7 +27,9 @@ class LibraryCardController extends Controller
     private const MAX_EXPORT_IDS = 500;
 
     public function __construct(
-        private LibraryCardService $libraryCardService
+        private LibraryCardService $libraryCardService,
+        private LoanPoliciesService $loanPoliciesService,
+        private LoanHelper $loanHelper
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -50,6 +54,45 @@ class LibraryCardController extends Controller
         );
 
         return ApiResponse::success(LibraryCardResource::collection($items));
+    }
+
+    /**
+     * Tra cứu thẻ theo mã in trên thẻ khi tạo phiếu mượn (thủ thư/admin).
+     * Trả về quyền mượn + hạn mức (đọc qua cache — thường Redis nếu CACHE_STORE=redis).
+     */
+    public function lookupForLoan(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'card_number' => ['required', 'string', 'max:64'],
+        ]);
+
+        $result = $this->libraryCardService->resolveForLoanByCardNumber((string) $validated['card_number']);
+
+        if ($result['status'] === 'not_found') {
+            return ApiResponse::error('Không có thẻ với mã này trong hệ thống.', 404);
+        }
+
+        if ($result['status'] === 'not_eligible') {
+            return ApiResponse::error('Thẻ chưa ở trạng thái được phép mượn (chưa kích hoạt hoặc đã ngưng).', 422);
+        }
+
+        if ($result['status'] === 'locked') {
+            return ApiResponse::error('Thẻ đang bị khóa, không thể mượn sách.', 422);
+        }
+
+        $card = $result['card'];
+        $holderType = (string) $card->holder_type;
+        $permissions = $this->loanPoliciesService->getBorrowPermissionsForHolderType($holderType);
+        $limits = $this->loanPoliciesService->getBorrowLimitsForHolderType($holderType);
+        $currentBorrowed = $this->loanHelper->currentOutstandingBorrowCounts($card);
+
+        return ApiResponse::success([
+            'card' => new LibraryCardResource($card),
+            'allow_home' => $permissions['allow_home'],
+            'allow_onsite' => $permissions['allow_onsite'],
+            'limits' => $limits,
+            'current_borrowed' => $currentBorrowed,
+        ]);
     }
 
     public function export(Request $request): StreamedResponse

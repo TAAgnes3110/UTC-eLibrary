@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LoanItemCondition;
 use App\Exports\LoanExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
@@ -9,8 +10,11 @@ use App\Http\Requests\LoanRequest;
 use App\Http\Resources\LoanResource;
 use App\Models\Loan;
 use App\Services\LoanService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LoanController extends Controller
@@ -26,6 +30,7 @@ class LoanController extends Controller
             'library_card_id' => ['nullable', 'integer', 'exists:library_cards,id'],
             'search' => ['nullable', 'string', 'max:100'],
             'search_in' => ['nullable', 'string'],
+            'sort' => ['nullable', 'string', 'in:due_asc,due_desc,loan_asc,loan_desc'],
             'sort_due_date' => ['nullable', 'in:asc,desc'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -73,12 +78,9 @@ class LoanController extends Controller
             })
             ->when(isset($validated['library_card_id']), function ($query) use ($validated) {
                 $query->where('library_card_id', (int) $validated['library_card_id']);
-            })
-            ->when(isset($validated['sort_due_date']), function ($query) use ($validated) {
-                $query->orderBy('due_date', $validated['sort_due_date']);
-            }, function ($query) {
-                $query->orderByDesc('id');
             });
+
+        $this->applyLoanSortToQuery($query, $validated);
 
         $items = $query->paginate($perPage)->withQueryString();
 
@@ -92,8 +94,18 @@ class LoanController extends Controller
             'library_card_id' => ['nullable', 'integer', 'exists:library_cards,id'],
             'search' => ['nullable', 'string', 'max:100'],
             'search_in' => ['nullable', 'string'],
+            'sort' => ['nullable', 'string', 'in:due_asc,due_desc,loan_asc,loan_desc'],
             'sort_due_date' => ['nullable', 'in:asc,desc'],
+            'ids' => ['nullable', 'array', 'max:500'],
+            'ids.*' => ['integer', 'exists:loans,id'],
         ]);
+        $ids = isset($validated['ids']) ? array_values(array_unique(array_map('intval', $validated['ids']))) : [];
+        if ($ids !== []) {
+            $query = Loan::query()->whereIn('id', $ids);
+
+            return LoanExport::stream($query, $ids);
+        }
+
         $searchColumns = $this->parseSearchInFilter($request);
 
         $query = Loan::query()
@@ -135,14 +147,31 @@ class LoanController extends Controller
             })
             ->when(isset($validated['library_card_id']), function ($query) use ($validated) {
                 $query->where('library_card_id', (int) $validated['library_card_id']);
-            })
-            ->when(isset($validated['sort_due_date']), function ($query) use ($validated) {
-                $query->orderBy('due_date', $validated['sort_due_date']);
-            }, function ($query) {
-                $query->orderByDesc('id');
             });
 
+        $this->applyLoanSortToQuery($query, $validated);
+
         return LoanExport::stream($query);
+    }
+
+    /**
+     * @param  Builder<Loan>  $query
+     * @param  array<string, mixed>  $validated
+     */
+    private function applyLoanSortToQuery($query, array $validated): void
+    {
+        $sort = $validated['sort'] ?? null;
+        if (($sort === null || $sort === '') && ! empty($validated['sort_due_date'] ?? null)) {
+            $sort = $validated['sort_due_date'] === 'desc' ? 'due_desc' : 'due_asc';
+        }
+
+        match ($sort) {
+            'due_asc' => $query->orderBy('due_date', 'asc'),
+            'due_desc' => $query->orderBy('due_date', 'desc'),
+            'loan_asc' => $query->orderBy('loan_date', 'asc'),
+            'loan_desc' => $query->orderBy('loan_date', 'desc'),
+            default => $query->orderByDesc('id'),
+        };
     }
 
     /**
@@ -172,7 +201,11 @@ class LoanController extends Controller
 
     public function store(LoanRequest $request): JsonResponse
     {
-        $loan = $this->loanService->create($request->validated());
+        try {
+            $loan = $this->loanService->create($request->validated());
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
         $loan->load(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
 
         return ApiResponse::success(new LoanResource($loan), __('messages.success_create'), 201);
@@ -207,5 +240,96 @@ class LoanController extends Controller
         $loan->load(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
 
         return ApiResponse::success(new LoanResource($loan), 'Trả sách thành công.');
+    }
+
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'exists:loans,id'],
+        ]);
+
+        try {
+            $this->loanService->bulkDestroy($validated['ids']);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(null, __('messages.success_delete'));
+    }
+
+    public function bulkReturn(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'loan_ids' => ['required', 'array', 'min:1', 'max:50'],
+            'loan_ids.*' => ['integer', 'exists:loans,id'],
+            'return_date' => ['required', 'date'],
+            'condition_on_return' => ['nullable', 'string', Rule::in(LoanItemCondition::values())],
+        ]);
+
+        try {
+            $this->loanService->bulkProcessReturnBooks(
+                $validated['loan_ids'],
+                $validated['return_date'],
+                $validated['condition_on_return'] ?? LoanItemCondition::GOOD->value
+            );
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success(null, 'Đã trả sách cho các phiếu đã chọn.');
+    }
+
+    /**
+     * Phiếu mượn đã xóa mềm (thùng rác).
+     */
+    public function trash(Request $request): JsonResponse
+    {
+        $perPage = min(max((int) $request->input('per_page', 50), 1), 100);
+        $items = $this->loanService->trash($perPage);
+
+        return ApiResponse::success(LoanResource::collection($items));
+    }
+
+    public function restore(int $id): JsonResponse
+    {
+        $loan = $this->loanService->restore($id);
+        if ($loan === null) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
+        $loan->load(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
+
+        return ApiResponse::success(new LoanResource($loan), __('Đã khôi phục.'));
+    }
+
+    public function restoreMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $restored = $this->loanService->restoreMany($request->input('ids', []));
+
+        return ApiResponse::success(['restored' => $restored], __('messages.success_restore'));
+    }
+
+    public function forceDelete(int $id): JsonResponse
+    {
+        if (! $this->loanService->forceDelete($id)) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
+
+        return ApiResponse::success(null, __('messages.success_force_delete'));
+    }
+
+    public function forceDeleteMany(Request $request): JsonResponse
+    {
+        $request->validate([
+            'ids' => 'required|array',
+            'ids.*' => 'integer',
+        ]);
+        $deleted = $this->loanService->forceDeleteMany($request->input('ids', []));
+
+        return ApiResponse::success(['deleted' => $deleted], __('messages.success_force_delete'));
     }
 }

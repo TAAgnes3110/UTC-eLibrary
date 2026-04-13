@@ -44,21 +44,16 @@ export function useLibraryCardsAdminPage(props, options = {}) {
 
     const filterValues = ref({
         searchKeyword: '',
-        ...(screen === 'requests'
-            ? {
-                  searchIn: defaultSearchIn(),
-                  holderType: '',
-                  sortBy: 'newest',
-              }
-            : {}),
+        searchIn: defaultSearchIn(),
+        holderType: '',
+        sortBy: 'newest',
+        ...(screen === 'manage' ? { status: '' } : {}),
     });
 
     const showFilterPanel = ref(false);
+    let searchDebounce = null;
 
     function buildSearchInQueryParam() {
-        if (screen !== 'requests') {
-            return undefined;
-        }
         const sin = filterValues.value.searchIn || {};
         const keys = LIBRARY_CARD_SEARCH_IN_OPTIONS.map((o) => o.key);
         const active = keys.filter((k) => sin[k]);
@@ -79,11 +74,23 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 page: pageNum.value,
                 keyword: filterValues.value.searchKeyword?.trim() || undefined,
             };
+            const fv = filterValues.value;
+            const searchIn = buildSearchInQueryParam();
             if (screen === 'manage') {
                 params.management = 1;
-            }
-            if (screen === 'requests') {
-                const fv = filterValues.value;
+                if (fv.holderType) {
+                    params.holder_type = fv.holderType;
+                }
+                if (fv.status !== '' && fv.status != null) {
+                    params.status = fv.status;
+                }
+                if (fv.sortBy) {
+                    params.sort_by = fv.sortBy;
+                }
+                if (searchIn) {
+                    params.search_in = searchIn;
+                }
+            } else if (screen === 'requests') {
                 params.workflow_status = 'pending_review';
                 if (fv.holderType) {
                     params.holder_type = fv.holderType;
@@ -91,7 +98,6 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 if (fv.sortBy) {
                     params.sort_by = fv.sortBy;
                 }
-                const searchIn = buildSearchInQueryParam();
                 if (searchIn) {
                     params.search_in = searchIn;
                 }
@@ -126,15 +132,26 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         loadCards();
     });
 
-    if (screen === 'requests') {
-        const reloadRequestsFilters = () => {
-            pageNum.value = 1;
-            loadCards();
-        };
-        watch(() => filterValues.value.holderType, reloadRequestsFilters);
-        watch(() => filterValues.value.searchIn, reloadRequestsFilters, { deep: true });
-        watch(() => filterValues.value.sortBy, reloadRequestsFilters);
+    const reloadListFilters = () => {
+        pageNum.value = 1;
+        loadCards();
+    };
+    watch(() => filterValues.value.holderType, reloadListFilters);
+    watch(() => filterValues.value.searchIn, reloadListFilters, { deep: true });
+    watch(() => filterValues.value.sortBy, reloadListFilters);
+    if (screen === 'manage') {
+        watch(() => filterValues.value.status, reloadListFilters);
     }
+    watch(
+        () => filterValues.value.searchKeyword,
+        () => {
+            if (searchDebounce) clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                pageNum.value = 1;
+                loadCards();
+            }, 350);
+        }
+    );
 
     const selectedIds = ref([]);
     const hasSelection = computed(() => selectedIds.value.length > 0);
@@ -282,7 +299,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         loadingTrash.value = true;
         try {
             const payload = await libraryCardsApi.trash({ per_page: 100 });
-            const { items } = extractPaginator(payload);
+            const { items } = extractApiPaginator(payload, 100);
             trashedCards.value = items;
         } catch (e) {
             trashedCards.value = [];
@@ -404,12 +421,23 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         if (!c) return;
         try {
             const nextStatus = Number(c.status) === 3 ? 1 : 3;
-            await libraryCardsApi.update(c.id, { status: nextStatus });
+            const payload = {
+                status: nextStatus,
+                holder_type: c.holder_type,
+            };
+            if (c.holder_type === 'student' || c.holder_type === 'teacher') {
+                payload.faculty_id = c.faculty_id;
+            }
+            if (c.holder_type === 'student') {
+                payload.period_id = c.period_id;
+                payload.class_code = c.class_code;
+            }
+            await libraryCardsApi.update(c.id, payload);
             toast.success(nextStatus === 3 ? 'Đã khóa thẻ.' : 'Đã mở khóa thẻ.', { title: 'Thành công' });
             closeLockModal();
             await loadCards();
         } catch (e) {
-            toast.error('Không cập nhật được trạng thái.', { title: 'Lỗi' });
+            toast.error(e?.response?.data?.messages || 'Không cập nhật được trạng thái.', { title: 'Lỗi' });
         }
     }
 

@@ -35,18 +35,45 @@ class UserService
         return $user;
     }
 
-    public function index(?string $keyword, bool $typeReader = false, int $perPage = self::PER_PAGE): LengthAwarePaginator
-    {
+    /**
+     * @param  list<string>|null  $keywordColumns
+     */
+    public function index(
+        ?string $keyword,
+        bool $typeReader = false,
+        int $perPage = self::PER_PAGE,
+        ?array $keywordColumns = null
+    ): LengthAwarePaginator {
         $query = User::query()
             ->with(['faculty:id,code,name', 'department:id,name,faculty_id', 'period:id,code,name'])
             ->when($typeReader, fn ($q) => $q->whereIn('user_type', RoleType::readerTypes()))
-            ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
-                $q->where('id', 'like', '%'.$keyword.'%')
-                    ->orWhere('name', 'like', "%{$keyword}%")
-                    ->orWhere('code', 'like', "%{$keyword}%")
-                    ->orWhere('email', 'like', "%{$keyword}%")
-                    ->orWhere('phone', 'like', "%{$keyword}%");
-            }))
+            ->when($keyword !== null && $keyword !== '', function ($q) use ($keyword, $keywordColumns) {
+                $effectiveColumns = ! empty($keywordColumns)
+                    ? $keywordColumns
+                    : ['name', 'email', 'code', 'phone'];
+
+                $q->where(function ($sub) use ($keyword, $effectiveColumns) {
+                    $applied = false;
+                    if (in_array('name', $effectiveColumns, true)) {
+                        $sub->where('name', 'like', "%{$keyword}%");
+                        $applied = true;
+                    }
+                    if (in_array('email', $effectiveColumns, true)) {
+                        $method = $applied ? 'orWhere' : 'where';
+                        $sub->{$method}('email', 'like', "%{$keyword}%");
+                        $applied = true;
+                    }
+                    if (in_array('code', $effectiveColumns, true)) {
+                        $method = $applied ? 'orWhere' : 'where';
+                        $sub->{$method}('code', 'like', "%{$keyword}%");
+                        $applied = true;
+                    }
+                    if (in_array('phone', $effectiveColumns, true)) {
+                        $method = $applied ? 'orWhere' : 'where';
+                        $sub->{$method}('phone', 'like', "%{$keyword}%");
+                    }
+                });
+            })
             ->orderByDesc('name');
 
         return $query->paginate($perPage)->withQueryString();

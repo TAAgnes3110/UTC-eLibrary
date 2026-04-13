@@ -20,6 +20,7 @@ const {
     books,
     booksPagination,
     goBooksPage,
+    searchBooks,
     loading,
     warehouses,
     saveBookLoading,
@@ -105,6 +106,7 @@ const {
                 v-model="filterValues.searchKeyword"
                 search-placeholder="Mã sách, tên sách, tác giả, NXB, nơi XB, năm XB..."
                 :show-filter-button="false"
+                @search="searchBooks"
             >
                 <template #filters>
                     <div class="flex items-center gap-3">

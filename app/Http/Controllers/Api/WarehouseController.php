@@ -24,12 +24,34 @@ class WarehouseController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'search_in' => ['nullable', 'string'],
+        ]);
         $keyword = $request->input('keyword');
         $perPage = (int) $request->input('per_page', 50);
         $perPage = $perPage < 1 ? 50 : min($perPage, 100);
-        $items = $this->warehouseService->index($keyword, $perPage);
+        $searchColumns = $this->parseSearchInFilter($request);
+        $items = $this->warehouseService->index($keyword, $perPage, $searchColumns);
 
         return ApiResponse::success(WarehouseResoure::collection($items));
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function parseSearchInFilter(Request $request): ?array
+    {
+        if (! $request->filled('search_in')) {
+            return null;
+        }
+        $raw = $request->input('search_in');
+        $candidates = is_array($raw)
+            ? $raw
+            : array_map('trim', explode(',', (string) $raw));
+        $allowed = ['code', 'name'];
+        $filtered = array_values(array_intersect($candidates, $allowed));
+
+        return $filtered === [] ? null : $filtered;
     }
 
     /**

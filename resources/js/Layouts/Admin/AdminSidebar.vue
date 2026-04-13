@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { Link, usePage, router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { adminNavigation } from '@/config/adminNavigation';
 
@@ -30,20 +30,57 @@ const hasRoute = (routeName) => {
     }
 };
 
-// Mục có children: mở rộng khi đang ở một trong các child; ấn vào mặc định sang Bạn đọc
-const expandedKey = ref(null);
-const toggleExpanded = (key, item) => {
-    const isExpanded = expandedKey.value === key;
-    expandedKey.value = isExpanded ? null : key;
-    // Khi ấn vào lần đầu (mở ra), nếu chưa ở trang con thì mặc định chuyển sang mục con đầu tiên
-    if (!isExpanded && item?.children?.length && hasRoute(item.children[0].href)) {
-        if (!isActive(item.active)) {
-            const first = item.children[0];
-            const url = first.query ? route(first.href, first.query) : route(first.href);
-            router.visit(url);
-        }
+const EXPANDED_SIDEBAR_KEY = 'utc.admin.sidebar.expanded.parents';
+const expandedKeys = ref([]);
+
+const toggleExpanded = (key) => {
+    if (expandedKeys.value.includes(key)) {
+        expandedKeys.value = expandedKeys.value.filter((k) => k !== key);
+        return;
     }
+    expandedKeys.value = [...expandedKeys.value, key];
 };
+
+function getFirstNavigableChild(item) {
+    if (!item?.children?.length) return null;
+    return item.children.find((child) => hasRoute(child.href)) || null;
+}
+
+function visitParentDefault(item) {
+    const firstChild = getFirstNavigableChild(item);
+    if (!firstChild) return;
+    const url = firstChild.query ? route(firstChild.href, firstChild.query) : route(firstChild.href);
+    router.visit(url);
+}
+
+function normalizeExpandedKeys(raw) {
+    if (!Array.isArray(raw)) return [];
+    const validIndexes = new Set(
+        adminNavigation
+            .map((item, idx) => (item?.children?.length ? idx : null))
+            .filter((idx) => idx !== null)
+    );
+    return raw.filter((idx) => Number.isInteger(idx) && validIndexes.has(idx));
+}
+
+function loadExpandedFromStorage() {
+    if (typeof window === 'undefined') return;
+    try {
+        const parsed = JSON.parse(window.localStorage.getItem(EXPANDED_SIDEBAR_KEY) || '[]');
+        expandedKeys.value = normalizeExpandedKeys(parsed);
+    } catch {
+        expandedKeys.value = [];
+    }
+}
+
+function saveExpandedToStorage(keys) {
+    if (typeof window === 'undefined') return;
+    try {
+        window.localStorage.setItem(EXPANDED_SIDEBAR_KEY, JSON.stringify(keys));
+    } catch {
+        // no-op khi trình duyệt chặn storage
+    }
+}
 
 const isParentActive = (item) => {
     if (!item.children) return false;
@@ -63,13 +100,25 @@ const isChildActive = (child) => {
     return true;
 };
 
-// Tự mở "Quản lý người dùng" khi vào Bạn đọc hoặc Tài khoản
 const page = usePage();
-watch(() => page.url, () => {
-    const idx = adminNavigation.findIndex((i) => i.children && isActive(i.active));
-    if (idx !== -1) expandedKey.value = idx;
-    else if (expandedKey.value !== null && !adminNavigation[expandedKey.value]?.children) expandedKey.value = null;
-}, { immediate: true });
+loadExpandedFromStorage();
+watch(
+    () => expandedKeys.value,
+    (keys) => saveExpandedToStorage(keys),
+    { deep: true }
+);
+watch(
+    () => page.url,
+    () => {
+        const activeIndexes = adminNavigation
+            .map((item, idx) => (item.children && isActive(item.active) ? idx : null))
+            .filter((idx) => idx !== null);
+        if (activeIndexes.length === 0) return;
+        const merged = Array.from(new Set([...expandedKeys.value, ...activeIndexes]));
+        expandedKeys.value = normalizeExpandedKeys(merged);
+    },
+    { immediate: true }
+);
 </script>
 
 <template>
@@ -113,21 +162,39 @@ watch(() => page.url, () => {
         <!-- Nav -->
         <nav :class="['flex-1 overflow-y-auto py-2 space-y-0.5 sidebar-nav', collapsed ? 'lg:px-1.5 px-2' : 'px-2']">
             <template v-for="(item, index) in adminNavigation" :key="index">
-                <!-- Mục có children: ấn sổ ra Bạn đọc, Tài khoản -->
+                <!-- Mục có children: có nút mũi tên để xổ/thu gọn và giữ trạng thái -->
                 <div v-if="item.children && item.children.length" class="space-y-0.5">
-                    <button
-                        type="button"
+                    <div
                         :class="[
                             'nav-sidebar-link w-full text-left',
-                            collapsed ? 'lg:justify-center lg:px-0 lg:py-2 px-2.5 py-[7px]' : 'px-2.5 py-[7px]',
+                            collapsed ? 'lg:px-0 lg:py-2 px-2.5 py-[7px]' : 'px-2.5 py-[7px]',
                             isParentActive(item) ? 'nav-sidebar-link-active' : 'nav-sidebar-link-inactive'
                         ]"
-                        :title="item.name"
-                        @click="toggleExpanded(index, item)"
                     >
-                        <Icon :icon="item.icon" class="w-[18px] h-[18px] shrink-0" />
-                        <span v-show="sidebarOpen" class="truncate text-[13px] flex-1">{{ item.name }}</span>
-                    </button>
+                        <button
+                            type="button"
+                            class="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+                            :class="sidebarOpen ? '' : 'justify-center'"
+                            :title="item.name"
+                            @click="visitParentDefault(item)"
+                        >
+                            <Icon :icon="item.icon" class="w-[18px] h-[18px] shrink-0" />
+                            <span v-show="sidebarOpen" class="truncate text-[13px] flex-1">{{ item.name }}</span>
+                        </button>
+                        <button
+                            v-show="sidebarOpen"
+                            type="button"
+                            class="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            :aria-label="expandedKeys.includes(index) ? `Thu gọn ${item.name}` : `Mở rộng ${item.name}`"
+                            @click="toggleExpanded(index)"
+                        >
+                            <Icon
+                                icon="lucide:chevron-down"
+                                class="w-3.5 h-3.5 transition-transform duration-200"
+                                :class="expandedKeys.includes(index) ? 'rotate-180' : ''"
+                            />
+                        </button>
+                    </div>
                     <Transition
                         enter-active-class="transition-all duration-200 ease-out"
                         enter-from-class="opacity-0 -translate-y-1 max-h-0"
@@ -136,7 +203,7 @@ watch(() => page.url, () => {
                         leave-from-class="opacity-100 translate-y-0 max-h-[200px]"
                         leave-to-class="opacity-0 -translate-y-1 max-h-0"
                     >
-                        <div v-if="sidebarOpen && expandedKey === index" class="pl-2 space-y-0.5 overflow-hidden">
+                        <div v-if="sidebarOpen && expandedKeys.includes(index)" class="pl-2 space-y-0.5 overflow-hidden">
                             <Link
                                 v-for="(child, cIdx) in item.children"
                                 :key="cIdx"

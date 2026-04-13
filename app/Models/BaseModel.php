@@ -10,6 +10,11 @@ abstract class BaseModel extends Model
 {
     use HasFactory;
 
+    /**
+     * When false, {@see toParams()} is not run on save (tables without a `params` column).
+     */
+    protected static bool $persistParamsToDatabase = true;
+
     public array $arrParams = [];
 
     public function __construct(array $attributes = [])
@@ -22,8 +27,16 @@ abstract class BaseModel extends Model
     {
         parent::boot();
         static::saving(function ($model) {
+            if (! $model->shouldPersistParamsToDatabase()) {
+                return;
+            }
             $model->toParams();
         });
+    }
+
+    protected function shouldPersistParamsToDatabase(): bool
+    {
+        return static::$persistParamsToDatabase;
     }
 
     public function getArrParams(): array

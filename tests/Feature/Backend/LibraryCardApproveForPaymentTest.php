@@ -8,7 +8,7 @@ use App\Models\Faculty;
 use App\Models\LibraryCard;
 use App\Models\Period;
 use App\Models\User;
-use App\Services\LibraryCardService;
+use App\Services\LibraryCard\LibraryCardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;

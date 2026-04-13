@@ -176,6 +176,14 @@ Route::prefix('v1')->group(function () {
             Route::group(['prefix' => 'loans'], function () {
                 Route::get('/', [LoanController::class, 'index']);
                 Route::get('/export', [LoanController::class, 'export']);
+                Route::get('/trash', [LoanController::class, 'trash']);
+                Route::post('/restore', [LoanController::class, 'restoreMany']);
+                Route::post('/restore/{id}', [LoanController::class, 'restore']);
+                Route::post('/force', [LoanController::class, 'forceDeleteMany']);
+                Route::delete('/force', [LoanController::class, 'forceDeleteMany']);
+                Route::delete('/force/{id}', [LoanController::class, 'forceDelete']);
+                Route::post('/bulk-delete', [LoanController::class, 'bulkDestroy']);
+                Route::post('/bulk-return', [LoanController::class, 'bulkReturn']);
                 Route::post('/', [LoanController::class, 'store']);
                 Route::get('/{loan}', [LoanController::class, 'show']);
                 Route::put('/{loan}', [LoanController::class, 'update']);
@@ -199,6 +207,7 @@ Route::prefix('v1')->group(function () {
 
             Route::group(['prefix' => 'library-cards'], function () {
                 Route::get('export', [LibraryCardController::class, 'export']);
+                Route::get('lookup-for-loan', [LibraryCardController::class, 'lookupForLoan']);
                 Route::get('trash', [LibraryCardController::class, 'trash']);
                 Route::post('restore', [LibraryCardController::class, 'restoreMany']);
                 Route::post('restore/{id}', [LibraryCardController::class, 'restore']);

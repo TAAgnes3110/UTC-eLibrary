@@ -50,6 +50,16 @@ export function useWarehousesAdminPage() {
 
     const showFilterPanel = ref(false);
 
+    function buildSearchInParam() {
+        const sin = filterValues.value.searchIn || {};
+        const keys = WAREHOUSES_SEARCH_IN_OPTIONS.map((o) => o.key);
+        const active = keys.filter((k) => !!sin[k]);
+        if (active.length === 0 || active.length === keys.length) {
+            return undefined;
+        }
+        return active.join(',');
+    }
+
     const warehousesPagination = computed(() => ({
         current_page: warehousesListMeta.value.current_page,
         last_page: warehousesListMeta.value.last_page,
@@ -66,11 +76,17 @@ export function useWarehousesAdminPage() {
         fetchWarehouses();
     };
 
+    const searchWarehouses = () => {
+        warehousesPageNum.value = 1;
+        fetchWarehouses();
+    };
+
     const fetchWarehouses = async () => {
         loading.value = true;
         try {
             const payload = await warehousesApi.list({
                 keyword: filterValues.value.searchKeyword?.trim() || '',
+                search_in: buildSearchInParam(),
                 page: warehousesPageNum.value,
                 per_page: WAREHOUSES_PER_PAGE,
             });
@@ -106,6 +122,14 @@ export function useWarehousesAdminPage() {
                 fetchWarehouses();
             }, 350);
         },
+    );
+    watch(
+        () => filterValues.value.searchIn,
+        () => {
+            warehousesPageNum.value = 1;
+            fetchWarehouses();
+        },
+        { deep: true }
     );
 
     onMounted(() => {
@@ -410,6 +434,7 @@ export function useWarehousesAdminPage() {
         warehousesData,
         warehousesPagination,
         goWarehousesPage,
+        searchWarehouses,
         loading,
         showModal,
         showDeleteModal,

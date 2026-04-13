@@ -6,6 +6,7 @@ use App\Http\Middleware\Init;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -41,6 +42,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (AuthorizationException $e, Request $request) {
             if ($request->is('api/*')) {
                 return ApiResponse::error($e->getMessage() ?: __('Không đủ quyền thực hiện thao tác.'), 403);
+            }
+        });
+        $exceptions->render(function (QueryException $e, Request $request) {
+            if ($request->is('api/*')) {
+                report($e);
+
+                return ApiResponse::error(
+                    __('Không thể thực hiện thao tác. Vui lòng thử lại sau hoặc liên hệ quản trị.'),
+                    500
+                );
             }
         });
     })->create();

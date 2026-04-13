@@ -6,7 +6,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MeLibraryCardStoreRequest;
 use App\Http\Resources\LibraryCardResource;
-use App\Services\LibraryCardService;
+use App\Services\LibraryCard\LibraryCardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 

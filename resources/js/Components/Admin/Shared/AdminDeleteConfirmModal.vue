@@ -10,6 +10,8 @@ import { Icon } from '@iconify/vue';
 const props = defineProps({
     show: { type: Boolean, default: false },
     title: { type: String, default: 'Xác nhận xóa' },
+    /** Nhãn nút xác nhận (vd. chuyển vào thùng rác) */
+    confirmButtonLabel: { type: String, default: 'Xóa dữ liệu' },
     itemLabel: { type: String, default: 'mục' },
     item: { type: Object, default: null },
     selectedCount: { type: Number, default: 0 },
@@ -62,7 +64,7 @@ const displayName = computed(() => {
                     </Button>
                     <Button type="button" class="bg-red-500 hover:bg-red-600 text-white gap-2" :disabled="loading" @click="$emit('confirm')">
                         <Icon v-if="loading" icon="lucide:loader-2" class="w-4 h-4 animate-spin" />
-                        {{ loading ? 'Đang xóa...' : 'Xóa dữ liệu' }}
+                        {{ loading ? 'Đang xử lý...' : confirmButtonLabel }}
                     </Button>
                 </div>
             </div>

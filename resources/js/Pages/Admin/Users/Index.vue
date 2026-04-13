@@ -45,6 +45,7 @@ const props = defineProps({
 const {
     usersPagination,
     goUsersPage,
+    searchUsers,
     loadingFallback,
     showModal,
     showDeleteModal,
@@ -136,7 +137,7 @@ const {
                 v-model="filterValues.searchKeyword"
                 search-placeholder="Nhập từ khóa để tìm..."
                 :show-filter-button="false"
-                @search="() => {}"
+                @search="searchUsers"
             >
                 <template #filters>
                     <div class="flex items-center gap-3">

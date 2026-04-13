@@ -18,9 +18,38 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class ManagementPaginationSeeder extends Seeder
 {
+    private const VN_DISTRICTS = [
+        'Cầu Giấy, Hà Nội',
+        'Đống Đa, Hà Nội',
+        'Hai Bà Trưng, Hà Nội',
+        'Thanh Xuân, Hà Nội',
+        'Long Biên, Hà Nội',
+        'Nam Từ Liêm, Hà Nội',
+        'Hồng Bàng, Hải Phòng',
+        'Ngô Quyền, Hải Phòng',
+        'Thanh Khê, Đà Nẵng',
+        'Ninh Kiều, Cần Thơ',
+    ];
+
+    private const VN_BOOK_TOPICS = [
+        'Cơ học đất và nền móng',
+        'Thiết kế cầu bê tông cốt thép',
+        'Tổ chức thi công công trình giao thông',
+        'Khai thác và bảo trì đường bộ',
+        'An toàn giao thông đô thị',
+        'Vật liệu xây dựng giao thông',
+        'Kinh tế vận tải',
+        'Quản lý dự án hạ tầng',
+        'Hệ thống giao thông thông minh',
+        'Nghiệp vụ logistics và chuỗi cung ứng',
+        'Kết cấu áo đường mềm',
+        'Đường sắt đô thị',
+    ];
+
     public function run(): void
     {
         $staff = User::query()->where('email', 'librarian@utc.edu.vn')->first()
@@ -37,6 +66,9 @@ class ManagementPaginationSeeder extends Seeder
         $faculty = Faculty::query()->first();
         $period = Period::query()->first();
         $creatorId = $staff?->id;
+        $familyNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Đỗ', 'Vũ', 'Bùi', 'Đặng', 'Hồ'];
+        $middleNames = ['Văn', 'Thị', 'Minh', 'Quốc', 'Ngọc', 'Gia', 'Đức', 'Thanh', 'Hoài', 'Hữu'];
+        $givenNames = ['An', 'Bình', 'Chi', 'Dũng', 'Giang', 'Hà', 'Hải', 'Hương', 'Khanh', 'Linh', 'Nam', 'Phong', 'Quân', 'Trang', 'Tuấn'];
 
         for ($i = 1; $i <= 60; $i++) {
             $role = match ($i % 3) {
@@ -44,19 +76,27 @@ class ManagementPaginationSeeder extends Seeder
                 1 => RoleType::TEACHER,
                 default => RoleType::MEMBER,
             };
+            $fullName = sprintf(
+                '%s %s %s',
+                $familyNames[$i % count($familyNames)],
+                $middleNames[intdiv($i, 2) % count($middleNames)],
+                $givenNames[($i * 3) % count($givenNames)]
+            );
+            $emailDomain = $role === RoleType::STUDENT ? 'st.utc.edu.vn' : 'utc.edu.vn';
+            $email = sprintf('%s.%03d@%s', Str::slug($fullName, '.'), $i, $emailDomain);
 
-            $email = sprintf('demo.user.%03d@utc.local', $i);
             User::query()->updateOrCreate(
-                ['email' => $email],
+                ['code' => sprintf('009%09d', $i)],
                 [
-                    'code' => sprintf('009%09d', $i),
-                    'name' => sprintf('Người dùng demo %03d', $i),
-                    'phone' => sprintf('0909%06d', $i),
+                    'name' => $fullName,
+                    'email' => $email,
+                    'phone' => sprintf('09%08d', 12000000 + $i),
                     'password' => 'password',
                     'user_type' => $role->value,
                     'faculty_id' => $faculty?->id,
                     'period_id' => $role === RoleType::STUDENT ? $period?->id : null,
-                    'class_code' => $role === RoleType::STUDENT ? sprintf('K67-%02d', ($i % 20) + 1) : null,
+                    'class_code' => $role === RoleType::STUDENT ? sprintf('CTGT%02d-K67', ($i % 20) + 1) : null,
+                    'address' => self::VN_DISTRICTS[$i % count(self::VN_DISTRICTS)],
                     'is_active' => true,
                     'created_by' => $creatorId,
                     'updated_by' => $creatorId,
@@ -84,19 +124,24 @@ class ManagementPaginationSeeder extends Seeder
                 : ($isReference ? ResourceType::REFERENCE->value : ResourceType::TEXTBOOK->value);
 
             $quantity = $isJournal ? 1 : (($i % 7) + 2);
+            $topic = self::VN_BOOK_TOPICS[($i - 1) % count(self::VN_BOOK_TOPICS)];
+            $title = $isJournal
+                ? sprintf('%s - Chuyên đề số %02d', $topic, ($i % 12) + 1)
+                : sprintf('%s - Tập %d', $topic, ($i % 3) + 1);
 
             Book::query()->updateOrCreate(
                 ['registration_number' => sprintf('UTC-PAGE-%04d', $i)],
                 [
                     'book_code' => sprintf('PAGE-BOOK-%04d', $i),
-                    'title' => sprintf('Sách demo phân trang %03d', $i),
+                    'title' => $title,
                     'language' => 'Tiếng Việt',
                     'published_year' => 2015 + ($i % 10),
                     'pages' => 120 + ($i % 300),
                     'book_size' => '16x24cm',
                     'price' => 50000 + ($i * 1500),
                     'quantity' => $quantity,
-                    'summary' => 'Dữ liệu mẫu phục vụ test phân trang danh mục và phiếu mượn.',
+                    'summary' => 'Tài liệu mẫu tiếng Việt phục vụ kiểm thử phân trang và nghiệp vụ thư viện.',
+                    'publisher_place' => self::VN_DISTRICTS[$i % count(self::VN_DISTRICTS)],
                     'classification_id' => $classification->id,
                     'classification_detail_id' => $classificationDetail->id,
                     'warehouse_id' => $warehouse->id,
@@ -116,8 +161,12 @@ class ManagementPaginationSeeder extends Seeder
         $period = Period::query()->first();
         $creatorId = $staff?->id;
         $users = User::query()
-            ->where('email', 'like', 'demo.user.%@utc.local')
+            ->where(function ($q) {
+                $q->where('email', 'like', '%@st.utc.edu.vn')
+                    ->orWhere('email', 'like', '%@utc.edu.vn');
+            })
             ->orderBy('id')
+            ->take(60)
             ->get();
 
         foreach ($users as $idx => $user) {
@@ -130,18 +179,18 @@ class ManagementPaginationSeeder extends Seeder
             $issueDate = Carbon::today()->subDays(($idx % 45) + 1);
 
             LibraryCard::query()->updateOrCreate(
-                ['code' => sprintf('CARD-DEMO-%04d', $idx + 1)],
+                ['code' => sprintf('CARD-UTC-%04d', $idx + 1)],
                 [
-                    'card_number' => sprintf('CARD-DEMO-%04d', $idx + 1),
+                    'card_number' => sprintf('CARD-UTC-%04d', $idx + 1),
                     'user_id' => $user->id,
                     'period_id' => $holderType === LibraryCard::HOLDER_TYPE_STUDENT ? $period?->id : null,
                     'holder_type' => $holderType,
                     'full_name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone,
-                    'address' => 'Hà Nội',
+                    'address' => self::VN_DISTRICTS[$idx % count(self::VN_DISTRICTS)],
                     'faculty_id' => $faculty?->id,
-                    'class_code' => $holderType === LibraryCard::HOLDER_TYPE_STUDENT ? sprintf('K67-%02d', ($idx % 20) + 1) : null,
+                    'class_code' => $holderType === LibraryCard::HOLDER_TYPE_STUDENT ? sprintf('CTGT%02d-K67', ($idx % 20) + 1) : null,
                     'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
                     'status' => LibraryCardStatus::ACTIVE->value,
                     'issue_date' => $issueDate->toDateString(),
@@ -157,7 +206,7 @@ class ManagementPaginationSeeder extends Seeder
     private function seedLoans(?User $staff): void
     {
         $cards = LibraryCard::query()
-            ->where('code', 'like', 'CARD-DEMO-%')
+            ->where('code', 'like', 'CARD-UTC-%')
             ->orderBy('id')
             ->take(50)
             ->get();
@@ -219,7 +268,7 @@ class ManagementPaginationSeeder extends Seeder
                     'condition_on_loan' => $conditionOnLoan,
                     'condition_on_return' => $conditionOnReturn,
                     'fine_amount' => $status === Loan::STATUS_RETURNED && $conditionOnReturn === 'hong' ? 15000 : 0,
-                    'notes' => 'Dữ liệu mẫu pagination',
+                    'notes' => 'Dữ liệu mẫu nghiệp vụ mượn/trả',
                 ]);
             }
         }

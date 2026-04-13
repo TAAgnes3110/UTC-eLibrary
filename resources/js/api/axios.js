@@ -13,6 +13,21 @@ function safeJson(obj) {
     }
 }
 
+/** Avoid showing DB/host/SQL details in UI toasts if the server ever returns them. */
+function sanitizeApiErrorPayloadForUser(error) {
+    const data = error?.response?.data;
+    if (!data || typeof data !== 'object') return;
+    const msg = data.messages;
+    if (typeof msg !== 'string') return;
+    if (
+        /SQLSTATE|Unknown column|\(Connection:\s*mysql|Host:\s*\d|Database:\s*\w|SQL:\s*(insert|update|delete|select)/i.test(
+            msg
+        )
+    ) {
+        data.messages = 'Không thể thực hiện thao tác. Vui lòng thử lại sau.';
+    }
+}
+
 const client = axios.create({
     baseURL: '/api/v1',
     headers: {
@@ -89,6 +104,8 @@ client.interceptors.response.use(
             console.log('response.headers', safeJson(response?.headers));
             console.groupEnd();
         }
+
+        sanitizeApiErrorPayloadForUser(error);
 
         if (!response || response.status !== 401) {
             return Promise.reject(error);

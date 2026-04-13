@@ -6,10 +6,13 @@ use App\Models\Traits\HasAuditFields;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Loan extends BaseModel
 {
-    use HasAuditFields;
+    use HasAuditFields, SoftDeletes;
+
+    protected static bool $persistParamsToDatabase = false;
 
     public const TYPE_HOME = 'home';
 

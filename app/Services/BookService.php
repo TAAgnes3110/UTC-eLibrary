@@ -97,8 +97,15 @@ class BookService
         ]);
     }
 
-    public function index(?string $keyword, ?string $resourceType, int $perPage = self::PER_PAGE): LengthAwarePaginator
-    {
+    /**
+     * @param  list<string>|null  $keywordColumns
+     */
+    public function index(
+        ?string $keyword,
+        ?string $resourceType,
+        int $perPage = self::PER_PAGE,
+        ?array $keywordColumns = null
+    ): LengthAwarePaginator {
         $query = Book::query()
             ->with([
                 'classification:id,code,name',
@@ -108,31 +115,61 @@ class BookService
                 'publishers:id,name',
             ]);
         $this->applyResourceTypeFilter($query, $resourceType);
-        $query->when($keyword !== null && $keyword !== '', function ($q) use ($keyword) {
-            $q->where(function ($q) use ($keyword) {
-                $q->where('title', 'like', "%{$keyword}%")
-                    ->orWhere('registration_number', 'like', "%{$keyword}%")
-                    ->orWhere('book_code', 'like', "%{$keyword}%")
-                    ->orWhere('published_year', 'like', "%{$keyword}%")
-                    ->orWhere('quantity', 'like', "%{$keyword}%");
-                $q->orWhereHas('authors', function ($sub) use ($keyword) {
-                    $sub->where('name', 'like', "%{$keyword}%");
-                });
-                $q->orWhereHas('publishers', function ($sub) use ($keyword) {
-                    $sub->where('name', 'like', "%{$keyword}%");
-                });
-                $q->orWhereHas('classification', function ($sub) use ($keyword) {
-                    $sub->where('code', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%");
-                });
-                $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
-                    $sub->where('code', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%");
-                });
-                $q->orWhereHas('warehouse', function ($sub) use ($keyword) {
-                    $sub->where('code', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%");
-                });
+        $query->when($keyword !== null && $keyword !== '', function ($q) use ($keyword, $keywordColumns) {
+            $effectiveColumns = ! empty($keywordColumns)
+                ? $keywordColumns
+                : ['code', 'title', 'author', 'publisher', 'place', 'year', 'classification'];
+            $q->where(function ($q) use ($keyword, $effectiveColumns) {
+                $applied = false;
+                if (in_array('title', $effectiveColumns, true)) {
+                    $q->where('title', 'like', "%{$keyword}%");
+                    $applied = true;
+                }
+                if (in_array('code', $effectiveColumns, true)) {
+                    $method = $applied ? 'orWhere' : 'where';
+                    $q->{$method}('registration_number', 'like', "%{$keyword}%")
+                        ->orWhere('book_code', 'like', "%{$keyword}%");
+                    $applied = true;
+                }
+                if (in_array('year', $effectiveColumns, true)) {
+                    $method = $applied ? 'orWhere' : 'where';
+                    $q->{$method}('published_year', 'like', "%{$keyword}%");
+                    $applied = true;
+                }
+                if (in_array('author', $effectiveColumns, true)) {
+                    $method = $applied ? 'orWhereHas' : 'whereHas';
+                    $q->{$method}('authors', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', "%{$keyword}%");
+                    });
+                    $applied = true;
+                }
+                if (in_array('publisher', $effectiveColumns, true)) {
+                    $method = $applied ? 'orWhereHas' : 'whereHas';
+                    $q->{$method}('publishers', function ($sub) use ($keyword) {
+                        $sub->where('name', 'like', "%{$keyword}%");
+                    });
+                    $applied = true;
+                }
+                if (in_array('classification', $effectiveColumns, true)) {
+                    $method = $applied ? 'orWhereHas' : 'whereHas';
+                    $q->{$method}('classification', function ($sub) use ($keyword) {
+                        $sub->where('code', 'like', "%{$keyword}%")
+                            ->orWhere('name', 'like', "%{$keyword}%");
+                    });
+                    $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
+                        $sub->where('code', 'like', "%{$keyword}%")
+                            ->orWhere('name', 'like', "%{$keyword}%");
+                    });
+                    $applied = true;
+                }
+                if (in_array('place', $effectiveColumns, true)) {
+                    $method = $applied ? 'orWhere' : 'where';
+                    $q->{$method}('publisher_place', 'like', "%{$keyword}%");
+                    $applied = true;
+                }
+                if (! $applied) {
+                    $q->where('title', 'like', "%{$keyword}%");
+                }
             });
         });
 

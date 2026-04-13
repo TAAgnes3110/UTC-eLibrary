@@ -10,6 +10,7 @@ use App\Models\Book;
 use App\Models\LibraryCard;
 use App\Models\Loan;
 use App\Models\LoanItem;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -20,6 +21,17 @@ class LoanService
         private LoanPoliciesService $loanPoliciesService,
         private LoanHelper $loanHelper
     ) {}
+
+    /**
+     * Phiếu còn mở trên quầy: đang mượn hoặc quá hạn (chưa trả).
+     */
+    private function assertLoanOpenForOfficeOps(Loan $loan): void
+    {
+        $ok = in_array($loan->status, [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE], true);
+        if (! $ok) {
+            throw new RuntimeException('Phiếu mượn không đang ở trạng thái mượn');
+        }
+    }
 
     /**
      * Tạo phiếu mượn.
@@ -40,7 +52,7 @@ class LoanService
      * Tạo phiếu mượn về nhà.
      * - Kiểm tra thẻ có được phép mượn (không bị khóa, không nợ quá hạn > 30 ngày).
      * - Kiểm tra quyền policy cho mượn về nhà.
-     * - Kiểm tra quota tối đa theo loại sách/tổng sách.
+     * - Kiểm tra hạn mức theo loại sách/tổng (cộng cả phiếu tại chỗ đang mở).
      * - Lưu phiếu + trừ tồn kho.
      *
      * @param  array<string, mixed>  $data
@@ -59,7 +71,7 @@ class LoanService
                 Loan::TYPE_HOME
             );
 
-            $this->loanHelper->assertCanBorrowHome(
+            $this->loanHelper->assertBorrowWithinPolicyLimits(
                 $card,
                 $sumQuantityTextBook,
                 $sumQuantityReference,
@@ -74,6 +86,7 @@ class LoanService
      * Tạo phiếu đọc/mượn tại chỗ (cho mọi tài liệu vật lý, trừ tài liệu số).
      * - Kiểm tra thẻ hợp lệ để mượn.
      * - Kiểm tra quyền policy cho mượn tại chỗ.
+     * - Kiểm tra hạn mức.
      * - Lưu phiếu + trừ tồn kho.
      *
      * @param  array<string, mixed>  $data
@@ -87,7 +100,17 @@ class LoanService
                 throw new RuntimeException('Loại thẻ này không được đọc/mượn tại chỗ');
             }
 
-            [$entries] = $this->buildLoanEntries($data, Loan::TYPE_ONSITE);
+            [$entries, $sumQuantityTextBook, $sumQuantityReference, $sumQuantityAll] = $this->buildLoanEntries(
+                $data,
+                Loan::TYPE_ONSITE
+            );
+
+            $this->loanHelper->assertBorrowWithinPolicyLimits(
+                $card,
+                $sumQuantityTextBook,
+                $sumQuantityReference,
+                $sumQuantityAll
+            );
 
             return $this->persistLoanAndItems($data, Loan::TYPE_ONSITE, $entries);
         });
@@ -221,9 +244,7 @@ class LoanService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedLoan->status !== Loan::STATUS_BORROWED) {
-                throw new RuntimeException('Phiếu mượn không đang ở trạng thái mượn');
-            }
+            $this->assertLoanOpenForOfficeOps($lockedLoan);
 
             if (array_key_exists('status', $data) || array_key_exists('return_date', $data)) {
                 throw new RuntimeException('Không được cập nhật trạng thái/ngày trả ở update. Dùng processReturnBook().');
@@ -243,7 +264,9 @@ class LoanService
     }
 
     /**
-     * Xóa phiếu mượn đang mở và hoàn tồn kho cho toàn bộ đầu sách trên phiếu.
+     * Xóa mềm phiếu mượn.
+     * - Đang mượn / quá hạn: hoàn tồn kho rồi đánh dấu xóa mềm.
+     * - Đã trả: chỉ xóa mềm bản ghi (sách đã nhập kho lúc trả, không cộng tồn lần hai).
      */
     public function destroy(Loan $loan): void
     {
@@ -253,9 +276,13 @@ class LoanService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedLoan->status !== Loan::STATUS_BORROWED) {
-                throw new RuntimeException('Phiếu mượn không đang ở trạng thái mượn');
+            if ($lockedLoan->status === Loan::STATUS_RETURNED) {
+                $lockedLoan->delete();
+
+                return;
             }
+
+            $this->assertLoanOpenForOfficeOps($lockedLoan);
             $items = $lockedLoan->items()->lockForUpdate()->get();
             $bookDeltas = $this->loanHelper->aggregateBookDeltas($items);
             $this->loanHelper->restockBooksByDeltas($bookDeltas);
@@ -283,9 +310,7 @@ class LoanService
                 ->firstOrFail();
             $policy = $this->loanHelper->resolvePolicyForCard($card);
 
-            if ($lockedLoan->status !== Loan::STATUS_BORROWED) {
-                throw new RuntimeException('Phiếu mượn không đang ở trạng thái mượn');
-            }
+            $this->assertLoanOpenForOfficeOps($lockedLoan);
 
             $lockedLoan->update([
                 'status' => Loan::STATUS_RETURNED,
@@ -314,8 +339,130 @@ class LoanService
     }
 
     /**
-     * Tải và khóa thẻ trước khi mượn.
-     * Tự động khóa thẻ khi phát hiện có phiếu quá hạn > 30 ngày chưa trả, rồi chặn thao tác mượn mới.
+     * Xóa mềm nhiều phiếu (đang mượn / quá hạn / đã trả). Một phiếu lỗi sẽ rollback cả lô.
+     *
+     * @param  list<int>  $ids
+     */
+    public function bulkDestroy(array $ids): void
+    {
+        $unique = array_values(array_unique(array_map('intval', $ids)));
+
+        DB::transaction(function () use ($unique): void {
+            foreach ($unique as $id) {
+                $loan = Loan::query()->whereKey($id)->firstOrFail();
+                $this->destroy($loan);
+            }
+        });
+    }
+
+    /**
+     * Trả sách hàng loạt: cùng ngày trả và tình trạng mặc định cho mọi dòng (phạt tính theo chính sách).
+     *
+     * @param  list<int>  $loanIds
+     */
+    public function bulkProcessReturnBooks(array $loanIds, string $returnDate, string $defaultCondition = 'tot'): void
+    {
+        $unique = array_values(array_unique(array_map('intval', $loanIds)));
+        $payload = [
+            'return_date' => $returnDate,
+            'condition_on_return' => $defaultCondition,
+        ];
+
+        DB::transaction(function () use ($unique, $payload): void {
+            foreach ($unique as $id) {
+                $loan = Loan::query()->whereKey($id)->firstOrFail();
+                $this->processReturnBook($payload, $loan);
+            }
+        });
+    }
+
+    /**
+     * Danh sách phiếu đã xóa mềm (thùng rác).
+     */
+    public function trash(int $perPage = 20): LengthAwarePaginator
+    {
+        $perPage = min(max($perPage, 1), 100);
+
+        return Loan::onlyTrashed()
+            ->with(['libraryCard:id,card_number,full_name', 'createdBy:id,name'])
+            ->orderByDesc('deleted_at')
+            ->paginate($perPage)
+            ->withQueryString();
+    }
+
+    /**
+     * Khôi phục phiếu đã xóa mềm. Phiếu đang mượn / quá hạn: trừ tồn kho lại (đã được cộng khi xóa mềm).
+     */
+    public function restore(int $id): ?Loan
+    {
+        return DB::transaction(function () use ($id): ?Loan {
+            $loan = Loan::onlyTrashed()
+                ->with(['items'])
+                ->whereKey($id)
+                ->lockForUpdate()
+                ->first();
+            if (! $loan instanceof Loan) {
+                return null;
+            }
+
+            if (in_array($loan->status, [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE], true)) {
+                $bookDeltas = $this->loanHelper->aggregateBookDeltas($loan->items);
+                $this->loanHelper->deductBooksByDeltas($bookDeltas);
+            }
+
+            $loan->restore();
+
+            return $loan->fresh(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
+        });
+    }
+
+    /**
+     * @return int số phiếu đã khôi phục
+     */
+    public function restoreMany(array $ids): int
+    {
+        $ids = array_values(array_unique(array_map('intval', array_filter($ids, 'is_numeric'))));
+        if ($ids === []) {
+            return 0;
+        }
+
+        $restored = 0;
+        foreach ($ids as $id) {
+            if ($this->restore($id) !== null) {
+                $restored++;
+            }
+        }
+
+        return $restored;
+    }
+
+    public function forceDelete(int $id): bool
+    {
+        $loan = Loan::onlyTrashed()->whereKey($id)->first();
+        if (! $loan instanceof Loan) {
+            return false;
+        }
+        $loan->forceDelete();
+
+        return true;
+    }
+
+    /**
+     * @return int số bản ghi đã xóa vĩnh viễn (kèm loan_items theo cascade)
+     */
+    public function forceDeleteMany(array $ids): int
+    {
+        $ids = array_values(array_unique(array_map('intval', array_filter($ids, 'is_numeric'))));
+        if ($ids === []) {
+            return 0;
+        }
+
+        return (int) Loan::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+    }
+
+    /**
+     * Tải thẻ (khóa hàng DB trong transaction) trước khi mượn.
+     * Việc ghi trạng thái LOCKED do quá hạn nặng do lệnh {@see SyncLibraryCardOverdueLocksCommand} xử lý định kỳ.
      */
     private function loadBorrowableCard(int $libraryCardId): LibraryCard
     {
@@ -328,32 +475,7 @@ class LoanService
             throw new RuntimeException('Thẻ đang bị khóa, không thể mượn thêm');
         }
 
-        $today = now()->startOfDay();
-        $thresholdDate = $today->copy()->subDays(30);
-        $oldestOverdueLoan = Loan::query()
-            ->where('library_card_id', $lockedCard->id)
-            ->whereIn('status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
-            ->whereNotNull('due_date')
-            ->where('due_date', '<', $thresholdDate)
-            ->orderBy('due_date')
-            ->first();
-
-        if (! $oldestOverdueLoan instanceof Loan) {
-            return $lockedCard;
-        }
-
-        $overdueDays = (int) $oldestOverdueLoan->due_date->diffInDays($today);
-
-        $lockedCard->status = LibraryCardStatus::LOCKED;
-
-        $lockReason = sprintf('[AUTO] Khóa thẻ do chưa trả sách quá hạn %d ngày (loan_id=%d).', $overdueDays, (int) $oldestOverdueLoan->id);
-        $existingNotes = trim((string) ($lockedCard->notes ?? ''));
-        if (! str_contains($existingNotes, (string) $oldestOverdueLoan->id)) {
-            $lockedCard->notes = $existingNotes === '' ? $lockReason : $existingNotes.PHP_EOL.$lockReason;
-        }
-        $lockedCard->save();
-
-        throw new RuntimeException('Thẻ đã bị khóa do có phiếu mượn quá hạn trên 30 ngày chưa trả');
+        return $lockedCard;
     }
 
     /**
@@ -368,7 +490,7 @@ class LoanService
         do {
             $attempts++;
             $code = $prefix.strtoupper(Str::random(4));
-            $exists = Loan::query()->where('loan_code', $code)->exists();
+            $exists = Loan::withTrashed()->where('loan_code', $code)->exists();
         } while ($exists && $attempts < 10);
 
         if ($exists) {

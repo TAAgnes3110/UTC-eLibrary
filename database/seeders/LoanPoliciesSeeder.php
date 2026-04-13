@@ -50,13 +50,16 @@ class LoanPoliciesSeeder extends Seeder
                 'code' => 'LOAN_EXTERNAL_READER',
                 'name' => 'Bạn đọc ngoài (thẻ thư viện)',
                 'user_type' => 'MEMBER',
-                'max_books' => 0,
+                'max_books' => 5,
                 'max_days' => 0,
                 'max_renewals' => 0,
                 'overdue_fine_per_day' => 0,
                 'allow_home' => false,
                 'allow_onsite' => true,
-                'params' => null,
+                'params' => [
+                    'max_textbooks' => 5,
+                    'max_reference' => 5,
+                ],
             ],
         ];
 

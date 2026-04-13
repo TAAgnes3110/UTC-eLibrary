@@ -173,6 +173,7 @@ class ApiRoutesTest extends TestCase
             'publishers update' => ['PUT', "{$base}/publishers/1", ['name' => 'x'], [401, 404]],
             'publishers delete' => ['DELETE', "{$base}/publishers/1", [], [401, 404]],
             'library-cards index' => ['GET', "{$base}/library-cards"],
+            'library-cards lookup for loan' => ['GET', "{$base}/library-cards/lookup-for-loan"],
             'library-cards export' => ['GET', "{$base}/library-cards/export"],
             'library-cards trash' => ['GET', "{$base}/library-cards/trash"],
             'library-cards restore many' => ['POST', "{$base}/library-cards/restore", ['ids' => [1]]],

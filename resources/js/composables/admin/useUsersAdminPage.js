@@ -119,13 +119,23 @@ export function useUsersAdminPage(props) {
         router.get(route('admin.users.index'), { page: p }, { preserveState: true, preserveScroll: true });
     };
 
+    const searchUsers = () => {
+        usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
+        fetchUsers();
+    };
+
     const fetchUsers = async () => {
         loadingFallback.value = true;
         try {
             const src = usersData.value ?? props.users ?? {};
             const page = Number(src.current_page) || 1;
             const perPage = Number(src.per_page) || 20;
-            const payload = await usersApi.list({ page, per_page: perPage });
+            const payload = await usersApi.list({
+                page,
+                per_page: perPage,
+                keyword: filterValues.value.searchKeyword?.trim() || undefined,
+                search_in: buildSearchInParam(),
+            });
             const { items, meta } = extractApiPaginator(payload, 20);
             usersData.value = {
                 data: items,
@@ -192,6 +202,17 @@ export function useUsersAdminPage(props) {
         roleFilter: {},
     });
     const showFilterPanel = ref(false);
+    let usersSearchDebounce = null;
+
+    function buildSearchInParam() {
+        const sin = filterValues.value.searchIn || {};
+        const keys = USERS_SEARCH_IN_OPTIONS.map((o) => o.key);
+        const active = keys.filter((k) => !!sin[k]);
+        if (active.length === 0 || active.length === keys.length) {
+            return undefined;
+        }
+        return active.join(',');
+    }
 
     const roleOptions = computed(() => {
         const roles = rolesData.value ?? props.roles;
@@ -241,6 +262,26 @@ export function useUsersAdminPage(props) {
         if (checkedRoles.length) result = result.filter((u) => checkedRoles.includes(u.role));
         return result;
     });
+
+    watch(
+        () => filterValues.value.searchKeyword,
+        () => {
+            if (usersSearchDebounce) clearTimeout(usersSearchDebounce);
+            usersSearchDebounce = setTimeout(() => {
+                usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
+                fetchUsers();
+            }, 350);
+        },
+    );
+
+    watch(
+        () => filterValues.value.searchIn,
+        () => {
+            usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
+            fetchUsers();
+        },
+        { deep: true },
+    );
 
     const formatDateTime = (value) => {
         if (!value) return '—';
@@ -650,6 +691,7 @@ export function useUsersAdminPage(props) {
     return {
         usersPagination,
         goUsersPage,
+        searchUsers,
         loadingFallback,
         showModal,
         showDeleteModal,

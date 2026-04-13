@@ -29,13 +29,35 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $request->validate([
+            'search_in' => ['nullable', 'string'],
+        ]);
         $keyword = $request->input('keyword');
         $typeReader = $request->input('type') === 'reader';
         $perPage = (int) $request->input('per_page', 50);
         $perPage = $perPage < 1 ? 50 : min($perPage, 100);
-        $items = $this->userService->index($keyword, $typeReader, $perPage);
+        $searchColumns = $this->parseSearchInFilter($request);
+        $items = $this->userService->index($keyword, $typeReader, $perPage, $searchColumns);
 
         return ApiResponse::success(UserResource::collection($items));
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function parseSearchInFilter(Request $request): ?array
+    {
+        if (! $request->filled('search_in')) {
+            return null;
+        }
+        $raw = $request->input('search_in');
+        $candidates = is_array($raw)
+            ? $raw
+            : array_map('trim', explode(',', (string) $raw));
+        $allowed = ['name', 'email', 'code', 'phone'];
+        $filtered = array_values(array_intersect($candidates, $allowed));
+
+        return $filtered === [] ? null : $filtered;
     }
 
     /**

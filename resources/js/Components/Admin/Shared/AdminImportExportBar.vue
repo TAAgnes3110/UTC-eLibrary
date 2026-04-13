@@ -18,16 +18,13 @@ defineProps({
     showImport: { type: Boolean, default: true },
     /** Hiện nút Cập nhật file / ảnh */
     showUpdateFile: { type: Boolean, default: true },
+    /** Khi có lựa chọn: hiện nút xóa hàng loạt */
+    showDeleteSelected: { type: Boolean, default: true },
+    /** Nút trả hàng loạt theo dòng đã chọn (danh sách phiếu mượn) */
+    showReturnSelected: { type: Boolean, default: false },
 });
 
-defineEmits([
-    'add',
-    'export-excel',
-    'import-excel',
-    'update-file',
-    'delete-selected',
-    'deselect-all',
-]);
+defineEmits(['add', 'export-excel', 'import-excel', 'update-file', 'delete-selected', 'return-selected', 'deselect-all']);
 </script>
 
 <template>
@@ -44,6 +41,16 @@ defineEmits([
             <Icon icon="lucide:file-down" class="w-3.5 h-3.5" />
             Xuất excel
         </button>
+        <button
+            v-if="showReturnSelected"
+            type="button"
+            :disabled="selectedCount === 0"
+            class="btn-admin-green disabled:opacity-45 disabled:pointer-events-none"
+            @click="$emit('return-selected')"
+        >
+            <Icon icon="lucide:book-check" class="w-3.5 h-3.5" />
+            Trả đã chọn<span v-if="selectedCount > 0">&nbsp;({{ selectedCount }})</span>
+        </button>
         <slot name="extra" />
         <button v-if="showUpdateFile" type="button" @click="$emit('update-file')" class="btn-admin-green">
             <Icon icon="lucide:image-plus" class="w-3.5 h-3.5" />
@@ -52,6 +59,7 @@ defineEmits([
 
         <template v-if="hasSelection">
             <button
+                v-if="showDeleteSelected"
                 type="button"
                 @click="$emit('delete-selected')"
                 class="btn-admin-green"

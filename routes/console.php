@@ -13,3 +13,7 @@ Schedule::command('periods:sync-admission')
 Schedule::command('library-cards:prune-stale-pending-payment')
     ->dailyAt('04:00')
     ->withoutOverlapping();
+
+Schedule::command('library-cards:sync-overdue-locks')
+    ->dailyAt('01:30')
+    ->withoutOverlapping();

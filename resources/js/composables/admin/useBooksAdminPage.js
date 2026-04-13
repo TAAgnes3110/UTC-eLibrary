@@ -84,6 +84,15 @@ export function useBooksAdminPage() {
     });
 
     const showFilterPanel = ref(false);
+    function buildSearchInParam() {
+        const sin = filterValues.value.searchIn || {};
+        const active = SEARCH_IN_OPTIONS.map((o) => o.key).filter((k) => !!sin[k]);
+        if (active.length === 0 || active.length === SEARCH_IN_OPTIONS.length) {
+            return undefined;
+        }
+        return active.join(',');
+    }
+
 
     const booksPagination = computed(() => ({
         current_page: booksListMeta.value.current_page,
@@ -98,6 +107,11 @@ export function useBooksAdminPage() {
             return;
         }
         booksPageNum.value = p;
+        loadBooks();
+    };
+
+    const searchBooks = () => {
+        booksPageNum.value = 1;
         loadBooks();
     };
 
@@ -198,6 +212,7 @@ export function useBooksAdminPage() {
                     per_page: BOOKS_PER_PAGE,
                     page: booksPageNum.value,
                     keyword: filterValues.value.searchKeyword || undefined,
+                    search_in: buildSearchInParam(),
                     ...(resourceTypeFilter.value ? { resource_type: resourceTypeFilter.value } : {}),
                 },
             });
@@ -285,6 +300,14 @@ export function useBooksAdminPage() {
                 loadBooks();
             }, 350);
         },
+    );
+    watch(
+        () => filterValues.value.searchIn,
+        () => {
+            booksPageNum.value = 1;
+            loadBooks();
+        },
+        { deep: true }
     );
 
     const hasSelection = computed(() => selectedIds.value.size > 0);
@@ -809,6 +832,7 @@ export function useBooksAdminPage() {
         books,
         booksPagination,
         goBooksPage,
+        searchBooks,
         warehouses,
         saveBookLoading,
         loading,

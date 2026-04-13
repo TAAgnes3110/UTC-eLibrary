@@ -40,7 +40,10 @@ class WarehouseService
     /**
      * Danh sách kho
      */
-    public function index(?string $keyword, int $perPage = self::PER_PAGE): LengthAwarePaginator
+    /**
+     * @param  list<string>|null  $keywordColumns
+     */
+    public function index(?string $keyword, int $perPage = self::PER_PAGE, ?array $keywordColumns = null): LengthAwarePaginator
     {
         if ($keyword === null || $keyword === '') {
             $page = max(1, (int) request()->input('page', 1));
@@ -61,10 +64,22 @@ class WarehouseService
 
         $query = Warehouse::query()
             ->with('parent:id,code,name')
-            ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
-                $q->where('code', 'like', "%{$keyword}%")
-                    ->orWhere('name', 'like', "%{$keyword}%");
-            }))
+            ->when($keyword !== null && $keyword !== '', function ($q) use ($keyword, $keywordColumns) {
+                $effectiveColumns = ! empty($keywordColumns)
+                    ? $keywordColumns
+                    : ['code', 'name'];
+                $q->where(function ($sub) use ($keyword, $effectiveColumns) {
+                    $applied = false;
+                    if (in_array('code', $effectiveColumns, true)) {
+                        $sub->where('code', 'like', "%{$keyword}%");
+                        $applied = true;
+                    }
+                    if (in_array('name', $effectiveColumns, true)) {
+                        $method = $applied ? 'orWhere' : 'where';
+                        $sub->{$method}('name', 'like', "%{$keyword}%");
+                    }
+                });
+            })
             ->orderByDesc('id');
 
         return $query->paginate($perPage)->withQueryString();

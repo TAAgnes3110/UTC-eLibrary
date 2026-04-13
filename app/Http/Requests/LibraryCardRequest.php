@@ -20,18 +20,18 @@ class LibraryCardRequest extends BaseRequest
     protected function prepareForValidation(): void
     {
         $existing = $this->routeLibraryCard();
+        $isUpdate = $this->isMethod('PUT') || $this->isMethod('PATCH');
         $incomingHolderType = $this->input('holder_type');
         if ($incomingHolderType !== null && $incomingHolderType !== '') {
-            $resolvedHolderType = (string) $incomingHolderType;
-        } elseif ($existing) {
-            $ht = $existing->holder_type;
-            $resolvedHolderType = $ht instanceof \BackedEnum ? $ht->value : (string) $ht;
-        } else {
-            $resolvedHolderType = LibraryCard::HOLDER_TYPE_EXTERNAL;
+            $this->merge(['holder_type' => (string) $incomingHolderType]);
+        } elseif (! $isUpdate) {
+            $resolvedHolderType = $existing
+                ? (($existing->holder_type instanceof \BackedEnum)
+                    ? $existing->holder_type->value
+                    : (string) $existing->holder_type)
+                : LibraryCard::HOLDER_TYPE_EXTERNAL;
+            $this->merge(['holder_type' => $resolvedHolderType]);
         }
-        $this->merge([
-            'holder_type' => $resolvedHolderType,
-        ]);
         if ($this->isMethod('POST') && ! $existing && ! $this->is('api/v1/library-cards/guest-register')) {
             $uid = $this->input('user_id');
             $ht = (string) $this->input('holder_type');

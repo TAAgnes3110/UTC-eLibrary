@@ -47,6 +47,9 @@ export const adminNavigation = [
         name: 'Phiếu mượn',
         icon: 'lucide:book-open-check',
         active: ['admin.loans.*'],
-        href: 'admin.loans.index',
+        children: [
+            { name: 'Quản lý phiếu', href: 'admin.loans.index', active: 'admin.loans.index' },
+            { name: 'Tạo phiếu mới', href: 'admin.loans.create', active: 'admin.loans.create' },
+        ],
     },
 ];

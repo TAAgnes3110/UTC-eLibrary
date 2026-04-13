@@ -1,19 +1,13 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\LibraryCard;
 
 use App\Enums\LibraryCardStatus;
 use App\Models\LibraryCard;
 use App\Models\User;
-use App\Services\LibraryCard\LibraryCardAccountService;
-use App\Services\LibraryCard\LibraryCardGuestService;
-use App\Services\LibraryCard\LibraryCardManagementService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 
-/**
- * Façade tương thích: logic tách {@see LibraryCardAccountService}, {@see LibraryCardGuestService}, {@see LibraryCardManagementService}.
- */
 class LibraryCardService
 {
     public const PAYMENT_DUE_DAYS = LibraryCardManagementService::PAYMENT_DUE_DAYS;
@@ -118,6 +112,14 @@ class LibraryCardService
         ?string $sortBy = null,
     ): LengthAwarePaginator {
         return $this->management->index($keyword, $perPage, $workflowStatuses, $holderType, $cardStatus, $keywordColumns, $managementListOnly, $sortBy);
+    }
+
+    /**
+     * @return array{status: 'not_found'|'not_eligible'|'locked', card?: never}|array{status: 'ok', card: LibraryCard}
+     */
+    public function resolveForLoanByCardNumber(string $rawCardNumber): array
+    {
+        return $this->management->resolveForLoanByCardNumber($rawCardNumber);
     }
 
     public function updatePhoto(LibraryCard $card, UploadedFile $file): LibraryCard

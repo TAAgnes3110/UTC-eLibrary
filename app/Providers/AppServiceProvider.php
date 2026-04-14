@@ -58,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
             return [
                 'user' => [
                     'id' => $user->id,
+                    'code' => $user->code,
                     'name' => $user->name,
                     'email' => $user->email,
                     'phone' => $user->phone,

@@ -1,5 +1,7 @@
 <script setup>
 import { Icon } from '@iconify/vue';
+import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
+import AdminAvailabilityBadge from '@/Components/Admin/Shared/AdminAvailabilityBadge.vue';
 
 defineProps({
     books: { type: Array, required: true },
@@ -114,39 +116,24 @@ const emit = defineEmits(['toggle-select-all', 'toggle-select', 'edit', 'delete'
                             </span>
                         </td>
                         <td class="p-4 text-right w-[110px]">
-                            <span
-                                :class="[
-                                    'inline-flex items-center justify-end gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase text-white',
-                                    (book.quantity ?? 0) > 0
-                                        ? 'bg-emerald-500 dark:bg-emerald-600'
-                                        : 'bg-rose-500 dark:bg-rose-600',
-                                ]"
-                            >
-                                <Icon
-                                    :icon="(book.quantity ?? 0) > 0 ? 'lucide:check-circle' : 'lucide:x-circle'"
-                                    class="w-3 h-3"
-                                />
-                                {{ (book.quantity ?? 0) > 0 ? 'Còn' : 'Hết' }}
-                            </span>
+                            <AdminAvailabilityBadge :available="(book.quantity ?? 0) > 0" />
                         </td>
                         <td class="p-4 whitespace-nowrap">
                             <div class="flex flex-nowrap items-center justify-start gap-1">
-                                <button
-                                    type="button"
-                                    class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800 rounded"
+                                <AdminTableActionIcon
+                                    icon="lucide:pen-square"
+                                    tone="slate"
                                     title="Chỉnh sửa"
+                                    icon-class="w-4 h-4"
                                     @click="emit('edit', book)"
-                                >
-                                    <Icon icon="lucide:pen-square" class="w-4 h-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded"
+                                />
+                                <AdminTableActionIcon
+                                    icon="lucide:trash-2"
+                                    tone="rose"
                                     title="Xóa"
+                                    icon-class="w-4 h-4"
                                     @click="emit('delete', book)"
-                                >
-                                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
-                                </button>
+                                />
                             </div>
                         </td>
                     </tr>

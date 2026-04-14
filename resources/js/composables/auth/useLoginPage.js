@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { postWebLogin } from '@/api/webSessionLogin';
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors';
+import { isLibraryStaffUserType } from '@/utils/readerAuth';
 
 export function useLoginPage() {
     const showPassword = ref(false);
@@ -28,7 +29,8 @@ export function useLoginPage() {
                         localStorage.setItem('user', JSON.stringify(userPayload));
                     }
                     form.reset('password');
-                    router.visit(window.route('dashboard'), { replace: true });
+                    const dest = isLibraryStaffUserType(userPayload?.user_type) ? 'admin.dashboard' : 'reader.home';
+                    router.visit(window.route(dest), { replace: true });
                 } else {
                     form.errors.login = 'Lỗi hệ thống: Không nhận được Token xác thực.';
                 }

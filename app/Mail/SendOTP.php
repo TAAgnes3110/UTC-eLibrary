@@ -14,11 +14,11 @@ class SendOTP extends Mailable
 
     public function __construct(array $data = [])
     {
-        $this->otp = $data['otp'] ?? 0;
+        $this->otp = (string) ($data['otp'] ?? '');
         $this->name = $data['name'] ?? '';
     }
 
-    public int $otp;
+    public string $otp;
 
     public string $name;
 

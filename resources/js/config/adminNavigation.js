@@ -18,7 +18,8 @@ export const adminNavigation = [
         icon: 'lucide:users',
         active: ['admin.users.*'],
         children: [
-            { name: 'Tài khoản', href: 'admin.users.index', active: 'admin.users.*' },
+            { name: 'Tài khoản', href: 'admin.users.index', active: 'admin.users.index' },
+            { name: 'Duyệt yêu cầu cập nhật', href: 'admin.users.update-requests', active: 'admin.users.update-requests' },
         ],
     },
     {

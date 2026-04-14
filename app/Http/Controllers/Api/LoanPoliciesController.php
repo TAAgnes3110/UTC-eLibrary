@@ -22,10 +22,7 @@ class LoanPoliciesController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $items = LoanPolicy::query()
-            ->orderByRaw("CASE COALESCE(user_type, '') WHEN 'STUDENT' THEN 1 WHEN 'TEACHER' THEN 2 WHEN 'MEMBER' THEN 3 ELSE 9 END")
-            ->orderBy('id')
-            ->get();
+        $items = LoanPolicy::query()->orderedForReader()->get();
 
         return ApiResponse::success(LoanPolicyResource::collection($items));
     }

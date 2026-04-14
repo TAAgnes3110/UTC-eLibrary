@@ -1,5 +1,6 @@
 <script setup>
 import { Icon } from '@iconify/vue';
+import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
 
 defineProps({
     rows: { type: Array, required: true },
@@ -78,22 +79,17 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
                         </td>
                         <td class="p-4 align-middle whitespace-nowrap">
                             <div class="flex flex-nowrap justify-start gap-0.5">
-                                <button
-                                    type="button"
-                                    class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                <AdminTableActionIcon
+                                    icon="lucide:pencil"
                                     title="Chỉnh sửa"
                                     @click="emit('edit', w)"
-                                >
-                                    <Icon icon="lucide:pencil" class="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                />
+                                <AdminTableActionIcon
+                                    icon="lucide:trash-2"
+                                    tone="rose"
                                     title="Xóa"
                                     @click="emit('delete', w)"
-                                >
-                                    <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
-                                </button>
+                                />
                             </div>
                         </td>
                     </tr>

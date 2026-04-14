@@ -6,6 +6,8 @@ use App\Enums\ResourceType;
 use App\Exports\BooksWorkbookExport;
 use App\Helpers\FileHelpers;
 use App\Imports\BookImport;
+use App\Enums\BookPhysicalCondition;
+use App\Enums\BookStatus;
 use App\Models\Book;
 use App\Models\ClassificationDetail;
 use App\Models\Warehouse;
@@ -106,7 +108,92 @@ class BookService
         int $perPage = self::PER_PAGE,
         ?array $keywordColumns = null
     ): LengthAwarePaginator {
-        $query = Book::query()
+        $query = $this->baseBookListQuery();
+        $this->applyResourceTypeFilter($query, $resourceType);
+        $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
+
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * Tra cứu công khai: lọc theo phân loại, tình trạng tồn (quantity), cùng logic từ khóa như admin.
+     *
+     * @param  list<string>|null  $keywordColumns
+     */
+    public function readerCatalog(
+        ?string $keyword,
+        ?string $resourceType,
+        int $perPage,
+        ?array $keywordColumns,
+        ?int $classificationId,
+        ?int $classificationDetailId,
+        ?string $stock,
+        string $sort = 'newest'
+    ): LengthAwarePaginator {
+        $query = $this->baseBookListQuery();
+        $this->applyResourceTypeFilter($query, $resourceType);
+        $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
+
+        if ($classificationId !== null) {
+            $query->where('classification_id', $classificationId);
+        }
+        if ($classificationDetailId !== null) {
+            $query->where('classification_detail_id', $classificationDetailId);
+        }
+        if ($stock === 'in_stock') {
+            $query->where('quantity', '>', 0);
+        } elseif ($stock === 'out_of_stock') {
+            $query->where(function ($q) {
+                $q->where('quantity', '<=', 0)->orWhereNull('quantity');
+            });
+        }
+
+        if ($sort === 'oldest') {
+            $query->orderBy('id');
+        } else {
+            $query->orderByDesc('id');
+        }
+
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * Thống kê bản in cho trang chi tiết tra cứu (book_copies; fallback quantity nếu chưa có bản).
+     *
+     * @return array{total: int, available: int, borrowed: int}
+     */
+    public function readerCopyStats(Book $book): array
+    {
+        $total = (int) $book->copies()->count();
+        if ($total === 0) {
+            $q = max(0, (int) ($book->quantity ?? 0));
+
+            return [
+                'total' => $q,
+                'available' => $book->is_available ? $q : 0,
+                'borrowed' => $book->is_available ? 0 : $q,
+            ];
+        }
+
+        $available = (int) $book->copies()
+            ->where('status', BookStatus::AVAILABLE)
+            ->whereIn('physical_condition', BookPhysicalCondition::borrowableValues())
+            ->count();
+        $borrowed = (int) $book->copies()->where('status', BookStatus::BORROWED)->count();
+
+        return [
+            'total' => $total,
+            'available' => $available,
+            'borrowed' => $borrowed,
+        ];
+    }
+
+    /**
+     * @return Builder<Book>
+     */
+    private function baseBookListQuery(): Builder
+    {
+        return Book::query()
             ->with([
                 'classification:id,code,name',
                 'classificationDetail:id,code,name',
@@ -114,66 +201,72 @@ class BookService
                 'authors:id,name',
                 'publishers:id,name',
             ]);
-        $this->applyResourceTypeFilter($query, $resourceType);
-        $query->when($keyword !== null && $keyword !== '', function ($q) use ($keyword, $keywordColumns) {
-            $effectiveColumns = ! empty($keywordColumns)
-                ? $keywordColumns
-                : ['code', 'title', 'author', 'publisher', 'place', 'year', 'classification'];
-            $q->where(function ($q) use ($keyword, $effectiveColumns) {
-                $applied = false;
-                if (in_array('title', $effectiveColumns, true)) {
-                    $q->where('title', 'like', "%{$keyword}%");
-                    $applied = true;
-                }
-                if (in_array('code', $effectiveColumns, true)) {
-                    $method = $applied ? 'orWhere' : 'where';
-                    $q->{$method}('registration_number', 'like', "%{$keyword}%")
-                        ->orWhere('book_code', 'like', "%{$keyword}%");
-                    $applied = true;
-                }
-                if (in_array('year', $effectiveColumns, true)) {
-                    $method = $applied ? 'orWhere' : 'where';
-                    $q->{$method}('published_year', 'like', "%{$keyword}%");
-                    $applied = true;
-                }
-                if (in_array('author', $effectiveColumns, true)) {
-                    $method = $applied ? 'orWhereHas' : 'whereHas';
-                    $q->{$method}('authors', function ($sub) use ($keyword) {
-                        $sub->where('name', 'like', "%{$keyword}%");
-                    });
-                    $applied = true;
-                }
-                if (in_array('publisher', $effectiveColumns, true)) {
-                    $method = $applied ? 'orWhereHas' : 'whereHas';
-                    $q->{$method}('publishers', function ($sub) use ($keyword) {
-                        $sub->where('name', 'like', "%{$keyword}%");
-                    });
-                    $applied = true;
-                }
-                if (in_array('classification', $effectiveColumns, true)) {
-                    $method = $applied ? 'orWhereHas' : 'whereHas';
-                    $q->{$method}('classification', function ($sub) use ($keyword) {
-                        $sub->where('code', 'like', "%{$keyword}%")
-                            ->orWhere('name', 'like', "%{$keyword}%");
-                    });
-                    $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
-                        $sub->where('code', 'like', "%{$keyword}%")
-                            ->orWhere('name', 'like', "%{$keyword}%");
-                    });
-                    $applied = true;
-                }
-                if (in_array('place', $effectiveColumns, true)) {
-                    $method = $applied ? 'orWhere' : 'where';
-                    $q->{$method}('publisher_place', 'like', "%{$keyword}%");
-                    $applied = true;
-                }
-                if (! $applied) {
-                    $q->where('title', 'like', "%{$keyword}%");
-                }
-            });
-        });
+    }
 
-        return $query->paginate($perPage)->withQueryString();
+    /**
+     * @param  list<string>|null  $keywordColumns
+     */
+    private function applyKeywordFilterToBookQuery(Builder $query, ?string $keyword, ?array $keywordColumns): void
+    {
+        if ($keyword === null || $keyword === '') {
+            return;
+        }
+
+        $effectiveColumns = ! empty($keywordColumns)
+            ? $keywordColumns
+            : ['code', 'title', 'author', 'publisher', 'place', 'year', 'classification'];
+        $query->where(function ($q) use ($keyword, $effectiveColumns) {
+            $applied = false;
+            if (in_array('title', $effectiveColumns, true)) {
+                $q->where('title', 'like', "%{$keyword}%");
+                $applied = true;
+            }
+            if (in_array('code', $effectiveColumns, true)) {
+                $method = $applied ? 'orWhere' : 'where';
+                $q->{$method}('registration_number', 'like', "%{$keyword}%")
+                    ->orWhere('book_code', 'like', "%{$keyword}%");
+                $applied = true;
+            }
+            if (in_array('year', $effectiveColumns, true)) {
+                $method = $applied ? 'orWhere' : 'where';
+                $q->{$method}('published_year', 'like', "%{$keyword}%");
+                $applied = true;
+            }
+            if (in_array('author', $effectiveColumns, true)) {
+                $method = $applied ? 'orWhereHas' : 'whereHas';
+                $q->{$method}('authors', function ($sub) use ($keyword) {
+                    $sub->where('name', 'like', "%{$keyword}%");
+                });
+                $applied = true;
+            }
+            if (in_array('publisher', $effectiveColumns, true)) {
+                $method = $applied ? 'orWhereHas' : 'whereHas';
+                $q->{$method}('publishers', function ($sub) use ($keyword) {
+                    $sub->where('name', 'like', "%{$keyword}%");
+                });
+                $applied = true;
+            }
+            if (in_array('classification', $effectiveColumns, true)) {
+                $method = $applied ? 'orWhereHas' : 'whereHas';
+                $q->{$method}('classification', function ($sub) use ($keyword) {
+                    $sub->where('code', 'like', "%{$keyword}%")
+                        ->orWhere('name', 'like', "%{$keyword}%");
+                });
+                $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
+                    $sub->where('code', 'like', "%{$keyword}%")
+                        ->orWhere('name', 'like', "%{$keyword}%");
+                });
+                $applied = true;
+            }
+            if (in_array('place', $effectiveColumns, true)) {
+                $method = $applied ? 'orWhere' : 'where';
+                $q->{$method}('publisher_place', 'like', "%{$keyword}%");
+                $applied = true;
+            }
+            if (! $applied) {
+                $q->where('title', 'like', "%{$keyword}%");
+            }
+        });
     }
 
     /**

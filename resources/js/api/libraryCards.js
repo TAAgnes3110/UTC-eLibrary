@@ -1,6 +1,12 @@
 import client from './axios';
 
 export const libraryCardsApi = {
+    createForMe(payload) {
+        if (payload instanceof FormData) {
+            return client.post('/me/library-card', payload).then((r) => r.data);
+        }
+        return client.post('/me/library-card', payload).then((r) => r.data);
+    },
     list(params = {}) {
         return client.get('/library-cards', { params }).then((r) => r.data);
     },

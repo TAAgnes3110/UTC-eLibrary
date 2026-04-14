@@ -1,6 +1,7 @@
 <script setup>
 import { Icon } from '@iconify/vue';
 import { getRoleInfo, getStatusInfo } from '@/config/enums';
+import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
 
 defineProps({
     rows: { type: Array, required: true },
@@ -124,38 +125,23 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'toggle-status', 'dele
                         </td>
                         <td class="p-4 align-middle whitespace-nowrap">
                             <div class="flex flex-nowrap justify-start gap-0.5">
-                                <button
-                                    type="button"
-                                    class="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                                <AdminTableActionIcon
+                                    icon="lucide:pencil"
                                     title="Chỉnh sửa"
                                     @click="emit('edit', user)"
-                                >
-                                    <Icon icon="lucide:pencil" class="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                    type="button"
-                                    :class="
-                                        user.status === 'active'
-                                            ? 'text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20'
-                                            : 'text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
-                                    "
-                                    class="p-1.5 rounded-lg transition-colors"
+                                />
+                                <AdminTableActionIcon
+                                    :icon="user.status === 'active' ? 'lucide:user-x' : 'lucide:user-check'"
+                                    :tone="user.status === 'active' ? 'rose' : 'emerald'"
                                     :title="user.status === 'active' ? 'Khóa tài khoản' : 'Mở khóa'"
                                     @click="emit('toggle-status', user)"
-                                >
-                                    <Icon
-                                        :icon="user.status === 'active' ? 'lucide:user-x' : 'lucide:user-check'"
-                                        class="w-3.5 h-3.5"
-                                    />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-lg transition-colors"
+                                />
+                                <AdminTableActionIcon
+                                    icon="lucide:trash-2"
+                                    tone="rose"
                                     title="Xóa"
                                     @click="emit('delete', user)"
-                                >
-                                    <Icon icon="lucide:trash-2" class="w-3.5 h-3.5" />
-                                </button>
+                                />
                             </div>
                         </td>
                     </tr>

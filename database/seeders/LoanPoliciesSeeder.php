@@ -6,10 +6,8 @@ use App\Models\LoanPolicy;
 use Illuminate\Database\Seeder;
 
 /**
- * Ba chính sách mặc định: người học + CBGV (thẻ đa năng) + bạn đọc ngoài (thẻ thư viện).
+ * Ba chính sách mặc định theo loại thẻ: sinh viên, giảng viên, bạn đọc (khớp user_type / holder thẻ).
  * Giới hạn số cuốn theo Nội quy — Điều 5.2 (QĐ 2706/QĐ-ĐHGTVT); hạn ngày / gia hạn / phạt: chỉnh khi có quyết định chính thức.
- *
- * @see https://lib.utc.edu.vn/noi-quy/quy-%C4%91%E1%BB%8Bnh-s%E1%BB%AD-d%E1%BB%A5ng-th%C6%B0-vi%E1%BB%87n
  */
 class LoanPoliciesSeeder extends Seeder
 {
@@ -18,7 +16,7 @@ class LoanPoliciesSeeder extends Seeder
         $policies = [
             [
                 'code' => 'LOAN_STUDENT',
-                'name' => 'Người học (thẻ đa năng)',
+                'name' => 'Thẻ sinh viên',
                 'user_type' => 'STUDENT',
                 'max_books' => 12,
                 'max_days' => 30,
@@ -33,7 +31,7 @@ class LoanPoliciesSeeder extends Seeder
             ],
             [
                 'code' => 'LOAN_TEACHER',
-                'name' => 'CBGV (thẻ đa năng)',
+                'name' => 'Thẻ giáo viên',
                 'user_type' => 'TEACHER',
                 'max_books' => 10,
                 'max_days' => 60,
@@ -48,7 +46,7 @@ class LoanPoliciesSeeder extends Seeder
             ],
             [
                 'code' => 'LOAN_EXTERNAL_READER',
-                'name' => 'Bạn đọc ngoài (thẻ thư viện)',
+                'name' => 'Thẻ bạn đọc',
                 'user_type' => 'MEMBER',
                 'max_books' => 5,
                 'max_days' => 0,

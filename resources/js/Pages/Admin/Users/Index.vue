@@ -10,7 +10,9 @@ import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfir
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
+import AdminPageHeading from '@/Components/Admin/Shared/AdminPageHeading.vue';
 import UsersTable from '@/Components/Admin/Users/UsersTable.vue';
+import { ADMIN_ICONS } from '@/config/adminIcons';
 import UserFormModal from '@/Components/Admin/Users/UserFormModal.vue';
 import UserToggleConfirmModal from '@/Components/Admin/Users/UserToggleConfirmModal.vue';
 import { useUsersAdminPage, USERS_SEARCH_IN_OPTIONS } from '@/composables/admin/useUsersAdminPage';
@@ -112,13 +114,21 @@ const {
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách tài khoản</h2>
-                <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
-                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
-                    Thùng rác
-                </Button>
-            </div>
+            <AdminPageHeading title="Danh sách tài khoản">
+                <template #actions>
+                    <a
+                        :href="route('admin.users.update-requests')"
+                        class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-200 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                        <Icon :icon="ADMIN_ICONS.clipboardCheck" class="w-4 h-4" />
+                        Duyệt yêu cầu
+                    </a>
+                    <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
+                        <Icon :icon="ADMIN_ICONS.trash" class="w-4 h-4" />
+                        Thùng rác
+                    </Button>
+                </template>
+            </AdminPageHeading>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"

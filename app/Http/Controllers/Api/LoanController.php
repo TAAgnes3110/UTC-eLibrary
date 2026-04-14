@@ -10,6 +10,7 @@ use App\Http\Requests\LoanRequest;
 use App\Http\Resources\LoanResource;
 use App\Models\Loan;
 use App\Services\LoanService;
+use App\Services\StatisticsService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class LoanController extends Controller
 {
     public function __construct(
-        private LoanService $loanService
+        private LoanService $loanService,
+        private StatisticsService $statisticsService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -85,6 +87,20 @@ class LoanController extends Controller
         $items = $query->paginate($perPage)->withQueryString();
 
         return ApiResponse::success(LoanResource::collection($items));
+    }
+
+    /**
+     * Dashboard thống kê phiếu mượn/trả theo chu kỳ ngày/tháng/năm.
+     */
+    public function statistics(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'granularity' => ['nullable', Rule::in(['day', 'month', 'year'])],
+        ]);
+
+        $payload = $this->statisticsService->dashboardStatistics((string) ($validated['granularity'] ?? 'month'));
+
+        return ApiResponse::success($payload);
     }
 
     public function export(Request $request): StreamedResponse

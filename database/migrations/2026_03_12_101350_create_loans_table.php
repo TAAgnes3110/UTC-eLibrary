@@ -20,6 +20,7 @@ return new class extends Migration
             $table->userAuditColumns();
 
             $table->timestamps();
+            $table->softDeletes();
 
             $table->index(['library_card_id', 'status']);
             $table->index(['status', 'due_date'], 'loans_status_due_date_index');

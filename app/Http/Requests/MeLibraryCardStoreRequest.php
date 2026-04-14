@@ -4,14 +4,6 @@ namespace App\Http\Requests;
 
 use App\Enums\RoleType;
 use Illuminate\Validation\Rule;
-
-/**
- * POST /api/v1/me/library-card — trường bắt tuỳ `user_type` (SV/GV/bạn đọc).
- *
- * Các trường danh tính có thể bỏ qua nếu đã có trên tài khoản; mã định danh bắt buộc khi user chưa có `code`.
- *
- * `paid_at_counter` + thanh toán: đăng ký tại quầy và thu phí ngay → workflow `pending_pickup` (chờ lấy thẻ).
- */
 class MeLibraryCardStoreRequest extends BaseRequest
 {
     public function rules(): array
@@ -31,6 +23,7 @@ class MeLibraryCardStoreRequest extends BaseRequest
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'date_of_birth' => ['sometimes', 'nullable', 'date'],
             'photo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'photo_file' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'params' => ['prohibited'],
             'paid_at_counter' => ['sometimes', 'boolean'],
@@ -57,6 +50,9 @@ class MeLibraryCardStoreRequest extends BaseRequest
             'faculty_id.required' => __('Khoa không được để trống'),
             'period_id.required' => __('Niên khóa không được để trống'),
             'class_code.required' => __('Lớp không được để trống'),
+            'photo_file.image' => __('Ảnh 3x4 phải là file ảnh hợp lệ.'),
+            'photo_file.mimes' => __('Ảnh 3x4 chỉ nhận định dạng jpg, jpeg, png, webp.'),
+            'photo_file.max' => __('Ảnh 3x4 không được vượt quá 5MB.'),
             'payment_amount.required_if' => __('Vui lòng nhập số tiền đã thu tại quầy.'),
         ];
     }

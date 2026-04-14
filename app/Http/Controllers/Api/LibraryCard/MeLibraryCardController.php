@@ -22,9 +22,11 @@ class MeLibraryCardController extends Controller
     public function store(MeLibraryCardStoreRequest $request): JsonResponse
     {
         try {
+            $photoFile = $request->file('photo_file');
             $card = $this->libraryCardService->createForUserHaveAccount(
                 $request->user(),
-                $request->validated()
+                $request->validated(),
+                $photoFile
             );
 
             return ApiResponse::success(

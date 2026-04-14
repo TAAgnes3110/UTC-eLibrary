@@ -9,7 +9,9 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
+import AdminPageHeading from '@/Components/Admin/Shared/AdminPageHeading.vue';
 import LoansTable from '@/Components/Admin/Loans/LoansTable.vue';
+import { ADMIN_ICONS } from '@/config/adminIcons';
 import { LOANS_SEARCH_IN_OPTIONS, useLoansAdminPage } from '@/composables/admin/useLoansAdminPage';
 
 const {
@@ -60,13 +62,14 @@ const {
         :breadcrumbs="[{ label: 'Trang chủ' }, { label: 'Phiếu mượn' }, { label: 'Quản lý phiếu' }]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách phiếu mượn</h2>
-                <Button variant="outline" size="sm" class="gap-1.5" @click="showTrashDrawer = true">
-                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
-                    Thùng rác
-                </Button>
-            </div>
+            <AdminPageHeading title="Danh sách phiếu mượn">
+                <template #actions>
+                    <Button variant="outline" size="sm" class="gap-1.5" @click="showTrashDrawer = true">
+                        <Icon :icon="ADMIN_ICONS.trash" class="w-4 h-4" />
+                        Thùng rác
+                    </Button>
+                </template>
+            </AdminPageHeading>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"

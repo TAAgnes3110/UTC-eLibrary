@@ -162,6 +162,7 @@ export function getLaravelErrorMessage(error, fallback = apiGenericFallback) {
         }
         if (msgs.length) return msgs.join(' ');
     }
+    if (typeof data.messages === 'string' && data.messages.trim()) return data.messages.trim();
     if (typeof data.message === 'string' && data.message.trim()) return data.message.trim();
     if (typeof data.error === 'string' && data.error.trim()) return data.error.trim();
     return fallback;

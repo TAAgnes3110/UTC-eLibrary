@@ -12,6 +12,8 @@ use App\Http\Controllers\Api\FacultyController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardStaffController;
 use App\Http\Controllers\Api\LibraryCard\MeLibraryCardController;
+use App\Http\Controllers\Api\Loan\LoanRenewalRequestController;
+use App\Http\Controllers\Api\Loan\MeLoanController;
 use App\Http\Controllers\Api\LibraryCardController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\LoanPoliciesController;
@@ -21,6 +23,7 @@ use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublisherController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserProfileUpdateRequestController;
 use App\Http\Controllers\Api\WarehouseController;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Support\Facades\Cache;
@@ -82,8 +85,15 @@ Route::prefix('v1')->group(function () {
     Route::group(['prefix' => 'me', 'middleware' => ['init']], function () {
         Route::get('profile', [ProfileController::class, 'show']);
         Route::put('profile', [ProfileController::class, 'update']);
+        Route::post('avatar', [ProfileController::class, 'updateAvatar']);
         Route::put('password', [ProfileController::class, 'updatePassword']);
+        Route::get('profile-update-requests', [UserProfileUpdateRequestController::class, 'myIndex']);
+        Route::post('profile-update-requests', [UserProfileUpdateRequestController::class, 'store']);
         Route::post('library-card', [MeLibraryCardController::class, 'store']);
+        Route::get('loans', [MeLoanController::class, 'index']);
+        Route::get('loans/export', [MeLoanController::class, 'export']);
+        Route::get('loans/{loan}', [MeLoanController::class, 'show']);
+        Route::post('loans/{loan}/renewal-requests', [MeLoanController::class, 'requestRenewal']);
     });
 
     Route::middleware(['throttle:auth'])->group(function () {
@@ -97,6 +107,9 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('faculties', FacultyController::class);
 
             Route::group(['prefix' => '/users'], function () {
+                Route::get('/profile-update-requests', [UserProfileUpdateRequestController::class, 'adminIndex']);
+                Route::post('/profile-update-requests/{id}/approve', [UserProfileUpdateRequestController::class, 'approve']);
+                Route::post('/profile-update-requests/{id}/reject', [UserProfileUpdateRequestController::class, 'reject']);
                 Route::get('/', [UserController::class, 'index']);
                 Route::get('/export', [UserController::class, 'exportUsers']);
                 Route::get('/trash', [UserController::class, 'trash']);
@@ -175,7 +188,11 @@ Route::prefix('v1')->group(function () {
 
             Route::group(['prefix' => 'loans'], function () {
                 Route::get('/', [LoanController::class, 'index']);
+                Route::get('/statistics', [LoanController::class, 'statistics']);
                 Route::get('/export', [LoanController::class, 'export']);
+                Route::get('/renewal-requests', [LoanRenewalRequestController::class, 'index']);
+                Route::post('/renewal-requests/{renewalRequest}/approve', [LoanRenewalRequestController::class, 'approve']);
+                Route::post('/renewal-requests/{renewalRequest}/reject', [LoanRenewalRequestController::class, 'reject']);
                 Route::get('/trash', [LoanController::class, 'trash']);
                 Route::post('/restore', [LoanController::class, 'restoreMany']);
                 Route::post('/restore/{id}', [LoanController::class, 'restore']);

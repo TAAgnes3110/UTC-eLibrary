@@ -46,4 +46,13 @@ export const usersApi = {
     bulkUpdateAvatar(formData) {
         return client.post('/users/avatar-bulk', formData).then((r) => r.data);
     },
+    listProfileUpdateRequests(params = {}) {
+        return client.get('/users/profile-update-requests', { params }).then((r) => r.data);
+    },
+    approveProfileUpdateRequest(id, payload = {}) {
+        return client.post(`/users/profile-update-requests/${id}/approve`, payload).then((r) => r.data);
+    },
+    rejectProfileUpdateRequest(id, payload = {}) {
+        return client.post(`/users/profile-update-requests/${id}/reject`, payload).then((r) => r.data);
+    },
 };

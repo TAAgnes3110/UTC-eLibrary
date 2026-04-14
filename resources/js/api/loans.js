@@ -4,6 +4,9 @@ export const loansApi = {
     list(params = {}) {
         return client.get('/loans', { params }).then((r) => r.data);
     },
+    statistics(params = {}) {
+        return client.get('/loans/statistics', { params }).then((r) => r.data);
+    },
     export(params = {}) {
         return client.get('/loans/export', {
             params,

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Backend;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
@@ -44,6 +45,26 @@ class ProfileApiTest extends TestCase
         $this->assertSame('2000-01-20', $fresh->date_of_birth?->format('Y-m-d'));
         $this->assertSame('female', $fresh->gender);
         $this->assertSame('Ha Noi', $fresh->address);
+    }
+
+    public function test_me_profile_staff_can_update_code(): void
+    {
+        [$admin, $token] = $this->createAdminUserAndToken([
+            'code' => '001000000099',
+        ]);
+
+        $response = $this->putJson('/api/v1/me/profile', [
+            'name' => $admin->name,
+            'email' => $admin->email,
+            'phone' => $admin->phone,
+            'date_of_birth' => null,
+            'gender' => null,
+            'address' => null,
+            'code' => '001000000088',
+        ], $this->apiTokenHeaders($token));
+
+        $response->assertStatus(200)->assertJsonPath('data.code', '001000000088');
+        $this->assertSame('001000000088', User::query()->find($admin->id)->code);
     }
 
     public function test_me_password_update_returns_200_with_valid_payload(): void

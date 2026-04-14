@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RoleType;
+use Illuminate\Database\Eloquent\Builder;
 
 class LoanPolicy extends BaseModel
 {
@@ -28,6 +29,18 @@ class LoanPolicy extends BaseModel
         'allow_home' => 'boolean',
         'allow_onsite' => 'boolean',
     ];
+
+    /**
+     * Thứ tự hiển thị công khai: sinh viên → giảng viên → độc giả ngoài → còn lại.
+     *
+     * @param  Builder<static>  $query
+     */
+    public function scopeOrderedForReader(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw("CASE COALESCE(user_type, '') WHEN 'STUDENT' THEN 1 WHEN 'TEACHER' THEN 2 WHEN 'MEMBER' THEN 3 ELSE 9 END")
+            ->orderBy('id');
+    }
 
     /**
      * Policy áp dụng khi user_type khớp enum RoleType, hoặc cột null = mặc định cho mọi đối tượng.
@@ -63,7 +76,7 @@ class LoanPolicy extends BaseModel
     }
 
     /**
-     * Ánh xạ loại thẻ thư viện → policy: thẻ đa năng = student|teacher; độc giả ngoài = MEMBER.
+     * Ánh xạ holder thẻ thư viện → policy: sinh viên / giảng viên → STUDENT|TEACHER; bạn đọc (ngoài) → MEMBER.
      */
     public static function forLibraryHolderType(?string $holderType): ?self
     {

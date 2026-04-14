@@ -8,6 +8,7 @@ use App\Models\Traits\HasAuditFields;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -80,6 +81,11 @@ class User extends Authenticatable implements JWTSubject
     public function loans(): HasManyThrough
     {
         return $this->hasManyThrough(Loan::class, LibraryCard::class, 'user_id', 'library_card_id', 'id', 'id');
+    }
+
+    public function savedBooks(): HasMany
+    {
+        return $this->hasMany(SavedBook::class);
     }
 
     public function scopeDuplicate($query, array $data, ?int $excludeId = null)

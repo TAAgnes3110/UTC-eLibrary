@@ -44,4 +44,9 @@ class UserController extends Controller
                 ->get(['id', 'code', 'name', 'start_year', 'end_year']),
         ]);
     }
+
+    public function updateRequests(): Response
+    {
+        return inertia('Admin/Users/UpdateRequests');
+    }
 }

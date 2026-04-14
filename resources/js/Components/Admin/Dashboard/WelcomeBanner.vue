@@ -7,7 +7,15 @@ defineProps({
         type: Array,
         required: true,
         default: () => []
-    }
+    },
+    todayBorrowCount: {
+        type: Number,
+        default: 0,
+    },
+    overdueCount: {
+        type: Number,
+        default: 0,
+    },
 });
 </script>
 
@@ -16,8 +24,8 @@ defineProps({
         <div class="relative z-10 max-w-2xl">
             <h2 class="text-2xl lg:text-3xl font-black mb-4">Chào mừng quay trở lại!</h2>
             <p class="text-blue-200 dark:text-blue-300 text-base lg:text-lg mb-8">
-                Hôm nay có <strong class="text-white">12</strong> phiếu mượn cần xử lý và
-                <strong class="text-white">5</strong> sách quá hạn cần nhắc nhở.
+                Hôm nay có <strong class="text-white">{{ todayBorrowCount }}</strong> phiếu mượn phát sinh và
+                <strong class="text-white">{{ overdueCount }}</strong> phiếu quá hạn cần theo dõi.
             </p>
             <div class="flex flex-wrap gap-4">
                 <Button

@@ -65,4 +65,9 @@ class Loan extends BaseModel
     {
         return $this->hasMany(LoanItem::class);
     }
+
+    public function renewalRequests(): HasMany
+    {
+        return $this->hasMany(LoanRenewalRequest::class);
+    }
 }

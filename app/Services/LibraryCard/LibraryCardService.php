@@ -23,9 +23,9 @@ class LibraryCardService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createForUserHaveAccount(User $user, array $data): LibraryCard
+    public function createForUserHaveAccount(User $user, array $data, ?UploadedFile $photoFile = null): LibraryCard
     {
-        return $this->account->createForUserHaveAccount($user, $data);
+        return $this->account->createForUserHaveAccount($user, $data, $photoFile);
     }
 
     /**

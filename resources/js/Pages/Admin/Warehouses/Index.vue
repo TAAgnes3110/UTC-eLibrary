@@ -10,7 +10,9 @@ import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
+import AdminPageHeading from '@/Components/Admin/Shared/AdminPageHeading.vue';
 import WarehousesTable from '@/Components/Admin/Warehouses/WarehousesTable.vue';
+import { ADMIN_ICONS } from '@/config/adminIcons';
 import WarehouseFormModal from '@/Components/Admin/Warehouses/WarehouseFormModal.vue';
 import { useWarehousesAdminPage, WAREHOUSES_SEARCH_IN_OPTIONS } from '@/composables/admin/useWarehousesAdminPage';
 
@@ -71,13 +73,14 @@ const {
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Danh sách kho sách</h2>
-                <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
-                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
-                    Thùng rác
-                </Button>
-            </div>
+            <AdminPageHeading title="Danh sách kho sách">
+                <template #actions>
+                    <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
+                        <Icon :icon="ADMIN_ICONS.trash" class="w-4 h-4" />
+                        Thùng rác
+                    </Button>
+                </template>
+            </AdminPageHeading>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"

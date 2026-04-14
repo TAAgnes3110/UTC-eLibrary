@@ -4,19 +4,14 @@ namespace App\Services\LibraryCard;
 
 use App\Enums\LibraryCardStatus;
 use App\Enums\RoleType;
+use App\Helpers\FileHelpers;
 use App\Helpers\StudentTeacherRegistrationHelper;
-use App\Http\Requests\MeLibraryCardStoreRequest;
 use App\Models\LibraryCard;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/**
- * Xin cấp / đăng ký thẻ khi người dùng đã có tài khoản và đăng nhập.
- *
- * HTTP: {@see MeLibraryCardStoreRequest} — khoa/niên khóa/lớp bắt buộc theo `user_type`.
- * Thanh toán tại quầy ngay (`paid_at_counter`): {@see LibraryCard::WORKFLOW_PENDING_PICKUP} + bản ghi thanh toán.
- */
 class LibraryCardAccountService
 {
     public function __construct(
@@ -26,11 +21,11 @@ class LibraryCardAccountService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function createForUserHaveAccount(User $user, array $data): LibraryCard
+    public function createForUserHaveAccount(User $user, array $data, ?UploadedFile $photoFile = null): LibraryCard
     {
-        return DB::transaction(function () use ($user, $data) {
+        return DB::transaction(function () use ($user, $data, $photoFile) {
             $paidAtCounter = filter_var($data['paid_at_counter'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            $payload = $this->buildPayloadForAuthenticatedUser($user, $data, $paidAtCounter);
+            $payload = $this->buildPayloadForAuthenticatedUser($user, $data, $paidAtCounter, $photoFile);
             $card = LibraryCard::query()->create($payload);
             if ($paidAtCounter) {
                 $this->management->recordWalkInPayment($card, $data);
@@ -44,11 +39,11 @@ class LibraryCardAccountService
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function buildPayloadForAuthenticatedUser(User $user, array $data, bool $paidAtCounter = false): array
+    private function buildPayloadForAuthenticatedUser(User $user, array $data, bool $paidAtCounter = false, ?UploadedFile $photoFile = null): array
     {
-        $this->ensureUserHasProfilePhoto($user);
         $role = $this->resolveReaderRoleOrFail($user);
-        $identityCode = $this->resolveIdentityCodeForAccount($user, $data);
+        $identityCode = $this->resolveIdentityCodeForAccount($user);
+        $photoPath = $this->resolvePhotoPathForRegistration($user, $data, $photoFile);
 
         $payload = [
             'user_id' => $user->id,
@@ -57,7 +52,7 @@ class LibraryCardAccountService
             'phone' => $data['phone'] ?? $user->phone,
             'address' => $data['address'] ?? $user->address,
             'date_of_birth' => $data['date_of_birth'] ?? $user->date_of_birth?->format('Y-m-d'),
-            'photo_path' => $data['photo_path'] ?? $user->avatar,
+            'photo_path' => $photoPath,
             'workflow_status' => $paidAtCounter
                 ? LibraryCard::WORKFLOW_PENDING_PICKUP
                 : LibraryCard::WORKFLOW_PENDING_REVIEW,
@@ -66,7 +61,7 @@ class LibraryCardAccountService
             'card_number' => $identityCode,
         ];
 
-        $payload = array_merge($payload, $this->affiliationPayloadForAccountRole($role, $data));
+        $payload = array_merge($payload, $this->affiliationPayloadForAccountRole($role, $user));
 
         $departmentId = StudentTeacherRegistrationHelper::optionalDepartmentId($data);
         if ($departmentId !== null) {
@@ -94,26 +89,45 @@ class LibraryCardAccountService
     }
 
     /**
-     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function affiliationPayloadForAccountRole(RoleType $role, array $data): array
+    private function affiliationPayloadForAccountRole(RoleType $role, User $user): array
     {
+        $accountData = [
+            'faculty_id' => $user->faculty_id,
+            'period_id' => $user->period_id,
+            'class_code' => $user->class_code,
+        ];
+
         return match ($role) {
-            RoleType::STUDENT => $this->management->studentAffiliationPayload($data),
-            RoleType::TEACHER => $this->management->teacherAffiliationPayload($data),
+            RoleType::STUDENT => $this->management->studentAffiliationPayload($accountData),
+            RoleType::TEACHER => $this->management->teacherAffiliationPayload($accountData),
             default => ['holder_type' => LibraryCard::HOLDER_TYPE_EXTERNAL],
         };
     }
 
-    private function ensureUserHasProfilePhoto(User $user): void
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function resolvePhotoPathForRegistration(User $user, array $data, ?UploadedFile $photoFile = null): string
     {
-        $avatar = $user->avatar;
-        if ($avatar === null || $avatar === '' || (is_string($avatar) && trim($avatar) === '')) {
-            throw ValidationException::withMessages([
-                'avatar' => [__('Phải có ảnh đại diện (3×4) trên tài khoản.')],
-            ]);
+        if ($photoFile !== null) {
+            return FileHelpers::storeUploadedFile($photoFile, 'public', 'upload/library-cards/photos');
         }
+
+        $photoPath = trim((string) ($data['photo_path'] ?? ''));
+        if ($photoPath !== '') {
+            return $photoPath;
+        }
+
+        $avatar = trim((string) ($user->avatar ?? ''));
+        if ($avatar !== '') {
+            return $avatar;
+        }
+
+        throw ValidationException::withMessages([
+            'avatar' => [__('Phải có ảnh đại diện (3×4). Bạn có thể tải trực tiếp tại trang cấp thẻ hoặc cập nhật trong tài khoản.')],
+        ]);
     }
 
     private function resolveReaderRoleOrFail(User $user): RoleType
@@ -135,14 +149,13 @@ class LibraryCardAccountService
     }
 
     /**
-     * @param  array<string, mixed>  $data
      */
-    private function resolveIdentityCodeForAccount(User $user, array $data): string
+    private function resolveIdentityCodeForAccount(User $user): string
     {
-        $code = trim((string) (($data['code'] ?? $user->code) ?? ''));
+        $code = trim((string) ($user->code ?? ''));
         if ($code === '') {
             throw ValidationException::withMessages([
-                'code' => [__('Mã định danh không được để trống.')],
+                'code' => [__('Mã định danh còn thiếu trên tài khoản. Vui lòng cập nhật tài khoản trước khi cấp thẻ.')],
             ]);
         }
 

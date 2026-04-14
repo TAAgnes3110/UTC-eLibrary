@@ -9,7 +9,9 @@ import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar
 import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
 import AdminTrashDrawer from '@/Components/Admin/Shared/AdminTrashDrawer.vue';
+import AdminPageHeading from '@/Components/Admin/Shared/AdminPageHeading.vue';
 import LibraryCardsTable from '@/Components/Admin/LibraryCards/LibraryCardsTable.vue';
+import { ADMIN_ICONS } from '@/config/adminIcons';
 import LibraryCardFormModal from '@/Components/Admin/LibraryCards/LibraryCardFormModal.vue';
 import LibraryCardLockConfirmModal from '@/Components/Admin/LibraryCards/LibraryCardLockConfirmModal.vue';
 import { useLibraryCardsAdminPage } from '@/composables/admin/useLibraryCardsAdminPage';
@@ -36,13 +38,14 @@ function goCounter() {
         ]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <div class="flex items-center justify-between gap-2 flex-wrap">
-                <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Quản lý thẻ thư viện</h2>
-                <button type="button" class="admin-filter-btn inline-flex items-center gap-1.5 min-h-[44px] !h-auto py-2.5 px-3" @click="lc.openTrashDrawer">
-                    <Icon icon="lucide:trash-2" class="w-4 h-4" />
-                    Thùng rác
-                </button>
-            </div>
+            <AdminPageHeading title="Quản lý thẻ thư viện">
+                <template #actions>
+                    <button type="button" class="admin-filter-btn inline-flex items-center gap-1.5 min-h-[44px] !h-auto py-2.5 px-3" @click="lc.openTrashDrawer">
+                        <Icon :icon="ADMIN_ICONS.trash" class="w-4 h-4" />
+                        Thùng rác
+                    </button>
+                </template>
+            </AdminPageHeading>
 
             <AdminImportExportBar
                 :has-selection="lc.hasSelection"

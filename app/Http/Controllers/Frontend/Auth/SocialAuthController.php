@@ -54,7 +54,7 @@ class SocialAuthController extends Controller
         $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : ($user->user_type ?? null);
         $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
 
-        return redirect()->intended(route($isStaff ? 'admin.dashboard' : 'dashboard'));
+        return redirect()->intended(route($isStaff ? 'admin.dashboard' : 'reader.home'));
     }
 
     private function extractCodeFromEmail(string $email): ?string

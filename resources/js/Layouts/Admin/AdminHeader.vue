@@ -1,16 +1,16 @@
 <script setup>
 import { ref } from 'vue';
-import { router, Link } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu';
 import ThemeToggle from '@/Components/ThemeToggle.vue';
+import UserAccountDropdown from '@/Components/UserAccountDropdown.vue';
 
 const props = defineProps({
     title: { type: String, default: 'Dashboard' },
@@ -29,15 +29,6 @@ const hasRoute = (routeName) => {
     }
 };
 
-const searchQuery = ref('');
-const handleSearch = () => {
-    if (searchQuery.value.trim()) {
-        router.visit(route('admin.search', { q: searchQuery.value }));
-    }
-};
-
-
-// Thông báo (mock – có thể nhận từ props hoặc API sau)
 const notifications = ref([
     { id: 1, type: 'return', title: 'Sách sắp đến hạn trả', message: 'Lê Văn Tùng – "Giáo trình Cấu trúc dữ liệu" hạn trả 01/03/2024', time: '10 phút trước', read: false },
     { id: 2, type: 'overdue', title: 'Sách trả quá hạn', message: 'Nguyễn Thị Mai – "Lập trình Java" quá hạn 2 ngày', time: '1 giờ trước', read: false },
@@ -88,17 +79,6 @@ const getNotifIconBg = (type) => {
         </div>
 
         <div class="flex items-center gap-1.5">
-            <div class="relative hidden lg:block">
-                <Icon icon="lucide:search" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-                <input
-                    v-model="searchQuery"
-                    type="text"
-                    placeholder="Tìm kiếm..."
-                    class="bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-xs focus:ring-1 focus:ring-blue-500/30 focus:border-blue-400 w-52 transition-all text-gray-700 dark:text-white dark:placeholder-slate-500"
-                    @keyup.enter="handleSearch"
-                />
-            </div>
-
             <ThemeToggle />
 
             <!-- Thông báo (chuông) -->
@@ -173,63 +153,23 @@ const getNotifIconBg = (type) => {
                 </DropdownMenuContent>
             </DropdownMenu>
 
-            <DropdownMenu>
-                <DropdownMenuTrigger as-child>
-                    <Button variant="ghost" class="h-9 w-9 rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 p-0 border border-slate-200/50 dark:border-slate-700/50 ring-0 focus-visible:ring-2 focus-visible:ring-blue-500/30">
-                        <img
-                            :src="user?.avatar || '/images/default-avatar.png'"
-                            :alt="user?.name || 'Avatar'"
-                            class="h-full w-full object-cover"
-                        />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                    align="end"
-                    class="w-60 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl shadow-slate-900/10 dark:shadow-black/30 p-0 overflow-hidden"
-                >
-                    <!-- User info -->
-                    <div class="px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm shrink-0">
-                                {{ user?.name?.charAt(0)?.toUpperCase() || 'A' }}
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{{ user?.name }}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ user?.email }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="py-2">
-                        <DropdownMenuItem v-if="hasRoute('admin.profile')" @click="router.visit(route('admin.profile'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-blue-50 dark:focus:bg-slate-800 focus:text-blue-700 dark:focus:text-blue-300">
-                            <Icon icon="lucide:user-circle" class="mr-3 h-4 w-4 text-blue-500 dark:text-blue-400 shrink-0" />
-                            <span>Hồ sơ cá nhân</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem v-if="hasRoute('admin.settings.rules')" @click="router.visit(route('admin.settings.rules'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-slate-100 dark:focus:bg-slate-800">
-                            <Icon icon="lucide:sliders" class="mr-3 h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
-                            <span class="text-slate-700 dark:text-slate-300">Cấu hình thư viện</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem v-if="hasRoute('admin.settings.appearance')" @click="router.visit(route('admin.settings.appearance'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-slate-100 dark:focus:bg-slate-800">
-                            <Icon icon="lucide:settings" class="mr-3 h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
-                            <span class="text-slate-700 dark:text-slate-300">Cài đặt giao diện</span>
-                        </DropdownMenuItem>
-                    </div>
-
-                    <DropdownMenuSeparator class="bg-slate-100 dark:bg-slate-800" />
-
-                    <div class="p-2">
-                        <Link
-                            :href="route('logout')"
-                            method="post"
-                            as="button"
-                            class="flex w-full cursor-pointer items-center mx-2 rounded-xl py-2.5 px-3 text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 focus:bg-rose-50 dark:focus:bg-rose-950/40 focus:outline-none focus:text-rose-700 dark:focus:text-rose-300"
-                        >
-                            <Icon icon="lucide:log-out" class="mr-3 h-4 w-4 shrink-0" />
-                            <span>Đăng xuất</span>
-                        </Link>
-                    </div>
-                </DropdownMenuContent>
-            </DropdownMenu>
+            <UserAccountDropdown
+                v-if="user"
+                :user="user"
+                personal-info-route-name="admin.profile"
+                change-password-route-name="admin.change-password"
+            >
+                <template #items>
+                    <DropdownMenuItem v-if="hasRoute('admin.settings.rules')" @click="router.visit(route('admin.settings.rules'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-slate-100 dark:focus:bg-slate-800">
+                        <Icon icon="lucide:sliders" class="mr-3 h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <span class="text-slate-700 dark:text-slate-300">Cấu hình thư viện</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem v-if="hasRoute('admin.settings.appearance')" @click="router.visit(route('admin.settings.appearance'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-slate-100 dark:focus:bg-slate-800">
+                        <Icon icon="lucide:settings" class="mr-3 h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <span class="text-slate-700 dark:text-slate-300">Cài đặt giao diện</span>
+                    </DropdownMenuItem>
+                </template>
+            </UserAccountDropdown>
         </div>
         </div>
     </header>

@@ -30,7 +30,6 @@ const hasRoute = (routeName) => {
     }
 };
 
-const EXPANDED_SIDEBAR_KEY = 'utc.admin.sidebar.expanded.parents';
 const expandedKeys = ref([]);
 
 const toggleExpanded = (key) => {
@@ -63,25 +62,6 @@ function normalizeExpandedKeys(raw) {
     return raw.filter((idx) => Number.isInteger(idx) && validIndexes.has(idx));
 }
 
-function loadExpandedFromStorage() {
-    if (typeof window === 'undefined') return;
-    try {
-        const parsed = JSON.parse(window.localStorage.getItem(EXPANDED_SIDEBAR_KEY) || '[]');
-        expandedKeys.value = normalizeExpandedKeys(parsed);
-    } catch {
-        expandedKeys.value = [];
-    }
-}
-
-function saveExpandedToStorage(keys) {
-    if (typeof window === 'undefined') return;
-    try {
-        window.localStorage.setItem(EXPANDED_SIDEBAR_KEY, JSON.stringify(keys));
-    } catch {
-        // no-op khi trình duyệt chặn storage
-    }
-}
-
 const isParentActive = (item) => {
     if (!item.children) return false;
     return item.active && isActive(item.active);
@@ -101,12 +81,6 @@ const isChildActive = (child) => {
 };
 
 const page = usePage();
-loadExpandedFromStorage();
-watch(
-    () => expandedKeys.value,
-    (keys) => saveExpandedToStorage(keys),
-    { deep: true }
-);
 watch(
     () => page.url,
     () => {

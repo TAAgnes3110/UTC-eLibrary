@@ -236,6 +236,12 @@ const { showPassword, form, submit } = useLoginPage();
                                 <ArrowRight :size="16" class="text-blue-400" />
                             </Link>
                         </div>
+                        <Link
+                            :href="route('reader.home')"
+                            class="inline-flex min-h-[44px] w-full items-center justify-center text-sm font-semibold text-white/80 underline-offset-4 hover:text-white hover:underline"
+                        >
+                            Về trang chủ thư viện
+                        </Link>
                     </div>
                 </div>
             </div>

@@ -3,13 +3,11 @@
 namespace App\Http\Middleware;
 
 use App\Helpers\ApiResponse;
+use App\Helpers\CurrentUser;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Alias route: role_or_permission — kiểm tra Spatie role/permission qua $currentUser (JWT).
- */
 class CheckRoleOrPermission
 {
     /**
@@ -20,6 +18,13 @@ class CheckRoleOrPermission
     public function handle(Request $request, Closure $next, $roleOrPermission = null): Response
     {
         global $currentUser;
+
+        if (! $currentUser) {
+            $user = $request->user();
+            if ($user !== null) {
+                $currentUser = new CurrentUser($user);
+            }
+        }
 
         if (! $currentUser) {
             return ApiResponse::error(__('Bạn cần đăng nhập để sử dụng chức năng này.'), 401);

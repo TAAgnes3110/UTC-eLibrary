@@ -8,45 +8,36 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller as BaseController;
 
-/**
- * Base controller: helper jsonResponse, success, error, jsonResponseHtml.
- *
- * @todo Thống nhất format response (success/error) với Backend API (status/messages).
- */
+
 class Controller extends BaseController
 {
     use AuthorizesRequests, ValidatesRequests;
 
-    /**
-     * Trả về JSON với UTF-8, unescaped unicode.
-     */
+
     protected function jsonResponse(mixed $data, int $code = 200): JsonResponse
     {
         return response()->json($data, $code, ['Content-Type' => 'application/json;charset=UTF-8'], JSON_UNESCAPED_UNICODE);
     }
 
-    /**
-     * Chuẩn success: { "success": true, "data": ..., "message": ... }
-     */
     protected function success(mixed $data = null, ?string $message = null, int $code = 200): JsonResponse
     {
-        $body = ['success' => true];
+        $body = [
+            'status' => 'success',
+            'messages' => $message ?? __('Thành công.'),
+        ];
         if ($data !== null) {
             $body['data'] = $data;
-        }
-        if ($message !== null) {
-            $body['message'] = $message;
         }
 
         return $this->jsonResponse($body, $code);
     }
 
     /**
-     * Chuẩn lỗi: { "success": false, "message": ..., "errors": ... }
+     * Chuẩn lỗi đồng nhất API: { "status": "error", "messages": "...", "errors": ... }
      */
     protected function error(string $message, int $code = 400, mixed $errors = null): JsonResponse
     {
-        $body = ['success' => false, 'message' => $message];
+        $body = ['status' => 'error', 'messages' => $message];
         if ($errors !== null) {
             $body['errors'] = $errors;
         }

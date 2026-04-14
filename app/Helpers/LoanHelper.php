@@ -195,7 +195,6 @@ class LoanHelper
      */
     public function deductBooksByDeltas(array $bookDeltas): void
     {
-        // TODO: Khi chuyển sang BookCopy/barcode, đổi sang lock + trừ theo từng bản sao thay vì quantity của Book.
         if ($bookDeltas === []) {
             return;
         }
@@ -207,6 +206,9 @@ class LoanHelper
             ->keyBy('id');
 
         foreach ($bookDeltas as $bookId => $delta) {
+            if ($delta <= 0) {
+                throw new RuntimeException('Số lượng trừ kho phải lớn hơn 0.');
+            }
             $book = $books->get($bookId);
             if (! $book instanceof Book) {
                 throw new RuntimeException('Sách không tồn tại trong hệ thống');
@@ -226,7 +228,8 @@ class LoanHelper
      */
     public function restockBooksByDeltas(array $bookDeltas): void
     {
-        // TODO: Khi có ledger lịch sử kho, ghi movement nhập/trả ngay tại đây để phục vụ audit.
+        // Cộng tồn trực tiếp theo quantity hiện hành.
+        // Khi bổ sung ledger kho, có thể mở rộng bằng cách ghi movement tại cùng transaction này.
         if ($bookDeltas === []) {
             return;
         }
@@ -238,6 +241,9 @@ class LoanHelper
             ->keyBy('id');
 
         foreach ($bookDeltas as $bookId => $delta) {
+            if ($delta <= 0) {
+                throw new RuntimeException('Số lượng cộng kho phải lớn hơn 0.');
+            }
             $book = $books->get($bookId);
             if (! $book instanceof Book) {
                 throw new RuntimeException('Sách không tồn tại trong hệ thống');

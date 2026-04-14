@@ -1,0 +1,55 @@
+---
+description: UTC eLibrary — quy tắc cốt lõi (ECC + nghiệp vụ ĐH GTVT)
+alwaysApply: true
+---
+
+# UTC-eLibrary — Senior fullstack (Laravel 12 + Vue 3 Inertia)
+
+> ĐH Giao thông Vận tải (UTC). ECC: [everything-claude-code](https://github.com/affaan-m/everything-claude-code) (MIT). **Nghiệp vụ:** `docs/ai/context-utc-library.md`. **Mục lục docs:** `docs/README.md`.
+
+## Vai trò & quy trình
+
+- **Search-first:** Luôn rà `app/Services/`, models, migration trước khi thêm service mới — `docs/ai/ecc/skills/search-first.md`.
+- **Phạm vi:** Chỉ sửa đúng tính năng được giao; không refactor / đổi cấu hình hệ thống ngoài phạm vi.
+- **Xác minh:** Logic mượn/trả, phạt, thẻ → Feature test `tests/Feature/Backend/` hoặc bằng chứng lặp lại được.
+
+## Backend
+
+- **Service layer:** Controller chỉ điều hướng — nhận request đã validate, gọi Service, trả `ApiResponse` (+ Resource khi module đã dùng).
+- **Mượn / trả:** Mọi luồng ghi liên quan `loans`, `book_copies`, phạt… bọc trong **`DB::transaction()`** (rollback khi bất kỳ bước fail).
+- **Validate:** **FormRequest** cho mọi **POST/PUT/PATCH** thay đổi state; GET list/filter nhẹ có thể `$request->validate()` trong controller (như `BookController@index`).
+- **API:** `/api/v1`, JWT + `init`, admin/thủ thư `role_or_permission`. Route JWT mới → `ApiRoutesTest` khi phù hợp.
+- **Throttle:** `AppServiceProvider` — `RateLimiter` `api` / `auth` / `refresh`; khớp `routes/api.php`.
+- **N+1:** List/detail có quan hệ — `with()` / `load()` (classification, authors, warehouse, publishers, copies…).
+- **Pint:** `vendor/bin/pint` cho PHP.
+
+## Bảo mật & “audit” (theo hạ tầng hiện có)
+
+- RBAC Spatie; không log PII / mật khẩu.
+- Model dùng trait audit (`HasAuditFields`: `created_by`, `updated_by`, …) — **giữ** khi tạo bản ghi mượn/trả; hành động nhạy cảm không được bỏ qua ghi nhận actor khi đã có cột.
+- Import Excel: sanitize cell; Maatwebsite — `App\Imports/*`, `App\Exports/*`, logic trong **Service**; **comment** trong code chỗ công thức phạt / điều kiện mượn theo chuẩn UTC (tham chiếu `context-utc-library.md`).
+
+## Domain (nhắc nhanh)
+
+- **Người ngoài:** không checkout về nhà — chỉ đọc tại chỗ; bắt buộc kiểm tra loại thẻ / policy (chi tiết `context-utc-library.md`).
+- **Thẻ:** `library_cards`; **cấu hình mượn:** `LoanPolicy` model + `loan_policies`.
+
+## Frontend (Vue 3 + Inertia)
+
+- `<script setup>`, `useForm` + `applyLaravelErrorsToInertiaForm`.
+- **Mobile (sinh viên / thủ thư):** nút chính **≥ 44×44px**, `safe-area-inset`, bảng **`overflow-x-auto`** cuộn mượt.
+- **Lint JS/Vue:** theo cấu hình repo (chạy script trong `package.json` nếu có); không thêm `console.log` debug khi commit.
+
+## Excel & DB
+
+- Migration: `comment()` cột trạng thái; `down()` khả thi. FileHelpers / pattern import sẵn (`BookImport`, …).
+
+## Môi trường
+
+- Windows: `d:/UTC-eLibrary/...`. Git: Conventional Commits. Không `dd()` / `dump()` / debug sót.
+
+## Constraint check (trước khi trả lời / merge)
+
+1. Có cho phép **người ngoài mượn về nhà** trái quy định UTC không?
+2. API list/detail có **N+1** với classification / authors / warehouse (và quan hệ liên quan task) không?
+3. UI thay đổi có **đủ thân thiện mobile** (touch target, bảng cuộn) không?

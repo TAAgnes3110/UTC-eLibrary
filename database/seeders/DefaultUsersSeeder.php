@@ -9,8 +9,6 @@ use Illuminate\Database\Seeder;
 /**
  * Tạo 3 tài khoản mặc định: Admin, Thủ thư, Người dùng.
  * Mật khẩu mặc định: password (nên đổi sau khi đăng nhập lần đầu).
- *
- * @todo Đọc mật khẩu từ env (e.g. SEEDER_DEFAULT_PASSWORD) cho môi trường dev.
  */
 class DefaultUsersSeeder extends Seeder
 {
@@ -19,7 +17,10 @@ class DefaultUsersSeeder extends Seeder
      */
     public function run(): void
     {
-        $defaultPassword = 'password';
+        $defaultPassword = (string) env('SEEDER_DEFAULT_PASSWORD', env('APP_PASSWORD_DEFAULT', 'password'));
+        if ($defaultPassword === '') {
+            $defaultPassword = 'password';
+        }
 
         $accounts = [
             [

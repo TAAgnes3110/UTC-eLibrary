@@ -94,7 +94,6 @@ class ApiRoutesTest extends TestCase
             'me profile-update-requests list' => ['GET', "{$base}/me/profile-update-requests"],
             'me profile-update-requests store' => ['POST', "{$base}/me/profile-update-requests"],
             'me library-card post' => ['POST', "{$base}/me/library-card", []],
-            'me staff-work-queue' => ['GET', "{$base}/me/staff-work-queue"],
             'me notifications list' => ['GET', "{$base}/me/notifications"],
             'me notifications read-all' => ['POST', "{$base}/me/notifications/read-all", []],
             'me notifications delete-all' => ['POST', "{$base}/me/notifications/delete-all", []],

@@ -10,21 +10,18 @@ use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyOTPRequest;
 use App\Http\Resources\UserResource;
 use App\Services\AuthService;
-use App\Services\StaffWorkQueueSummaryService;
+use App\Services\Notifications\StaffWorkQueueNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
-/**
- * Chỉ điều hướng: gọi AuthService, trả JSON (Resource / ApiResponse).
- */
 class AuthController extends Controller
 {
     public function __construct(
         private AuthService $authService,
-        private StaffWorkQueueSummaryService $staffWorkQueueSummaryService
+        private readonly StaffWorkQueueNotificationService $staffWorkQueueNotificationService
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -49,7 +46,7 @@ class AuthController extends Controller
         Auth::guard('web')->login($result['user'], $remember);
 
         $user = $result['user'];
-        $staffWorkQueue = $this->staffWorkQueueSummaryService->summaryForUser($user);
+        $staffWorkQueue = $this->staffWorkQueueNotificationService->syncForUser($user);
 
         $payload = [
             'status' => 'success',
@@ -131,7 +128,15 @@ class AuthController extends Controller
 
     public function user(Request $request): JsonResponse
     {
-        return ApiResponse::json(new UserResource($request->user()));
+        $user = $request->user();
+        $staffWorkQueue = $this->staffWorkQueueNotificationService->syncForUser($user);
+
+        $data = (new UserResource($user))->resolve();
+        if ($staffWorkQueue !== null) {
+            $data['staff_work_queue'] = $staffWorkQueue;
+        }
+
+        return ApiResponse::json($data);
     }
 
     public function refresh(Request $request): JsonResponse

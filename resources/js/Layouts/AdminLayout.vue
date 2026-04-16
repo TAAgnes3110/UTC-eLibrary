@@ -36,8 +36,8 @@ onMounted(async () => {
         if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(STAFF_WORK_QUEUE_HINT_KEY)) {
             return;
         }
-        const res = await apiClient.get('/me/staff-work-queue');
-        const q = res?.data?.data ?? res?.data;
+        const res = await apiClient.get('/auth/user');
+        const q = res?.data?.staff_work_queue;
         try {
             sessionStorage.setItem(STAFF_WORK_QUEUE_HINT_KEY, '1');
         } catch {

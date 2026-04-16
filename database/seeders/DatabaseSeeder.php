@@ -21,9 +21,15 @@ class DatabaseSeeder extends Seeder
             LoanPoliciesSeeder::class,
             CmsAndContentSeeder::class,
             PeriodSeeder::class,
-            BookSampleSeeder::class,
-            LibraryCardSampleSeeder::class,
-            ManagementPaginationSeeder::class,
+            StaffReviewDemoSeeder::class,
         ]);
+
+        if (filter_var(env('SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {
+            $this->call([
+                BookSampleSeeder::class,
+                LibraryCardSampleSeeder::class,
+                ManagementPaginationSeeder::class,
+            ]);
+        }
     }
 }

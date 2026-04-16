@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * Tạo 3 tài khoản mặc định: Admin, Thủ thư, Người dùng.
+ * Tạo nhóm tài khoản cốt lõi + vài tài khoản demo nhẹ.
  * Mật khẩu mặc định: password (nên đổi sau khi đăng nhập lần đầu).
  */
 class DefaultUsersSeeder extends Seeder
@@ -17,10 +17,7 @@ class DefaultUsersSeeder extends Seeder
      */
     public function run(): void
     {
-        $defaultPassword = (string) env('SEEDER_DEFAULT_PASSWORD', env('APP_PASSWORD_DEFAULT', 'password'));
-        if ($defaultPassword === '') {
-            $defaultPassword = 'password';
-        }
+        $defaultPassword = 'password';
 
         $accounts = [
             [
@@ -71,11 +68,41 @@ class DefaultUsersSeeder extends Seeder
                 'user_type' => RoleType::MEMBER,
                 'phone' => '0912345005',
             ],
+            [
+                'code' => '001000000007',
+                'name' => 'Giảng viên demo 2',
+                'email' => 'teacher2@st.utc.edu.vn',
+                'password' => $defaultPassword,
+                'user_type' => RoleType::TEACHER,
+                'phone' => '0912345006',
+            ],
+            [
+                'code' => '001000000008',
+                'name' => 'Sinh viên demo 2',
+                'email' => 'student2@st.utc.edu.vn',
+                'password' => $defaultPassword,
+                'user_type' => RoleType::STUDENT,
+                'phone' => '0912345007',
+            ],
+            [
+                'code' => '001000000009',
+                'name' => 'Bạn đọc demo 2',
+                'email' => 'member2@st.utc.edu.vn',
+                'password' => $defaultPassword,
+                'user_type' => RoleType::MEMBER,
+                'phone' => '0912345008',
+            ],
+            [
+                'code' => '001000000010',
+                'name' => 'Sinh viên demo 3',
+                'email' => 'student3@st.utc.edu.vn',
+                'password' => $defaultPassword,
+                'user_type' => RoleType::STUDENT,
+                'phone' => '0912345009',
+            ],
         ];
 
         foreach ($accounts as $data) {
-            // Dùng updateOrCreate để cập nhật lại user_type/fields,
-            // tránh tình trạng email đã tồn tại nhưng user_type cũ -> dẫn tới 403 RBAC.
             User::updateOrCreate(
                 ['email' => $data['email']],
                 array_merge($data, ['is_active' => true])

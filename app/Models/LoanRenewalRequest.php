@@ -9,6 +9,8 @@ class LoanRenewalRequest extends BaseModel
 {
     use HasAuditFields;
 
+    protected static bool $persistParamsToDatabase = false;
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_APPROVED = 'approved';

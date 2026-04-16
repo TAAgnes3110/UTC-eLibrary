@@ -4,14 +4,10 @@ namespace App\Services\Notifications;
 
 use App\Enums\NotificationSeverity;
 use App\Enums\NotificationType;
-use App\Enums\RoleType;
 use App\Models\Notification;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
 
-/**
- * Thông báo yêu cầu cập nhật hồ sơ (mã/khoa/niên khóa/lớp) — gửi staff khi nộp, gửi user khi duyệt/từ chối.
- */
 class UserProfileUpdateNotificationService
 {
     public function __construct(
@@ -20,36 +16,7 @@ class UserProfileUpdateNotificationService
 
     public function notifyAdminsProfileReviewNeeded(UserProfileUpdateRequest $record, User $requester): void
     {
-        $adminUsers = User::query()
-            ->whereIn('user_type', RoleType::staffRoles())
-            ->where('is_active', true)
-            ->select(['id'])
-            ->get();
-
-        foreach ($adminUsers as $adminUser) {
-            try {
-                $this->notificationService->notify([
-                    'recipient_type' => Notification::RECIPIENT_ADMIN,
-                    'recipient_id' => (int) $adminUser->id,
-                    'type' => NotificationType::ADMIN_PROFILE_REVIEW_NEEDED,
-                    'title' => 'Có yêu cầu cập nhật hồ sơ cần duyệt',
-                    'message' => sprintf('%s vừa gửi yêu cầu cập nhật mã định danh/khoa/niên khóa/lớp.', (string) ($requester->name ?? 'Người dùng')),
-                    'severity' => NotificationSeverity::INFO,
-                    'entity_type' => UserProfileUpdateRequest::class,
-                    'entity_id' => (int) $record->id,
-                    'action_url' => '/admin/users/update-requests',
-                    'dedupe_key' => $this->notificationService->buildEntityDedupeKey(
-                        NotificationType::ADMIN_PROFILE_REVIEW_NEEDED,
-                        Notification::RECIPIENT_ADMIN,
-                        (int) $adminUser->id,
-                        UserProfileUpdateRequest::class,
-                        (int) $record->id
-                    ),
-                ]);
-            } catch (\Throwable $e) {
-                report($e);
-            }
-        }
+        // Chỉ dùng thông báo tổng hợp theo số lượng cho staff (sync tại StaffWorkQueueNotificationService (được AuthController gọi)).
     }
 
     public function notifyUserProfileRequestReviewed(UserProfileUpdateRequest $record, bool $approved): void

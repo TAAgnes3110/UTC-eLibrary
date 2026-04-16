@@ -131,6 +131,24 @@ class LoanPoliciesService
         return $this->getMaxReferenceForHolderType((string) $card->holder_type);
     }
 
+    /**
+     * Hạn mức gia hạn theo chính sách mượn gắn với loại thẻ.
+     *
+     * @return array{max_renewals:int,max_days:int}
+     */
+    public function getRenewalLimitsForCard(LibraryCard $card): array
+    {
+        $policy = $this->resolvePolicyForCard($card);
+        if ($policy === null) {
+            return ['max_renewals' => 0, 'max_days' => 0];
+        }
+
+        return [
+            'max_renewals' => max(0, (int) $policy->max_renewals),
+            'max_days' => max(0, (int) $policy->max_days),
+        ];
+    }
+
     public function create(array $data): LoanPolicy
     {
         $policy = new LoanPolicy;

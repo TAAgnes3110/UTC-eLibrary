@@ -12,6 +12,7 @@ use App\Services\LoanRenewalRequestService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MeLoanController extends Controller
@@ -30,6 +31,7 @@ class MeLoanController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
+        /** @var \App\Models\User $user */
         $user = $request->user();
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
         $searchColumns = $this->parseSearchInFilter($request);
@@ -71,8 +73,9 @@ class MeLoanController extends Controller
 
         $items = $query->paginate($perPage)->withQueryString();
 
-        return ApiResponse::success($items->through(function (Loan $loan) {
+        return ApiResponse::success($items->through(function (Loan $loan) use ($user) {
             $latestRequest = $loan->renewalRequests->first();
+            $renewalEligibility = $this->loanRenewalRequestService->renewalEligibilityForReaderLoan($loan, $user);
 
             return array_merge((new LoanResource($loan))->resolve(), [
                 'latest_renewal_request' => $latestRequest ? [
@@ -83,13 +86,16 @@ class MeLoanController extends Controller
                     'review_note' => $latestRequest->review_note,
                     'created_at' => $latestRequest->created_at?->toIso8601String(),
                 ] : null,
+                'renewal_eligibility' => $renewalEligibility,
             ]);
         }));
     }
 
     public function show(Request $request, Loan $loan): JsonResponse
     {
-        $userId = (int) ($request->user()?->id ?? 0);
+        /** @var \App\Models\User $reader */
+        $reader = $request->user();
+        $userId = (int) ($reader?->id ?? 0);
         $loan->load([
             'libraryCard:id,card_number,full_name,user_id',
             'createdBy:id,name',
@@ -99,6 +105,8 @@ class MeLoanController extends Controller
         if ((int) ($loan->libraryCard?->user_id ?? 0) !== $userId) {
             return ApiResponse::error(__('Không có quyền xem phiếu này.'), 403);
         }
+
+        $renewalEligibility = $this->loanRenewalRequestService->renewalEligibilityForReaderLoan($loan, $reader);
 
         $resource = array_merge((new LoanResource($loan))->resolve(), [
             'renewal_requests' => $loan->renewalRequests->map(fn (LoanRenewalRequest $r) => [
@@ -111,6 +119,7 @@ class MeLoanController extends Controller
                 'reviewed_at' => $r->reviewed_at?->toIso8601String(),
                 'created_at' => $r->created_at?->toIso8601String(),
             ])->values()->all(),
+            'renewal_eligibility' => $renewalEligibility,
         ]);
 
         return ApiResponse::success($resource);
@@ -179,11 +188,15 @@ class MeLoanController extends Controller
             'request_note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $record = $this->loanRenewalRequestService->createForReader(
-            $loan,
-            $request->user(),
-            $validated['request_note'] ?? null
-        );
+        try {
+            $record = $this->loanRenewalRequestService->createForReader(
+                $loan,
+                $request->user(),
+                $validated['request_note'] ?? null
+            );
+        } catch (ValidationException $e) {
+            return ApiResponse::validationError($e);
+        }
 
         return ApiResponse::success([
             'id' => $record->id,

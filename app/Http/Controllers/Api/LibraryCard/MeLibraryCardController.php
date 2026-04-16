@@ -6,7 +6,9 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MeLibraryCardStoreRequest;
 use App\Http\Resources\LibraryCardResource;
+use App\Models\LibraryCard;
 use App\Services\LibraryCard\LibraryCardService;
+use App\Services\Notifications\LibraryCardNotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -16,7 +18,8 @@ use Illuminate\Validation\ValidationException;
 class MeLibraryCardController extends Controller
 {
     public function __construct(
-        private LibraryCardService $libraryCardService
+        private LibraryCardService $libraryCardService,
+        private LibraryCardNotificationDispatcher $libraryCardNotificationDispatcher
     ) {}
 
     public function store(MeLibraryCardStoreRequest $request): JsonResponse
@@ -28,6 +31,10 @@ class MeLibraryCardController extends Controller
                 $request->validated(),
                 $photoFile
             );
+
+            if ($card instanceof LibraryCard) {
+                $this->libraryCardNotificationDispatcher->notifyStaffOnNewCardApplication($card);
+            }
 
             return ApiResponse::success(
                 new LibraryCardResource($card->loadMissing([

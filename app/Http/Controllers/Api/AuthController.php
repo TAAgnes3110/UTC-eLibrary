@@ -10,6 +10,7 @@ use App\Http\Requests\ResetPasswordRequest;
 use App\Http\Requests\VerifyOTPRequest;
 use App\Http\Resources\UserResource;
 use App\Services\AuthService;
+use App\Services\StaffWorkQueueSummaryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,8 @@ use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 class AuthController extends Controller
 {
     public function __construct(
-        private AuthService $authService
+        private AuthService $authService,
+        private StaffWorkQueueSummaryService $staffWorkQueueSummaryService
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -46,12 +48,20 @@ class AuthController extends Controller
 
         Auth::guard('web')->login($result['user'], $remember);
 
-        return ApiResponse::json([
+        $user = $result['user'];
+        $staffWorkQueue = $this->staffWorkQueueSummaryService->summaryForUser($user);
+
+        $payload = [
             'status' => 'success',
             'messages' => __('messages.success_login'),
             'token' => $result['token'],
-            'user' => new UserResource($result['user']),
-        ], 200);
+            'user' => new UserResource($user),
+        ];
+        if ($staffWorkQueue !== null) {
+            $payload['staff_work_queue'] = $staffWorkQueue;
+        }
+
+        return ApiResponse::json($payload, 200);
     }
 
     public function register(RegisterRequest $request): JsonResponse

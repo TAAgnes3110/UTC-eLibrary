@@ -30,6 +30,7 @@ function sanitizeApiErrorPayloadForUser(error) {
 
 const client = axios.create({
     baseURL: '/api/v1',
+    withCredentials: true,
     headers: {
         'X-Requested-With': 'XMLHttpRequest',
         'Content-Type': 'application/json',

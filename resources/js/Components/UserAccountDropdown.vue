@@ -12,6 +12,8 @@ import {
 } from '@/Components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { accountMenuStrings as M } from '@/config/accountMenuStrings'
+import { clearClientApiCredentials } from '@/utils/apiAuthStorage'
+import { clearStaffWorkQueueSessionHint } from '@/utils/staffWorkQueueHint'
 
 const props = defineProps({
     /** Dữ liệu user từ Inertia `auth.user` */
@@ -55,8 +57,10 @@ const goChangePassword = () => {
 }
 
 const logout = () => {
+    clearStaffWorkQueueSessionHint()
     router.post(route('logout'), {}, {
         onSuccess: () => {
+            clearClientApiCredentials()
             if (hasRoute('reader.home')) {
                 router.visit(route('reader.home'))
                 return

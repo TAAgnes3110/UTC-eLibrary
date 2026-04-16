@@ -13,39 +13,27 @@ import ThemeToggle from '@/Components/ThemeToggle.vue'
 import { accountMenuStrings } from '@/config/accountMenuStrings'
 import { readerNavItems } from '@/config/readerNavigation'
 import { readerLayoutStrings as S } from '@/config/readerStrings'
+import { useNotifications } from '@/composables/useNotifications'
+import { clearClientApiCredentials } from '@/utils/apiAuthStorage'
+import { clearStaffWorkQueueSessionHint } from '@/utils/staffWorkQueueHint'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
 /** Nhân viên thư viện / quản trị — vào admin; độc giả — về trang reader. */
 const isStaff = computed(() => page.props.auth?.is_staff === true)
 const mobileOpen = ref(false)
-const notifications = ref([
-    {
-        id: 1,
-        type: 'loan',
-        title: 'Phiếu mượn gần đến hạn',
-        message: 'Bạn có 1 phiếu mượn cần kiểm tra gia hạn.',
-        time: '10 phút trước',
-        read: false,
-    },
-    {
-        id: 2,
-        type: 'saved',
-        title: 'Sách đã lưu có bản khả dụng',
-        message: 'Một đầu sách trong danh sách lưu hiện đang còn bản để mượn.',
-        time: '1 giờ trước',
-        read: false,
-    },
-    {
-        id: 3,
-        type: 'card',
-        title: 'Nhắc cập nhật hồ sơ thẻ',
-        message: 'Vui lòng rà soát thông tin hồ sơ để dùng dịch vụ ổn định.',
-        time: 'Hôm qua',
-        read: true,
-    },
-])
-const unreadCount = computed(() => notifications.value.filter((n) => !n.read).length)
+const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead,
+    markingAll,
+    deleteNotification,
+    deleteAllNotifications,
+    deletingAll,
+    deletingIds,
+} = useNotifications()
+const hasNotifications = computed(() => Array.isArray(notifications.value) && notifications.value.length > 0)
 
 const hasRoute = (routeName) => {
     try {
@@ -57,8 +45,12 @@ const hasRoute = (routeName) => {
 }
 
 const logout = () => {
+    clearStaffWorkQueueSessionHint()
     router.post(route('logout'), {}, {
-        onSuccess: () => router.visit(route('reader.home')),
+        onSuccess: () => {
+            clearClientApiCredentials()
+            router.visit(route('reader.home'))
+        },
     })
 }
 
@@ -67,27 +59,26 @@ const closeMobileAndLogout = () => {
     logout()
 }
 
-const markAsRead = (id) => {
-    const item = notifications.value.find((n) => n.id === id)
-    if (item) item.read = true
-}
-
-const markAllRead = () => {
-    notifications.value = notifications.value.map((n) => ({ ...n, read: true }))
-}
-
 const getNotifIcon = (type) => {
-    if (type === 'loan') return 'lucide:clipboard-list'
-    if (type === 'saved') return 'lucide:bookmark'
-    if (type === 'card') return 'lucide:id-card'
+    if (type.includes('overdue') || type.includes('expired') || type.includes('rejected')) return 'lucide:alert-circle'
+    if (type.includes('approved')) return 'lucide:badge-check'
+    if (type.includes('loan')) return 'lucide:clipboard-list'
+    if (type.includes('card')) return 'lucide:id-card'
+    if (type.includes('profile')) return 'lucide:user-round-check'
     return 'lucide:bell'
 }
 
-const getNotifIconBg = (type) => {
-    if (type === 'loan') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
-    if (type === 'saved') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-    if (type === 'card') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-    return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+const getNotifIconBg = (severity) => {
+    if (severity === 'critical') return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+    if (severity === 'warning') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+    return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+}
+
+const onNotificationClick = async (notification) => {
+    await markAsRead(notification.id)
+    if (notification.actionUrl) {
+        router.visit(notification.actionUrl)
+    }
 }
 
 const isRouteActive = (routeName) => route().current(routeName)
@@ -237,37 +228,75 @@ const navChildLinkClass = (childRoute) => {
                             align="end"
                             class="w-[360px] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-0 shadow-xl dark:border-slate-700 dark:bg-slate-900"
                         >
-                            <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800">
+                            <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3 dark:border-slate-800">
                                 <h3 class="text-sm font-bold text-slate-900 dark:text-white">Thông báo</h3>
-                                <button
-                                    v-if="unreadCount > 0"
-                                    type="button"
-                                    class="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-400"
-                                    @click="markAllRead"
-                                >
-                                    Đánh dấu đã đọc
-                                </button>
+                                <div class="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 text-xs">
+                                    <button
+                                        v-if="unreadCount > 0"
+                                        type="button"
+                                        class="font-semibold text-blue-700 hover:underline dark:text-blue-400 disabled:opacity-50"
+                                        :disabled="markingAll || deletingAll"
+                                        @click="markAllAsRead"
+                                    >
+                                        Đánh dấu đã đọc
+                                    </button>
+                                    <button
+                                        v-if="hasNotifications"
+                                        type="button"
+                                        class="font-semibold text-rose-600 hover:underline dark:text-rose-400 disabled:opacity-50"
+                                        :disabled="deletingAll || markingAll"
+                                        @click="deleteAllNotifications"
+                                    >
+                                        Xóa tất cả
+                                    </button>
+                                </div>
                             </div>
                             <div class="max-h-[340px] overflow-y-auto">
-                                <button
+                                <template v-if="hasNotifications">
+                                <div
                                     v-for="n in notifications"
                                     :key="n.id"
-                                    type="button"
-                                    class="flex w-full items-start gap-3 border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50 dark:border-slate-800/60 dark:hover:bg-slate-800/60"
-                                    @click="markAsRead(n.id)"
+                                    :class="[
+                                        'flex w-full items-stretch border-b border-slate-50 dark:border-slate-800/60',
+                                        n.read ? '' : 'bg-blue-50/60 dark:bg-blue-950/20',
+                                    ]"
                                 >
-                                    <div :class="['mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', getNotifIconBg(n.type)]">
-                                        <Icon :icon="getNotifIcon(n.type)" class="h-4 w-4" />
-                                    </div>
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex items-start justify-between gap-2">
-                                            <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ n.title }}</p>
-                                            <span v-if="!n.read" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                                    <button
+                                        type="button"
+                                        class="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                                        @click="onNotificationClick(n)"
+                                    >
+                                        <div :class="['mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', getNotifIconBg(n.severity)]">
+                                            <Icon :icon="getNotifIcon(n.type)" class="h-4 w-4" />
                                         </div>
-                                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ n.message }}</p>
-                                        <p class="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{{ n.time }}</p>
+                                        <div class="min-w-0 flex-1">
+                                            <div class="flex items-start justify-between gap-2">
+                                                <p class="text-sm font-semibold text-slate-900 dark:text-white">{{ n.title }}</p>
+                                                <span v-if="!n.read" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                                            </div>
+                                            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ n.message }}</p>
+                                            <p class="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{{ n.time }}</p>
+                                        </div>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        :disabled="deletingIds.has(n.id) || deletingAll"
+                                        class="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-600 disabled:opacity-40 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-rose-400"
+                                        aria-label="Xóa thông báo"
+                                        title="Xóa"
+                                        @click.stop="deleteNotification(n.id)"
+                                    >
+                                        <Icon icon="lucide:trash-2" class="h-4 w-4" />
+                                    </button>
+                                </div>
+                                </template>
+                                <div v-else class="px-4 py-10 text-center">
+                                    <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500">
+                                        <Icon icon="lucide:bell-off" class="h-6 w-6" />
                                     </div>
-                                </button>
+                                    <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Chưa có thông báo</p>
+                                    <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Thông báo mượn trả và trạng thái hồ sơ sẽ hiển thị ở đây</p>
+                                </div>
                             </div>
                             <div class="border-t border-slate-100 bg-slate-50/80 px-4 py-2 text-center dark:border-slate-800 dark:bg-slate-800/40">
                                 <Link

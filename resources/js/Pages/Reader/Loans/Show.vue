@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
@@ -12,12 +12,30 @@ const props = defineProps({
 
 const loading = ref(false)
 const loan = ref(null)
+const renewalSubmitting = ref(false)
+const renewalNote = ref('')
+
+const renewalEligibility = computed(() => loan.value?.renewal_eligibility ?? null)
+const canRequestRenewal = computed(() => renewalEligibility.value?.eligible === true)
+const renewalBlockMessage = computed(() => {
+    if (!loan.value || loan.value.return_date) return ''
+    const e = renewalEligibility.value
+    if (!e || e.eligible) return ''
+    return e.message || 'Hiện không thể gửi yêu cầu gia hạn.'
+})
 
 function formatDate(v) {
     if (!v) return '—'
     const d = new Date(v)
     if (Number.isNaN(d.getTime())) return '—'
     return d.toLocaleDateString('vi-VN')
+}
+
+function renewalStatusLabel(s) {
+    if (s === 'approved') return 'Đã duyệt'
+    if (s === 'rejected') return 'Đã từ chối'
+    if (s === 'pending') return 'Chờ xử lý'
+    return s || '—'
 }
 
 async function loadDetail() {
@@ -29,6 +47,24 @@ async function loadDetail() {
         toast.error(e?.response?.data?.messages || 'Không tải được chi tiết phiếu.', { title: 'Phiếu mượn' })
     } finally {
         loading.value = false
+    }
+}
+
+async function submitRenewal() {
+    if (!canRequestRenewal.value || renewalSubmitting.value) return
+    renewalSubmitting.value = true
+    try {
+        await meLoansApi.requestRenewal(props.loanId, {
+            request_note: renewalNote.value.trim() || undefined,
+        })
+        toast.success('Đã gửi yêu cầu gia hạn. Thủ thư sẽ xử lý trong thời gian sớm nhất.', { title: 'Gia hạn' })
+        renewalNote.value = ''
+        await loadDetail()
+    } catch (e) {
+        const msg = e?.response?.data?.messages || e?.response?.data?.message
+        toast.error(msg || 'Không gửi được yêu cầu gia hạn.', { title: 'Gia hạn' })
+    } finally {
+        renewalSubmitting.value = false
     }
 }
 
@@ -63,6 +99,52 @@ onMounted(loadDetail)
                         <div><b>Ngày hẹn trả:</b> {{ formatDate(loan.due_date) }}</div>
                         <div><b>Ngày trả:</b> {{ formatDate(loan.return_date) }}</div>
                         <div><b>Trạng thái:</b> {{ loan.status_label || loan.status }}</div>
+                    </div>
+                </div>
+
+                <div
+                    v-if="!loan.return_date && (loan.status === 'da_muon' || loan.status === 'qua_han')"
+                    class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 p-4 space-y-3"
+                >
+                    <h3 class="text-base font-bold">Gia hạn phiếu mượn</h3>
+                    <p v-if="renewalBlockMessage" class="text-sm text-amber-800 dark:text-amber-200/90">
+                        {{ renewalBlockMessage }}
+                    </p>
+                    <template v-else-if="canRequestRenewal">
+                        <p class="text-sm text-slate-600 dark:text-slate-400">
+                            Theo chính sách thẻ của bạn: còn
+                            <strong>{{ renewalEligibility?.remaining_renewals ?? 0 }}</strong>
+                            lần gia hạn, mỗi lần thêm
+                            <strong>{{ renewalEligibility?.extension_days ?? 0 }}</strong>
+                            ngày. Hạn trả sau khi duyệt (dự kiến):
+                            <strong>{{ renewalEligibility?.proposed_due_date ? formatDate(renewalEligibility.proposed_due_date) : '—' }}</strong>.
+                        </p>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Ghi chú gửi thủ thư (tuỳ chọn)</label>
+                        <textarea
+                            v-model="renewalNote"
+                            rows="3"
+                            maxlength="1000"
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+                            placeholder="Ví dụ: đang trong kỳ thi, mong được gia hạn..."
+                        />
+                        <button
+                            type="button"
+                            class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:opacity-50"
+                            :disabled="renewalSubmitting"
+                            @click="submitRenewal"
+                        >
+                            {{ renewalSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu gia hạn' }}
+                        </button>
+                    </template>
+                    <div v-if="(loan.renewal_requests || []).length" class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <p class="text-sm font-semibold mb-2">Lịch sử yêu cầu</p>
+                        <ul class="space-y-2 text-sm">
+                            <li v-for="r in loan.renewal_requests" :key="r.id" class="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60">
+                                <span class="font-medium">{{ renewalStatusLabel(r.status) }}</span>
+                                — hạn đề xuất {{ formatDate(r.requested_due_date) }}
+                                <span v-if="r.review_note" class="block text-xs text-slate-600 dark:text-slate-400 mt-1">{{ r.review_note }}</span>
+                            </li>
+                        </ul>
                     </div>
                 </div>
 

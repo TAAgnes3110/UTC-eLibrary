@@ -90,6 +90,7 @@ const cancelEdit = () => {
 const avatarInput = ref(null)
 const avatarPreview = ref(null)
 const avatarLoadFailed = ref(false)
+const avatarUploading = ref(false)
 const displayAvatar = computed(() => {
     if (avatarPreview.value) return avatarPreview.value
     if (avatarLoadFailed.value) return null
@@ -100,15 +101,55 @@ const triggerAvatarUpload = () => {
     avatarInput.value?.click()
 }
 
-const handleAvatarChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
+const resetAvatarInput = (event) => {
+    if (event?.target) {
+        event.target.value = ''
+    }
+}
+
+const handleAvatarChange = async (event) => {
+    const file = event?.target?.files?.[0]
+    if (!file || avatarUploading.value) {
+        resetAvatarInput(event)
+        return
+    }
+
+    if (!file.type?.startsWith('image/')) {
+        toast.error('Vui lòng chọn file ảnh hợp lệ (JPG, PNG hoặc WEBP).', { title: 'Ảnh đại diện' })
+        resetAvatarInput(event)
+        return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        toast.error('Dung lượng ảnh tối đa 5MB.', { title: 'Ảnh đại diện' })
+        resetAvatarInput(event)
+        return
+    }
+
     avatarLoadFailed.value = false
     const reader = new FileReader()
     reader.onload = (ev) => {
         avatarPreview.value = ev.target.result
     }
     reader.readAsDataURL(file)
+
+    avatarUploading.value = true
+    try {
+        const formData = new FormData()
+        formData.append('avatar', file)
+        const response = await profileApi.updateAvatar(formData)
+        profile.value = response?.data || profile.value
+        avatarPreview.value = null
+        avatarLoadFailed.value = false
+        toast.success('Đã cập nhật ảnh đại diện.', { title: 'Tài khoản' })
+        router.reload({ only: ['auth'] })
+    } catch (error) {
+        avatarPreview.value = null
+        toast.error(getLaravelErrorMessage(error, 'Không thể cập nhật ảnh đại diện. Vui lòng thử lại.'), { title: 'Tài khoản' })
+    } finally {
+        avatarUploading.value = false
+        resetAvatarInput(event)
+    }
 }
 
 const handleAvatarError = () => {

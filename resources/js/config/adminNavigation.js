@@ -1,7 +1,3 @@
-/**
- * Danh sách menu sidebar Admin.
- * Mục có children: không có href, khi ấn sẽ sổ ra submenu (Bạn đọc, Tài khoản).
- */
 export const adminNavigation = [
     { name: 'Bảng điều khiển', href: 'admin.dashboard', icon: 'lucide:layout-grid', active: 'admin.dashboard' },
     {
@@ -50,6 +46,7 @@ export const adminNavigation = [
         active: ['admin.loans.*'],
         children: [
             { name: 'Quản lý phiếu', href: 'admin.loans.index', active: 'admin.loans.index' },
+            { name: 'Duyệt gia hạn', href: 'admin.loans.renewal-requests', active: 'admin.loans.renewal-requests' },
             { name: 'Tạo phiếu mới', href: 'admin.loans.create', active: 'admin.loans.create' },
         ],
     },

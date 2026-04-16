@@ -9,6 +9,7 @@ use App\Http\Requests\LibraryCardRejectReviewRequest;
 use App\Http\Resources\LibraryCardResource;
 use App\Models\LibraryCard;
 use App\Services\LibraryCard\LibraryCardService;
+use App\Services\Notifications\LibraryCardNotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 
@@ -18,7 +19,8 @@ use Illuminate\Validation\ValidationException;
 class LibraryCardStaffController extends Controller
 {
     public function __construct(
-        private LibraryCardService $libraryCardService
+        private LibraryCardService $libraryCardService,
+        private LibraryCardNotificationDispatcher $libraryCardNotificationDispatcher
     ) {}
 
     public function approveReview(LibraryCardApproveReviewRequest $request, LibraryCard $library_card): JsonResponse
@@ -28,6 +30,8 @@ class LibraryCardStaffController extends Controller
                 $library_card,
                 $request->user()
             );
+
+            $this->libraryCardNotificationDispatcher->notifyReaderCardApproved($card);
 
             return ApiResponse::success(
                 new LibraryCardResource($card->loadMissing([
@@ -52,6 +56,11 @@ class LibraryCardStaffController extends Controller
                 $library_card,
                 $request->input('notes'),
                 $request->user()
+            );
+
+            $this->libraryCardNotificationDispatcher->notifyReaderCardRejected(
+                $card,
+                $request->input('notes') ? (string) $request->input('notes') : null
             );
 
             return ApiResponse::success(

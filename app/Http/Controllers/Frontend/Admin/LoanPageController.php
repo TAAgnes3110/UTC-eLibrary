@@ -32,4 +32,9 @@ class LoanPageController extends Controller
     {
         return Inertia::render('Admin/Loans/Return', ['loanId' => $loan]);
     }
+
+    public function renewalRequests(): Response
+    {
+        return Inertia::render('Admin/Loans/RenewalRequests');
+    }
 }

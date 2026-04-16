@@ -34,6 +34,15 @@ export const loansApi = {
     bulkReturn(payload) {
         return client.post('/loans/bulk-return', payload).then((r) => r.data);
     },
+    renewalRequests(params = {}) {
+        return client.get('/loans/renewal-requests', { params }).then((r) => r.data);
+    },
+    approveRenewalRequest(id, payload = {}) {
+        return client.post(`/loans/renewal-requests/${id}/approve`, payload).then((r) => r.data);
+    },
+    rejectRenewalRequest(id, payload = {}) {
+        return client.post(`/loans/renewal-requests/${id}/reject`, payload).then((r) => r.data);
+    },
     trash(params = {}) {
         return client.get('/loans/trash', { params }).then((r) => r.data);
     },

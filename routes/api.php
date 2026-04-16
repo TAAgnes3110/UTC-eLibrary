@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\LibraryCardController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\LoanPoliciesController;
 use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\StaffWorkQueueController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PublisherController;
@@ -94,6 +96,12 @@ Route::prefix('v1')->group(function () {
         Route::get('loans/export', [MeLoanController::class, 'export']);
         Route::get('loans/{loan}', [MeLoanController::class, 'show']);
         Route::post('loans/{loan}/renewal-requests', [MeLoanController::class, 'requestRenewal']);
+        Route::get('staff-work-queue', [StaffWorkQueueController::class, 'show']);
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::post('notifications/delete-all', [NotificationController::class, 'destroyAll']);
+        Route::post('notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('notifications/{notificationId}/delete', [NotificationController::class, 'destroy']);
     });
 
     Route::middleware(['throttle:auth'])->group(function () {

@@ -12,6 +12,7 @@ use App\Http\Requests\LibraryCardRequest;
 use App\Http\Resources\LibraryCardResource;
 use App\Models\LibraryCard;
 use App\Services\LibraryCard\LibraryCardService;
+use App\Services\Notifications\LibraryCardNotificationDispatcher;
 use App\Services\LoanPoliciesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +30,8 @@ class LibraryCardController extends Controller
     public function __construct(
         private LibraryCardService $libraryCardService,
         private LoanPoliciesService $loanPoliciesService,
-        private LoanHelper $loanHelper
+        private LoanHelper $loanHelper,
+        private LibraryCardNotificationDispatcher $libraryCardNotificationDispatcher
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -217,6 +219,7 @@ class LibraryCardController extends Controller
         }
         unset($data['photo']);
         $card = $this->libraryCardService->create($data);
+        $this->libraryCardNotificationDispatcher->notifyStaffOnNewCardApplication($card);
         $card->loadMissing(['payment.collector', 'period', 'faculty', 'department', 'user']);
 
         return ApiResponse::success(

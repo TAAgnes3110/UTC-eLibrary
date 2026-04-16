@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Helpers\FileHelpers;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
+use App\Services\Notifications\UserProfileUpdateNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -14,13 +15,24 @@ use RuntimeException;
 
 class UserProfileUpdateRequestService
 {
+    public function __construct(
+        private readonly UserProfileUpdateNotificationService $userProfileUpdateNotificationService
+    ) {}
+
     /**
      * @return Collection<int, UserProfileUpdateRequest>
      */
     public function myRequests(User $user): Collection
     {
         return UserProfileUpdateRequest::query()
-            ->with(['requestedFaculty:id,code,name', 'requestedPeriod:id,code,name', 'reviewer:id,name,email'])
+            ->with([
+                'user:id,name,email,code,class_code,faculty_id,period_id',
+                'user.faculty:id,code,name',
+                'user.period:id,code,name',
+                'requestedFaculty:id,code,name',
+                'requestedPeriod:id,code,name',
+                'reviewer:id,name,email',
+            ])
             ->where('user_id', $user->id)
             ->orderByDesc('id')
             ->get();
@@ -81,7 +93,7 @@ class UserProfileUpdateRequestService
 
         $proofPath = FileHelpers::storeUploadedFile($proofImage, 'public', 'upload/user-profile-update-requests');
 
-        return UserProfileUpdateRequest::query()->create([
+        $record = UserProfileUpdateRequest::query()->create([
             'user_id' => $user->id,
             'requested_code' => $requestedCode,
             'requested_faculty_id' => $requestedFacultyId,
@@ -91,6 +103,10 @@ class UserProfileUpdateRequestService
             'reason' => isset($payload['reason']) ? trim((string) $payload['reason']) : null,
             'status' => UserProfileUpdateRequest::STATUS_PENDING,
         ]);
+
+        $this->userProfileUpdateNotificationService->notifyAdminsProfileReviewNeeded($record, $user);
+
+        return $record;
     }
 
     public function adminList(?string $status, int $perPage = 20, ?string $search = null, string $sortBy = 'newest'): LengthAwarePaginator
@@ -181,6 +197,8 @@ class UserProfileUpdateRequestService
                 'applied_at' => now(),
             ]);
 
+            $this->userProfileUpdateNotificationService->notifyUserProfileRequestReviewed($record, true);
+
             return $record->fresh(['user.faculty:id,code,name', 'user.period:id,code,name', 'requestedFaculty:id,code,name', 'requestedPeriod:id,code,name', 'reviewer:id,name,email']);
         });
     }
@@ -204,8 +222,11 @@ class UserProfileUpdateRequestService
                 'reviewed_at' => now(),
             ]);
 
+            $this->userProfileUpdateNotificationService->notifyUserProfileRequestReviewed($record, false);
+
             return $record->fresh(['user.faculty:id,code,name', 'user.period:id,code,name', 'requestedFaculty:id,code,name', 'requestedPeriod:id,code,name', 'reviewer:id,name,email']);
         });
     }
+
 }
 

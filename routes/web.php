@@ -87,6 +87,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/library-cards/requests', [LibraryCardPageController::class, 'requests'])->name('library-cards.requests');
         Route::get('/library-cards/counter', [LibraryCardPageController::class, 'counter'])->name('library-cards.counter');
         Route::get('/loans', [LoanPageController::class, 'index'])->name('loans.index');
+        Route::get('/loans/renewal-requests', [LoanPageController::class, 'renewalRequests'])->name('loans.renewal-requests');
         Route::get('/loans/create', [LoanPageController::class, 'create'])->name('loans.create');
         Route::get('/loans/{loan}', [LoanPageController::class, 'show'])->name('loans.show');
         Route::get('/loans/{loan}/edit', [LoanPageController::class, 'edit'])->name('loans.edit');

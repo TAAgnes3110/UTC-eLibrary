@@ -17,3 +17,7 @@ Schedule::command('library-cards:prune-stale-pending-payment')
 Schedule::command('library-cards:sync-overdue-locks')
     ->dailyAt('01:30')
     ->withoutOverlapping();
+
+Schedule::command('loans:sync-overdue')
+    ->dailyAt('06:05')
+    ->withoutOverlapping();

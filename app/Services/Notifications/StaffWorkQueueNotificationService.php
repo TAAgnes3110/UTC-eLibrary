@@ -13,6 +13,10 @@ use App\Models\UserProfileUpdateRequest;
 
 class StaffWorkQueueNotificationService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {}
+
     /**
      * Đồng bộ thông báo digest theo hàng chờ xử lý của staff.
      *
@@ -30,7 +34,6 @@ class StaffWorkQueueNotificationService
             return null;
         }
 
-        $day = now()->toDateString();
         $recipientType = Notification::RECIPIENT_ADMIN;
         $recipientId = (int) $user->id;
 
@@ -38,7 +41,6 @@ class StaffWorkQueueNotificationService
             NotificationType::ADMIN_CARD_REQUEST_SUBMITTED,
             $recipientType,
             $recipientId,
-            $day,
             (int) ($queue['library_cards_pending_review'] ?? 0),
             'Yêu cầu cấp thẻ thư viện',
             'Hiện có %d hồ sơ cấp thẻ chờ duyệt.',
@@ -49,7 +51,6 @@ class StaffWorkQueueNotificationService
             NotificationType::ADMIN_PROFILE_REVIEW_NEEDED,
             $recipientType,
             $recipientId,
-            $day,
             (int) ($queue['user_profile_update_requests_pending'] ?? 0),
             'Yêu cầu cập nhật hồ sơ',
             'Hiện có %d yêu cầu cập nhật hồ sơ chờ duyệt.',
@@ -60,7 +61,6 @@ class StaffWorkQueueNotificationService
             NotificationType::ADMIN_LOAN_RENEWAL_PENDING,
             $recipientType,
             $recipientId,
-            $day,
             (int) ($queue['loan_renewal_requests_pending'] ?? 0),
             'Yêu cầu gia hạn mượn',
             'Hiện có %d yêu cầu gia hạn mượn chờ duyệt.',
@@ -112,39 +112,37 @@ class StaffWorkQueueNotificationService
         NotificationType $type,
         string $recipientType,
         int $recipientId,
-        string $day,
         int $count,
         string $title,
         string $messageFormat,
         string $actionUrl,
         array $queue
     ): void {
-        $dedupeKey = implode(':', [$type->value, $recipientType, (string) $recipientId, $day]);
+        $dedupeKey = implode(':', [$type->value, $recipientType, (string) $recipientId]);
         if ($count < 1) {
-            Notification::query()->where('dedupe_key', $dedupeKey)->delete();
+            Notification::query()
+                ->where('dedupe_key', $dedupeKey)
+                ->whereNull('read_at')
+                ->delete();
 
             return;
         }
 
-        Notification::query()->updateOrCreate(
-            ['dedupe_key' => $dedupeKey],
-            [
-                'recipient_type' => $recipientType,
-                'recipient_id' => $recipientId,
-                'type' => $type->value,
-                'title' => $title,
-                'message' => sprintf($messageFormat, $count),
-                'severity' => NotificationSeverity::INFO->value,
-                'entity_type' => null,
-                'entity_id' => null,
-                'action_url' => $actionUrl,
-                'meta' => [
-                    'count' => $count,
-                    'digest_day' => $day,
-                    'queue' => $queue,
-                ],
-                'read_at' => null,
-            ]
-        );
+        $this->notificationService->notify([
+            'recipient_type' => $recipientType,
+            'recipient_id' => $recipientId,
+            'type' => $type->value,
+            'title' => $title,
+            'message' => sprintf($messageFormat, $count),
+            'severity' => NotificationSeverity::INFO->value,
+            'entity_type' => null,
+            'entity_id' => null,
+            'action_url' => $actionUrl,
+            'meta' => [
+                'count' => $count,
+                'queue' => $queue,
+            ],
+            'dedupe_key' => $dedupeKey,
+        ]);
     }
 }

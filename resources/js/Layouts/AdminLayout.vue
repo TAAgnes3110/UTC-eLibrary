@@ -1,12 +1,6 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
-import apiClient from '@/api/axios';
-import { toast } from '@/store/toast';
-import {
-    buildStaffWorkQueueToastMessage,
-    STAFF_WORK_QUEUE_HINT_KEY,
-} from '@/utils/staffWorkQueueHint';
 import AdminSidebar from '@/Layouts/Admin/AdminSidebar.vue';
 import AdminHeader from '@/Layouts/Admin/AdminHeader.vue';
 import AdminBreadcrumb from '@/Layouts/Admin/AdminBreadcrumb.vue';
@@ -25,30 +19,6 @@ const collapsed = computed(() => !sidebarOpen.value);
 router.on('navigate', () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
         sidebarOpen.value = false;
-    }
-});
-
-onMounted(async () => {
-    if (!page.props.auth?.is_staff) {
-        return;
-    }
-    try {
-        if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem(STAFF_WORK_QUEUE_HINT_KEY)) {
-            return;
-        }
-        const res = await apiClient.get('/auth/user');
-        const q = res?.data?.staff_work_queue;
-        try {
-            sessionStorage.setItem(STAFF_WORK_QUEUE_HINT_KEY, '1');
-        } catch {
-            //
-        }
-        const msg = buildStaffWorkQueueToastMessage(q);
-        if (msg) {
-            toast.info(msg, { title: 'Việc cần xử lý' });
-        }
-    } catch {
-        //
     }
 });
 

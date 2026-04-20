@@ -3,7 +3,6 @@ import { router, useForm } from '@inertiajs/vue3';
 import { postWebLogin } from '@/api/webSessionLogin';
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors';
 import { isLibraryStaffUserType } from '@/utils/readerAuth';
-import { buildStaffWorkQueueToastMessage, STAFF_WORK_QUEUE_HINT_KEY } from '@/utils/staffWorkQueueHint';
 import { toast } from '@/store/toast';
 
 export function useLoginPage() {
@@ -32,15 +31,7 @@ export function useLoginPage() {
                     }
                     form.reset('password');
                     const dest = isLibraryStaffUserType(userPayload?.user_type) ? 'admin.dashboard' : 'reader.home';
-                    const queueMsg = buildStaffWorkQueueToastMessage(data?.staff_work_queue);
-                    if (queueMsg) {
-                        toast.info(queueMsg, { title: 'Việc cần xử lý' });
-                        try {
-                            sessionStorage.setItem(STAFF_WORK_QUEUE_HINT_KEY, '1');
-                        } catch {
-                            //
-                        }
-                    }
+                    toast.success('Đăng nhập thành công.', { title: 'Xác thực' });
                     router.visit(window.route(dest), { replace: true });
                 } else {
                     form.errors.login = 'Lỗi hệ thống: Không nhận được Token xác thực.';

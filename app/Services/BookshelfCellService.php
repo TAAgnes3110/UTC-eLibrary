@@ -98,6 +98,23 @@ class BookshelfCellService
         return $paginator;
     }
 
+    public function overviewStats(?int $warehouseId = null): array
+    {
+        $base = BookshelfCell::query();
+        if ($warehouseId && $warehouseId > 0) {
+            $base->where('warehouse_id', $warehouseId);
+        }
+
+        $totalShelves = (clone $base)->count();
+        $usedShelves = (clone $base)->where('current_quantity', '>', 0)->count();
+
+        return [
+            'usedShelves' => (int) $usedShelves,
+            'emptyShelves' => (int) max(0, $totalShelves - $usedShelves),
+            'totalShelves' => (int) $totalShelves,
+        ];
+    }
+
     /**
      * @return \Illuminate\Database\Eloquent\Collection<int, BookshelfCell>
      */

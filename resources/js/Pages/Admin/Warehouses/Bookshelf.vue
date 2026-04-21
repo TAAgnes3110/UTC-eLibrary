@@ -44,6 +44,11 @@ const cellsPagination = ref({
     last_page: 1,
     per_page: BOOKSHELF_PER_PAGE,
     total: 0,
+    overview: {
+        usedShelves: 0,
+        emptyShelves: 0,
+        totalShelves: 0,
+    },
 });
 const selectedIds = ref([]);
 const showDeleteModal = ref(false);
@@ -102,9 +107,9 @@ const isAllSelected = computed(
 );
 
 const overviewStats = computed(() => {
-    const usedShelves = filteredCells.value.filter((c) => Number(c.book_stats?.quantity_total || 0) > 0).length;
-    const emptyShelves = Math.max(0, filteredCells.value.length - usedShelves);
-    const totalShelves = filteredCells.value.length;
+    const usedShelves = Number(cellsPagination.value.overview?.usedShelves || 0);
+    const emptyShelves = Number(cellsPagination.value.overview?.emptyShelves || 0);
+    const totalShelves = Number(cellsPagination.value.overview?.totalShelves || 0);
     return { usedShelves, emptyShelves, totalShelves };
 });
 
@@ -233,6 +238,11 @@ async function loadCells() {
                 last_page: Number(meta.last_page || 1),
                 per_page: Number(meta.per_page || BOOKSHELF_PER_PAGE),
                 total: Number(meta.total || rows.length),
+                overview: {
+                    usedShelves: Number(meta?.overview?.usedShelves || 0),
+                    emptyShelves: Number(meta?.overview?.emptyShelves || 0),
+                    totalShelves: Number(meta?.overview?.totalShelves || 0),
+                },
             };
         } else {
             const payload = await bookshelfCellsApi.listByWarehouse(selectedWarehouseId.value, params);
@@ -245,6 +255,11 @@ async function loadCells() {
                 last_page: Number(meta.last_page || 1),
                 per_page: Number(meta.per_page || BOOKSHELF_PER_PAGE),
                 total: Number(meta.total || rows.length),
+                overview: {
+                    usedShelves: Number(meta?.overview?.usedShelves || 0),
+                    emptyShelves: Number(meta?.overview?.emptyShelves || 0),
+                    totalShelves: Number(meta?.overview?.totalShelves || 0),
+                },
             };
         }
         pageNum.value = cellsPagination.value.current_page;

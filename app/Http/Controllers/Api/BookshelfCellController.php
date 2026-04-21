@@ -30,7 +30,7 @@ class BookshelfCellController extends Controller
             'sort' => $request->input('sort'),
         ]);
 
-        return ApiResponse::success($this->paginatorPayload($items));
+        return ApiResponse::success($this->paginatorPayload($items, (int) $warehouse->id));
     }
 
     public function index(Request $request): JsonResponse
@@ -43,10 +43,10 @@ class BookshelfCellController extends Controller
             'sort' => $request->input('sort'),
         ]);
 
-        return ApiResponse::success($this->paginatorPayload($items));
+        return ApiResponse::success($this->paginatorPayload($items, $warehouseId));
     }
 
-    private function paginatorPayload(LengthAwarePaginator $items): array
+    private function paginatorPayload(LengthAwarePaginator $items, ?int $warehouseId = null): array
     {
         return [
             'data' => BookshelfCellResource::collection($items->items())->resolve(),
@@ -57,6 +57,7 @@ class BookshelfCellController extends Controller
                 'total' => $items->total(),
                 'from' => $items->firstItem(),
                 'to' => $items->lastItem(),
+                'overview' => $this->bookshelfCellService->overviewStats($warehouseId),
             ],
         ];
     }

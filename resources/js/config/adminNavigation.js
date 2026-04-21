@@ -22,7 +22,10 @@ export const adminNavigation = [
         name: 'Quản lý kho sách',
         icon: 'lucide:warehouse',
         active: ['admin.warehouses.*'],
-        href: 'admin.warehouses.index',
+        children: [
+            { name: 'Danh sách kho', href: 'admin.warehouses.index', active: 'admin.warehouses.index' },
+            { name: 'Kệ sách', href: 'admin.warehouses.bookshelf', active: 'admin.warehouses.bookshelf' },
+        ],
     },
     {
         name: 'Cấu hình thư viện',

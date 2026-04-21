@@ -1,6 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
@@ -75,6 +76,12 @@ const {
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <AdminPageHeading title="Danh sách kho sách">
                 <template #actions>
+                    <Link :href="route('admin.warehouses.bookshelf')">
+                        <Button variant="outline" size="sm" class="gap-1.5">
+                            <Icon icon="lucide:grid-2x2" class="w-4 h-4" />
+                            Quản lý kệ sách
+                        </Button>
+                    </Link>
                     <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
                         <Icon :icon="ADMIN_ICONS.trash" class="w-4 h-4" />
                         Thùng rác

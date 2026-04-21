@@ -12,6 +12,7 @@ use App\Models\Book;
 use App\Services\BookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BookController extends Controller
@@ -37,7 +38,7 @@ class BookController extends Controller
 
         $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns);
 
-        return ApiResponse::success(BookResource::collection($items));
+        return ApiResponse::success($this->paginatorPayload($items));
     }
 
     /**
@@ -104,7 +105,7 @@ class BookController extends Controller
         $perPage = (int) $request->input('per_page', 50);
         $items = $this->bookService->trash($perPage);
 
-        return ApiResponse::success(BookResource::collection($items));
+        return ApiResponse::success($this->paginatorPayload($items));
     }
 
     /**
@@ -227,5 +228,20 @@ class BookController extends Controller
     public function downloadImportTemplate(): StreamedResponse
     {
         return BookImportTemplateExport::stream();
+    }
+
+    private function paginatorPayload(LengthAwarePaginator $items): array
+    {
+        return [
+            'data' => BookResource::collection($items->items())->resolve(),
+            'meta' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+                'from' => $items->firstItem(),
+                'to' => $items->lastItem(),
+            ],
+        ];
     }
 }

@@ -9,6 +9,7 @@ use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 class Init
@@ -47,7 +48,9 @@ class Init
 
             $currentPerson = $user;
             $currentUser = new CurrentUser($user);
-            $currentCustomer = Customer::first() ?? (object) ['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
+            $currentCustomer = Cache::remember('init:customer_first', 3600, function () {
+                return Customer::query()->select(['id', 'code', 'name'])->first();
+            }) ?? (object) ['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
             $role_prefix = 'UTC_LIBRARY_';
             $currentSystem = (object) [
                 'system' => 'LIBRARY',

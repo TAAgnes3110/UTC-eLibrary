@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { usePage, router } from '@inertiajs/vue3';
 import AdminSidebar from '@/Layouts/Admin/AdminSidebar.vue';
 import AdminHeader from '@/Layouts/Admin/AdminHeader.vue';
@@ -15,15 +15,52 @@ const page = usePage();
 const user = computed(() => page.props.auth?.user);
 const sidebarOpen = ref(typeof window !== 'undefined' && window.innerWidth >= 1024);
 const collapsed = computed(() => !sidebarOpen.value);
+const SIDEBAR_STATE_KEY = 'admin.sidebar.open';
+
+function defaultSidebarOpen() {
+    return typeof window !== 'undefined' && window.innerWidth >= 1024;
+}
+
+function getSidebarStorageKey() {
+    const userId = user.value?.id ?? 'guest';
+    return `${SIDEBAR_STATE_KEY}.${userId}`;
+}
+
+function restoreSidebarState() {
+    if (typeof window === 'undefined') return;
+    const raw = window.sessionStorage.getItem(getSidebarStorageKey());
+    if (raw === '1') sidebarOpen.value = true;
+    else if (raw === '0') sidebarOpen.value = false;
+    else sidebarOpen.value = defaultSidebarOpen();
+}
+
+function persistSidebarState() {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.setItem(getSidebarStorageKey(), sidebarOpen.value ? '1' : '0');
+}
+
+onMounted(() => {
+    restoreSidebarState();
+});
+
+watch(() => user.value?.id, () => {
+    restoreSidebarState();
+});
+
+watch(sidebarOpen, () => {
+    persistSidebarState();
+});
 
 router.on('navigate', () => {
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
         sidebarOpen.value = false;
+        persistSidebarState();
     }
 });
 
 const toggleSidebar = () => {
     sidebarOpen.value = !sidebarOpen.value;
+    persistSidebarState();
 };
 </script>
 

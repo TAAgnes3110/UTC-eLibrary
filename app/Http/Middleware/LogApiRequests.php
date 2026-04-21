@@ -11,6 +11,10 @@ class LogApiRequests
 {
     public function handle(Request $request, Closure $next): Response
     {
+        if (! config('api.log_requests', false)) {
+            return $next($request);
+        }
+
         $start = microtime(true);
 
         $response = $next($request);

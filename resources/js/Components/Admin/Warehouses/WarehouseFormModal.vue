@@ -63,6 +63,21 @@ function errClass(key) {
                         />
                         <p v-if="fieldErrors.name" class="text-xs text-red-500 font-medium">{{ fieldErrors.name }}</p>
                     </div>
+                    <div v-if="!isEditing" class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Số lượng kệ</label>
+                        <Input
+                            v-model.number="form.shelf_count"
+                            type="number"
+                            min="0"
+                            max="400"
+                            class="h-10 rounded-lg dark:bg-slate-800"
+                            :class="errClass('shelf_count')"
+                            placeholder="Ví dụ: 50"
+                            @update:model-value="clearFieldError('shelf_count')"
+                        />
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Tạo sẵn số kệ trống cho kho mới (0 - 400).</p>
+                        <p v-if="fieldErrors.shelf_count" class="text-xs text-red-500 font-medium">{{ fieldErrors.shelf_count }}</p>
+                    </div>
                 </div>
                 <div class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30">
                     <Button variant="outline" @click="emit('close')">Hủy bỏ</Button>

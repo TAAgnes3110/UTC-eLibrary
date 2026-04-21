@@ -59,13 +59,9 @@ const goChangePassword = () => {
 const logout = () => {
     clearStaffWorkQueueSessionHint()
     router.post(route('logout'), {}, {
+        replace: true,
         onSuccess: () => {
             clearClientApiCredentials()
-            if (hasRoute('reader.home')) {
-                router.visit(route('reader.home'))
-                return
-            }
-            router.visit('/')
         },
     })
 }

@@ -46,7 +46,6 @@ class Book extends BaseModel
         'quantity',
         'summary',
         'notes',
-        'series_name',
         'publisher_place',
         'cabinet',
         'shelf',

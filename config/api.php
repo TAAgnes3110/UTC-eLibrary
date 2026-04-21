@@ -4,6 +4,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Ghi log mọi request API (duration, status, …) vào storage/logs/api.log
+    |--------------------------------------------------------------------------
+    | Bật khi debug hiệu năng. Trên hosting yếu / I/O chậm, nên để false (mặc định).
+    */
+    'log_requests' => filter_var(env('API_LOG_REQUESTS', false), FILTER_VALIDATE_BOOL),
+
+    /*
+    |--------------------------------------------------------------------------
     | API Security: Allowed Domains
     |--------------------------------------------------------------------------
     | Danh sách domain/origin được phép gửi trong header "domain".

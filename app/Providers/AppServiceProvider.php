@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
+use Laravel\Socialite\Contracts\Factory as SocialiteFactory;
 use Laravel\Socialite\SocialiteManager;
 use SocialiteProviders\Azure\Provider;
 
@@ -104,10 +105,8 @@ class AppServiceProvider extends ServiceProvider
 
     protected function bootMicrosoftAzureSocialite()
     {
-        // Use concrete manager so IDE can resolve extend/buildProvider.
-        // @intelephense-ignore-next-line
         /** @var SocialiteManager $socialite */
-        $socialite = $this->app->make(SocialiteManager::class);
+        $socialite = $this->app->make(SocialiteFactory::class);
 
         $socialite->extend('microsoft-azure', function ($app) use ($socialite) {
             $config = config('services.azure');

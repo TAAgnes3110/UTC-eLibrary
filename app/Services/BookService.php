@@ -8,13 +8,17 @@ use App\Helpers\FileHelpers;
 use App\Imports\BookImport;
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
+use App\Models\Author;
 use App\Models\Book;
+use App\Models\Classification;
 use App\Models\ClassificationDetail;
+use App\Models\Publisher;
 use App\Models\Warehouse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -26,9 +30,11 @@ class BookService
     {
         return DB::transaction(function () use ($data) {
             $bookData = $data;
+            $authorsInput = $bookData['authors'] ?? null;
+            $publisherInput = $bookData['publisher'] ?? null;
             $syncThesis = array_key_exists('thesis_metadata', $bookData);
             $thesisMeta = $bookData['thesis_metadata'] ?? null;
-            unset($bookData['thesis_metadata']);
+            unset($bookData['thesis_metadata'], $bookData['authors'], $bookData['publisher']);
 
             $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
             if (empty($bookData['registration_number'])) {
@@ -38,7 +44,9 @@ class BookService
                 $classificationDetail = ClassificationDetail::findOrFail($bookData['classification_detail_id']);
                 $bookData['book_code'] = $this->generateBookCode($classificationDetail, $warehouse);
             }
+            $this->applyBookshelfMatrixPlacement($bookData);
             $book = Book::create($bookData);
+            $this->syncContributors($book, $authorsInput, $publisherInput);
             if ($syncThesis) {
                 $this->syncThesisMetadata($book, $thesisMeta);
             }
@@ -55,10 +63,14 @@ class BookService
     public function update(Book $book, array $data): Book
     {
         return DB::transaction(function () use ($book, $data) {
+            $authorsInput = $data['authors'] ?? null;
+            $publisherInput = $data['publisher'] ?? null;
             unset(
                 $data['id'],
                 $data['created_at'],
                 $data['updated_at'],
+                $data['authors'],
+                $data['publisher'],
             );
             if (array_key_exists('cover_image', $data) && empty($data['cover_image'])) {
                 unset($data['cover_image']);
@@ -67,7 +79,9 @@ class BookService
             $thesisMeta = $data['thesis_metadata'] ?? null;
             unset($data['thesis_metadata']);
 
+            $this->applyBookshelfMatrixPlacement($data);
             $book->update($data);
+            $this->syncContributors($book, $authorsInput, $publisherInput);
             if ($syncThesis) {
                 $this->syncThesisMetadata($book, $thesisMeta);
             }
@@ -303,6 +317,61 @@ class BookService
         );
     }
 
+    private function syncContributors(Book $book, mixed $authorsInput, mixed $publisherInput): void
+    {
+        if ($authorsInput !== null) {
+            $authorsRaw = is_array($authorsInput) ? implode(';', $authorsInput) : (string) $authorsInput;
+            $authorNames = preg_split('/[;,]+/u', $authorsRaw) ?: [];
+            $authorNames = array_values(array_filter(array_map(
+                static fn ($name) => trim((string) $name),
+                $authorNames
+            )));
+            if ($authorNames === []) {
+                $authorNames = ['Khuyết danh'];
+            }
+
+            $authorSync = [];
+            foreach ($authorNames as $idx => $name) {
+                $author = Author::query()->firstOrCreate(
+                    ['slug' => Str::slug($name)],
+                    ['name' => $name, 'params' => []]
+                );
+                if ($author->name !== $name) {
+                    $author->name = $name;
+                    $author->save();
+                }
+                $authorSync[$author->id] = ['order' => $idx];
+            }
+            $book->authors()->sync($authorSync);
+        }
+
+        if ($publisherInput !== null) {
+            $publishersRaw = is_array($publisherInput) ? implode(';', $publisherInput) : (string) $publisherInput;
+            $publisherNames = preg_split('/[;,]+/u', $publishersRaw) ?: [];
+            $publisherNames = array_values(array_filter(array_map(
+                static fn ($name) => trim((string) $name),
+                $publisherNames
+            )));
+            if ($publisherNames === []) {
+                $publisherNames = ['Nhà xuất bản Giao thông Vận tải'];
+            }
+
+            $publisherSync = [];
+            foreach ($publisherNames as $idx => $publisherName) {
+                $publisher = Publisher::query()->firstOrCreate(
+                    ['slug' => Str::slug($publisherName)],
+                    ['name' => $publisherName, 'params' => []]
+                );
+                if ($publisher->name !== $publisherName) {
+                    $publisher->name = $publisherName;
+                    $publisher->save();
+                }
+                $publisherSync[$publisher->id] = ['order' => $idx];
+            }
+            $book->publishers()->sync($publisherSync);
+        }
+    }
+
     /**
      * Lọc theo resource_type; hỗ trợ nhiều giá trị cách nhau bởi dấu phẩy (vd: textbook,reference).
      *
@@ -323,7 +392,9 @@ class BookService
         if (count($parts) === 1) {
             if ($includeNullAsReference && $parts[0] === 'reference') {
                 $query->where(function ($q) {
-                    $q->where('resource_type', 'reference')->orWhereNull('resource_type');
+                    $q->where('resource_type', 'reference')
+                        ->orWhereNull('resource_type')
+                        ->orWhere('resource_type', '');
                 });
             } else {
                 $query->where('resource_type', $parts[0]);
@@ -332,7 +403,7 @@ class BookService
             $query->where(function ($q) use ($parts, $includeNullAsReference) {
                 $q->whereIn('resource_type', $parts);
                 if ($includeNullAsReference) {
-                    $q->orWhereNull('resource_type');
+                    $q->orWhereNull('resource_type')->orWhere('resource_type', '');
                 }
             });
         }
@@ -477,6 +548,97 @@ class BookService
         $orderPart = str_pad((string) $nextOrder, 4, '0', STR_PAD_LEFT);
 
         return sprintf('%s-%s-%s', $shortClassificationCode, $warehouse->code, $orderPart);
+    }
+
+    /**
+     * Tự động chuẩn hóa vị trí kệ theo ma trận:
+     * - Hàng (row) = phân loại chính
+     * - Cột (column) = phân loại chi tiết
+     *
+     * Dữ liệu được đồng bộ vào:
+     * - books.cabinet / books.shelf (chuỗi hiển thị nhanh)
+     * - books.params.bookshelf_matrix (metadata để tra cứu/chỉ đường)
+     */
+    private function applyBookshelfMatrixPlacement(array &$bookData): void
+    {
+        $classificationId = isset($bookData['classification_id'])
+            ? (int) $bookData['classification_id']
+            : null;
+        $classificationDetailId = isset($bookData['classification_detail_id'])
+            ? (int) $bookData['classification_detail_id']
+            : null;
+
+        if ($classificationId === null && $classificationDetailId === null) {
+            return;
+        }
+
+        $classification = $classificationId
+            ? Classification::query()->select(['id', 'code', 'name'])->find($classificationId)
+            : null;
+        $classificationDetail = $classificationDetailId
+            ? ClassificationDetail::query()->select(['id', 'classification_id', 'code', 'name'])->find($classificationDetailId)
+            : null;
+
+        if (! $classification && ! $classificationDetail) {
+            return;
+        }
+
+        if (! isset($bookData['cabinet']) || trim((string) $bookData['cabinet']) === '') {
+            $bookData['cabinet'] = $this->buildShelfLabel($classification?->code, $classification?->name);
+        }
+        if (! isset($bookData['shelf']) || trim((string) $bookData['shelf']) === '') {
+            $bookData['shelf'] = $this->buildShelfLabel($classificationDetail?->code, $classificationDetail?->name);
+        }
+
+        $params = [];
+        if (isset($bookData['params']) && is_array($bookData['params'])) {
+            $params = $bookData['params'];
+        }
+
+        $warehouseCode = null;
+        if (! empty($bookData['warehouse_id'])) {
+            $warehouseCode = Warehouse::query()
+                ->whereKey((int) $bookData['warehouse_id'])
+                ->value('code');
+        }
+
+        $rowCode = $classification?->code;
+        $columnCode = $classificationDetail?->code;
+        $positionParts = array_filter([$warehouseCode, $rowCode, $columnCode], static fn ($v) => filled($v));
+
+        $params['bookshelf_matrix'] = [
+            'row' => [
+                'classification_id' => $classification?->id,
+                'code' => $rowCode,
+                'name' => $classification?->name,
+            ],
+            'column' => [
+                'classification_detail_id' => $classificationDetail?->id,
+                'classification_id' => $classificationDetail?->classification_id,
+                'code' => $columnCode,
+                'name' => $classificationDetail?->name,
+            ],
+            'position_code' => implode('-', $positionParts),
+        ];
+
+        $bookData['params'] = $params;
+    }
+
+    private function buildShelfLabel(?string $code, ?string $name): ?string
+    {
+        $code = trim((string) $code);
+        $name = trim((string) $name);
+        if ($code !== '' && $name !== '') {
+            return "{$code} - {$name}";
+        }
+        if ($code !== '') {
+            return $code;
+        }
+        if ($name !== '') {
+            return $name;
+        }
+
+        return null;
     }
 
     /**

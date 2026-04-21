@@ -7,6 +7,16 @@ alwaysApply: true
 
 > ĐH Giao thông Vận tải (UTC). ECC: [everything-claude-code](https://github.com/affaan-m/everything-claude-code) (MIT). **Nghiệp vụ:** `docs/ai/context-utc-library.md`. **Mục lục docs:** `docs/README.md`.
 
+## Ngôn ngữ (mặc định repo)
+
+- **Tiếng Việt** là ngôn ngữ mặc định cho: chuỗi UI mới, thông báo API, comment nghiệp vụ, seed/demo, và **phản hồi agent** trong ngữ cảnh repo này.
+- **Không** dùng tiếng Trung (giản thể/phồn thể) làm mặc định cho bất kỳ mục nào ở trên.
+
+## Giao tiếp với người dùng
+
+- Khi trao đổi trong chat với người dùng repo này, luôn trả lời bằng **tiếng Việt** (rõ ràng, ngắn gọn, đúng ngữ cảnh kỹ thuật).
+- Chỉ dùng ngôn ngữ khác khi người dùng yêu cầu rõ ràng bằng văn bản.
+
 ## Vai trò & quy trình
 
 - **Search-first:** Luôn rà `app/Services/`, models, migration trước khi thêm service mới — `docs/ai/ecc/skills/search-first.md`.

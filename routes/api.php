@@ -4,6 +4,7 @@ use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuthorController;
 use App\Http\Controllers\Api\BookController;
+use App\Http\Controllers\Api\BookshelfCellController;
 use App\Http\Controllers\Api\ClassificationController;
 use App\Http\Controllers\Api\ClassificationDetailController;
 use App\Http\Controllers\Api\DigitalAssetController;
@@ -182,8 +183,18 @@ Route::prefix('v1')->group(function () {
                 Route::post('/{id}/toggle-status', [WarehouseController::class, 'toggleStatus']);
                 Route::post('/', [WarehouseController::class, 'store']);
                 Route::get('/{warehouse}', [WarehouseController::class, 'show']);
+                Route::get('/{warehouse}/bookshelf-cells', [BookshelfCellController::class, 'indexByWarehouse']);
+                Route::post('/{warehouse}/bookshelf-cells/generate', [BookshelfCellController::class, 'generateByWarehouse']);
                 Route::put('/{warehouse}', [WarehouseController::class, 'update']);
                 Route::delete('/{warehouse}', [WarehouseController::class, 'destroy']);
+            });
+
+            Route::group(['prefix' => '/bookshelf-cells'], function () {
+                Route::get('/', [BookshelfCellController::class, 'index']);
+                Route::get('/export', [BookshelfCellController::class, 'export']);
+                Route::post('/', [BookshelfCellController::class, 'store']);
+                Route::put('/{bookshelfCell}', [BookshelfCellController::class, 'update']);
+                Route::delete('/{bookshelfCell}', [BookshelfCellController::class, 'destroy']);
             });
 
             Route::group(['prefix' => 'loan-policies'], function () {

@@ -12,4 +12,9 @@ class WarehousePageController extends Controller
     {
         return Inertia::render('Admin/Warehouses/Index');
     }
+
+    public function bookshelf(): Response
+    {
+        return Inertia::render('Admin/Warehouses/Bookshelf');
+    }
 }

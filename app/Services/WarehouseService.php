@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Exports\WarehouseExport;
 use App\Imports\WarehouseImport;
+use App\Models\BookshelfCell;
 use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator as PaginationLengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WarehouseService
@@ -19,10 +21,51 @@ class WarehouseService
      */
     public function create(array $data): Warehouse
     {
+        $shelfCount = (int) ($data['shelf_count'] ?? 0);
+        unset($data['shelf_count']);
+
         $warehouse = Warehouse::create($data);
+        if ($shelfCount > 0) {
+            $this->seedShelvesForWarehouse($warehouse, $shelfCount);
+        }
         MasterDataService::clearCache();
 
         return $warehouse;
+    }
+
+    private function seedShelvesForWarehouse(Warehouse $warehouse, int $shelfCount): void
+    {
+        $shelfCount = min(max($shelfCount, 0), 50);
+        if ($shelfCount === 0) {
+            return;
+        }
+
+        DB::transaction(function () use ($warehouse, $shelfCount): void {
+            for ($idx = 1; $idx <= $shelfCount; $idx++) {
+                $rowIndex = intdiv($idx - 1, 20) + 1;
+                $columnIndex = (($idx - 1) % 20) + 1;
+                $label = sprintf('R%02d-C%02d', $rowIndex, $columnIndex);
+
+                BookshelfCell::query()->updateOrCreate(
+                    [
+                        'warehouse_id' => $warehouse->id,
+                        'row_index' => $rowIndex,
+                        'column_index' => $columnIndex,
+                    ],
+                    [
+                        'label' => $label,
+                        'current_quantity' => 0,
+                        'classification_id' => null,
+                        'classification_detail_id' => null,
+                        'is_active' => true,
+                        'params' => [
+                            'auto_seeded_on_warehouse_create' => true,
+                            'books_per_rack' => 30,
+                        ],
+                    ]
+                );
+            }
+        });
     }
 
     /**

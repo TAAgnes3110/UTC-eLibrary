@@ -64,6 +64,8 @@ export function useBooksAdminPage() {
     const classificationDetailsLoaded = ref(false);
     let booksSearchDebounce = null;
     const selectedClassificationId = ref('');
+    const matrixClassificationId = ref('');
+    const matrixClassificationDetailId = ref('');
     const loading = ref(false);
 
     const trashedBooks = ref([]);
@@ -114,6 +116,16 @@ export function useBooksAdminPage() {
         booksPageNum.value = 1;
         loadBooks();
     };
+
+    function setMatrixFilter({ classificationId, classificationDetailId }) {
+        matrixClassificationId.value = classificationId != null ? String(classificationId) : '';
+        matrixClassificationDetailId.value = classificationDetailId != null ? String(classificationDetailId) : '';
+    }
+
+    function clearMatrixFilter() {
+        matrixClassificationId.value = '';
+        matrixClassificationDetailId.value = '';
+    }
 
     const showModal = ref(false);
     const isEditing = ref(false);
@@ -175,6 +187,16 @@ export function useBooksAdminPage() {
                     String(b.classification_id) === String(selectedClassificationId.value) ||
                     String(b.classification?.id ?? '') === String(selectedClassificationId.value),
             );
+        }
+        if (matrixClassificationId.value && matrixClassificationDetailId.value) {
+            list = list.filter((b) => {
+                const rowId = b.classification?.id ?? b.classification_id;
+                const colId = b.classification_detail?.id ?? b.classification_detail_id;
+                return (
+                    String(rowId ?? '') === String(matrixClassificationId.value) &&
+                    String(colId ?? '') === String(matrixClassificationDetailId.value)
+                );
+            });
         }
         if (filterValues.value.priceSort) {
             const dir = filterValues.value.priceSort === 'asc' ? 1 : -1;
@@ -485,6 +507,10 @@ export function useBooksAdminPage() {
         if (reg) payload.registration_number = reg;
         const bookCode = String(form.value.book_code || '').trim();
         if (bookCode) payload.book_code = bookCode;
+        const authors = String(form.value.authors || '').trim();
+        payload.authors = authors;
+        const publisher = String(form.value.publisher || '').trim();
+        payload.publisher = publisher;
         const summary = String(form.value.description || '').trim();
         if (summary) payload.summary = summary;
         const py = parseInt(String(form.value.published_year || ''), 10);
@@ -833,6 +859,10 @@ export function useBooksAdminPage() {
         booksPagination,
         goBooksPage,
         searchBooks,
+        matrixClassificationId,
+        matrixClassificationDetailId,
+        setMatrixFilter,
+        clearMatrixFilter,
         warehouses,
         saveBookLoading,
         loading,

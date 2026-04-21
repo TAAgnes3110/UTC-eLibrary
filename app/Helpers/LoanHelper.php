@@ -7,6 +7,7 @@ namespace App\Helpers;
 use App\Enums\LoanItemCondition;
 use App\Enums\ResourceType;
 use App\Models\Book;
+use App\Models\BookshelfCell;
 use App\Models\LibraryCard;
 use App\Models\Loan;
 use App\Models\LoanItem;
@@ -219,6 +220,8 @@ class LoanHelper
             $book->quantity -= $delta;
             $book->save();
         }
+
+        $this->applyRackQuantityDeltas($books, $bookDeltas, false);
     }
 
     /**
@@ -250,6 +253,125 @@ class LoanHelper
             }
             $book->quantity += $delta;
             $book->save();
+        }
+
+        $this->applyRackQuantityDeltas($books, $bookDeltas, true);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Book>  $books
+     * @param  array<int, int>  $bookDeltas
+     */
+    private function applyRackQuantityDeltas($books, array $bookDeltas, bool $isRestock): void
+    {
+        $grouped = [];
+        foreach ($bookDeltas as $bookId => $delta) {
+            $book = $books->get($bookId);
+            if (! $book instanceof Book) {
+                continue;
+            }
+            if (! $book->warehouse_id || ! $book->classification_id || ! $book->classification_detail_id) {
+                continue;
+            }
+
+            $key = implode(':', [
+                (int) $book->warehouse_id,
+                (int) $book->classification_id,
+                (int) $book->classification_detail_id,
+            ]);
+            $grouped[$key] = ($grouped[$key] ?? 0) + (int) $delta;
+        }
+
+        foreach ($grouped as $key => $delta) {
+            if ($delta <= 0) {
+                continue;
+            }
+            [$warehouseId, $classificationId, $classificationDetailId] = array_map('intval', explode(':', $key));
+            if ($isRestock) {
+                $this->increaseRackQuantity($warehouseId, $classificationId, $classificationDetailId, $delta);
+            } else {
+                $this->decreaseRackQuantity($warehouseId, $classificationId, $classificationDetailId, $delta);
+            }
+        }
+    }
+
+    private function decreaseRackQuantity(int $warehouseId, int $classificationId, int $classificationDetailId, int $delta): void
+    {
+        $cells = BookshelfCell::query()
+            ->where('warehouse_id', $warehouseId)
+            ->where('classification_id', $classificationId)
+            ->where('classification_detail_id', $classificationDetailId)
+            ->orderBy('row_index')
+            ->orderBy('column_index')
+            ->lockForUpdate()
+            ->get();
+
+        if ($cells->isEmpty()) {
+            return;
+        }
+
+        $remaining = $delta;
+        foreach ($cells as $cell) {
+            if (! $cell instanceof BookshelfCell) {
+                continue;
+            }
+            if ($remaining <= 0) {
+                break;
+            }
+            $available = max(0, (int) $cell->current_quantity);
+            if ($available === 0) {
+                continue;
+            }
+
+            $take = min($available, $remaining);
+            $cell->current_quantity = $available - $take;
+            $cell->save();
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new RuntimeException('So luong sach tren ke khong du de tru.');
+        }
+    }
+
+    private function increaseRackQuantity(int $warehouseId, int $classificationId, int $classificationDetailId, int $delta): void
+    {
+        $cells = BookshelfCell::query()
+            ->where('warehouse_id', $warehouseId)
+            ->where('classification_id', $classificationId)
+            ->where('classification_detail_id', $classificationDetailId)
+            ->orderBy('row_index')
+            ->orderBy('column_index')
+            ->lockForUpdate()
+            ->get();
+
+        if ($cells->isEmpty()) {
+            return;
+        }
+
+        $remaining = $delta;
+        foreach ($cells as $cell) {
+            if (! $cell instanceof BookshelfCell) {
+                continue;
+            }
+            if ($remaining <= 0) {
+                break;
+            }
+            $capacity = (int) data_get($cell->params, 'books_per_rack', 30);
+            $current = max(0, (int) $cell->current_quantity);
+            $free = max(0, $capacity - $current);
+            if ($free === 0) {
+                continue;
+            }
+
+            $put = min($free, $remaining);
+            $cell->current_quantity = $current + $put;
+            $cell->save();
+            $remaining -= $put;
+        }
+
+        if ($remaining > 0) {
+            throw new RuntimeException('Khong con suc chua tren ke de nhap tra.');
         }
     }
 

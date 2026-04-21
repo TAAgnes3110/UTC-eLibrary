@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             CmsAndContentSeeder::class,
             PeriodSeeder::class,
             StaffReviewDemoSeeder::class,
+            BookshelfSampleSeeder::class,
         ]);
 
         if (filter_var(env('SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {

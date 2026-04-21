@@ -55,7 +55,6 @@ class ReaderBookDetailResource extends JsonResource
             'book_size' => $this->book_size,
             'price' => $this->price,
             'summary' => $this->summary,
-            'series_name' => $this->series_name,
             'publisher_place' => $this->publisher_place,
             'cabinet' => $this->cabinet,
             'shelf' => $this->shelf,

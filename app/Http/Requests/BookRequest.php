@@ -46,6 +46,8 @@ class BookRequest extends BaseRequest
             'thesis_metadata.params' => ['sometimes', 'nullable', 'array'],
             'registration_number' => ['sometimes', 'nullable', 'string', 'max:255'],
             'book_code' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'authors' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'publisher' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'summary' => ['sometimes', 'nullable', 'string'],
             'published_year' => ['sometimes', 'nullable', 'integer', 'min:1900', 'max:2100'],
             'price' => ['sometimes', 'nullable', 'integer', 'min:0'],

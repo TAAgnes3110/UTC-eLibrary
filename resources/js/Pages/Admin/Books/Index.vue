@@ -19,7 +19,6 @@ import { useBooksAdminPage, SEARCH_IN_OPTIONS } from '@/composables/admin/useBoo
 const {
     pageKind,
     pageLabel,
-    books,
     booksPagination,
     goBooksPage,
     searchBooks,

@@ -16,35 +16,37 @@ final class WarehouseImport
 
     public static function import(UploadedFile $file): array
     {
-        $result = FileHelpers::readExcel($file, 1, 0);
-        $rows = $result['rows'];
-
         $success = 0;
         $skipped = 0;
         $errors = [];
+        FileHelpers::readExcelInChunks($file, function (array $rows) use (&$success, &$skipped, &$errors): void {
+            $upsertRows = [];
+            foreach ($rows as $row) {
+                try {
+                    $code = FileHelpers::getValueByAliases($row, self::CODE_ALIASES);
+                    $name = FileHelpers::getValueByAliases($row, self::NAME_ALIASES);
+                    if (! $code || ! $name) {
+                        $skipped++;
+                        continue;
+                    }
 
-        foreach ($rows as $row) {
-            try {
-                $code = FileHelpers::getValueByAliases($row, self::CODE_ALIASES);
-                $name = FileHelpers::getValueByAliases($row, self::NAME_ALIASES);
-                if (! $code || ! $name) {
-                    $skipped++;
-
-                    continue;
+                    $upsertRows[] = [
+                        'code' => $code,
+                        'name' => $name,
+                    ];
+                    $success++;
+                } catch (\Throwable $e) {
+                    $errors[] = [
+                        'row' => $row['_row_number'] ?? null,
+                        'message' => $e->getMessage(),
+                    ];
                 }
-
-                Warehouse::create([
-                    'code' => $code,
-                    'name' => $name,
-                ]);
-                $success++;
-            } catch (\Throwable $e) {
-                $errors[] = [
-                    'row' => $row['_row_number'] ?? null,
-                    'message' => $e->getMessage(),
-                ];
             }
-        }
+
+            if ($upsertRows !== []) {
+                Warehouse::query()->upsert($upsertRows, ['code'], ['name']);
+            }
+        }, 1, 1000, 0);
 
         return FileHelpers::buildImportResult($success, $skipped, $errors);
     }

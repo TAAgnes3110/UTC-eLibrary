@@ -47,9 +47,9 @@ const hasRoute = (routeName) => {
 const logout = () => {
     clearStaffWorkQueueSessionHint()
     router.post(route('logout'), {}, {
+        replace: true,
         onSuccess: () => {
             clearClientApiCredentials()
-            router.visit(route('reader.home'))
         },
     })
 }

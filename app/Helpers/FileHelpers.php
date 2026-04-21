@@ -222,6 +222,79 @@ final class FileHelpers
     }
 
     /**
+     * Đọc Excel/CSV theo từng lô để giảm dùng RAM với file lớn.
+     *
+     * @param  callable(array<int,array<string,?string>>): void  $onChunk
+     */
+    public static function readExcelInChunks(
+        UploadedFile|string $file,
+        callable $onChunk,
+        int $headerRow = 1,
+        int $chunkSize = 1000,
+        ?int $sheetIndex = 0
+    ): void {
+        $filePath = $file instanceof UploadedFile ? ($file->getRealPath() ?: '') : (string) $file;
+        if ($filePath === '' || ! is_file($filePath)) {
+            return;
+        }
+
+        $worksheetIndex = max(0, (int) ($sheetIndex ?? 0));
+        $chunkSize = max(100, $chunkSize);
+
+        $filter = new ExcelChunkReadFilter($headerRow);
+        for ($startRow = $headerRow + 1; $startRow < PHP_INT_MAX; $startRow += $chunkSize) {
+            $reader = IOFactory::createReaderForFile($filePath);
+            $reader->setReadDataOnly(true);
+            $reader->setReadFilter($filter);
+            $filter->setRows($startRow, $chunkSize);
+
+            $spreadsheet = $reader->load($filePath);
+            if ($worksheetIndex >= $spreadsheet->getSheetCount()) {
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet);
+                return;
+            }
+            $worksheet = $spreadsheet->getSheet($worksheetIndex);
+            $data = $worksheet->toArray(null, true, true, true);
+            if (empty($data) || ! isset($data[$headerRow])) {
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet);
+                continue;
+            }
+
+            $headers = self::normalizeHeaders($data[$headerRow]);
+            $rows = [];
+            foreach ($data as $rowIndex => $rowData) {
+                if ($rowIndex <= $headerRow) {
+                    continue;
+                }
+                $values = array_values($rowData);
+                if (self::isEmptyRow($values)) {
+                    continue;
+                }
+
+                $mapped = [];
+                foreach ($headers as $colLetter => $headerName) {
+                    $mapped[$headerName] = isset($rowData[$colLetter]) ? trim((string) $rowData[$colLetter]) : null;
+                }
+                $mapped['_row_number'] = (string) $rowIndex;
+                $rows[] = $mapped;
+            }
+
+            if ($rows !== []) {
+                $onChunk($rows);
+            } else {
+                $spreadsheet->disconnectWorksheets();
+                unset($spreadsheet);
+                break;
+            }
+
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }
+    }
+
+    /**
      * Download Excel/CSV (stream) từ mảng rows.
      */
     public static function downloadExcel(array $data, string $filename = 'export.xlsx', ?array $headers = null): StreamedResponse

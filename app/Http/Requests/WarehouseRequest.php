@@ -25,6 +25,7 @@ class WarehouseRequest extends BaseRequest
             ],
             'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:warehouses,id'],
             'is_active' => ['sometimes', 'boolean'],
+            'shelf_count' => ['sometimes', 'integer', 'min:0', 'max:50'],
             'params' => ['sometimes', 'nullable', 'array'],
         ];
     }
@@ -42,6 +43,9 @@ class WarehouseRequest extends BaseRequest
             'parent_id.exists' => 'Kho cha không tồn tại trong hệ thống',
             'parent_id.integer' => 'Kho cha không hợp lệ',
             'is_active.boolean' => 'Trạng thái hoạt động không hợp lệ',
+            'shelf_count.integer' => 'Số lượng kệ phải là số nguyên',
+            'shelf_count.min' => 'Số lượng kệ không được nhỏ hơn 0',
+            'shelf_count.max' => 'Số lượng kệ tối đa là 50',
         ];
     }
 }

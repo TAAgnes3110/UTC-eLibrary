@@ -29,7 +29,7 @@ export function useWarehousesAdminPage() {
     const importLoading = ref(false);
     const isEditing = ref(false);
     const selectedWarehouse = ref(null);
-    const form = ref({ id: null, code: '', name: '', parent_id: null, is_active: true });
+    const form = ref({ id: null, code: '', name: '', parent_id: null, is_active: true, shelf_count: 50 });
 
     const {
         fieldErrors: warehouseFormErrors,
@@ -266,7 +266,7 @@ export function useWarehousesAdminPage() {
 
     const openAddModal = () => {
         isEditing.value = false;
-        form.value = { id: null, code: '', name: '', parent_id: null, is_active: true };
+        form.value = { id: null, code: '', name: '', parent_id: null, is_active: true, shelf_count: 50 };
         clearWarehouseFormErrors();
         showModal.value = true;
     };
@@ -304,6 +304,12 @@ export function useWarehousesAdminPage() {
             name,
             is_active: !!form.value.is_active,
         };
+        if (!isEditing.value) {
+            const count = Number(form.value.shelf_count ?? 0);
+            if (Number.isFinite(count)) {
+                payload.shelf_count = Math.max(0, Math.min(400, Math.trunc(count)));
+            }
+        }
         const pid = form.value.parent_id;
         if (pid != null && pid !== '' && Number.isFinite(Number(pid))) {
             payload.parent_id = Number(pid);

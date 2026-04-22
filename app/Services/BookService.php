@@ -10,7 +10,6 @@ use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
 use App\Models\Author;
 use App\Models\Book;
-use App\Models\Classification;
 use App\Models\ClassificationDetail;
 use App\Models\Publisher;
 use App\Models\Warehouse;
@@ -44,7 +43,6 @@ class BookService
                 $classificationDetail = ClassificationDetail::findOrFail($bookData['classification_detail_id']);
                 $bookData['book_code'] = $this->generateBookCode($classificationDetail, $warehouse);
             }
-            $this->applyBookshelfMatrixPlacement($bookData);
             $book = Book::create($bookData);
             $this->syncContributors($book, $authorsInput, $publisherInput);
             if ($syncThesis) {
@@ -79,7 +77,6 @@ class BookService
             $thesisMeta = $data['thesis_metadata'] ?? null;
             unset($data['thesis_metadata']);
 
-            $this->applyBookshelfMatrixPlacement($data);
             $book->update($data);
             $this->syncContributors($book, $authorsInput, $publisherInput);
             if ($syncThesis) {
@@ -548,97 +545,6 @@ class BookService
         $orderPart = str_pad((string) $nextOrder, 4, '0', STR_PAD_LEFT);
 
         return sprintf('%s-%s-%s', $shortClassificationCode, $warehouse->code, $orderPart);
-    }
-
-    /**
-     * Tự động chuẩn hóa vị trí kệ theo ma trận:
-     * - Hàng (row) = phân loại chính
-     * - Cột (column) = phân loại chi tiết
-     *
-     * Dữ liệu được đồng bộ vào:
-     * - books.cabinet / books.shelf (chuỗi hiển thị nhanh)
-     * - books.params.bookshelf_matrix (metadata để tra cứu/chỉ đường)
-     */
-    private function applyBookshelfMatrixPlacement(array &$bookData): void
-    {
-        $classificationId = isset($bookData['classification_id'])
-            ? (int) $bookData['classification_id']
-            : null;
-        $classificationDetailId = isset($bookData['classification_detail_id'])
-            ? (int) $bookData['classification_detail_id']
-            : null;
-
-        if ($classificationId === null && $classificationDetailId === null) {
-            return;
-        }
-
-        $classification = $classificationId
-            ? Classification::query()->select(['id', 'code', 'name'])->find($classificationId)
-            : null;
-        $classificationDetail = $classificationDetailId
-            ? ClassificationDetail::query()->select(['id', 'classification_id', 'code', 'name'])->find($classificationDetailId)
-            : null;
-
-        if (! $classification && ! $classificationDetail) {
-            return;
-        }
-
-        if (! isset($bookData['cabinet']) || trim((string) $bookData['cabinet']) === '') {
-            $bookData['cabinet'] = $this->buildShelfLabel($classification?->code, $classification?->name);
-        }
-        if (! isset($bookData['shelf']) || trim((string) $bookData['shelf']) === '') {
-            $bookData['shelf'] = $this->buildShelfLabel($classificationDetail?->code, $classificationDetail?->name);
-        }
-
-        $params = [];
-        if (isset($bookData['params']) && is_array($bookData['params'])) {
-            $params = $bookData['params'];
-        }
-
-        $warehouseCode = null;
-        if (! empty($bookData['warehouse_id'])) {
-            $warehouseCode = Warehouse::query()
-                ->whereKey((int) $bookData['warehouse_id'])
-                ->value('code');
-        }
-
-        $rowCode = $classification?->code;
-        $columnCode = $classificationDetail?->code;
-        $positionParts = array_filter([$warehouseCode, $rowCode, $columnCode], static fn ($v) => filled($v));
-
-        $params['bookshelf_matrix'] = [
-            'row' => [
-                'classification_id' => $classification?->id,
-                'code' => $rowCode,
-                'name' => $classification?->name,
-            ],
-            'column' => [
-                'classification_detail_id' => $classificationDetail?->id,
-                'classification_id' => $classificationDetail?->classification_id,
-                'code' => $columnCode,
-                'name' => $classificationDetail?->name,
-            ],
-            'position_code' => implode('-', $positionParts),
-        ];
-
-        $bookData['params'] = $params;
-    }
-
-    private function buildShelfLabel(?string $code, ?string $name): ?string
-    {
-        $code = trim((string) $code);
-        $name = trim((string) $name);
-        if ($code !== '' && $name !== '') {
-            return "{$code} - {$name}";
-        }
-        if ($code !== '') {
-            return $code;
-        }
-        if ($name !== '') {
-            return $name;
-        }
-
-        return null;
     }
 
     /**

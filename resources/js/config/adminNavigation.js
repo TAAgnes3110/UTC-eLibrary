@@ -24,14 +24,18 @@ export const adminNavigation = [
         active: ['admin.warehouses.*'],
         children: [
             { name: 'Danh sách kho', href: 'admin.warehouses.index', active: 'admin.warehouses.index' },
-            { name: 'Kệ sách', href: 'admin.warehouses.bookshelf', active: 'admin.warehouses.bookshelf' },
+            { name: 'Quản lý tủ sách', href: 'admin.warehouses.storage-cabinets', active: 'admin.warehouses.storage-cabinets' },
+            { name: 'Quản lý ngăn sách', href: 'admin.warehouses.storage-slots', active: 'admin.warehouses.storage-slots' },
         ],
     },
     {
         name: 'Cấu hình thư viện',
         icon: 'lucide:scale',
-        active: ['admin.library-settings.*'],
-        href: 'admin.library-settings.index',
+        active: ['admin.library-settings.*', 'admin.library-settings.classifications'],
+        children: [
+            { name: 'Chính sách mượn', href: 'admin.library-settings.index', active: 'admin.library-settings.index' },
+            { name: 'Phân loại sách', href: 'admin.library-settings.classifications', active: 'admin.library-settings.classifications' },
+        ],
     },
     {
         name: 'Thẻ thư viện',

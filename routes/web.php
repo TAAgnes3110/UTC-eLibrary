@@ -82,8 +82,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
-        Route::get('/warehouses/bookshelf', [WarehousePageController::class, 'bookshelf'])->name('warehouses.bookshelf');
+        Route::get('/warehouses/storage', [WarehousePageController::class, 'storage'])->name('warehouses.storage');
+        Route::get('/warehouses/storage-cabinets', [WarehousePageController::class, 'storageCabinets'])->name('warehouses.storage-cabinets');
+        Route::get('/warehouses/storage-slots', [WarehousePageController::class, 'storageSlots'])->name('warehouses.storage-slots');
         Route::get('/library-settings', [LibrarySettingsPageController::class, 'index'])->name('library-settings.index');
+        Route::get('/library-settings/classifications', [LibrarySettingsPageController::class, 'classifications'])->name('library-settings.classifications');
         Route::get('/library-cards', [LibraryCardPageController::class, 'index'])->name('library-cards.index');
         Route::get('/library-cards/requests', [LibraryCardPageController::class, 'requests'])->name('library-cards.requests');
         Route::get('/library-cards/counter', [LibraryCardPageController::class, 'counter'])->name('library-cards.counter');

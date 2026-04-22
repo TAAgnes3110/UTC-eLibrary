@@ -17,7 +17,7 @@ class BookCopy extends BaseModel
         'status',
         'physical_condition',
         'warehouse_id',
-        'bookshelf_cell_id',
+        'storage_slot_id',
         'location',
         'params',
     ];
@@ -43,8 +43,8 @@ class BookCopy extends BaseModel
         return $this->belongsTo(Warehouse::class);
     }
 
-    public function bookshelfCell()
+    public function storageSlot()
     {
-        return $this->belongsTo(BookshelfCell::class);
+        return $this->belongsTo(StorageSlot::class);
     }
 }

@@ -42,8 +42,8 @@ class Warehouse extends BaseModel
         return $this->hasMany(BookCopy::class);
     }
 
-    public function bookshelfCells()
+    public function storageCabinets()
     {
-        return $this->hasMany(BookshelfCell::class);
+        return $this->hasMany(StorageCabinet::class);
     }
 }

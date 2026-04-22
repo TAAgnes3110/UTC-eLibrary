@@ -13,7 +13,26 @@ defineProps({
     statusClass: { type: Function, required: true },
 });
 
-const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
+const emit = defineEmits(['toggle-all', 'toggle', 'view', 'edit', 'delete']);
+
+function normalizedWarehouseName(warehouse) {
+    const rawName = String(warehouse?.name || '').trim();
+    const fromParams = String(warehouse?.params?.display_name || '').trim();
+    if (fromParams) return fromParams;
+    const idx = rawName.indexOf('(');
+    if (idx > 0) return rawName.slice(0, idx).trim();
+    return rawName;
+}
+
+function warehouseNote(warehouse) {
+    const fromParams = String(warehouse?.params?.note || '').trim();
+    if (fromParams) return fromParams;
+    const rawName = String(warehouse?.name || '').trim();
+    const start = rawName.indexOf('(');
+    const end = rawName.lastIndexOf(')');
+    if (start >= 0 && end > start) return rawName.slice(start + 1, end).trim();
+    return '';
+}
 </script>
 
 <template>
@@ -35,6 +54,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
                         </th>
                         <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Mã kho</th>
                         <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Tên kho</th>
+                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Notes</th>
                         <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Cập nhật gần nhất</th>
                         <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300">Trạng thái</th>
                         <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-300 w-[88px]">Thao tác</th>
@@ -60,7 +80,14 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
                             <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">{{ w.code }}</p>
                         </td>
                         <td class="p-4 align-middle max-w-[280px]">
-                            <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="w.name">{{ w.name }}</p>
+                            <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="normalizedWarehouseName(w)">
+                                {{ normalizedWarehouseName(w) }}
+                            </p>
+                        </td>
+                        <td class="p-4 align-middle max-w-[220px]">
+                            <p class="text-sm text-slate-600 dark:text-slate-300 truncate" :title="warehouseNote(w) || '—'">
+                                {{ warehouseNote(w) || '—' }}
+                            </p>
                         </td>
                         <td class="p-4 align-middle whitespace-nowrap">
                             <p class="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums">
@@ -79,6 +106,11 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete']);
                         </td>
                         <td class="p-4 align-middle whitespace-nowrap">
                             <div class="flex flex-nowrap justify-start gap-0.5">
+                                <AdminTableActionIcon
+                                    icon="lucide:eye"
+                                    title="Xem chi tiết"
+                                    @click="emit('view', w)"
+                                />
                                 <AdminTableActionIcon
                                     icon="lucide:pencil"
                                     title="Chỉnh sửa"

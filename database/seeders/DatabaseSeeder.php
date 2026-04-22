@@ -22,12 +22,13 @@ class DatabaseSeeder extends Seeder
             CmsAndContentSeeder::class,
             PeriodSeeder::class,
             StaffReviewDemoSeeder::class,
-            BookshelfSampleSeeder::class,
         ]);
 
         if (filter_var(env('SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {
             $this->call([
                 BookSampleSeeder::class,
+                StorageSampleSeeder::class,
+                StorageLocatorSyncSeeder::class,
                 LibraryCardSampleSeeder::class,
                 ManagementPaginationSeeder::class,
             ]);

@@ -89,24 +89,6 @@ class BookResource extends JsonResource
             'warehouse_id' => $this->warehouse_id,
 
             'params' => $this->params ?? [],
-            'bookshelf_matrix' => data_get($this->params, 'bookshelf_matrix', [
-                'row' => [
-                    'classification_id' => $this->classification_id,
-                    'code' => $this->classification?->code ?? null,
-                    'name' => $this->classification?->name ?? null,
-                ],
-                'column' => [
-                    'classification_detail_id' => $this->classification_detail_id,
-                    'classification_id' => $this->classificationDetail?->classification_id ?? null,
-                    'code' => $this->classificationDetail?->code ?? null,
-                    'name' => $this->classificationDetail?->name ?? null,
-                ],
-                'position_code' => implode('-', array_filter([
-                    $this->warehouse?->code ?? null,
-                    $this->classification?->code ?? null,
-                    $this->classificationDetail?->code ?? null,
-                ], static fn ($v) => filled($v))),
-            ]),
 
             'thesis_metadata' => $this->whenLoaded('thesisMetadata', fn () => $this->thesisMetadata ? [
                 'work_type' => $this->thesisMetadata->work_type,

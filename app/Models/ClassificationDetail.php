@@ -39,4 +39,9 @@ class ClassificationDetail extends BaseModel
     {
         return $this->hasMany(Book::class);
     }
+
+    public function storageSlots()
+    {
+        return $this->hasMany(StorageSlot::class);
+    }
 }

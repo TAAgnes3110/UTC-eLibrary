@@ -5,23 +5,23 @@ namespace App\Models;
 use App\Models\Traits\HasAuditFields;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class BookshelfCell extends BaseModel
+class StorageCabinet extends BaseModel
 {
     use HasAuditFields, SoftDeletes;
 
     protected $fillable = [
         'warehouse_id',
-        'row_index',
-        'column_index',
-        'label',
-        'current_quantity',
         'classification_id',
-        'classification_detail_id',
+        'code',
+        'name',
+        'capacity_total',
+        'current_quantity',
         'is_active',
         'params',
     ];
 
     protected $casts = [
+        'capacity_total' => 'integer',
         'current_quantity' => 'integer',
         'is_active' => 'boolean',
         'params' => 'array',
@@ -37,13 +37,8 @@ class BookshelfCell extends BaseModel
         return $this->belongsTo(Classification::class);
     }
 
-    public function classificationDetail()
+    public function slots()
     {
-        return $this->belongsTo(ClassificationDetail::class);
-    }
-
-    public function copies()
-    {
-        return $this->hasMany(BookCopy::class);
+        return $this->hasMany(StorageSlot::class);
     }
 }

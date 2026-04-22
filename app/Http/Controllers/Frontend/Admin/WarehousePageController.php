@@ -13,8 +13,18 @@ class WarehousePageController extends Controller
         return Inertia::render('Admin/Warehouses/Index');
     }
 
-    public function bookshelf(): Response
+    public function storage(): Response
     {
-        return Inertia::render('Admin/Warehouses/Bookshelf');
+        return Inertia::render('Admin/Warehouses/StorageCabinets');
+    }
+
+    public function storageCabinets(): Response
+    {
+        return Inertia::render('Admin/Warehouses/StorageCabinets');
+    }
+
+    public function storageSlots(): Response
+    {
+        return Inertia::render('Admin/Warehouses/StorageSlots');
     }
 }

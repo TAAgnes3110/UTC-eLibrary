@@ -1,19 +1,58 @@
 <script setup>
 import { Icon } from '@iconify/vue';
+import { onBeforeUnmount } from 'vue';
 
 /**
  * Thanh lọc + Tìm kiếm thống nhất mọi màn hình admin.
  * Layout: [Bộ lọc (tùy chọn)] [slot filters] [Ô tìm kiếm] [Tìm kiếm - xanh] | [slot actions]
  * Chế độ tối: nút Tìm kiếm dùng blue-600, nền slate.
  */
-defineProps({
+const props = defineProps({
     searchPlaceholder: { type: String, default: 'Họ và tên, số phiếu, mã thẻ...' },
     /** Có hiện nút "Bộ lọc" bên trái */
     showFilterButton: { type: Boolean, default: false },
     modelValue: { type: String, default: '' },
+    autoSearchOnInput: { type: Boolean, default: true },
+    autoSearchDebounceMs: { type: Number, default: 300 },
 });
 
-defineEmits(['search', 'update:modelValue']);
+const emit = defineEmits(['search', 'update:modelValue']);
+
+let debounceTimer = null;
+
+function clearDebounceTimer() {
+    if (!debounceTimer) return;
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+}
+
+function emitSearch() {
+    clearDebounceTimer();
+    emit('search');
+}
+
+function scheduleSearch() {
+    if (!props.autoSearchOnInput) return;
+    const ms = Number(props.autoSearchDebounceMs || 0);
+    if (!Number.isFinite(ms) || ms <= 0) {
+        emitSearch();
+        return;
+    }
+    clearDebounceTimer();
+    debounceTimer = setTimeout(() => {
+        emit('search');
+        debounceTimer = null;
+    }, ms);
+}
+
+function onInput(event) {
+    emit('update:modelValue', event.target?.value ?? '');
+    scheduleSearch();
+}
+
+onBeforeUnmount(() => {
+    clearDebounceTimer();
+});
 </script>
 
 <template>
@@ -36,11 +75,11 @@ defineEmits(['search', 'update:modelValue']);
                 type="text"
                 :placeholder="searchPlaceholder"
                 class="admin-search-input"
-                @input="$emit('update:modelValue', $event.target?.value ?? '')"
-                @keydown.enter.prevent="$emit('search')"
+                @input="onInput"
+                @keydown.enter.prevent="emitSearch"
             />
         </div>
-        <button type="button" class="admin-search-btn" @click="$emit('search')">
+        <button type="button" class="admin-search-btn" @click="emitSearch">
             <Icon icon="lucide:search" class="w-4 h-4" />
             Tìm kiếm
         </button>

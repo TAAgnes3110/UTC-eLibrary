@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
@@ -62,6 +63,14 @@ const {
     statusLabel,
     statusClass,
 } = useWarehousesAdminPage();
+
+const showDetailModal = ref(false);
+const detailWarehouse = ref(null);
+
+function openDetailModal(warehouse) {
+    detailWarehouse.value = warehouse;
+    showDetailModal.value = true;
+}
 </script>
 
 <template>
@@ -76,10 +85,16 @@ const {
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <AdminPageHeading title="Danh sách kho sách">
                 <template #actions>
-                    <Link :href="route('admin.warehouses.bookshelf')">
+                    <Link :href="route('admin.warehouses.storage-cabinets')">
+                        <Button variant="outline" size="sm" class="gap-1.5">
+                            <Icon icon="lucide:archive" class="w-4 h-4" />
+                            Quản lý tủ sách
+                        </Button>
+                    </Link>
+                    <Link :href="route('admin.warehouses.storage-slots')">
                         <Button variant="outline" size="sm" class="gap-1.5">
                             <Icon icon="lucide:grid-2x2" class="w-4 h-4" />
-                            Quản lý kệ sách
+                            Quản lý ngăn sách
                         </Button>
                     </Link>
                     <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
@@ -137,6 +152,7 @@ const {
                 :status-class="statusClass"
                 @toggle-all="toggleAll"
                 @toggle="toggleSelect"
+                @view="openDetailModal"
                 @edit="openEditModal"
                 @delete="confirmDelete"
             />
@@ -201,5 +217,41 @@ const {
             @force-delete="onForceDeleteWarehouse"
             @force-delete-many="onForceDeleteManyWarehouses"
         />
+
+        <Teleport to="body">
+            <div v-if="showDetailModal && detailWarehouse" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-slate-900/50" @click="showDetailModal = false" />
+                <div class="relative w-full max-w-2xl rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                    <div class="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Chi tiết kho sách</h3>
+                        <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="showDetailModal = false">
+                            <Icon icon="lucide:x" class="h-5 w-5" />
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 gap-3 p-6 text-sm md:grid-cols-2">
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Mã kho</p>
+                            <p class="font-semibold text-slate-900 dark:text-white">{{ detailWarehouse.code || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Tên kho</p>
+                            <p class="font-semibold text-slate-900 dark:text-white">{{ detailWarehouse.name || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Notes</p>
+                            <p class="font-semibold text-slate-900 dark:text-white">{{ detailWarehouse.params?.note || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Trạng thái</p>
+                            <p class="font-semibold text-slate-900 dark:text-white">{{ detailWarehouse.is_active ? 'Hoạt động' : 'Không hoạt động' }}</p>
+                        </div>
+                        <div class="md:col-span-2">
+                            <p class="text-slate-500 dark:text-slate-400">Cập nhật gần nhất</p>
+                            <p class="font-semibold text-slate-900 dark:text-white">{{ formatDateTime(detailWarehouse.updated_at || detailWarehouse.created_at) }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </AdminLayout>
 </template>

@@ -12,4 +12,9 @@ class LibrarySettingsPageController extends Controller
     {
         return Inertia::render('Admin/LibrarySettings/Index');
     }
+
+    public function classifications(): Response
+    {
+        return Inertia::render('Admin/LibrarySettings/Classifications');
+    }
 }

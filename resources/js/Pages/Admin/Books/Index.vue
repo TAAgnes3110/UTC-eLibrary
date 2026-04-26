@@ -14,7 +14,9 @@ import AdminPageHeading from '@/Components/Admin/Shared/AdminPageHeading.vue';
 import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
 import { ADMIN_ICONS } from '@/config/adminIcons';
 import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
-import { useBooksAdminPage, SEARCH_IN_OPTIONS } from '@/composables/admin/useBooksAdminPage';
+import { useBooksAdminPage, SEARCH_IN_OPTIONS, BOOK_SORT_OPTIONS, PRINT_TYPE_OPTIONS } from '@/composables/admin/useBooksAdminPage';
+import { ref } from 'vue';
+import { booksApi } from '@/api/books';
 
 const {
     pageKind,
@@ -26,7 +28,12 @@ const {
     warehouses,
     saveBookLoading,
     classifications,
-    classificationDetails,
+    cabinetOptions,
+    storageSuggestionLoading,
+    storageSuggestionMessage,
+    createCoverPreviewUrl,
+    setCreateCoverFile,
+    clearCreateCoverFile,
     filterValues,
     showFilterPanel,
     filteredBooks,
@@ -68,7 +75,53 @@ const {
     openCoverModal,
     closeCoverModal,
     uploadCover,
+    markBookCodeTouched,
+    markRegistrationTouched,
 } = useBooksAdminPage();
+
+const showDetailModal = ref(false);
+const detailBook = ref(null);
+const detailLoading = ref(false);
+
+function formatDate(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('vi-VN').format(d);
+}
+
+async function openDetailModal(book) {
+    detailBook.value = book ?? null;
+    showDetailModal.value = true;
+    if (!book?.id) return;
+
+    detailLoading.value = true;
+    try {
+        const payload = await booksApi.get(book.id);
+        const full = payload?.data ?? payload;
+        if (full && showDetailModal.value) {
+            detailBook.value = full;
+        }
+    } catch (_e) {
+        // fallback dữ liệu hiện có từ danh sách
+    } finally {
+        detailLoading.value = false;
+    }
+}
+
+const importTitleByPageKind = {
+    printed: 'Nhập sách in từ Excel',
+    textbook: 'Nhập sách giáo trình từ Excel',
+    reference: 'Nhập sách tham khảo từ Excel',
+    digital: 'Nhập tài liệu số từ Excel',
+};
+
+const importDescriptionByPageKind = {
+    printed: 'Tải file mẫu, điền danh sách sách in (giáo trình/tham khảo) rồi chọn file để nhập.',
+    textbook: 'Tải file mẫu, điền danh sách sách giáo trình (một dòng một bản ghi), sau đó chọn file để nhập.',
+    reference: 'Tải file mẫu, điền danh sách sách tham khảo (một dòng một bản ghi), sau đó chọn file để nhập.',
+    digital: 'Tải file mẫu, điền danh sách tài liệu số (một dòng một bản ghi), sau đó chọn file để nhập.',
+};
 </script>
 
 <template>
@@ -95,7 +148,7 @@ const {
                 :selected-count="selectedIds.size"
                 update-file-label="Cập nhật ảnh bìa"
                 :show-update-file="true"
-                :add-label="pageKind === 'digital' ? 'Thêm tài liệu số' : 'Thêm sách in'"
+                add-label="Thêm sách"
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"
@@ -111,7 +164,7 @@ const {
                 @search="searchBooks"
             >
                 <template #filters>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <AdminFilterPanel
                             :options="SEARCH_IN_OPTIONS"
                             v-model:model-value="filterValues.searchIn"
@@ -120,13 +173,30 @@ const {
                         />
                         <select v-model="filterValues.status" class="admin-filter-select admin-filter-select-centered">
                             <option value="">Trạng thái</option>
-                            <option value="in_stock">Còn</option>
-                            <option value="out_of_stock">Hết</option>
+                            <option value="in_stock">Còn lưu hành</option>
+                            <option value="out_of_stock">Không lưu hành</option>
+                        </select>
+                        <select
+                            v-if="pageKind === 'printed'"
+                            v-model="filterValues.printType"
+                            class="admin-filter-select admin-filter-select-centered"
+                        >
+                            <option
+                                v-for="option in PRINT_TYPE_OPTIONS"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </option>
                         </select>
                         <select v-model="filterValues.priceSort" class="admin-filter-select admin-filter-select-centered">
-                            <option value="">Giá sách</option>
-                            <option value="asc">Giá tăng dần</option>
-                            <option value="desc">Giá giảm dần</option>
+                            <option
+                                v-for="option in BOOK_SORT_OPTIONS"
+                                :key="option.value"
+                                :value="option.value"
+                            >
+                                {{ option.label }}
+                            </option>
                         </select>
                     </div>
                 </template>
@@ -139,6 +209,7 @@ const {
                 :has-selection="hasSelection"
                 @toggle-select-all="toggleSelectAll"
                 @toggle-select="toggleSelect"
+                @view="openDetailModal"
                 @edit="openEditModal"
                 @delete="openDeleteOne"
                 @cover="openCoverModal"
@@ -158,13 +229,20 @@ const {
             :is-editing="isEditing"
             :form="form"
             :classifications="classifications"
-            :classification-details="classificationDetails"
             :warehouses="warehouses"
+            :cabinet-options="cabinetOptions"
+            :storage-suggestion-loading="storageSuggestionLoading"
+            :storage-suggestion-message="storageSuggestionMessage"
+            :create-cover-preview-url="createCoverPreviewUrl"
+            :set-create-cover-file="setCreateCoverFile"
+            :clear-create-cover-file="clearCreateCoverFile"
             :save-loading="saveBookLoading"
             :field-errors="bookFormErrors"
             :clear-field-error="clearBookFieldError"
             @close="showModal = false"
             @save="saveBook"
+            @book-code-touched="markBookCodeTouched"
+            @registration-touched="markRegistrationTouched"
         />
 
         <AdminFileModal
@@ -187,8 +265,8 @@ const {
 
         <AdminFileModal
             :show="showImportModal"
-            title="Nhập sách in từ Excel"
-            description="Tải file mẫu, điền danh sách sách in (một dòng một bản ghi), sau đó chọn file để nhập."
+            :title="importTitleByPageKind[pageKind] || importTitleByPageKind.textbook"
+            :description="importDescriptionByPageKind[pageKind] || importDescriptionByPageKind.textbook"
             accept=".xls,.xlsx,.csv"
             :max-size-mb="10"
             template-label="Tải file mẫu sách"
@@ -227,5 +305,151 @@ const {
             @force-delete="forceDeleteBook"
             @force-delete-many="forceDeleteManyBooks"
         />
+
+        <div v-if="showDetailModal && detailBook" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/50" @click="showDetailModal = false" />
+            <div class="relative w-full max-w-4xl max-h-[88vh] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5">
+                <div class="flex items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết sách</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Thông tin nhanh của đầu sách</p>
+                    </div>
+                    <button
+                        type="button"
+                        class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        @click="showDetailModal = false"
+                    >
+                        <Icon icon="lucide:x" class="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-[104px,1fr] gap-4">
+                    <div class="h-28 w-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 ring-1 ring-slate-200/80 dark:ring-slate-700/80">
+                        <img
+                            :src="detailBook.cover_image || '/images/default-book-cover.png'"
+                            :alt="detailBook.title"
+                            class="h-full w-full object-cover"
+                        />
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                        <div v-if="detailLoading" class="sm:col-span-2 lg:col-span-3 text-xs text-slate-500 dark:text-slate-400">
+                            Đang tải dữ liệu chi tiết...
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Tên sách</p>
+                            <p class="font-semibold text-slate-900 dark:text-white">{{ detailBook.title || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Mã sách</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.book_code || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Sổ đăng ký cá biệt</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.registration_number || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Số lượng còn</p>
+                            <p class="font-semibold text-emerald-700 dark:text-emerald-300">
+                                {{ detailBook.real_quantity ?? detailBook.available_quantity ?? detailBook.quantity ?? 0 }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Trạng thái lưu hành</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">
+                                {{ detailBook.circulation_status_label || 'Không lưu hành' }}
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Tác giả</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.authors_label || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Nhà xuất bản</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.publishers_label || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Phân loại</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.classification?.name || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Kho</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">
+                                <template v-if="detailBook.warehouse">
+                                    {{
+                                        [detailBook.warehouse.code, detailBook.warehouse.name]
+                                            .map((s) => String(s || '').trim())
+                                            .filter(Boolean)
+                                            .join(' – ') || '—'
+                                    }}
+                                </template>
+                                <template v-else>—</template>
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Tủ lưu trữ</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.cabinet || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Ngôn ngữ</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.language || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Năm xuất bản</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.published_year || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Số trang</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.pages ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Khổ sách</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.book_size || '—' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-slate-500 dark:text-slate-400">Giá bìa</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.price ?? '—' }}</p>
+                        </div>
+                        <div class="sm:col-span-2 lg:col-span-3">
+                            <p class="text-slate-500 dark:text-slate-400">Tóm tắt nội dung</p>
+                            <p class="font-medium text-slate-800 dark:text-slate-200 whitespace-pre-line">
+                                {{ detailBook.summary || '—' }}
+                            </p>
+                        </div>
+                        <div class="sm:col-span-2 lg:col-span-3">
+                            <p class="text-slate-500 dark:text-slate-400 mb-1">Lịch sử mượn sách (20 lượt gần nhất)</p>
+                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                                <table class="w-full text-xs">
+                                    <thead class="bg-slate-50 dark:bg-slate-800/50">
+                                        <tr>
+                                            <th class="px-2 py-2 text-left">Mã phiếu</th>
+                                            <th class="px-2 py-2 text-left">Bạn đọc</th>
+                                            <th class="px-2 py-2 text-left">Mượn</th>
+                                            <th class="px-2 py-2 text-left">Hạn trả</th>
+                                            <th class="px-2 py-2 text-left">Đã trả</th>
+                                            <th class="px-2 py-2 text-left">Trạng thái</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                        <tr v-for="item in (detailBook.loan_history || [])" :key="`${item.loan_id}-${item.loan_date}-${item.loan_code}`">
+                                            <td class="px-2 py-2 font-medium text-slate-700 dark:text-slate-200">{{ item.loan_code || '—' }}</td>
+                                            <td class="px-2 py-2 text-slate-600 dark:text-slate-300">{{ item.reader_name || '—' }}</td>
+                                            <td class="px-2 py-2 text-slate-600 dark:text-slate-300">{{ formatDate(item.loan_date) }}</td>
+                                            <td class="px-2 py-2 text-slate-600 dark:text-slate-300">{{ formatDate(item.due_date) }}</td>
+                                            <td class="px-2 py-2 text-slate-600 dark:text-slate-300">{{ formatDate(item.return_date) }}</td>
+                                            <td class="px-2 py-2 text-slate-600 dark:text-slate-300">{{ item.loan_status || '—' }}</td>
+                                        </tr>
+                                        <tr v-if="!(detailBook.loan_history || []).length">
+                                            <td colspan="6" class="px-2 py-3 text-center text-slate-500 dark:text-slate-400">
+                                                Chưa có lịch sử mượn.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </AdminLayout>
 </template>

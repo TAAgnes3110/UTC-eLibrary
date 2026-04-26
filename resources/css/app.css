@@ -139,6 +139,10 @@
     @apply dark:bg-slate-900 dark:border-slate-800;
   }
 
+  .admin-filter-slot-wrap {
+    @apply flex flex-wrap items-center gap-2.5 min-w-0;
+  }
+
   .admin-filter-btn {
     @apply h-10 px-4 rounded-xl text-[13px] font-semibold inline-flex items-center justify-center gap-2 transition-all;
     @apply bg-slate-100/90 border border-slate-200 text-slate-700 hover:bg-slate-200;
@@ -147,19 +151,19 @@
   }
 
   .admin-filter-select {
-    @apply h-10 px-4 rounded-xl text-[13px] font-medium outline-none min-w-[160px] appearance-none transition-all;
+    @apply h-10 px-3 rounded-xl text-[13px] font-medium outline-none min-w-[132px] appearance-none transition-all;
     @apply bg-white/95 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-blue-500/25 focus:border-blue-500;
     @apply shadow-sm;
     @apply dark:bg-slate-800/95 dark:border-slate-700 dark:text-slate-200 dark:focus:ring-blue-500/35;
   }
 
   .admin-filter-select-centered {
-    min-width: 110px;
+    min-width: 132px;
     text-align: center;
     text-align-last: center;
     line-height: 2.25rem;
     padding-block: 0;
-    padding-inline: 0.5rem 1rem;
+    padding-inline: 0.75rem 1.25rem;
   }
 
   /** Select có icon mũi tên tùy chỉnh (Duyệt yêu cầu thẻ) */
@@ -172,7 +176,17 @@
   }
 
   .admin-search-input-wrap {
-    @apply relative flex-1 min-w-[200px];
+    @apply relative flex-1 min-w-[220px];
+  }
+
+  .admin-search-group {
+    @apply ml-auto flex items-center gap-2 min-w-0;
+    flex: 1 1 460px;
+    max-width: 100%;
+  }
+
+  .admin-filter-actions-wrap {
+    @apply ml-auto flex flex-wrap items-center gap-2;
   }
 
   .admin-search-input {
@@ -188,6 +202,43 @@
   }
   .admin-search-btn:hover {
     background-color: #1E53E8;
+  }
+
+  @media (max-width: 640px) {
+    .admin-filter-bar {
+      @apply gap-2 p-2.5;
+    }
+
+    .admin-filter-slot-wrap {
+      @apply w-full;
+    }
+
+    .admin-filter-slot-wrap > * {
+      @apply w-full;
+    }
+
+    .admin-filter-select {
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .admin-search-group {
+      @apply w-full ml-0;
+      flex: 1 1 100%;
+    }
+
+    .admin-search-input-wrap {
+      @apply min-w-0;
+    }
+
+    .admin-search-btn {
+      @apply h-10 px-3;
+    }
+
+    .admin-filter-actions-wrap {
+      @apply w-full ml-0 justify-start;
+    }
   }
 
   .admin-filter-input {

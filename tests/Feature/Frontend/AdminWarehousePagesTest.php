@@ -15,7 +15,6 @@ class AdminWarehousePagesTest extends TestCase
     {
         $this->get(route('admin.warehouses.index'))->assertRedirect(route('login'));
         $this->get(route('admin.warehouses.storage-cabinets'))->assertRedirect(route('login'));
-        $this->get(route('admin.warehouses.storage-slots'))->assertRedirect(route('login'));
     }
 
     public function test_librarian_can_open_admin_warehouse_pages(): void
@@ -26,7 +25,6 @@ class AdminWarehousePagesTest extends TestCase
         $this->actingAs($user)->get(route('admin.warehouses.index'))->assertOk();
         $this->actingAs($user)->get(route('admin.warehouses.storage'))->assertOk();
         $this->actingAs($user)->get(route('admin.warehouses.storage-cabinets'))->assertOk();
-        $this->actingAs($user)->get(route('admin.warehouses.storage-slots'))->assertOk();
     }
 }
 

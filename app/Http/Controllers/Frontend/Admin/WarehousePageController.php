@@ -23,8 +23,4 @@ class WarehousePageController extends Controller
         return Inertia::render('Admin/Warehouses/StorageCabinets');
     }
 
-    public function storageSlots(): Response
-    {
-        return Inertia::render('Admin/Warehouses/StorageSlots');
-    }
 }

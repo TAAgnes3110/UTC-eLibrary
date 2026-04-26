@@ -6,8 +6,8 @@
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "BASE_URL", "value": "http://localhost" },
-    { "key": "DOMAIN", "value": "http://localhost" },
+    { "key": "BASE_URL", "value": "http://localhost:8000" },
+    { "key": "DOMAIN", "value": "http://localhost:8000" },
     { "key": "token", "value": "" },
     { "key": "otp", "value": "" },
 
@@ -18,7 +18,6 @@
     { "key": "role_id", "value": "1" },
     { "key": "permission_id", "value": "1" },
     { "key": "classification_id", "value": "1" },
-    { "key": "classification_detail_id", "value": "1" },
     { "key": "author_id", "value": "1" },
     { "key": "publisher_id", "value": "1" }
   ],
@@ -306,23 +305,11 @@
       "item": [
         { "name": "GET /api/v1/classifications", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications"] } } },
         { "name": "GET /api/v1/classifications/list", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/list", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "list"] } } },
-        { "name": "GET /api/v1/classifications/{classification}/details", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}/details", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}", "details"] } } },
         { "name": "GET /api/v1/classifications/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "import-template"] } } },
         { "name": "POST /api/v1/classifications", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"code\": \"CL001\", \"name\": \"Phan loai 1\", \"parent_id\": null, \"params\": {} }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classifications", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications"] } } },
         { "name": "GET /api/v1/classifications/{classification}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}"] } } },
         { "name": "PUT /api/v1/classifications/{classification}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Phan loai 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}"] } } },
         { "name": "DELETE /api/v1/classifications/{classification}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/classifications/{{classification_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classifications", "{{classification_id}}"] } } }
-      ]
-    },
-    {
-      "name": "Classification-details",
-      "item": [
-        { "name": "GET /api/v1/classification-details", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details"] } } },
-        { "name": "GET /api/v1/classification-details/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "import-template"] } } },
-        { "name": "POST /api/v1/classification-details", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"code\": \"CLD001\", \"name\": \"Chi tiet 1\", \"classification_id\": {{classification_id}}, \"parent_id\": null, \"params\": {} }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classification-details", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details"] } } },
-        { "name": "GET /api/v1/classification-details/{classification_detail}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/{{classification_detail_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "{{classification_detail_id}}"] } } },
-        { "name": "PUT /api/v1/classification-details/{classification_detail}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"name\": \"Chi tiet 1 Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/{{classification_detail_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "{{classification_detail_id}}"] } } },
-        { "name": "DELETE /api/v1/classification-details/{classification_detail}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/classification-details/{{classification_detail_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "classification-details", "{{classification_detail_id}}"] } } }
       ]
     },
     {
@@ -367,7 +354,7 @@
         { "name": "GET /api/v1/books/import-template", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/import-template", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "import-template"] } } },
         { "name": "GET /api/v1/books/export", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/export?ids[]=1&ids[]=2", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "export"] } } },
         { "name": "POST /api/v1/books/import (form-data file)", "request": { "method": "POST", "url": { "raw": "{{BASE_URL}}/api/v1/books/import", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "import"] }, "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "", "disabled": false }] } } },
-        { "name": "POST /api/v1/books (store)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Sách Test\", \"warehouse_id\": {{warehouse_id}}, \"quantity\": 10 }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books"] } } },
+        { "name": "POST /api/v1/books (store)", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Sách Test\", \"warehouse_id\": {{warehouse_id}}, \"classification_id\": {{classification_id}}, \"quantity\": 10, \"resource_type\": \"textbook\", \"published_year\": 2026 }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books"] } } },
         { "name": "GET /api/v1/books/{book}", "request": { "method": "GET", "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}"] } } },
         { "name": "PUT /api/v1/books/{book}", "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{ \"title\": \"Sách Test Updated\" }" }, "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}"] } } },
         { "name": "DELETE /api/v1/books/{book}", "request": { "method": "DELETE", "url": { "raw": "{{BASE_URL}}/api/v1/books/{{book_id}}", "host": ["{{BASE_URL}}"], "path": ["api", "v1", "books", "{{book_id}}"] } } },

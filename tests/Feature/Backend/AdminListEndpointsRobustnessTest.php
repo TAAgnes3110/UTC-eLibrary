@@ -25,7 +25,7 @@ class AdminListEndpointsRobustnessTest extends TestCase
     {
         [, $token] = $this->createAdminUserAndToken();
 
-        $response = $this->getJson('/api/v1/books?keyword=lap%20trinh&sort=name_asc&search_in=title,authors&per_page=20', $this->apiTokenHeaders($token));
+        $response = $this->getJson('/api/v1/books?keyword=lap%20trinh&sort=az&search_in=title,author&per_page=20', $this->apiTokenHeaders($token));
 
         $response->assertStatus(200)
             ->assertJsonPath('status', 'success')

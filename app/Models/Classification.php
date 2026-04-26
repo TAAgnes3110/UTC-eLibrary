@@ -29,11 +29,6 @@ class Classification extends BaseModel
         return $this->hasMany(Classification::class, 'parent_id');
     }
 
-    public function details()
-    {
-        return $this->hasMany(ClassificationDetail::class);
-    }
-
     public function books()
     {
         return $this->hasMany(Book::class);

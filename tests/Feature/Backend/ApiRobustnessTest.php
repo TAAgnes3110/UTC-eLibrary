@@ -21,13 +21,6 @@ class ApiRobustnessTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $classificationDetailId = DB::table('classification_details')->insertGetId([
-            'code' => 'CD-TEST-001',
-            'name' => 'Phân loại chi tiết test',
-            'classification_id' => $classificationId,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
         $warehouseId = DB::table('warehouses')->insertGetId([
             'code' => 'WH-TEST-001',
             'name' => 'Kho test',
@@ -36,7 +29,7 @@ class ApiRobustnessTest extends TestCase
             'updated_at' => $now,
         ]);
 
-        return [$classificationId, $classificationDetailId, $warehouseId];
+        return [$classificationId, $warehouseId];
     }
 
     public function test_books_index_rejects_too_large_per_page(): void
@@ -62,14 +55,13 @@ class ApiRobustnessTest extends TestCase
     public function test_books_store_validates_invalid_payload_variants(): void
     {
         [, $token] = $this->createAdminUserAndToken();
-        [$classificationId, $classificationDetailId, $warehouseId] = $this->makeBookDeps();
+        [$classificationId, $warehouseId] = $this->makeBookDeps();
 
         $responseLongTitle = $this->postJson('/api/v1/books', [
             'title' => str_repeat('A', 300),
             'warehouse_id' => $warehouseId,
             'quantity' => 1,
             'classification_id' => $classificationId,
-            'classification_detail_id' => $classificationDetailId,
         ], $this->apiTokenHeaders($token));
         $responseLongTitle->assertStatus(422);
 
@@ -78,7 +70,6 @@ class ApiRobustnessTest extends TestCase
             'warehouse_id' => $warehouseId,
             'quantity' => -1,
             'classification_id' => $classificationId,
-            'classification_detail_id' => $classificationDetailId,
         ], $this->apiTokenHeaders($token));
         $responseNegativeQty->assertStatus(422);
 
@@ -87,7 +78,6 @@ class ApiRobustnessTest extends TestCase
             'warehouse_id' => $warehouseId,
             'quantity' => 2,
             'classification_id' => $classificationId,
-            'classification_detail_id' => $classificationDetailId,
             'resource_type' => 'super_invalid_type',
         ], $this->apiTokenHeaders($token));
         $responseBadEnum->assertStatus(422);
@@ -96,13 +86,12 @@ class ApiRobustnessTest extends TestCase
     public function test_books_update_persists_multiple_authors_and_publishers_split_by_separators(): void
     {
         [, $token] = $this->createAdminUserAndToken();
-        [$classificationId, $classificationDetailId, $warehouseId] = $this->makeBookDeps();
+        [$classificationId, $warehouseId] = $this->makeBookDeps();
 
         $bookId = DB::table('books')->insertGetId([
             'title' => 'Sách ban đầu',
             'warehouse_id' => $warehouseId,
             'classification_id' => $classificationId,
-            'classification_detail_id' => $classificationDetailId,
             'quantity' => 5,
             'resource_type' => 'reference',
             'access_mode' => 'circulation_only',
@@ -132,13 +121,12 @@ class ApiRobustnessTest extends TestCase
     public function test_books_update_rejects_overly_large_authors_and_publishers_fields(): void
     {
         [, $token] = $this->createAdminUserAndToken();
-        [$classificationId, $classificationDetailId, $warehouseId] = $this->makeBookDeps();
+        [$classificationId, $warehouseId] = $this->makeBookDeps();
 
         $bookId = DB::table('books')->insertGetId([
             'title' => 'Sách update giới hạn',
             'warehouse_id' => $warehouseId,
             'classification_id' => $classificationId,
-            'classification_detail_id' => $classificationDetailId,
             'quantity' => 3,
             'resource_type' => 'reference',
             'access_mode' => 'circulation_only',
@@ -155,6 +143,82 @@ class ApiRobustnessTest extends TestCase
         ], $this->apiTokenHeaders($token));
 
         $response->assertStatus(422);
+    }
+
+    public function test_books_store_handles_extremely_large_input_without_500(): void
+    {
+        [, $token] = $this->createAdminUserAndToken();
+        [$classificationId, $warehouseId] = $this->makeBookDeps();
+
+        $payload = [
+            'title' => str_repeat('SACH-RAT-LON ', 5000),
+            'warehouse_id' => $warehouseId,
+            'quantity' => 1,
+            'classification_id' => $classificationId,
+            'authors' => str_repeat('TacGiaLon+', 400),
+            'publisher' => str_repeat('NXB-LON+', 300),
+            'summary' => str_repeat('Noi dung rat lon ', 8000),
+            'published_year' => now()->year,
+            'resource_type' => 'textbook',
+        ];
+
+        $response = $this->postJson('/api/v1/books', $payload, $this->apiTokenHeaders($token));
+
+        $this->assertContains($response->status(), [200, 201, 422]);
+        $this->assertNotEquals(500, $response->status());
+    }
+
+    public function test_books_store_accepts_mixed_plus_english_vietnamese_characters(): void
+    {
+        [, $token] = $this->createAdminUserAndToken();
+        [$classificationId, $warehouseId] = $this->makeBookDeps();
+
+        $response = $this->postJson('/api/v1/books', [
+            'title' => 'Cấu trúc dữ liệu + Data Structures + nâng cao',
+            'warehouse_id' => $warehouseId,
+            'quantity' => 2,
+            'classification_id' => $classificationId,
+            'authors' => 'Nguyễn Văn A + John Smith',
+            'publisher' => 'NXB Giáo Dục + Global Press',
+            'summary' => 'Nội dung test xen kẽ English + Tiếng Việt + ký tự +++',
+            'published_year' => now()->year,
+            'resource_type' => 'reference',
+        ], $this->apiTokenHeaders($token));
+
+        $response->assertStatus(201)
+            ->assertJsonPath('status', 'success');
+
+        $this->assertDatabaseHas('books', [
+            'title' => 'Cấu trúc dữ liệu + Data Structures + nâng cao',
+            'resource_type' => 'reference',
+        ]);
+    }
+
+    public function test_books_store_rejects_arbitrary_large_payload_with_future_year(): void
+    {
+        [, $token] = $this->createAdminUserAndToken();
+        [$classificationId, $warehouseId] = $this->makeBookDeps();
+        $futureYear = (int) now()->year + 5;
+
+        $response = $this->postJson('/api/v1/books', [
+            'title' => str_repeat('Du lieu bat ky ', 200),
+            'warehouse_id' => $warehouseId,
+            'quantity' => 99999,
+            'classification_id' => $classificationId,
+            'authors' => str_repeat('A+B C, ', 120),
+            'publisher' => str_repeat('PUB+VN+EN ', 100),
+            'summary' => str_repeat('random payload ', 1200),
+            'notes' => str_repeat('ghi chu ', 900),
+            'book_code' => 'BK+VN+EN-'.str_repeat('X', 40),
+            'registration_number' => 'REG+'.str_repeat('9', 40),
+            'published_year' => $futureYear,
+            'resource_type' => 'digital',
+            'price' => 999999999,
+            'pages' => 50000,
+        ], $this->apiTokenHeaders($token));
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['published_year']);
     }
 }
 

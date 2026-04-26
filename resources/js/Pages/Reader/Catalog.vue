@@ -13,7 +13,6 @@ const q = reactive({
     keyword: '',
     resource_type: '',
     classification_id: '',
-    classification_detail_id: '',
     stock: '',
     sort: 'newest',
 })
@@ -23,8 +22,6 @@ function syncFromProps() {
     q.keyword = f.keyword ?? ''
     q.resource_type = f.resource_type != null && f.resource_type !== '' ? String(f.resource_type) : ''
     q.classification_id = f.classification_id != null && f.classification_id !== '' ? String(f.classification_id) : ''
-    q.classification_detail_id =
-        f.classification_detail_id != null && f.classification_detail_id !== '' ? String(f.classification_detail_id) : ''
     q.stock = f.stock != null && f.stock !== '' ? String(f.stock) : ''
     q.sort = f.sort === 'oldest' ? 'oldest' : 'newest'
 }
@@ -39,33 +36,10 @@ watch(
 )
 
 const classifications = computed(() => page.props.classifications ?? [])
-const classificationDetails = computed(() => page.props.classificationDetails ?? [])
 const resourceTypeOptions = computed(() => page.props.resourceTypeOptions ?? [{ value: '', label: C.filterResourceType }])
 const books = computed(() => page.props.books)
 
-const filteredDetails = computed(() => {
-    const cid = q.classification_id
-    if (!cid) {
-        return classificationDetails.value
-    }
-    return classificationDetails.value.filter((d) => String(d.classification_id) === String(cid))
-})
-
-watch(
-    () => q.classification_id,
-    () => {
-        const allowed = new Set(filteredDetails.value.map((d) => String(d.id)))
-        if (q.classification_detail_id && !allowed.has(String(q.classification_detail_id))) {
-            q.classification_detail_id = ''
-        }
-    }
-)
-
 function onClassificationChange() {
-    const allowed = new Set(filteredDetails.value.map((d) => String(d.id)))
-    if (q.classification_detail_id && !allowed.has(String(q.classification_detail_id))) {
-        q.classification_detail_id = ''
-    }
     submitSearch()
 }
 
@@ -79,9 +53,6 @@ function buildQuery(pageOverride) {
     }
     if (q.classification_id) {
         payload.classification_id = q.classification_id
-    }
-    if (q.classification_detail_id) {
-        payload.classification_detail_id = q.classification_detail_id
     }
     if (q.stock) {
         payload.stock = q.stock
@@ -170,21 +141,6 @@ function goPage(p) {
                             <option value="">{{ C.stockAll }}</option>
                             <option v-for="c in classifications" :key="c.id" :value="String(c.id)">
                                 {{ c.code }} — {{ c.name }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{
-                            C.filterDetail
-                        }}</label>
-                        <select
-                            v-model="q.classification_detail_id"
-                            @change="submitSearch"
-                            class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-                        >
-                            <option value="">{{ C.stockAll }}</option>
-                            <option v-for="d in filteredDetails" :key="d.id" :value="String(d.id)">
-                                {{ d.code }} — {{ d.name }}
                             </option>
                         </select>
                     </div>

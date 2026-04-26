@@ -14,14 +14,12 @@ class StorageCabinet extends BaseModel
         'classification_id',
         'code',
         'name',
-        'capacity_total',
         'current_quantity',
         'is_active',
         'params',
     ];
 
     protected $casts = [
-        'capacity_total' => 'integer',
         'current_quantity' => 'integer',
         'is_active' => 'boolean',
         'params' => 'array',
@@ -37,8 +35,4 @@ class StorageCabinet extends BaseModel
         return $this->belongsTo(Classification::class);
     }
 
-    public function slots()
-    {
-        return $this->hasMany(StorageSlot::class);
-    }
 }

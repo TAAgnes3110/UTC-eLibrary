@@ -528,8 +528,9 @@ final class FileHelpers
             return null;
         }
         $year = (int) trim((string) $value);
+        $currentYear = (int) now()->year;
 
-        return ($year >= 1900 && $year <= 2100) ? $year : null;
+        return ($year >= 1900 && $year <= $currentYear) ? $year : null;
     }
 
     /**

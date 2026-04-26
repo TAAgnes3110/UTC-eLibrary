@@ -1,4 +1,5 @@
 <script setup>
+import { ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { getRoleInfo, getStatusInfo } from '@/config/enums';
 import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
@@ -13,6 +14,25 @@ defineProps({
 });
 
 const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'toggle-status', 'delete', 'avatar']);
+
+const previewUser = ref(null);
+const showPreviewModal = ref(false);
+
+function openAvatarPreview(user) {
+    previewUser.value = user;
+    showPreviewModal.value = true;
+}
+
+function closeAvatarPreview() {
+    showPreviewModal.value = false;
+    previewUser.value = null;
+}
+
+function triggerAvatarChange() {
+    if (!previewUser.value) return;
+    emit('avatar', previewUser.value);
+    closeAvatarPreview();
+}
 </script>
 
 <template>
@@ -64,22 +84,19 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'toggle-status', 'dele
                                 {{ user.code }}
                             </p>
                         </td>
-                        <td class="p-4 align-middle whitespace-nowrap w-14">
-                            <div
-                                class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden relative group/avatar"
-                            >
-                                <img
-                                    :src="user.avatar || '/images/default-avatar.png'"
-                                    :alt="user.name || 'Avatar'"
-                                    class="h-full w-full object-cover"
-                                />
+                        <td class="p-4 align-middle whitespace-nowrap w-[86px]">
+                            <div class="flex flex-col items-start gap-1.5">
                                 <button
                                     type="button"
-                                    class="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center rounded-lg cursor-pointer"
-                                    title="Cập nhật ảnh đại diện"
-                                    @click.stop="emit('avatar', user)"
+                                    class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm shrink-0 overflow-hidden ring-1 ring-slate-200/80 dark:ring-slate-700/80"
+                                    :title="`Xem ảnh đại diện của ${user.name || 'người dùng'}`"
+                                    @click.stop="openAvatarPreview(user)"
                                 >
-                                    <Icon icon="lucide:camera" class="w-4 h-4 text-white" />
+                                    <img
+                                        :src="user.avatar || '/images/default-avatar.png'"
+                                        :alt="user.name || 'Avatar'"
+                                        class="h-full w-full object-cover"
+                                    />
                                 </button>
                             </div>
                         </td>
@@ -150,5 +167,34 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'toggle-status', 'dele
         </div>
         <p v-if="loadingFallback" class="p-6 text-center text-slate-500 dark:text-slate-400 text-sm">Đang tải...</p>
         <p v-else-if="rows.length === 0" class="p-6 text-center text-slate-500 dark:text-slate-400 text-sm">Không có tài khoản nào.</p>
+    </div>
+
+    <div v-if="showPreviewModal && previewUser" class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60" @click="closeAvatarPreview" />
+        <div class="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div class="mb-3 flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Ảnh đại diện</h4>
+                <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeAvatarPreview">
+                    <Icon icon="lucide:x" class="h-4 w-4" />
+                </button>
+            </div>
+            <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                <img
+                    :src="previewUser.avatar || '/images/default-avatar.png'"
+                    :alt="previewUser.name || 'Avatar'"
+                    class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800"
+                />
+            </div>
+            <div class="mt-3 flex justify-end">
+                <button
+                    type="button"
+                    class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/35 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                    @click="triggerAvatarChange"
+                >
+                    <Icon icon="lucide:camera" class="h-3.5 w-3.5" />
+                    Đổi ảnh
+                </button>
+            </div>
+        </div>
     </div>
 </template>

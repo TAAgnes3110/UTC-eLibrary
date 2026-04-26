@@ -101,11 +101,7 @@ const priceFmt = computed(() => {
 const subjectLine = computed(() => {
     const b = props.book
     const c = b.classification?.name
-    const d = b.classification_detail?.name
-    if (c && d) {
-        return `${c} · ${d}`
-    }
-    return c || d || '—'
+    return c || '—'
 })
 
 const keywordLine = computed(() => {

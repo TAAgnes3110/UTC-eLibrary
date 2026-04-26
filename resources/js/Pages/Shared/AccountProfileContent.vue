@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage, useForm, router } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { profileApi } from '@/api/profile'
 import { fetchMasterDataPayload } from '@/api/masterData'
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors'
@@ -228,6 +228,7 @@ const profileUpdateRequestSubmitted = ref(false)
 const faculties = ref([])
 const periods = ref([])
 const proofFileName = ref('')
+const proofPreviewUrl = ref('')
 
 const profileUpdateRequestForm = useForm({
     requested_code: '',
@@ -251,8 +252,15 @@ const loadFaculties = async () => {
 
 const onProofImageChange = (event) => {
     const file = event.target?.files?.[0] || null
+    if (proofPreviewUrl.value) {
+        URL.revokeObjectURL(proofPreviewUrl.value)
+        proofPreviewUrl.value = ''
+    }
     profileUpdateRequestForm.proof_image = file
     proofFileName.value = file?.name || ''
+    if (file) {
+        proofPreviewUrl.value = URL.createObjectURL(file)
+    }
 }
 
 const normalizeString = (value) => {
@@ -314,6 +322,10 @@ const submitProfileUpdateRequest = async () => {
         await profileApi.submitProfileUpdateRequest(formData)
         profileUpdateRequestForm.reset()
         proofFileName.value = ''
+        if (proofPreviewUrl.value) {
+            URL.revokeObjectURL(proofPreviewUrl.value)
+            proofPreviewUrl.value = ''
+        }
         profileUpdateRequestSubmitted.value = true
         toast.success('Đã gửi phiếu cập nhật thông tin. Vui lòng chờ duyệt.', { title: 'Cập nhật hồ sơ' })
         setTimeout(() => (profileUpdateRequestSubmitted.value = false), 3000)
@@ -331,6 +343,13 @@ onMounted(() => {
         loadFaculties()
     }
     loadProfile()
+})
+
+onBeforeUnmount(() => {
+    if (proofPreviewUrl.value) {
+        URL.revokeObjectURL(proofPreviewUrl.value)
+        proofPreviewUrl.value = ''
+    }
 })
 </script>
 
@@ -612,6 +631,16 @@ onMounted(() => {
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Ảnh minh chứng <span class="text-red-500">*</span></label>
                                     <input type="file" accept=".jpg,.jpeg,.png,.webp" class="block h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" @change="onProofImageChange" />
                                     <p class="mt-1 truncate text-[11px] text-slate-500">{{ proofFileName || 'Chưa chọn file' }}</p>
+                                    <a
+                                        v-if="proofPreviewUrl"
+                                        :href="proofPreviewUrl"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                    >
+                                        <Icon icon="lucide:image" class="h-3.5 w-3.5" />
+                                        Nhấn để xem ảnh đã chọn
+                                    </a>
                                     <p v-if="profileUpdateRequestForm.errors.proof_image" class="mt-1 text-xs font-medium text-red-500">{{ profileUpdateRequestForm.errors.proof_image }}</p>
                                 </div>
                                 <div class="sm:col-span-2">

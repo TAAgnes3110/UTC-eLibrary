@@ -12,19 +12,11 @@ import { toast } from '@/store/toast';
 const rows = ref([]);
 const loading = ref(false);
 const page = ref(1);
-const status = ref('pending');
 const sortBy = ref('newest');
 const searchKeyword = ref('');
 const meta = ref({ current_page: 1, last_page: 1, per_page: 20, total: 0 });
 const selectedIds = ref([]);
 const expandedRowId = ref(null);
-
-const statusOptions = [
-    { key: '', label: 'Trạng thái: Tất cả' },
-    { key: 'pending', label: 'Chờ duyệt' },
-    { key: 'approved', label: 'Đã duyệt' },
-    { key: 'rejected', label: 'Đã từ chối' },
-];
 
 function statusLabel(s) {
     if (s === 'approved') return 'Đã duyệt';
@@ -129,7 +121,7 @@ async function loadRequests() {
     try {
         const q = searchKeyword.value.trim();
         const payload = await usersApi.listProfileUpdateRequests({
-            status: status.value || undefined,
+            status: 'pending',
             page: page.value,
             per_page: 20,
             search: q || undefined,
@@ -236,7 +228,7 @@ const pagination = computed(() => ({
     last_page: meta.value.last_page,
 }));
 
-watch([status, sortBy], () => {
+watch(sortBy, () => {
     page.value = 1;
     selectedIds.value = [];
     loadRequests();
@@ -269,17 +261,6 @@ onMounted(() => {
             >
                 <template #filters>
                     <div class="flex flex-wrap items-center gap-2">
-                        <div class="relative">
-                            <select v-model="status" class="admin-filter-select !h-9 !py-0 leading-9 min-w-[200px] max-w-full pr-9">
-                                <option v-for="opt in statusOptions" :key="opt.key" :value="opt.key">
-                                    {{ opt.label }}
-                                </option>
-                            </select>
-                            <Icon
-                                :icon="ADMIN_ICONS.chevronDown"
-                                class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500"
-                            />
-                        </div>
                         <div class="relative">
                             <select v-model="sortBy" class="admin-filter-select !h-9 !py-0 leading-9 w-[112px] max-w-full pr-9">
                                 <option value="newest">Mới nhất</option>
@@ -328,7 +309,7 @@ onMounted(() => {
 
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[1100px]">
+                    <table class="w-full text-left border-collapse min-w-[980px]">
                         <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                             <tr>
                                 <th class="p-4 w-12 align-middle">
@@ -355,7 +336,7 @@ onMounted(() => {
                                 <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
                                     Số ĐT
                                 </th>
-                                <th class="p-4 align-middle text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[200px]">
+                                <th class="p-4 align-middle text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[180px]">
                                     Hiện tại → Yêu cầu
                                 </th>
                                 <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
@@ -364,7 +345,7 @@ onMounted(() => {
                                 <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
                                     Trạng thái
                                 </th>
-                                <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[220px]">
+                                <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[180px]">
                                     Thao tác
                                 </th>
                             </tr>
@@ -397,12 +378,12 @@ onMounted(() => {
                                         {{ renderField(item.user?.code) }}
                                     </p>
                                 </td>
-                                <td class="p-4 align-middle max-w-[200px] xl:max-w-[240px]">
+                                <td class="p-4 align-middle max-w-[170px] xl:max-w-[220px]">
                                     <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="item.user?.name">
                                         {{ item.user?.name || '—' }}
                                     </p>
                                 </td>
-                                <td class="p-4 align-middle max-w-[200px] xl:max-w-[260px]">
+                                <td class="p-4 align-middle max-w-[170px] xl:max-w-[240px]">
                                     <p class="text-[12px] text-slate-600 dark:text-slate-300 truncate" :title="item.user?.email">
                                         {{ item.user?.email || '—' }}
                                     </p>
@@ -453,11 +434,11 @@ onMounted(() => {
                                         {{ statusLabel(item.status) }}
                                     </span>
                                 </td>
-                                <td class="p-4 align-middle whitespace-nowrap">
-                                    <div v-if="item.status === 'pending'" class="flex flex-nowrap justify-start gap-1">
+                                <td class="p-4 align-middle">
+                                    <div v-if="item.status === 'pending'" class="flex flex-wrap justify-start gap-1.5">
                                         <button
                                             type="button"
-                                            class="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            class="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
                                             title="Xem chi tiết thay đổi"
                                             @click="toggleDetails(item.id)"
                                         >
@@ -466,7 +447,7 @@ onMounted(() => {
                                         </button>
                                         <button
                                             type="button"
-                                            class="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
+                                            class="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2 py-1.5 text-[12px] font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
                                             title="Đồng ý — cập nhật hồ sơ người dùng"
                                             @click="approveRequest(item)"
                                         >
@@ -475,7 +456,7 @@ onMounted(() => {
                                         </button>
                                         <button
                                             type="button"
-                                            class="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-[12px] font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45 transition-colors"
+                                            class="min-h-[36px] inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2 py-1.5 text-[12px] font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45 transition-colors"
                                             title="Từ chối — không đổi dữ liệu"
                                             @click="rejectRequest(item)"
                                         >

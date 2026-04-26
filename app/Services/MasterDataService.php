@@ -6,7 +6,6 @@ use App\Enums\RoleType;
 use App\Http\Resources\DepartmentResource;
 use App\Http\Resources\FacultyResource;
 use App\Models\Classification;
-use App\Models\ClassificationDetail;
 use App\Models\Department;
 use App\Models\Faculty;
 use App\Models\Period;
@@ -24,7 +23,6 @@ class MasterDataService
             $faculties = Faculty::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('faculty_id')->orderBy('name')->get();
             $classifications = Classification::orderBy('code')->get(['id', 'code', 'name']);
-            $classificationDetails = ClassificationDetail::orderBy('classification_id')->orderBy('code')->get(['id', 'code', 'name', 'classification_id']);
             $taxonomy = app(TaxonomyCacheService::class);
             $periods = Period::query()
                 ->where('is_active', true)
@@ -48,12 +46,6 @@ class MasterDataService
                     'id' => $c->id,
                     'code' => $c->code,
                     'name' => $c->name,
-                ])->all(),
-                'classification_details' => $classificationDetails->map(fn ($d) => [
-                    'id' => $d->id,
-                    'classification_id' => $d->classification_id,
-                    'code' => $d->code,
-                    'name' => $d->name,
                 ])->all(),
             ];
         });

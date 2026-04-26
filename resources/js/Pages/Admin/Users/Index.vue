@@ -150,7 +150,7 @@ const {
                 @search="searchUsers"
             >
                 <template #filters>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <AdminFilterPanel
                             :options="USERS_SEARCH_IN_OPTIONS"
                             v-model:model-value="filterValues.searchIn"

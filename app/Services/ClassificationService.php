@@ -12,6 +12,9 @@ class ClassificationService
 
     public function create(array $data): Classification
     {
+        if (! isset($data['code']) || trim((string) $data['code']) === '') {
+            $data['code'] = $this->generateNextCode();
+        }
         $classification = Classification::create($data);
         MasterDataService::clearCache();
 
@@ -31,7 +34,6 @@ class ClassificationService
     {
         return Classification::query()
             ->with('parent:id,code,name')
-            ->withCount('details')
             ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
                 $q->where('code', 'like', "%{$keyword}%")
                     ->orWhere('name', 'like', "%{$keyword}%");
@@ -55,5 +57,16 @@ class ClassificationService
     {
         $classification->delete();
         MasterDataService::clearCache();
+    }
+
+    private function generateNextCode(): string
+    {
+        $next = (int) Classification::query()
+            ->whereRaw('code REGEXP "^[0-9]+$"')
+            ->max('code');
+
+        $next = max(0, $next) + 1;
+
+        return (string) $next;
     }
 }

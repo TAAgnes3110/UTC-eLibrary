@@ -75,8 +75,8 @@ function goCounter() {
                             @update:show="lc.showFilterPanel = $event"
                         />
                         <div class="relative">
-                            <select v-model="lc.filterValues.holderType" class="admin-filter-select !h-9 !py-0 leading-9 w-[170px] max-w-full pr-9">
-                                <option value="">Loại thẻ: Tất cả</option>
+                            <select v-model="lc.filterValues.holderType" class="admin-filter-select !h-10 !rounded-xl text-left w-[154px] max-w-full pr-8">
+                                <option value="">Loại thẻ</option>
                                 <option value="student">Thẻ sinh viên</option>
                                 <option value="teacher">Thẻ giảng viên</option>
                                 <option value="external">Thẻ bạn đọc ngoài</option>
@@ -87,8 +87,8 @@ function goCounter() {
                             />
                         </div>
                         <div class="relative">
-                            <select v-model="lc.filterValues.status" class="admin-filter-select !h-9 !py-0 leading-9 w-[170px] max-w-full pr-9">
-                                <option value="">Trạng thái: Tất cả</option>
+                            <select v-model="lc.filterValues.status" class="admin-filter-select !h-10 !rounded-xl text-left w-[154px] max-w-full pr-8">
+                                <option value="">Trạng thái</option>
                                 <option value="1">Hoạt động</option>
                                 <option value="2">Hết hạn</option>
                                 <option value="3">Khóa</option>
@@ -100,7 +100,7 @@ function goCounter() {
                             />
                         </div>
                         <div class="relative">
-                            <select v-model="lc.filterValues.sortBy" class="admin-filter-select !h-9 !py-0 leading-9 w-[112px] max-w-full pr-9">
+                            <select v-model="lc.filterValues.sortBy" class="admin-filter-select !h-10 !rounded-xl text-left w-[120px] max-w-full pr-8">
                                 <option value="newest">Mới nhất</option>
                                 <option value="oldest">Cũ nhất</option>
                                 <option value="name_asc">Tên A-Z</option>

@@ -5,12 +5,10 @@ export const toastShort = {
 
 export const bookFormClientError = {
     titleRequired: 'Vui lòng nhập tên sách.',
-    warehouseEmpty: 'Vui lòng chọn hoặc nhập kho sách.',
-    warehouseNoMatch: 'Không tìm thấy kho sách khớp. Chọn mã hoặc tên kho từ gợi ý.',
-    classificationEmpty: 'Vui lòng nhập phân loại sách.',
-    classificationNoMatch: 'Chọn phân loại từ danh sách gợi ý.',
-    classificationDetailEmpty: 'Vui lòng nhập phân loại chi tiết.',
-    classificationDetailNoMatch: 'Chọn phân loại chi tiết từ danh sách gợi ý.',
+    warehouseEmpty: 'Vui lòng chọn kho sách từ danh sách.',
+    warehouseNoMatch: 'Kho sách không tồn tại trong hệ thống. Vui lòng chọn từ danh sách.',
+    classificationEmpty: 'Vui lòng chọn phân loại sách từ danh sách.',
+    classificationNoMatch: 'Phân loại sách không tồn tại trong hệ thống. Vui lòng chọn từ danh sách.',
     quantityInvalid: 'Số lượng phải là số nguyên ≥ 0.',
 };
 

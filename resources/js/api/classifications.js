@@ -16,6 +16,12 @@ export const classificationsApi = {
     remove(id) {
         return client.delete(`/classifications/${id}`).then((r) => r.data);
     },
+    export(params = {}) {
+        return client.get('/classifications/export', {
+            params,
+            responseType: 'blob',
+        });
+    },
     downloadImportTemplate() {
         return client.get('/classifications/import-template', {
             responseType: 'blob',

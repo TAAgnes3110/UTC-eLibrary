@@ -29,6 +29,9 @@ class LibraryCardApproveForPaymentTest extends TestCase
             'user_type' => RoleType::STUDENT,
             'avatar' => 'avatars/x.jpg',
             'email' => 'reader-approve@example.com',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'L1',
         ]);
 
         $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
@@ -68,6 +71,9 @@ class LibraryCardApproveForPaymentTest extends TestCase
         $reader = User::factory()->create([
             'user_type' => RoleType::STUDENT,
             'avatar' => 'avatars/y.jpg',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'L2',
         ]);
 
         $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
@@ -95,6 +101,9 @@ class LibraryCardApproveForPaymentTest extends TestCase
         $reader = User::factory()->create([
             'user_type' => RoleType::STUDENT,
             'avatar' => 'avatars/z.jpg',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'L3',
         ]);
         $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
             'faculty_id' => $faculty->id,
@@ -119,6 +128,9 @@ class LibraryCardApproveForPaymentTest extends TestCase
             'user_type' => RoleType::STUDENT,
             'avatar' => 'avatars/r.jpg',
             'email' => 'reader-reject@example.com',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'LR',
         ]);
 
         $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
@@ -151,6 +163,9 @@ class LibraryCardApproveForPaymentTest extends TestCase
         $reader = User::factory()->create([
             'user_type' => RoleType::STUDENT,
             'avatar' => 'avatars/r2.jpg',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'LR2',
         ]);
 
         $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [

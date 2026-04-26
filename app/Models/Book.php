@@ -48,10 +48,8 @@ class Book extends BaseModel
         'notes',
         'publisher_place',
         'cabinet',
-        'shelf',
         'cover_image',
         'classification_id',
-        'classification_detail_id',
         'warehouse_id',
         'resource_type',
         'access_mode',
@@ -74,10 +72,6 @@ class Book extends BaseModel
         return $this->belongsTo(Classification::class);
     }
 
-    public function classificationDetail()
-    {
-        return $this->belongsTo(ClassificationDetail::class);
-    }
 
     public function warehouse()
     {
@@ -103,6 +97,14 @@ class Book extends BaseModel
     public function copies()
     {
         return $this->hasMany(BookCopy::class);
+    }
+
+    /**
+     * Bản in đại diện (id nhỏ nhất).
+     */
+    public function representativeStoredCopy(): HasOne
+    {
+        return $this->hasOne(BookCopy::class)->ofMany(['id' => 'min']);
     }
 
     public function loanItems(): HasMany

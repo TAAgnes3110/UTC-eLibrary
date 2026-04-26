@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { LIBRARY_CARD_STATUS, workflowQuyTrinhAdminLabel, holderLabel, statusLabel } from '@/config/libraryCardUi';
 
@@ -22,7 +22,7 @@ const props = defineProps({
 const effectiveShowPhotoColumn = computed(() => !props.reviewMode);
 
 const tableColspan = computed(() => {
-    let n = 7;
+    let n = 8;
     if (effectiveShowPhotoColumn.value) {
         n += 1;
     }
@@ -37,18 +37,50 @@ const tableColspan = computed(() => {
 
 const tableMinWidthClass = computed(() => {
     if (props.reviewMode) {
-        return 'min-w-[800px]';
+        return 'min-w-[840px]';
     }
     if (props.showWorkflow && props.showCardStatus) {
-        return 'min-w-[1020px]';
+        return 'min-w-[1040px]';
     }
     if (props.showWorkflow || props.showCardStatus) {
-        return 'min-w-[960px]';
+        return 'min-w-[980px]';
     }
     return 'min-w-[900px]';
 });
 
 const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject']);
+
+const previewCard = ref(null);
+const showPreviewModal = ref(false);
+
+function openPhotoPreview(card) {
+    previewCard.value = card;
+    showPreviewModal.value = true;
+}
+
+function closePhotoPreview() {
+    showPreviewModal.value = false;
+    previewCard.value = null;
+}
+
+function triggerPhotoChange() {
+    if (!previewCard.value) return;
+    emit('photo', previewCard.value);
+    closePhotoPreview();
+}
+
+function formatDateTime(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(d);
+}
 </script>
 
 <template>
@@ -57,7 +89,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
             <table class="w-full text-left border-collapse" :class="tableMinWidthClass">
                 <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                     <tr>
-                        <th class="p-4 w-12 align-middle">
+                        <th class="px-3 py-3 w-11 align-middle">
                             <span class="admin-table-checkbox-wrap">
                                 <input
                                     type="checkbox"
@@ -68,30 +100,33 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                                 />
                             </span>
                         </th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Mã thẻ</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Mã thẻ</th>
                         <th
                             v-if="effectiveShowPhotoColumn"
-                            class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                            class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
                         >
                             Ảnh thẻ
                         </th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Họ tên</th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Email</th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Số điện thoại</th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Loại thẻ</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Họ tên</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Email</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Số điện thoại</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Loại thẻ</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
+                            Ngày tạo
+                        </th>
                         <th
                             v-if="showWorkflow"
-                            class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                            class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
                         >
                             Quy trình
                         </th>
                         <th
                             v-if="showCardStatus"
-                            class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                            class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
                         >
                             Trạng thái thẻ
                         </th>
-                        <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[220px]">Thao tác</th>
+                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[170px]">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -107,7 +142,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                         :key="row.id"
                         :class="[selectedIds.includes(row.id) ? 'bg-blue-50 dark:bg-blue-900/15' : 'admin-table-row']"
                     >
-                        <td class="p-4 align-middle">
+                        <td class="px-3 py-3 align-middle">
                             <span class="admin-table-checkbox-wrap">
                                 <input
                                     type="checkbox"
@@ -117,48 +152,48 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                                 />
                             </span>
                         </td>
-                        <td class="p-4 align-middle whitespace-nowrap">
+                        <td class="px-3 py-3 align-middle whitespace-nowrap">
                             <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">
                                 {{ row.card_number || row.code || '—' }}
                             </p>
                         </td>
-                        <td v-if="effectiveShowPhotoColumn" class="p-4 align-middle">
-                            <div
-                                class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden relative group/photo shrink-0"
+                        <td v-if="effectiveShowPhotoColumn" class="px-3 py-3 align-middle">
+                            <button
+                                type="button"
+                                class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-slate-200/80 dark:ring-slate-700/80"
+                                :title="`Xem ảnh thẻ: ${row.full_name || 'Bạn đọc'}`"
+                                @click.stop="openPhotoPreview(row)"
                             >
                                 <img
                                     :src="row.photo_url || '/images/default-avatar.png'"
                                     :alt="row.full_name || 'Ảnh thẻ'"
                                     class="h-full w-full object-cover"
                                 />
-                                <button
-                                    type="button"
-                                    class="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center rounded-lg cursor-pointer min-w-[44px] min-h-[44px]"
-                                    title="Cập nhật ảnh thẻ"
-                                    @click.stop="emit('photo', row)"
-                                >
-                                    <Icon icon="lucide:camera" class="w-4 h-4 text-white" />
-                                </button>
-                            </div>
+                            </button>
                         </td>
-                        <td class="p-4 align-middle max-w-[200px] xl:max-w-[260px]">
+                        <td class="px-3 py-3 align-middle max-w-[170px] xl:max-w-[220px]">
                             <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="row.full_name">
                                 {{ row.full_name }}
                             </p>
                         </td>
-                        <td class="p-4 align-middle max-w-[220px] xl:max-w-[280px]">
+                        <td class="px-3 py-3 align-middle max-w-[190px] xl:max-w-[240px]">
                             <p class="text-[12px] text-slate-600 dark:text-slate-300 truncate" :title="row.email">{{ row.email }}</p>
                         </td>
-                        <td class="p-4 align-middle whitespace-nowrap">
+                        <td class="px-3 py-3 align-middle whitespace-nowrap">
                             <p class="text-[12px] text-slate-600 dark:text-slate-300">{{ row.phone || '—' }}</p>
                         </td>
-                        <td class="p-4 align-middle whitespace-nowrap">
+                        <td class="px-3 py-3 align-middle whitespace-nowrap">
                             <span class="text-[12px] text-slate-700 dark:text-slate-200">{{ holderLabel(row.holder_type) }}</span>
                         </td>
-                        <td v-if="showWorkflow" class="p-4 align-middle whitespace-nowrap">
+                        <td class="px-3 py-3 align-middle whitespace-nowrap">
+                            <span class="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums">
+                                {{ formatDateTime(row.created_at) }}
+                            </span>
+                        </td>
+                        <td v-if="showWorkflow" class="px-3 py-3 align-middle whitespace-nowrap">
                             <span class="text-[12px] text-slate-600 dark:text-slate-300">{{ workflowQuyTrinhAdminLabel(row.workflow_status) }}</span>
                         </td>
-                        <td v-if="showCardStatus" class="p-4 align-middle">
+                        <td v-if="showCardStatus" class="px-3 py-3 align-middle">
                             <span
                                 :class="[
                                     'inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap',
@@ -168,7 +203,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                                 {{ statusLabel(row.status) }}
                             </span>
                         </td>
-                        <td class="p-4 align-middle whitespace-nowrap">
+                        <td class="px-3 py-3 align-middle whitespace-nowrap">
                             <div class="flex flex-nowrap justify-start gap-1">
                                 <template v-if="reviewMode">
                                     <button
@@ -233,6 +268,34 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
                     </template>
                 </tbody>
             </table>
+        </div>
+    </div>
+    <div v-if="showPreviewModal && previewCard" class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60" @click="closePhotoPreview" />
+        <div class="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div class="mb-3 flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Ảnh thẻ thư viện</h4>
+                <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closePhotoPreview">
+                    <Icon icon="lucide:x" class="h-4 w-4" />
+                </button>
+            </div>
+            <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                <img
+                    :src="previewCard.photo_url || '/images/default-avatar.png'"
+                    :alt="previewCard.full_name || 'Ảnh thẻ'"
+                    class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800"
+                />
+            </div>
+            <div class="mt-3 flex justify-end">
+                <button
+                    type="button"
+                    class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/35 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                    @click="triggerPhotoChange"
+                >
+                    <Icon icon="lucide:camera" class="h-3.5 w-3.5" />
+                    Đổi ảnh
+                </button>
+            </div>
         </div>
     </div>
 </template>

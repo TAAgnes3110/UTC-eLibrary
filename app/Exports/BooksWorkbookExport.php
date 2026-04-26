@@ -7,7 +7,6 @@ namespace App\Exports;
 use App\Helpers\FileHelpers;
 use App\Models\Book;
 use App\Models\Classification;
-use App\Models\ClassificationDetail;
 use App\Models\Warehouse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -18,7 +17,6 @@ final class BooksWorkbookExport
         $query = Book::query()
             ->with([
                 'classification:id,code,name',
-                'classificationDetail:id,code,name',
                 'warehouse:id,code,name',
                 'authors:id,name',
                 'publishers:id,name',
@@ -41,8 +39,6 @@ final class BooksWorkbookExport
                 $book->publishers_label,
                 optional($book->classification)->code,
                 optional($book->classification)->name,
-                optional($book->classificationDetail)->code,
-                optional($book->classificationDetail)->name,
                 optional($book->warehouse)->code,
                 optional($book->warehouse)->name,
                 $book->published_year,
@@ -55,7 +51,6 @@ final class BooksWorkbookExport
                 $book->quantity,
                 $book->publisher_place,
                 $book->cabinet,
-                $book->shelf,
                 $book->summary,
                 $book->notes,
                 $book->created_at?->toIso8601String(),
@@ -65,11 +60,6 @@ final class BooksWorkbookExport
         })->all();
 
         $classifications = Classification::query()->orderBy('code')->get(['code', 'name']);
-        $classificationDetails = ClassificationDetail::query()
-            ->with('classification:id,code')
-            ->orderBy('classification_id')
-            ->orderBy('code')
-            ->get(['classification_id', 'code', 'name']);
         $warehouses = Warehouse::query()->orderBy('code')->get(['code', 'name']);
 
         return FileHelpers::downloadWorkbook([
@@ -85,8 +75,6 @@ final class BooksWorkbookExport
                     'Nhà xuất bản',
                     'Mã phân loại',
                     'Tên phân loại',
-                    'Mã phân loại chi tiết',
-                    'Tên phân loại chi tiết',
                     'Mã kho',
                     'Tên kho',
                     'Năm xuất bản',
@@ -99,7 +87,6 @@ final class BooksWorkbookExport
                     'Số lượng',
                     'Nơi xuất bản',
                     'Tủ',
-                    'Kệ',
                     'Tóm tắt',
                     'Ghi chú',
                     'Created at',
@@ -114,12 +101,7 @@ final class BooksWorkbookExport
                 'rows' => $classifications->map(fn ($c) => [$c->code, $c->name])->all(),
             ],
             [
-                'title' => 'Sheet3_PhanLoaiSachChiTiet',
-                'headers' => ['Mã phân loại chính', 'Mã phân loại chi tiết', 'Tên'],
-                'rows' => $classificationDetails->map(fn ($d) => [optional($d->classification)->code, $d->code, $d->name])->all(),
-            ],
-            [
-                'title' => 'Sheet4_KhoSach',
+                'title' => 'Sheet3_KhoSach',
                 'headers' => ['Mã', 'Tên'],
                 'rows' => $warehouses->map(fn ($w) => [$w->code, $w->name])->all(),
             ],

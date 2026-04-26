@@ -4,19 +4,20 @@ namespace Tests\Feature\Backend;
 
 use App\Enums\LibraryCardStatus;
 use App\Models\LibraryCard;
-use Database\Seeders\LoanPoliciesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\SeedsLoanPolicies;
 use Tests\TestCase;
 
 class LibraryCardLoanLookupTest extends TestCase
 {
     use ActsAsApiUser;
     use RefreshDatabase;
+    use SeedsLoanPolicies;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(LoanPoliciesSeeder::class);
+        $this->seedLoanPolicies();
     }
 
     public function test_lookup_for_loan_not_found_returns_404(): void

@@ -13,16 +13,4 @@ export const storageCabinetsApi = {
     remove(id) {
         return client.delete(`/storage-cabinets/${id}`).then((r) => r.data);
     },
-    createSlot(cabinetId, payload) {
-        return client.post(`/storage-cabinets/${cabinetId}/slots`, payload).then((r) => r.data);
-    },
-    updateSlot(cabinetId, slotId, payload) {
-        return client.put(`/storage-cabinets/${cabinetId}/slots/${slotId}`, payload).then((r) => r.data);
-    },
-    removeSlot(cabinetId, slotId) {
-        return client.delete(`/storage-cabinets/${cabinetId}/slots/${slotId}`).then((r) => r.data);
-    },
-    listSlots(params = {}) {
-        return client.get('/storage-slots', { params }).then((r) => r.data);
-    },
 };

@@ -9,7 +9,7 @@ Mục lục tài liệu: [docs/README.md](../README.md). Rule kỹ thuật: [`.c
 
 ## Phân loại & tài liệu nội sinh
 
-- **Ký hiệu xếp giá (Call number):** Tuân thủ hệ thống phân loại UTC; mã gắn với `classification`, `classification_detail`, `warehouse`, `book_code` / ĐKCB (xem `BookService`).
+- **Ký hiệu xếp giá (Call number):** Tuân thủ hệ thống phân loại UTC; mã gắn với `classification`, `warehouse`, `cabinet`, `book_code` / ĐKCB (xem `BookService`).
 - **Luận văn / đồ án / NC:** Chế độ **bảo mật cao** — `resource_kind`, `access_mode`, `digital_assets`, `thesis_metadata` theo migration; không lộ file/metadata ngoài quyền.
 
 ## Quy tắc mượn (trước khi cho mượn mới)

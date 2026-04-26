@@ -16,7 +16,6 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class,
             WarehouseSeeder::class,
             ClassificationSeeder::class,
-            ClassificationDetailSeeder::class,
             DefaultUsersSeeder::class,
             LoanPoliciesSeeder::class,
             CmsAndContentSeeder::class,
@@ -27,8 +26,6 @@ class DatabaseSeeder extends Seeder
         if (filter_var(env('SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {
             $this->call([
                 BookSampleSeeder::class,
-                StorageSampleSeeder::class,
-                StorageLocatorSyncSeeder::class,
                 LibraryCardSampleSeeder::class,
                 ManagementPaginationSeeder::class,
             ]);

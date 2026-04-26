@@ -33,7 +33,6 @@ function go(p) {
 }
 
 const show = computed(() => props.alwaysShow || props.lastPage > 1);
-const isSinglePage = computed(() => (Number(props.lastPage) || 1) <= 1);
 </script>
 
 <template>
@@ -43,14 +42,6 @@ const isSinglePage = computed(() => (Number(props.lastPage) || 1) <= 1);
         role="navigation"
         aria-label="Phân trang"
     >
-        <span
-            v-if="isSinglePage"
-            class="text-sm text-slate-600 dark:text-slate-300"
-        >
-            Trang {{ currentPage }} / {{ lastPage }}
-        </span>
-
-        <template v-else>
         <button
             type="button"
             class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-2 sm:px-3 disabled:opacity-50 disabled:pointer-events-none shrink-0"
@@ -119,6 +110,5 @@ const isSinglePage = computed(() => (Number(props.lastPage) || 1) <= 1);
         <span class="w-full sm:w-auto text-center sm:text-left text-xs text-slate-500 dark:text-slate-400 basis-full sm:basis-auto mt-1 sm:mt-0 sm:ml-2">
             Trang {{ currentPage }} / {{ lastPage }}
         </span>
-        </template>
     </div>
 </template>

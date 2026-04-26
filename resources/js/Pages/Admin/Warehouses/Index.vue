@@ -91,12 +91,6 @@ function openDetailModal(warehouse) {
                             Quản lý tủ sách
                         </Button>
                     </Link>
-                    <Link :href="route('admin.warehouses.storage-slots')">
-                        <Button variant="outline" size="sm" class="gap-1.5">
-                            <Icon icon="lucide:grid-2x2" class="w-4 h-4" />
-                            Quản lý ngăn sách
-                        </Button>
-                    </Link>
                     <Button variant="outline" size="sm" class="gap-1.5" @click="openTrashDrawer">
                         <Icon :icon="ADMIN_ICONS.trash" class="w-4 h-4" />
                         Thùng rác
@@ -125,7 +119,7 @@ function openDetailModal(warehouse) {
                 @search="searchWarehouses"
             >
                 <template #filters>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <AdminFilterPanel
                             :options="WAREHOUSES_SEARCH_IN_OPTIONS"
                             v-model:model-value="filterValues.searchIn"

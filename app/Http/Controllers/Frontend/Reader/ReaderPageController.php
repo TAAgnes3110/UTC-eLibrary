@@ -10,7 +10,6 @@ use App\Http\Resources\ReaderBookCardResource;
 use App\Http\Resources\ReaderBookDetailResource;
 use App\Models\Book;
 use App\Models\Classification;
-use App\Models\ClassificationDetail;
 use App\Models\Faculty;
 use App\Models\LibraryCard;
 use App\Models\LoanPolicy;
@@ -80,7 +79,6 @@ class ReaderPageController extends Controller
             'keyword' => ['sometimes', 'nullable', 'string', 'max:500'],
             'resource_type' => ['sometimes', 'nullable', 'string', 'max:100'],
             'classification_id' => ['sometimes', 'nullable', 'integer', 'exists:classifications,id'],
-            'classification_detail_id' => ['sometimes', 'nullable', 'integer', 'exists:classification_details,id'],
             'stock' => ['sometimes', 'nullable', 'string', 'in:in_stock,out_of_stock'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:60'],
             'sort' => ['sometimes', 'nullable', 'string', 'in:newest,oldest'],
@@ -98,7 +96,6 @@ class ReaderPageController extends Controller
             $perPage,
             $searchColumns,
             $request->filled('classification_id') ? (int) $request->input('classification_id') : null,
-            $request->filled('classification_detail_id') ? (int) $request->input('classification_detail_id') : null,
             $request->input('stock') ?: null,
             $request->input('sort') ?: 'newest',
         );
@@ -120,14 +117,12 @@ class ReaderPageController extends Controller
                 'keyword' => $keyword,
                 'resource_type' => $request->input('resource_type'),
                 'classification_id' => $request->input('classification_id'),
-                'classification_detail_id' => $request->input('classification_detail_id'),
                 'stock' => $request->input('stock'),
                 'per_page' => $perPage,
                 'sort' => $request->input('sort') ?: 'newest',
                 'search_in' => $request->input('search_in'),
             ],
             'classifications' => Classification::query()->orderBy('code')->get(['id', 'code', 'name']),
-            'classificationDetails' => ClassificationDetail::query()->orderBy('code')->get(['id', 'classification_id', 'code', 'name']),
             'resourceTypeOptions' => $resourceTypeOptions,
         ]);
     }

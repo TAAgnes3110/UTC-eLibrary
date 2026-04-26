@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\LoanItemCondition;
 use App\Models\Book;
 use App\Models\LibraryCard;
 use App\Models\Loan;
@@ -20,6 +21,7 @@ class StatisticsService
      *     total_registered_cards:int,
      *     active_borrowers:int,
      *     books_on_loan:int,
+     *     lost_books:int,
      *     overdue_loans:int,
      *     today_borrowed:int
      *   },
@@ -91,6 +93,11 @@ class StatisticsService
             'books_on_loan' => (int) LoanItem::query()
                 ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
                 ->whereIn('loans.status', $openStatuses)
+                ->sum('loan_items.quantity'),
+            'lost_books' => (int) LoanItem::query()
+                ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
+                ->where('loans.status', Loan::STATUS_RETURNED)
+                ->where('loan_items.condition_on_return', LoanItemCondition::LOST->value)
                 ->sum('loan_items.quantity'),
             'overdue_loans' => (int) Loan::query()
                 ->where('status', Loan::STATUS_OVERDUE)

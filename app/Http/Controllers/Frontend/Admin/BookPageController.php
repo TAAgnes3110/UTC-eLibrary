@@ -10,10 +10,25 @@ class BookPageController extends Controller
 {
     public function index(): Response
     {
+        return $this->printed();
+    }
+
+    public function printed(): Response
+    {
         return Inertia::render('Admin/Books/Index', [
-            'pageKind' => 'print',
-            'resourceTypeFilter' => 'reference,textbook,thesis,journal',
+            'pageKind' => 'printed',
+            'resourceTypeFilter' => 'textbook,reference',
         ]);
+    }
+
+    public function textbook(): Response
+    {
+        return $this->printed();
+    }
+
+    public function reference(): Response
+    {
+        return $this->printed();
     }
 
     public function digital(): Response

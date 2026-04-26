@@ -27,13 +27,11 @@ return new class extends Migration
             $table->string('series_name')->nullable();
             $table->string('publisher_place')->nullable();
             $table->string('cabinet', 100)->nullable();
-            $table->string('shelf', 100)->nullable();
             $table->string('cover_image')->nullable();
             $table->foreignId('classification_id')->nullable()->constrained('classifications')->nullOnDelete();
-            $table->foreignId('classification_detail_id')->nullable()->constrained('classification_details')->nullOnDelete();
             $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
 
-            $table->string('resource_type', 20)->default('reference')->comment('Loại tài liệu: textbook, reference, thesis, journal, digital');
+            $table->string('resource_type', 20)->default('reference')->comment('Loại tài liệu: textbook, reference, digital');
             $table->string('access_mode', 20)->default('circulation_only')->comment('circulation_only|onsite|digital|…');
 
             $table->json('params')->nullable();
@@ -43,7 +41,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['classification_id', 'classification_detail_id']);
+            $table->index(['classification_id']);
             $table->index(['warehouse_id']);
             $table->index(['resource_type', 'classification_id'], 'books_resource_type_classification_idx');
         });

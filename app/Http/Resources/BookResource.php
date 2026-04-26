@@ -21,6 +21,14 @@ class BookResource extends JsonResource
         }
 
         return [
+            'available_quantity' => $this->resolveAvailableQuantity(),
+            'total_quantity' => $this->resolveTotalQuantity(),
+            'borrowed_quantity' => $this->resolveBorrowedQuantity(),
+            'lost_quantity' => $this->resolveLostQuantity(),
+            'warehouse_quantity' => $this->resolveWarehouseQuantity(),
+            'real_quantity' => $this->resolveRealQuantity(),
+            'circulation_status' => $this->resolveCirculationStatus(),
+            'circulation_status_label' => $this->resolveCirculationStatusLabel(),
             'id' => $this->id,
             'title' => $this->title,
             'resource_type' => $this->resource_type instanceof \BackedEnum
@@ -42,12 +50,6 @@ class BookResource extends JsonResource
                 'name' => $this->classification->name,
             ] : null),
 
-            'classification_detail' => $this->whenLoaded('classificationDetail', fn () => $this->classificationDetail ? [
-                'id' => $this->classificationDetail->id,
-                'code' => $this->classificationDetail->code,
-                'name' => $this->classificationDetail->name,
-                'classification_id' => $this->classificationDetail->classification_id,
-            ] : null),
 
             'warehouse' => $this->whenLoaded('warehouse', fn () => $this->warehouse ? [
                 'id' => $this->warehouse->id,
@@ -81,11 +83,9 @@ class BookResource extends JsonResource
             'summary' => $this->summary,
             'notes' => $this->notes,
             'publisher_place' => $this->publisher_place,
-            'cabinet' => $this->cabinet,
-            'shelf' => $this->shelf,
+            'cabinet' => $this->resolveCabinetForApi(),
             'cover_image' => $coverImage,
             'classification_id' => $this->classification_id,
-            'classification_detail_id' => $this->classification_detail_id,
             'warehouse_id' => $this->warehouse_id,
 
             'params' => $this->params ?? [],
@@ -102,10 +102,99 @@ class BookResource extends JsonResource
             ] : null),
 
             'digital_assets' => $this->whenLoaded('digitalAssets', fn () => DigitalAssetResource::collection($this->digitalAssets)),
+            'loan_history' => $this->whenLoaded('loanItems', function () {
+                return $this->loanItems->map(function ($item) {
+                    $loan = $item->loan;
+                    $card = $loan?->libraryCard;
+                    $readerName = $card?->full_name
+                        ?: $loan?->libraryCard?->user?->full_name
+                        ?: $loan?->libraryCard?->user?->name;
+
+                    return [
+                        'loan_id' => $loan?->id,
+                        'loan_code' => $loan?->loan_code,
+                        'loan_status' => $loan?->status,
+                        'loan_date' => $loan?->loan_date?->toDateString(),
+                        'due_date' => $loan?->due_date?->toDateString(),
+                        'return_date' => $loan?->return_date?->toDateString(),
+                        'reader_name' => $readerName,
+                        'card_number' => $card?->card_number,
+                        'quantity' => (int) ($item->quantity ?? 0),
+                        'condition_on_loan' => $item->condition_on_loan?->value,
+                        'condition_on_return' => $item->condition_on_return?->value,
+                    ];
+                })->values();
+            }),
 
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
             'deleted_at' => $this->deleted_at?->toIso8601String(),
         ];
+    }
+
+    /** Tủ lưu trữ lấy từ cột books.cabinet. */
+    private function resolveCabinetForApi(): ?string
+    {
+        return filled($this->cabinet) ? $this->cabinet : null;
+    }
+
+    private function resolveTotalQuantity(): int
+    {
+        $copiesCount = $this->copies_count;
+        if ($copiesCount !== null && (int) $copiesCount > 0) {
+            return max(0, (int) $copiesCount);
+        }
+
+        return max(0, (int) ($this->quantity ?? 0));
+    }
+
+    private function resolveAvailableQuantity(): int
+    {
+        $availableCount = $this->available_copies_count;
+        $copiesCount = $this->copies_count;
+        if (
+            $availableCount !== null &&
+            $copiesCount !== null &&
+            (int) $copiesCount > 0
+        ) {
+            return max(0, (int) $availableCount);
+        }
+
+        return max(0, (int) ($this->quantity ?? 0));
+    }
+
+    private function resolveBorrowedQuantity(): int
+    {
+        return max(0, (int) ($this->borrowed_copies_count ?? 0));
+    }
+
+    private function resolveLostQuantity(): int
+    {
+        return max(0, (int) ($this->lost_copies_count ?? 0));
+    }
+
+    private function resolveWarehouseQuantity(): int
+    {
+        return max(0, (int) ($this->warehouse_copies_count ?? 0));
+    }
+
+    private function resolveRealQuantity(): int
+    {
+        $copiesCount = (int) ($this->copies_count ?? 0);
+        if ($copiesCount <= 0) {
+            return max(0, (int) ($this->quantity ?? 0));
+        }
+
+        return $this->resolveWarehouseQuantity() + $this->resolveBorrowedQuantity();
+    }
+
+    private function resolveCirculationStatus(): string
+    {
+        return $this->resolveRealQuantity() > 0 ? 'in_circulation' : 'out_of_circulation';
+    }
+
+    private function resolveCirculationStatusLabel(): string
+    {
+        return $this->resolveRealQuantity() > 0 ? 'Còn lưu hành' : 'Không lưu hành';
     }
 }

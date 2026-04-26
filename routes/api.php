@@ -5,16 +5,15 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AuthorController;
 use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Api\ClassificationController;
-use App\Http\Controllers\Api\ClassificationDetailController;
 use App\Http\Controllers\Api\DigitalAssetController;
 use App\Http\Controllers\Api\EmailOTPController;
 use App\Http\Controllers\Api\FacultyController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardStaffController;
 use App\Http\Controllers\Api\LibraryCard\MeLibraryCardController;
+use App\Http\Controllers\Api\LibraryCardController;
 use App\Http\Controllers\Api\Loan\LoanRenewalRequestController;
 use App\Http\Controllers\Api\Loan\MeLoanController;
-use App\Http\Controllers\Api\LibraryCardController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\LoanPoliciesController;
 use App\Http\Controllers\Api\MasterDataController;
@@ -152,22 +151,14 @@ Route::prefix('v1')->group(function () {
             Route::group(['prefix' => '/classifications'], function () {
                 Route::get('/', [ClassificationController::class, 'index']);
                 Route::get('/list', [ClassificationController::class, 'list']);
-                Route::get('/{classification}/details', [ClassificationDetailController::class, 'listByClassification']);
                 Route::get('/import-template', [ClassificationController::class, 'downloadImportTemplate']);
+                Route::get('/export', [ClassificationController::class, 'export']);
                 Route::post('/', [ClassificationController::class, 'store']);
                 Route::get('/{classification}', [ClassificationController::class, 'show']);
                 Route::put('/{classification}', [ClassificationController::class, 'update']);
                 Route::delete('/{classification}', [ClassificationController::class, 'destroy']);
             });
 
-            Route::group(['prefix' => '/classification-details'], function () {
-                Route::get('/', [ClassificationDetailController::class, 'index']);
-                Route::get('/import-template', [ClassificationDetailController::class, 'downloadImportTemplate']);
-                Route::post('/', [ClassificationDetailController::class, 'store']);
-                Route::get('/{classification_detail}', [ClassificationDetailController::class, 'show']);
-                Route::put('/{classification_detail}', [ClassificationDetailController::class, 'update']);
-                Route::delete('/{classification_detail}', [ClassificationDetailController::class, 'destroy']);
-            });
 
             Route::group(['prefix' => '/warehouses'], function () {
                 Route::get('/', [WarehouseController::class, 'index']);
@@ -192,11 +183,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/', [StorageCabinetController::class, 'store']);
                 Route::put('/{storageCabinet}', [StorageCabinetController::class, 'update']);
                 Route::delete('/{storageCabinet}', [StorageCabinetController::class, 'destroy']);
-                Route::post('/{storageCabinet}/slots', [StorageCabinetController::class, 'storeSlot']);
-                Route::put('/{storageCabinet}/slots/{storageSlot}', [StorageCabinetController::class, 'updateSlot']);
-                Route::delete('/{storageCabinet}/slots/{storageSlot}', [StorageCabinetController::class, 'destroySlot']);
             });
-            Route::get('/storage-slots', [StorageCabinetController::class, 'slotIndex']);
 
             Route::group(['prefix' => 'loan-policies'], function () {
                 Route::get('/', [LoanPoliciesController::class, 'index']);
@@ -263,7 +250,10 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [BookController::class, 'index']);
                 Route::get('/trash', [BookController::class, 'trash']);
                 Route::get('/import-template', [BookController::class, 'downloadImportTemplate']);
+                Route::get('/preview-identifiers', [BookController::class, 'previewIdentifiers']);
+                Route::get('/storage-suggestions', [BookController::class, 'storageSuggestions']);
                 Route::get('/export', [BookController::class, 'export']);
+                Route::get('/export-lost', [BookController::class, 'exportLost']);
                 Route::post('/import', [BookController::class, 'import']);
                 Route::post('/', [BookController::class, 'store']);
                 Route::post('/{book}/digital-assets', [DigitalAssetController::class, 'store']);

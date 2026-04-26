@@ -60,6 +60,15 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "test:backend-storage": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test tests/Feature/Backend/LoanStorageQuantitySyncTest.php tests/Feature/Backend/StorageCabinetApiTest.php"
+        ],
+        "quality:backend": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test tests/Feature/Backend/LoanStorageQuantitySyncTest.php tests/Feature/Backend/StorageCabinetApiTest.php",
+            "@php artisan storage:sync-quantities"
+        ],
         "deploy:shared-hosting": [
             "composer install --no-dev --prefer-dist --optimize-autoloader",
             "@php artisan optimize:clear --ansi"

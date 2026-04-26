@@ -62,14 +62,7 @@ const showCabinetForm = ref(false);
 
 const hasSelection = computed(() => selectedIds.value.length > 0);
 
-const cabinetsWithRate = computed(() =>
-    cabinets.value.map((cabinet) => {
-        const capacity = Number(cabinet.capacity_total || 0);
-        const quantity = Number(cabinet.current_quantity || 0);
-        const usageRate = capacity > 0 ? Math.min(100, Math.round((quantity / capacity) * 100)) : 0;
-        return { ...cabinet, usageRate };
-    })
-);
+const cabinetsWithRate = computed(() => cabinets.value);
 const isAllSelected = computed(
     () => cabinetsWithRate.value.length > 0 && selectedIds.value.length === cabinetsWithRate.value.length
 );
@@ -131,7 +124,6 @@ async function loadCabinets() {
             warehouse_id: filters.value.warehouse_id || undefined,
             sort: filters.value.sort || undefined,
             search_in: buildSearchInParam(),
-            with_slots: false,
             per_page: 20,
         });
         const { items: rows, meta } = extractApiPaginator(payload, 20);
@@ -306,18 +298,26 @@ onMounted(async () => {
                 @search="searchCabinets"
             >
                 <template #filters>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-3 flex-wrap">
                         <AdminFilterPanel
                             :options="STORAGE_CABINET_SEARCH_IN_OPTIONS"
                             v-model:model-value="filters.searchIn"
                             :show="showFilterPanel"
                             @update:show="showFilterPanel = $event"
                         />
-                        <select v-model="filters.warehouse_id" class="admin-filter-select admin-filter-select-centered">
+                        <select
+                            v-model="filters.warehouse_id"
+                            class="admin-filter-select admin-filter-select-centered !h-11 !rounded-xl px-4 shadow-sm max-w-[340px] overflow-hidden text-ellipsis whitespace-nowrap"
+                            @change="searchCabinets"
+                        >
                             <option value="">Tất cả kho</option>
                             <option v-for="w in warehouses" :key="w.id" :value="String(w.id)">{{ warehouseDisplayName(w) }}</option>
                         </select>
-                        <select v-model="filters.sort" class="admin-filter-select admin-filter-select-centered">
+                        <select
+                            v-model="filters.sort"
+                            class="admin-filter-select admin-filter-select-centered !h-11 !rounded-xl px-4 shadow-sm min-w-[170px]"
+                            @change="searchCabinets"
+                        >
                             <option value="">Sắp xếp</option>
                             <option value="name_asc">Tên A → Z</option>
                             <option value="name_desc">Tên Z → A</option>
@@ -345,7 +345,6 @@ onMounted(async () => {
                                 <th class="p-3 text-left whitespace-nowrap">Tên tủ</th>
                                 <th class="p-3 text-left whitespace-nowrap">Kho</th>
                                 <th class="p-3 text-left whitespace-nowrap">Phân loại</th>
-                                <th class="p-3 text-left whitespace-nowrap">Số lượng</th>
                                 <th class="p-3 text-left whitespace-nowrap">Trạng thái</th>
                                 <th class="p-3 text-left whitespace-nowrap">Thao tác</th>
                             </tr>
@@ -368,14 +367,11 @@ onMounted(async () => {
                                     <div class="max-w-[260px] truncate" :title="cabinet.classification?.name || '—'">{{ cabinet.classification?.name || '—' }}</div>
                                 </td>
                                 <td class="p-3 whitespace-nowrap">
-                                    <span class="font-medium">{{ cabinet.current_quantity }}/{{ cabinet.capacity_total }}</span>
-                                </td>
-                                <td class="p-3 whitespace-nowrap">
                                     <span
                                         class="inline-flex rounded-full px-2 py-1 text-xs font-medium"
-                                        :class="Number(cabinet.capacity_total || 0) > 0 && Number(cabinet.current_quantity || 0) >= Number(cabinet.capacity_total || 0) ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/20 dark:text-rose-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'"
+                                        :class="cabinet.is_active ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'"
                                     >
-                                        {{ Number(cabinet.capacity_total || 0) > 0 && Number(cabinet.current_quantity || 0) >= Number(cabinet.capacity_total || 0) ? 'Đầy' : 'Còn trống' }}
+                                        {{ cabinet.is_active ? 'Hoạt động' : 'Không hoạt động' }}
                                     </span>
                                 </td>
                                 <td class="p-3 whitespace-nowrap">
@@ -387,7 +383,7 @@ onMounted(async () => {
                                 </td>
                             </tr>
                             <tr v-if="!loading && cabinetsWithRate.length === 0">
-                                <td colspan="8" class="p-4 text-center text-slate-500">Không có dữ liệu tủ sách.</td>
+                                <td colspan="7" class="p-4 text-center text-slate-500">Không có dữ liệu tủ sách.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -441,12 +437,12 @@ onMounted(async () => {
                             </div>
                             <div>
                                 <p class="text-slate-500 dark:text-slate-400">Số lượng</p>
-                                <p class="font-semibold text-slate-900 dark:text-white">{{ cabinetDetail.current_quantity }}/{{ cabinetDetail.capacity_total }}</p>
+                                <p class="font-semibold text-slate-900 dark:text-white">{{ cabinetDetail.current_quantity }}</p>
                             </div>
                             <div>
                                 <p class="text-slate-500 dark:text-slate-400">Trạng thái</p>
                                 <p class="font-semibold text-slate-900 dark:text-white">
-                                    {{ Number(cabinetDetail.capacity_total || 0) > 0 && Number(cabinetDetail.current_quantity || 0) >= Number(cabinetDetail.capacity_total || 0) ? 'Đầy' : 'Còn trống' }}
+                                    {{ cabinetDetail.is_active ? 'Hoạt động' : 'Không hoạt động' }}
                                 </p>
                             </div>
                         </div>

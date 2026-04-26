@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Exports\ClassificationImportTemplateExport;
+use App\Exports\ClassificationExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClassificationRequest;
@@ -45,7 +46,7 @@ class ClassificationController extends Controller
      */
     public function show(Classification $classification): JsonResponse
     {
-        $classification->load(['parent:id,code,name', 'details:id,code,name,classification_id']);
+        $classification->load(['parent:id,code,name']);
 
         return ApiResponse::success(new ClassificationResource($classification));
     }
@@ -87,5 +88,15 @@ class ClassificationController extends Controller
     public function downloadImportTemplate(): StreamedResponse
     {
         return ClassificationImportTemplateExport::stream();
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $ids = $request->input('ids');
+        $ids = is_array($ids)
+            ? array_values(array_filter(array_map('intval', $ids), static fn ($v) => $v > 0))
+            : null;
+
+        return ClassificationExport::stream($ids);
     }
 }

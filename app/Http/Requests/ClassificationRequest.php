@@ -13,7 +13,8 @@ class ClassificationRequest extends BaseRequest
 
         return [
             'code' => [
-                $isUpdate ? 'sometimes' : 'required',
+                'sometimes',
+                'nullable',
                 'string',
                 'max:50',
                 Rule::unique('classifications', 'code')->ignore($id),
@@ -22,6 +23,7 @@ class ClassificationRequest extends BaseRequest
                 $isUpdate ? 'sometimes' : 'required',
                 'string',
                 'max:255',
+                Rule::unique('classifications', 'name')->ignore($id),
             ],
             'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:classifications,id'],
             'params' => ['sometimes', 'nullable', 'array'],
@@ -31,9 +33,9 @@ class ClassificationRequest extends BaseRequest
     public function messages(): array
     {
         return [
-            'code.required' => __('Mã phân loại không được để trống'),
             'code.unique' => __('Mã phân loại đã tồn tại'),
             'name.required' => __('Tên phân loại không được để trống'),
+            'name.unique' => __('Tên phân loại đã có trong hệ thống'),
             'parent_id.exists' => __('Phân loại cha không tồn tại'),
         ];
     }

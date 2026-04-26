@@ -8,10 +8,6 @@ enum ResourceType: string
 
     case REFERENCE = 'reference';
 
-    case THESIS = 'thesis';
-
-    case JOURNAL = 'journal';
-
     case DIGITAL = 'digital';
 
     /**

@@ -15,8 +15,7 @@ class StorageCabinetResource extends JsonResource
             'classification_id' => $this->classification_id,
             'code' => $this->code,
             'name' => $this->name,
-            'capacity_total' => (int) $this->capacity_total,
-            'current_quantity' => (int) $this->current_quantity,
+            'current_quantity' => (int) ($this->current_quantity ?? 0),
             'is_active' => (bool) $this->is_active,
             'warehouse' => $this->whenLoaded('warehouse', fn () => $this->warehouse ? [
                 'id' => $this->warehouse->id,
@@ -30,7 +29,6 @@ class StorageCabinetResource extends JsonResource
                 'code' => $this->classification->code,
                 'name' => $this->classification->name,
             ] : null),
-            'slots' => StorageSlotResource::collection($this->whenLoaded('slots')),
             'params' => $this->params ?? [],
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),

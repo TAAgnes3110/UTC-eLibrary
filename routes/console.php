@@ -21,3 +21,7 @@ Schedule::command('library-cards:sync-overdue-locks')
 Schedule::command('loans:sync-overdue')
     ->dailyAt('06:05')
     ->withoutOverlapping();
+
+Schedule::command('storage:sync-quantities')
+    ->dailyAt('01:10')
+    ->withoutOverlapping();

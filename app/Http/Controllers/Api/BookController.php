@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LoanItemCondition;
 use App\Exports\BookImportTemplateExport;
 use App\Helpers\ApiResponse;
 use App\Helpers\BulkZipRequestHelper;
@@ -9,6 +10,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BookRequest;
 use App\Http\Resources\BookResource;
 use App\Models\Book;
+use App\Models\Loan;
+use App\Models\Warehouse;
 use App\Services\BookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,13 +33,15 @@ class BookController extends Controller
             'resource_type' => ['sometimes', 'nullable', 'string', 'max:100'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:200'],
             'search_in' => ['sometimes', 'nullable', 'string'],
+            'sort' => ['sometimes', 'nullable', 'in:newest,oldest,az,za'],
         ]);
         $keyword = $request->input('keyword');
         $resourceType = $request->input('resource_type');
         $perPage = (int) $request->input('per_page', 50);
         $searchColumns = $this->parseSearchInFilter($request);
+        $sort = $request->input('sort');
 
-        $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns);
+        $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns, $sort);
 
         return ApiResponse::success($this->paginatorPayload($items));
     }
@@ -211,6 +216,30 @@ class BookController extends Controller
         return $this->bookService->exportBooks($ids);
     }
 
+    public function exportLost(Request $request): StreamedResponse
+    {
+        $resourceType = trim((string) $request->input('resource_type', ''));
+
+        $ids = Book::query()
+            ->when($resourceType !== '', fn ($q) => $q->where('resource_type', $resourceType))
+            ->whereHas('loanItems', function ($q) {
+                $q->where('condition_on_return', LoanItemCondition::LOST->value)
+                    ->whereHas('loan', fn ($loanQ) => $loanQ->where('status', Loan::STATUS_RETURNED));
+            })
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        // Nếu không có sách mất, vẫn xuất file rỗng (không fallback sang toàn bộ sách).
+        if ($ids === []) {
+            $ids = [0];
+        }
+
+        return $this->bookService->exportBooks($ids);
+    }
+
     public function import(Request $request): JsonResponse
     {
         $request->validate([
@@ -223,6 +252,39 @@ class BookController extends Controller
         $summary = $this->bookService->importBooks($file);
 
         return ApiResponse::success($summary, __('Đã import sách in xong.'));
+    }
+
+    public function previewIdentifiers(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+        ]);
+
+        $preview = $this->bookService->previewIdentifiers((int) $data['warehouse_id']);
+
+        return ApiResponse::success($preview);
+    }
+
+    public function storageSuggestions(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+        ]);
+
+        $warehouse = Warehouse::query()->findOrFail((int) $data['warehouse_id']);
+        $suggestions = $this->bookService->suggestStorageCabinets(
+            (int) $data['warehouse_id']
+        );
+
+        $isDigitalDepot = $this->bookService->isDigitalDocumentWarehouse($warehouse);
+
+        return ApiResponse::success([
+            'items' => $suggestions,
+            'has_available' => $suggestions !== [],
+            'message' => $suggestions === [] && ! $isDigitalDepot
+                ? 'Trong kho này chưa có tủ lưu trữ phù hợp. Khi bạn lưu sách, hệ thống sẽ tự tạo tủ mặc định theo kho và phân loại.'
+                : null,
+        ]);
     }
 
     public function downloadImportTemplate(): StreamedResponse

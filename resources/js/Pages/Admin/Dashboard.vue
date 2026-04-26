@@ -1,11 +1,14 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head } from '@inertiajs/vue3';
+import { Icon } from '@iconify/vue';
+import { Button } from '@/Components/ui/button';
 import WelcomeBanner from '@/Components/Admin/Dashboard/WelcomeBanner.vue';
 import StatsCards from '@/Components/Admin/Dashboard/StatsCards.vue';
 import LoanChart from '@/Components/Admin/Dashboard/LoanChart.vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { loansApi } from '@/api/loans';
+import { booksApi } from '@/api/books';
 import { toast } from '@/store/toast';
 
 const loadingStats = ref(false);
@@ -15,6 +18,7 @@ const summary = ref({
     total_registered_cards: 0,
     active_borrowers: 0,
     books_on_loan: 0,
+    lost_books: 0,
     overdue_loans: 0,
     today_borrowed: 0,
 });
@@ -55,7 +59,14 @@ const statsCards = computed(() => [
         bg: 'bg-amber-50',
     },
     {
-        title: 'Sách chờ thu hồi (Quá hạn)',
+        title: 'Sách đã mất',
+        value: formatNumber(summary.value.lost_books),
+        icon: 'lucide:book-x',
+        color: 'text-red-600',
+        bg: 'bg-red-50',
+    },
+    {
+        title: 'Sách chờ thu hồi',
         value: formatNumber(summary.value.overdue_loans),
         icon: 'lucide:alert-triangle',
         color: 'text-rose-600',
@@ -64,6 +75,28 @@ const statsCards = computed(() => [
 ]);
 
 const quickActions = [];
+
+async function exportLostBooks() {
+    try {
+        const response = await booksApi.exportLost();
+        const blob = new Blob([response.data], {
+            type:
+                response.headers['content-type'] ||
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'Danh_sach_sach_da_mat.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        toast.success('Đã xuất danh sách sách đã mất.', { title: 'Dashboard' });
+    } catch (e) {
+        toast.error(e?.response?.data?.message || 'Không thể xuất danh sách sách đã mất.', { title: 'Dashboard' });
+    }
+}
 
 async function loadDashboardStats() {
     loadingStats.value = true;
@@ -105,6 +138,17 @@ watch(granularity, () => {
             />
 
             <!-- Stats Cards -->
+            <div class="flex items-center justify-end">
+                <Button
+                    type="button"
+                    variant="destructive"
+                    class="gap-2"
+                    @click="exportLostBooks"
+                >
+                    <Icon icon="lucide:file-down" class="w-4 h-4" />
+                    Xuất sách đã mất
+                </Button>
+            </div>
             <StatsCards :stats="statsCards" />
 
             <LoanChart

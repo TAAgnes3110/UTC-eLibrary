@@ -88,6 +88,16 @@ Truy cap: `http://localhost:8000`
 - Header domain can cau hinh theo `API_ALLOWED_DOMAINS` (xem `.env.example`)
 - Route health check: `GET /api/health`
 
+## Quy uoc du lieu sach
+
+- He thong su dung 3 gia tri `resource_type`: `textbook`, `reference`, `digital`.
+- Tren UI admin:
+  - `Sach in` = nhom gom `textbook` + `reference`.
+  - `Tai lieu so` = `digital`.
+- Validation nam:
+  - `published_year` phai trong khoang `1900..nam_hien_tai`.
+  - Import Excel va API deu ap dung cung quy tac tren.
+
 ## Test / Quality check
 
 ```bash

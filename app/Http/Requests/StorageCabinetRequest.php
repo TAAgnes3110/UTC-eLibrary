@@ -23,8 +23,6 @@ class StorageCabinetRequest extends BaseRequest
                 Rule::unique('storage_cabinets', 'code')->ignore($id),
             ],
             'name' => [$isCreate ? 'required' : 'sometimes', 'string', 'max:160'],
-            'capacity_total' => ['sometimes', 'integer', 'min:0'],
-            'current_quantity' => ['sometimes', 'integer', 'min:0'],
             'is_active' => ['sometimes', 'boolean'],
             'params' => ['sometimes', 'nullable', 'array'],
         ];

@@ -26,7 +26,7 @@ class ReaderBookDetailResource extends JsonResource
             }
 
             $coverImage = Storage::disk('public')->exists($normalizedPath)
-                ? Storage::disk('public')->url($normalizedPath)
+                ? Storage::url($normalizedPath)
                 : $defaultCover;
         }
 
@@ -57,7 +57,6 @@ class ReaderBookDetailResource extends JsonResource
             'summary' => $this->summary,
             'publisher_place' => $this->publisher_place,
             'cabinet' => $this->cabinet,
-            'shelf' => $this->shelf,
             'quantity' => (int) ($this->quantity ?? 0),
             'status_label' => $this->status_label,
             'is_available' => $this->is_available,
@@ -65,11 +64,6 @@ class ReaderBookDetailResource extends JsonResource
                 'id' => $this->classification->id,
                 'code' => $this->classification->code,
                 'name' => $this->classification->name,
-            ] : null),
-            'classification_detail' => $this->whenLoaded('classificationDetail', fn () => $this->classificationDetail ? [
-                'id' => $this->classificationDetail->id,
-                'code' => $this->classificationDetail->code,
-                'name' => $this->classificationDetail->name,
             ] : null),
             'warehouse' => $this->whenLoaded('warehouse', fn () => $this->warehouse ? [
                 'id' => $this->warehouse->id,

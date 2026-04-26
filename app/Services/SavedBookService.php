@@ -46,7 +46,7 @@ class SavedBookService
             ->whereHas('book', fn (Builder $q) => $q->whereNull('deleted_at'))
             ->with([
                 'book' => function ($q): void {
-                    $q->with(['classification:id,name', 'classificationDetail:id,name', 'authors:id,name']);
+                    $q->with(['classification:id,name', 'authors:id,name']);
                 },
             ])
             ->latest('saved_books.created_at')

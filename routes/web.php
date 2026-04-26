@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController as BackendAuthController;
 use App\Http\Controllers\Frontend\Admin\BookPageController;
 use App\Http\Controllers\Frontend\Admin\ChangePasswordController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
 use App\Http\Controllers\Frontend\Admin\LibraryCardPageController;
+use App\Http\Controllers\Frontend\Admin\LibraryClassificationPageController;
 use App\Http\Controllers\Frontend\Admin\LibrarySettingsPageController;
 use App\Http\Controllers\Frontend\Admin\LoanPageController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
@@ -15,7 +17,6 @@ use App\Http\Controllers\Frontend\Auth\NewPasswordController;
 use App\Http\Controllers\Frontend\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Frontend\Auth\RegisteredUserController;
 use App\Http\Controllers\Frontend\Auth\SocialAuthController;
-use App\Enums\RoleType;
 use App\Http\Controllers\Frontend\Reader\ReaderPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -79,14 +80,17 @@ Route::middleware('auth')->group(function () {
         Route::get('/users/update-requests', [UserController::class, 'updateRequests'])->name('users.update-requests');
         Route::get('/profile', ProfileController::class)->name('profile');
         Route::get('/change-password', ChangePasswordController::class)->name('change-password');
+        Route::get('/books/printed', [BookPageController::class, 'printed'])->name('books.printed');
+        Route::get('/books/textbook', [BookPageController::class, 'textbook'])->name('books.textbook');
+        Route::get('/books/reference', [BookPageController::class, 'reference'])->name('books.reference');
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
         Route::get('/warehouses/storage', [WarehousePageController::class, 'storage'])->name('warehouses.storage');
         Route::get('/warehouses/storage-cabinets', [WarehousePageController::class, 'storageCabinets'])->name('warehouses.storage-cabinets');
-        Route::get('/warehouses/storage-slots', [WarehousePageController::class, 'storageSlots'])->name('warehouses.storage-slots');
         Route::get('/library-settings', [LibrarySettingsPageController::class, 'index'])->name('library-settings.index');
         Route::get('/library-settings/classifications', [LibrarySettingsPageController::class, 'classifications'])->name('library-settings.classifications');
+        Route::get('/classifications', [LibraryClassificationPageController::class, 'index'])->name('classifications.index');
         Route::get('/library-cards', [LibraryCardPageController::class, 'index'])->name('library-cards.index');
         Route::get('/library-cards/requests', [LibraryCardPageController::class, 'requests'])->name('library-cards.requests');
         Route::get('/library-cards/counter', [LibraryCardPageController::class, 'counter'])->name('library-cards.counter');

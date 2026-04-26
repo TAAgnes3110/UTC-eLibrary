@@ -9,7 +9,8 @@ import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
 import { extractApiPaginator } from '@/utils/adminPagination';
 
-const BOOKS_PER_PAGE = 50;
+const BOOKS_PER_PAGE = 30;
+const CURRENT_YEAR = new Date().getFullYear();
 
 function matchLookupId(list, text) {
     const raw = (text || '').trim();
@@ -32,6 +33,14 @@ function matchLookupId(list, text) {
     return null;
 }
 
+function toLookupLabel(item) {
+    if (!item) return '';
+    const code = String(item.code ?? '').trim();
+    const name = String(item.name ?? '').trim();
+    if (code && name) return `${code} – ${name}`;
+    return name || code;
+}
+
 export const SEARCH_IN_OPTIONS = [
     { key: 'code', label: 'Mã sách' },
     { key: 'title', label: 'Tên sách' },
@@ -42,11 +51,46 @@ export const SEARCH_IN_OPTIONS = [
     { key: 'classification', label: 'Phân loại' },
 ];
 
+export const BOOK_SORT_OPTIONS = [
+    { value: 'newest', label: 'Mới nhất' },
+    { value: 'oldest', label: 'Cũ nhất' },
+];
+
+export const PRINT_TYPE_OPTIONS = [
+    { value: 'textbook', label: 'Sách giáo trình' },
+    { value: 'reference', label: 'Sách tham khảo' },
+    { value: 'all', label: 'Tất cả' },
+];
+
+const RESOURCE_TYPE_OPTIONS = [
+    { value: 'textbook', label: 'Sách giáo trình' },
+    { value: 'reference', label: 'Sách tham khảo' },
+    { value: 'digital', label: 'Tài liệu số' },
+];
+
+function normalizeResourceTypeInput(rawValue) {
+    const raw = String(rawValue || '').trim().toLowerCase();
+    if (!raw) return '';
+
+    const direct = RESOURCE_TYPE_OPTIONS.find((o) => raw === o.value || raw === o.label.toLowerCase());
+    if (direct) return direct.value;
+
+    if (raw.includes('giao trinh') || raw.includes('giáo trình') || raw === 'textbook') return 'textbook';
+    if (raw.includes('tham khao') || raw.includes('tham khảo') || raw === 'reference') return 'reference';
+    if (raw.includes('tai lieu so') || raw.includes('tài liệu số') || raw.includes('digital')) return 'digital';
+
+    return '';
+}
+
 export function useBooksAdminPage() {
     const page = usePage();
-    const pageKind = computed(() => page.props.pageKind ?? 'print');
+    const pageKind = computed(() => page.props.pageKind ?? 'printed');
     const resourceTypeFilter = computed(() => page.props.resourceTypeFilter ?? '');
-    const pageLabel = computed(() => (pageKind.value === 'digital' ? 'Tài liệu số' : 'Sách in'));
+    const pageLabel = computed(() => {
+        if (pageKind.value === 'printed') return 'Sách in';
+        if (pageKind.value === 'digital') return 'Tài liệu số';
+        return 'Sách in';
+    });
 
     const books = ref([]);
     const booksPageNum = ref(1);
@@ -60,12 +104,13 @@ export function useBooksAdminPage() {
     const saveBookLoading = ref(false);
 
     const classifications = ref([]);
-    const classificationDetails = ref([]);
-    const classificationDetailsLoaded = ref(false);
     let booksSearchDebounce = null;
+    let identifiersPreviewDebounce = null;
+    let storageSuggestionDebounce = null;
+    let identifiersRequestSerial = 0;
+    let storageSuggestionRequestSerial = 0;
     const selectedClassificationId = ref('');
     const matrixClassificationId = ref('');
-    const matrixClassificationDetailId = ref('');
     const loading = ref(false);
 
     const trashedBooks = ref([]);
@@ -73,7 +118,8 @@ export function useBooksAdminPage() {
     const filterValues = ref({
         searchKeyword: '',
         status: '',
-        priceSort: '',
+        printType: 'all',
+        priceSort: 'newest',
         searchIn: {
             code: true,
             title: true,
@@ -117,14 +163,12 @@ export function useBooksAdminPage() {
         loadBooks();
     };
 
-    function setMatrixFilter({ classificationId, classificationDetailId }) {
+    function setMatrixFilter({ classificationId }) {
         matrixClassificationId.value = classificationId != null ? String(classificationId) : '';
-        matrixClassificationDetailId.value = classificationDetailId != null ? String(classificationDetailId) : '';
     }
 
     function clearMatrixFilter() {
         matrixClassificationId.value = '';
-        matrixClassificationDetailId.value = '';
     }
 
     const showModal = ref(false);
@@ -142,6 +186,15 @@ export function useBooksAdminPage() {
 
     const showImportModal = ref(false);
     const importLoading = ref(false);
+    const bookCodeTouched = ref(false);
+    const registrationTouched = ref(false);
+    const warehouseTouched = ref(false);
+    const settingWarehouseSuggestion = ref(false);
+    const storageOptions = ref([]);
+    const storageSuggestionLoading = ref(false);
+    const storageSuggestionMessage = ref('');
+    const createCoverFile = ref(null);
+    const createCoverPreviewUrl = ref('');
 
     const {
         fieldErrors: bookFormErrors,
@@ -176,9 +229,9 @@ export function useBooksAdminPage() {
         }
         if (filterValues.value.status) {
             if (filterValues.value.status === 'in_stock') {
-                list = list.filter((b) => (b.quantity ?? 0) > 0);
+                list = list.filter((b) => (b.real_quantity ?? 0) > 0);
             } else if (filterValues.value.status === 'out_of_stock') {
-                list = list.filter((b) => (b.quantity ?? 0) <= 0);
+                list = list.filter((b) => (b.real_quantity ?? 0) <= 0);
             }
         }
         if (selectedClassificationId.value) {
@@ -188,30 +241,105 @@ export function useBooksAdminPage() {
                     String(b.classification?.id ?? '') === String(selectedClassificationId.value),
             );
         }
-        if (matrixClassificationId.value && matrixClassificationDetailId.value) {
+        if (matrixClassificationId.value) {
             list = list.filter((b) => {
                 const rowId = b.classification?.id ?? b.classification_id;
-                const colId = b.classification_detail?.id ?? b.classification_detail_id;
-                return (
-                    String(rowId ?? '') === String(matrixClassificationId.value) &&
-                    String(colId ?? '') === String(matrixClassificationDetailId.value)
-                );
-            });
-        }
-        if (filterValues.value.priceSort) {
-            const dir = filterValues.value.priceSort === 'asc' ? 1 : -1;
-            list = [...list].sort((a, b) => {
-                const pa = Number(a.price ?? 0);
-                const pb = Number(b.price ?? 0);
-                if (Number.isNaN(pa) && Number.isNaN(pb)) return 0;
-                if (Number.isNaN(pa)) return 1;
-                if (Number.isNaN(pb)) return -1;
-                if (pa === pb) return 0;
-                return pa < pb ? -dir : dir;
+                return String(rowId ?? '') === String(matrixClassificationId.value);
             });
         }
         return list;
     });
+
+    const cabinetOptions = computed(() => {
+        const seen = new Set();
+        const out = [];
+        for (const row of storageOptions.value || []) {
+            const name = String(row?.cabinet || '').trim();
+            if (!name) continue;
+            const key = name.toLowerCase();
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push(name);
+        }
+        return out;
+    });
+
+    async function previewIdentifiers() {
+        const warehouseId = matchLookupId(warehouses.value, form.value.warehouse);
+        if (!warehouseId) return;
+        const requestSerial = ++identifiersRequestSerial;
+
+        let classificationId = matchLookupId(classifications.value, form.value.classification);
+        if (!classificationId) classificationId = null;
+        try {
+            const payload = await booksApi.previewIdentifiers({
+                warehouse_id: warehouseId,
+            });
+            if (requestSerial !== identifiersRequestSerial) return;
+            const data = payload?.data ?? payload ?? {};
+            if ((!bookCodeTouched.value || !String(form.value.book_code || '').trim()) && data.book_code) {
+                form.value.book_code = String(data.book_code);
+            }
+            if ((!registrationTouched.value || !String(form.value.registration_number || '').trim()) && data.registration_number) {
+                form.value.registration_number = String(data.registration_number);
+            }
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to preview identifiers', e);
+        }
+    }
+
+    const previewWarehouseId = computed(() => matchLookupId(warehouses.value, form.value.warehouse));
+    const previewClassificationId = computed(() => matchLookupId(classifications.value, form.value.classification));
+    async function loadStorageSuggestions() {
+        const warehouseId = previewWarehouseId.value;
+        const requestSerial = ++storageSuggestionRequestSerial;
+
+        storageSuggestionMessage.value = '';
+        if (!warehouseId) {
+            storageOptions.value = [];
+            return;
+        }
+
+        const resourceType = normalizeResourceTypeInput(form.value.resource_type);
+        if (!resourceType || resourceType === 'digital') {
+            storageOptions.value = [];
+            if (resourceType === 'digital') {
+                form.value.cabinet = '';
+            }
+            return;
+        }
+
+        storageSuggestionLoading.value = true;
+        try {
+            const payload = await booksApi.storageSuggestions({
+                warehouse_id: warehouseId,
+            });
+            if (requestSerial !== storageSuggestionRequestSerial) return;
+            const data = payload?.data ?? payload ?? {};
+            const items = Array.isArray(data.items) ? data.items : [];
+            storageOptions.value = items;
+            storageSuggestionMessage.value = String(data.message || '').trim();
+
+            if (items.length === 0) {
+                form.value.cabinet = '';
+                return;
+            }
+
+            const currentCabinet = String(form.value.cabinet || '').trim();
+            const hasCurrent = items.some((row) => row.cabinet === currentCabinet);
+            if (!hasCurrent) {
+                form.value.cabinet = String(items[0].cabinet || '');
+            }
+        } catch (e) {
+            storageOptions.value = [];
+            storageSuggestionMessage.value = 'Không thể tải gợi ý tủ sách.';
+            // eslint-disable-next-line no-console
+            console.error('Failed to load storage suggestions', e);
+        } finally {
+            storageSuggestionLoading.value = false;
+        }
+    }
 
     const loadWarehouses = async () => {
         try {
@@ -229,13 +357,22 @@ export function useBooksAdminPage() {
     const loadBooks = async () => {
         loading.value = true;
         try {
+            const effectiveResourceType = (() => {
+                if (pageKind.value === 'printed') {
+                    if (filterValues.value.printType === 'textbook') return 'textbook';
+                    if (filterValues.value.printType === 'reference') return 'reference';
+                    return 'textbook,reference';
+                }
+                return resourceTypeFilter.value || undefined;
+            })();
             const response = await apiClient.get('/books', {
                 params: {
                     per_page: BOOKS_PER_PAGE,
                     page: booksPageNum.value,
                     keyword: filterValues.value.searchKeyword || undefined,
                     search_in: buildSearchInParam(),
-                    ...(resourceTypeFilter.value ? { resource_type: resourceTypeFilter.value } : {}),
+                    sort: filterValues.value.priceSort || 'newest',
+                    ...(effectiveResourceType ? { resource_type: effectiveResourceType } : {}),
                 },
             });
             const payload = response?.data;
@@ -275,31 +412,6 @@ export function useBooksAdminPage() {
         }
     };
 
-    const loadClassificationDetails = async () => {
-        if (classificationDetailsLoaded.value) return;
-        try {
-            const response = await apiClient.get('/classification-details', {
-                params: {
-                    per_page: 500,
-                },
-            });
-            const payload = response?.data;
-            const paginator = payload?.data;
-            const items = Array.isArray(paginator?.data)
-                ? paginator.data
-                : Array.isArray(paginator)
-                  ? paginator
-                  : [];
-            classificationDetails.value = items;
-            classificationDetailsLoaded.value = true;
-        } catch (e) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to load classification details', e);
-            classificationDetails.value = [];
-            classificationDetailsLoaded.value = false;
-        }
-    };
-
     onMounted(async () => {
         await loadClassifications();
     });
@@ -324,6 +436,21 @@ export function useBooksAdminPage() {
         },
     );
     watch(
+        () => filterValues.value.priceSort,
+        () => {
+            booksPageNum.value = 1;
+            loadBooks();
+        },
+    );
+    watch(
+        () => filterValues.value.printType,
+        () => {
+            if (pageKind.value !== 'printed') return;
+            booksPageNum.value = 1;
+            loadBooks();
+        },
+    );
+    watch(
         () => filterValues.value.searchIn,
         () => {
             booksPageNum.value = 1;
@@ -331,7 +458,6 @@ export function useBooksAdminPage() {
         },
         { deep: true }
     );
-
     const hasSelection = computed(() => selectedIds.value.size > 0);
     const isAllSelected = computed(
         () => filteredBooks.value.length > 0 && selectedIds.value.size === filteredBooks.value.length,
@@ -365,22 +491,114 @@ export function useBooksAdminPage() {
         registration_number: '',
         book_code: '',
         title: '',
+        sub_title: '',
+        language: '',
         authors: '',
         publisher: '',
         published_year: '',
+        pages: '',
+        book_size: '',
         description: '',
         price: '',
         classification: '',
-        classification_detail: '',
         warehouse: '',
+        cabinet: '',
         quantity: 1,
-        resource_type: pageKind.value === 'digital' ? 'digital' : 'reference',
+        resource_type: '',
     });
 
     const form = ref(emptyForm());
 
+    function clearCreateCoverFile() {
+        if (createCoverPreviewUrl.value && createCoverPreviewUrl.value.startsWith('blob:')) {
+            URL.revokeObjectURL(createCoverPreviewUrl.value);
+        }
+        createCoverFile.value = null;
+        createCoverPreviewUrl.value = '';
+    }
+
+    function setCreateCoverFile(file) {
+        if (!(file instanceof File)) {
+            clearCreateCoverFile();
+            return;
+        }
+        if (createCoverPreviewUrl.value && createCoverPreviewUrl.value.startsWith('blob:')) {
+            URL.revokeObjectURL(createCoverPreviewUrl.value);
+        }
+        createCoverFile.value = file;
+        createCoverPreviewUrl.value = URL.createObjectURL(file);
+    }
+
+    function suggestWarehouseByResourceType(resourceType) {
+        if (!Array.isArray(warehouses.value) || warehouses.value.length === 0) return null;
+        const rt = String(resourceType || '').trim();
+        if (!rt) return null;
+
+        const normalizedRows = warehouses.value.map((w) => {
+            const code = String(w?.code || '').trim();
+            const name = String(w?.name || '').trim();
+            return {
+                row: w,
+                code,
+                name,
+                codeLower: code.toLowerCase(),
+                nameLower: name.toLowerCase(),
+                combined: `${code} ${name}`.toLowerCase(),
+            };
+        });
+
+        const byPriority = (...predicates) => {
+            for (const predicate of predicates) {
+                const found = normalizedRows.find(predicate);
+                if (found) return found.row;
+            }
+            return null;
+        };
+
+        if (rt === 'textbook') {
+            return byPriority(
+                (x) => x.codeLower.includes('kho-gt'),
+                (x) => x.combined.includes('giao trinh'),
+                (x) => x.combined.includes('giáo trình')
+            );
+        }
+        if (rt === 'reference') {
+            return byPriority(
+                (x) => x.codeLower.includes('kho-tk'),
+                (x) => x.combined.includes('tham khao'),
+                (x) => x.combined.includes('tham khảo')
+            );
+        }
+        if (rt === 'digital') {
+            return byPriority(
+                (x) => x.codeLower.includes('kho-so'),
+                (x) => x.combined.includes('tai lieu so'),
+                (x) => x.combined.includes('tài liệu số'),
+                (x) => x.combined.includes('digital')
+            );
+        }
+
+        return null;
+    }
+
+    async function applyWarehouseSuggestionByResourceType() {
+        if (warehouseTouched.value) return;
+        const normalizedResourceType = normalizeResourceTypeInput(form.value.resource_type);
+        const suggestion = suggestWarehouseByResourceType(normalizedResourceType);
+        if (!suggestion) return;
+        settingWarehouseSuggestion.value = true;
+        form.value.warehouse = toLookupLabel(suggestion);
+        clearBookFieldError('warehouse');
+        settingWarehouseSuggestion.value = false;
+    }
+
     async function collectBookClientErrors() {
         const errors = {};
+        const allowedResourceTypes = ['textbook', 'reference', 'digital'];
+        const resourceType = normalizeResourceTypeInput(form.value.resource_type);
+        if (!allowedResourceTypes.includes(resourceType)) {
+            errors.resource_type = 'Vui lòng chọn loại sách hợp lệ.';
+        }
         const title = String(form.value.title || '').trim();
         if (!title) errors.title = bookFormClientError.titleRequired;
 
@@ -407,20 +625,6 @@ export function useBooksAdminPage() {
             }
         }
 
-        const clsDet = String(form.value.classification_detail || '').trim();
-        if (!clsDet) {
-            errors.classification_detail = bookFormClientError.classificationDetailEmpty;
-        } else {
-            const pool =
-                classificationId != null
-                    ? classificationDetails.value.filter((d) => String(d.classification_id) === String(classificationId))
-                    : classificationDetails.value;
-            const detailId = matchLookupId(pool, form.value.classification_detail);
-            if (!detailId) {
-                errors.classification_detail = bookFormClientError.classificationDetailNoMatch;
-            }
-        }
-
         const qtyRaw = parseInt(String(form.value.quantity ?? 0), 10);
         if (Number.isNaN(qtyRaw) || qtyRaw < 0) {
             errors.quantity = bookFormClientError.quantityInvalid;
@@ -430,58 +634,74 @@ export function useBooksAdminPage() {
             return { ok: false, errors };
         }
 
-        const classificationDetailId = (() => {
-            const pool =
-                classificationId != null
-                    ? classificationDetails.value.filter((d) => String(d.classification_id) === String(classificationId))
-                    : classificationDetails.value;
-            return matchLookupId(pool, form.value.classification_detail);
-        })();
+        const cabinetName = String(form.value.cabinet || '').trim();
+        if (Object.keys(errors).length > 0) {
+            return { ok: false, errors };
+        }
 
         return {
             ok: true,
             title,
+            resourceType,
             warehouseId,
             classificationId,
-            classificationDetailId,
             quantity: Math.max(0, qtyRaw),
+            cabinetName,
         };
     }
 
     const openAddModal = async () => {
-        await loadClassificationDetails();
-        await loadWarehouses();
+        await Promise.allSettled([loadWarehouses()]);
         isEditing.value = false;
         form.value = emptyForm();
+        clearCreateCoverFile();
+        warehouseTouched.value = false;
+        settingWarehouseSuggestion.value = false;
+        bookCodeTouched.value = false;
+        registrationTouched.value = false;
+        storageOptions.value = [];
+        storageSuggestionMessage.value = '';
+        await applyWarehouseSuggestionByResourceType();
         clearBookFormErrors();
         showModal.value = true;
     };
 
     const openEditModal = async (book) => {
-        await loadClassificationDetails();
-        await loadWarehouses();
+        await Promise.allSettled([loadWarehouses()]);
         isEditing.value = true;
         clearBookFormErrors();
+        const editResourceTypeRaw = String(book.resource_type || '').trim();
+        const editResourceTypeNormalized = normalizeResourceTypeInput(editResourceTypeRaw);
+        const editResourceTypeLabel = RESOURCE_TYPE_OPTIONS.find((o) => o.value === editResourceTypeNormalized)?.label
+            || editResourceTypeRaw;
         form.value = {
             id: book.id ?? null,
             registration_number: book.registration_number || '',
             book_code: book.book_code || '',
             title: book.title || '',
+            sub_title: book.sub_title || '',
+            language: book.language || '',
             authors: book.authors_label || '',
             publisher: book.publishers_label || '',
             published_year: book.published_year || '',
+            pages: book.pages ?? '',
+            book_size: book.book_size || '',
             description: book.summary || '',
             price: book.price ?? '',
             classification: book.classification
                 ? `${book.classification.code || ''} – ${book.classification.name || ''}`.trim()
                 : '',
-            classification_detail: book.classification_detail
-                ? `${book.classification_detail.code || ''} – ${book.classification_detail.name || ''}`.trim()
-                : '',
             warehouse: book.warehouse?.name || '',
+            cabinet: book.cabinet || '',
             quantity: book.quantity ?? 1,
-            resource_type: book.resource_type || (pageKind.value === 'digital' ? 'digital' : 'reference'),
+            resource_type: editResourceTypeLabel,
         };
+        clearCreateCoverFile();
+        warehouseTouched.value = true;
+        settingWarehouseSuggestion.value = false;
+        bookCodeTouched.value = true;
+        registrationTouched.value = true;
+        storageSuggestionMessage.value = '';
         showModal.value = true;
     };
 
@@ -494,14 +714,19 @@ export function useBooksAdminPage() {
             toast.error(toastShort.fail);
             return;
         }
-        const { title, warehouseId, classificationId, classificationDetailId, quantity: qty } = client;
+        const {
+            title,
+            resourceType,
+            warehouseId,
+            classificationId,
+            quantity: qty,
+            cabinetName
+        } = client;
         const payload = {
             title,
             warehouse_id: warehouseId,
             quantity: qty,
-            resource_type:
-                String(form.value.resource_type || '').trim() ||
-                (pageKind.value === 'digital' ? 'digital' : 'reference'),
+            resource_type: resourceType,
         };
         const reg = String(form.value.registration_number || '').trim();
         if (reg) payload.registration_number = reg;
@@ -511,14 +736,22 @@ export function useBooksAdminPage() {
         payload.authors = authors;
         const publisher = String(form.value.publisher || '').trim();
         payload.publisher = publisher;
+        if (cabinetName) payload.cabinet = cabinetName;
         const summary = String(form.value.description || '').trim();
         if (summary) payload.summary = summary;
+        const subTitle = String(form.value.sub_title || '').trim();
+        if (subTitle) payload.sub_title = subTitle;
+        const language = String(form.value.language || '').trim();
+        if (language) payload.language = language;
         const py = parseInt(String(form.value.published_year || ''), 10);
-        if (!Number.isNaN(py) && py >= 1900 && py <= 2100) payload.published_year = py;
+        if (!Number.isNaN(py) && py >= 1900 && py <= CURRENT_YEAR) payload.published_year = py;
+        const pages = parseInt(String(form.value.pages || ''), 10);
+        if (!Number.isNaN(pages) && pages >= 0) payload.pages = pages;
+        const bookSize = String(form.value.book_size || '').trim();
+        if (bookSize) payload.book_size = bookSize;
         const priceNum = parseInt(String(form.value.price ?? ''), 10);
         if (!Number.isNaN(priceNum) && priceNum >= 0) payload.price = priceNum;
         if (classificationId) payload.classification_id = classificationId;
-        if (classificationDetailId) payload.classification_detail_id = classificationDetailId;
 
         saveBookLoading.value = true;
         try {
@@ -526,10 +759,18 @@ export function useBooksAdminPage() {
                 await booksApi.update(form.value.id, payload);
                 toast.success(toastShort.ok);
             } else {
-                await booksApi.create(payload);
+                const created = await booksApi.create(payload);
+                const createdBook = created?.data ?? created ?? {};
+                const createdId = Number(createdBook?.id ?? 0);
+                if (createCoverFile.value && Number.isInteger(createdId) && createdId > 0) {
+                    const coverData = new FormData();
+                    coverData.append('book_cover', createCoverFile.value);
+                    await booksApi.updateCover(createdId, coverData);
+                }
                 toast.success(toastShort.ok);
             }
             showModal.value = false;
+            clearCreateCoverFile();
             await loadBooks();
         } catch (e) {
             // eslint-disable-next-line no-console
@@ -665,14 +906,36 @@ export function useBooksAdminPage() {
             const payload = res?.data ?? res;
             const errors = payload?.errors || [];
             if (Array.isArray(errors) && errors.length > 0) {
-                toast.error(toastShort.fail);
+                const preview = errors
+                    .slice(0, 3)
+                    .map((item) => {
+                        const row = item?.row ? `Dòng ${item.row}: ` : '';
+                        return `${row}${item?.message || 'Dữ liệu không hợp lệ.'}`;
+                    })
+                    .join(' | ');
+                const suffix = errors.length > 3 ? ` (còn ${errors.length - 3} lỗi khác)` : '';
+                toast.error(`${preview}${suffix}`, { title: `Import thất bại (${errors.length} lỗi)` });
             } else {
                 toast.success(toastShort.ok);
             }
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error(e);
-            toast.error(toastShort.fail);
+            const err = e?.response?.data || {};
+            const apiErrors = Array.isArray(err?.errors) ? err.errors : [];
+            if (apiErrors.length > 0) {
+                const preview = apiErrors
+                    .slice(0, 3)
+                    .map((item) => {
+                        const row = item?.row ? `Dòng ${item.row}: ` : '';
+                        return `${row}${item?.message || 'Dữ liệu không hợp lệ.'}`;
+                    })
+                    .join(' | ');
+                const suffix = apiErrors.length > 3 ? ` (còn ${apiErrors.length - 3} lỗi khác)` : '';
+                toast.error(`${preview}${suffix}`, { title: `Import thất bại (${apiErrors.length} lỗi)` });
+            } else {
+                toast.error(err?.message || toastShort.fail);
+            }
         } finally {
             importLoading.value = false;
         }
@@ -773,6 +1036,62 @@ export function useBooksAdminPage() {
         showCoverModal.value = true;
     };
 
+    function markBookCodeTouched() {
+        bookCodeTouched.value = true;
+    }
+
+    function markRegistrationTouched() {
+        registrationTouched.value = true;
+    }
+
+    watch(
+        () => [
+            showModal.value,
+            previewWarehouseId.value,
+            normalizeResourceTypeInput(form.value.resource_type),
+        ],
+        ([open, warehouseId]) => {
+            if (!open) {
+                clearCreateCoverFile();
+                identifiersRequestSerial++;
+                storageSuggestionRequestSerial++;
+                if (identifiersPreviewDebounce) clearTimeout(identifiersPreviewDebounce);
+                if (storageSuggestionDebounce) clearTimeout(storageSuggestionDebounce);
+                storageSuggestionLoading.value = false;
+                return;
+            }
+
+            if (identifiersPreviewDebounce) clearTimeout(identifiersPreviewDebounce);
+            identifiersPreviewDebounce = setTimeout(() => {
+                if (!warehouseId) return;
+                previewIdentifiers();
+            }, 120);
+
+            if (storageSuggestionDebounce) clearTimeout(storageSuggestionDebounce);
+            storageSuggestionDebounce = setTimeout(() => {
+                loadStorageSuggestions();
+            }, 120);
+        }
+    );
+
+    watch(
+        () => form.value.resource_type,
+        async () => {
+            if (!showModal.value || isEditing.value) return;
+            await Promise.allSettled([loadWarehouses()]);
+            await applyWarehouseSuggestionByResourceType();
+        }
+    );
+
+    watch(
+        () => form.value.warehouse,
+        () => {
+            if (!showModal.value || isEditing.value) return;
+            if (settingWarehouseSuggestion.value) return;
+            warehouseTouched.value = true;
+        }
+    );
+
     const closeCoverModal = () => {
         showCoverModal.value = false;
         coverTargetBookId.value = null;
@@ -860,14 +1179,18 @@ export function useBooksAdminPage() {
         goBooksPage,
         searchBooks,
         matrixClassificationId,
-        matrixClassificationDetailId,
         setMatrixFilter,
         clearMatrixFilter,
         warehouses,
         saveBookLoading,
         loading,
         classifications,
-        classificationDetails,
+        cabinetOptions,
+        storageSuggestionLoading,
+        storageSuggestionMessage,
+        createCoverPreviewUrl,
+        setCreateCoverFile,
+        clearCreateCoverFile,
         filterValues,
         showFilterPanel,
         filteredBooks,
@@ -910,5 +1233,7 @@ export function useBooksAdminPage() {
         openCoverModal,
         closeCoverModal,
         uploadCover,
+        markBookCodeTouched,
+        markRegistrationTouched,
     };
 }

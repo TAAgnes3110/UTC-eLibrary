@@ -6,7 +6,7 @@ use App\Enums\AccessMode;
 use App\Enums\ResourceType;
 use App\Models\Author;
 use App\Models\Book;
-use App\Models\ClassificationDetail;
+use App\Models\Classification;
 use App\Models\Publisher;
 use App\Models\Warehouse;
 use Illuminate\Database\Seeder;
@@ -18,12 +18,11 @@ class BookSampleSeeder extends Seeder
 
     public function run(): void
     {
-        $classificationDetails = ClassificationDetail::query()
-            ->with('classification:id,code,name')
-            ->orderBy('classification_id')
+        $classifications = Classification::query()
+            ->orderBy('id')
             ->orderBy('code')
             ->get();
-        if ($classificationDetails->isEmpty()) {
+        if ($classifications->isEmpty()) {
             return;
         }
 
@@ -91,18 +90,14 @@ class BookSampleSeeder extends Seeder
 
         foreach ($configs as $config) {
             for ($i = 0; $i < self::TITLES_PER_WAREHOUSE; $i++) {
-                $detail = $classificationDetails[$i % $classificationDetails->count()];
-                $classification = $detail->classification;
-                if (! $classification) {
-                    continue;
-                }
+                $classification = $classifications[$i % $classifications->count()];
 
                 $prefix = $config['prefixes'][$i % count($config['prefixes'])];
                 $topic = $topics[$i % count($topics)];
                 $title = sprintf(
                     '%s %s - %s %03d',
                     $prefix,
-                    $detail->name,
+                    $classification->name,
                     $topic,
                     $i + 1
                 );
@@ -127,16 +122,14 @@ class BookSampleSeeder extends Seeder
                     'book_size' => '16x24cm',
                     'price' => 70000 + ($i * 1200),
                     'quantity' => 2 + ($i % 6),
-                    'summary' => 'Dữ liệu mẫu chuẩn hóa cho quản lý kho, tủ và ngăn thư viện UTC.',
+                    'summary' => 'Dữ liệu mẫu chuẩn hóa cho quản lý kho và tủ thư viện UTC.',
                     'notes' => null,
                     'publisher_place' => 'Hà Nội',
                     'cabinet' => $classification->code,
-                    'shelf' => $detail->code,
                     'resource_type' => $config['resource_type'],
                     'access_mode' => AccessMode::CirculationOnly->value,
                     'warehouse' => $config['warehouse'],
                     'classification' => $classification,
-                    'detail' => $detail,
                     'authors' => $authorNames,
                     'publishers' => [$publisherName],
                 ];
@@ -159,9 +152,7 @@ class BookSampleSeeder extends Seeder
                         'notes' => $row['notes'],
                         'publisher_place' => $row['publisher_place'],
                         'cabinet' => $row['cabinet'],
-                        'shelf' => $row['shelf'],
                         'classification_id' => $row['classification']->id,
-                        'classification_detail_id' => $row['detail']->id,
                         'warehouse_id' => $row['warehouse']->id,
                         'resource_type' => $row['resource_type'],
                         'access_mode' => $row['access_mode'],

@@ -70,8 +70,7 @@ function holderTypeLabel(ht) {
 function resourceTypeLabel(type) {
     if (type === 'textbook') return 'Giáo trình';
     if (type === 'reference') return 'Tài liệu tham khảo';
-    if (type === 'journal') return 'Tạp chí';
-    if (type === 'thesis') return 'Luận văn/đồ án';
+    if (type === 'journal' || type === 'thesis') return 'Tài liệu tham khảo';
     if (type === 'digital') return 'Tài liệu số';
     return '—';
 }

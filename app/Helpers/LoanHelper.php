@@ -4,20 +4,25 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use App\Enums\BookPhysicalCondition;
+use App\Enums\BookStatus;
 use App\Enums\LoanItemCondition;
 use App\Enums\ResourceType;
 use App\Models\Book;
+use App\Models\BookCopy;
 use App\Models\LibraryCard;
 use App\Models\Loan;
 use App\Models\LoanItem;
 use App\Models\LoanPolicy;
 use App\Services\LoanPoliciesService;
+use App\Services\StorageQuantitySyncService;
 use RuntimeException;
 
 class LoanHelper
 {
     public function __construct(
-        private LoanPoliciesService $loanPoliciesService
+        private LoanPoliciesService $loanPoliciesService,
+        private StorageQuantitySyncService $storageQuantitySyncService
     ) {}
 
     /**
@@ -220,6 +225,7 @@ class LoanHelper
             $book->save();
         }
 
+        $this->deductBookCopiesByDeltas($bookDeltas);
     }
 
     /**
@@ -253,6 +259,70 @@ class LoanHelper
             $book->save();
         }
 
+        $this->restockBookCopiesByDeltas($bookDeltas);
+    }
+
+    /**
+     * Trừ bản sách khả dụng theo từng đầu sách: chuyển AVAILABLE -> BORROWED.
+     *
+     * @param  array<int, int>  $bookDeltas
+     */
+    private function deductBookCopiesByDeltas(array $bookDeltas): void
+    {
+        foreach ($bookDeltas as $bookId => $delta) {
+            if ($delta <= 0) {
+                continue;
+            }
+            $copies = BookCopy::query()
+                ->where('book_id', $bookId)
+                ->where('status', BookStatus::AVAILABLE)
+                ->whereIn('physical_condition', BookPhysicalCondition::borrowableValues())
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->limit($delta)
+                ->get(['id']);
+
+            if ($copies->count() < $delta) {
+                throw new RuntimeException('Số lượng bản sách sẵn sàng cho mượn không đủ');
+            }
+
+            BookCopy::query()
+                ->whereIn('id', $copies->pluck('id')->all())
+                ->update(['status' => BookStatus::BORROWED->value]);
+        }
+
+        $this->storageQuantitySyncService->syncAll();
+    }
+
+    /**
+     * Hoàn bản sách theo từng đầu sách: chuyển BORROWED -> AVAILABLE.
+     *
+     * @param  array<int, int>  $bookDeltas
+     */
+    private function restockBookCopiesByDeltas(array $bookDeltas): void
+    {
+        foreach ($bookDeltas as $bookId => $delta) {
+            if ($delta <= 0) {
+                continue;
+            }
+            $copies = BookCopy::query()
+                ->where('book_id', $bookId)
+                ->where('status', BookStatus::BORROWED)
+                ->lockForUpdate()
+                ->orderBy('id')
+                ->limit($delta)
+                ->get(['id']);
+
+            if ($copies->count() < $delta) {
+                throw new RuntimeException('Không đủ bản sách đang mượn để hoàn kho');
+            }
+
+            BookCopy::query()
+                ->whereIn('id', $copies->pluck('id')->all())
+                ->update(['status' => BookStatus::AVAILABLE->value]);
+        }
+
+        $this->storageQuantitySyncService->syncAll();
     }
 
     /**

@@ -2,17 +2,19 @@
 
 namespace App\Services;
 
+use App\Enums\BookPhysicalCondition;
+use App\Enums\BookStatus;
 use App\Enums\ResourceType;
 use App\Exports\BooksWorkbookExport;
 use App\Helpers\FileHelpers;
 use App\Imports\BookImport;
-use App\Enums\BookPhysicalCondition;
-use App\Enums\BookStatus;
 use App\Models\Author;
 use App\Models\Book;
-use App\Models\ClassificationDetail;
+use App\Models\Classification;
 use App\Models\Publisher;
+use App\Models\StorageCabinet;
 use App\Models\Warehouse;
+use App\Support\WarehouseBookIdentifiers;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -36,12 +38,12 @@ class BookService
             unset($bookData['thesis_metadata'], $bookData['authors'], $bookData['publisher']);
 
             $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
+            $this->ensureStorageLocationForBookData($bookData, null);
             if (empty($bookData['registration_number'])) {
                 $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
             }
-            if (! empty($bookData['classification_detail_id']) && empty($bookData['book_code'])) {
-                $classificationDetail = ClassificationDetail::findOrFail($bookData['classification_detail_id']);
-                $bookData['book_code'] = $this->generateBookCode($classificationDetail, $warehouse);
+            if (empty($bookData['book_code'])) {
+                $bookData['book_code'] = $this->generateBookCode($warehouse);
             }
             $book = Book::create($bookData);
             $this->syncContributors($book, $authorsInput, $publisherInput);
@@ -51,8 +53,8 @@ class BookService
 
             return $book->fresh([
                 'classification:id,code,name',
-                'classificationDetail:id,code,name',
                 'warehouse:id,code,name',
+                'representativeStoredCopy',
                 'thesisMetadata',
             ]);
         });
@@ -76,6 +78,7 @@ class BookService
             $syncThesis = array_key_exists('thesis_metadata', $data);
             $thesisMeta = $data['thesis_metadata'] ?? null;
             unset($data['thesis_metadata']);
+            $this->ensureStorageLocationForBookData($data, $book);
 
             $book->update($data);
             $this->syncContributors($book, $authorsInput, $publisherInput);
@@ -85,10 +88,10 @@ class BookService
 
             return $book->fresh([
                 'classification:id,code,name',
-                'classificationDetail:id,code,name',
                 'warehouse:id,code,name',
                 'authors:id,name',
                 'publishers:id,name',
+                'representativeStoredCopy',
                 'thesisMetadata',
             ]);
         });
@@ -101,12 +104,20 @@ class BookService
     {
         return $book->load([
             'classification:id,code,name',
-            'classificationDetail:id,code,name,classification_id',
             'warehouse:id,code,name',
             'authors:id,name',
             'publishers:id,name',
+            'representativeStoredCopy',
             'digitalAssets',
             'thesisMetadata',
+            'loanItems' => fn ($q) => $q
+                ->with([
+                    'loan:id,loan_code,loan_date,due_date,return_date,status,library_card_id',
+                    'loan.libraryCard:id,user_id,full_name,card_number',
+                    'loan.libraryCard.user:id,full_name,name,email',
+                ])
+                ->latest('id')
+                ->limit(20),
         ]);
     }
 
@@ -117,11 +128,13 @@ class BookService
         ?string $keyword,
         ?string $resourceType,
         int $perPage = self::PER_PAGE,
-        ?array $keywordColumns = null
+        ?array $keywordColumns = null,
+        ?string $sort = null
     ): LengthAwarePaginator {
         $query = $this->baseBookListQuery();
         $this->applyResourceTypeFilter($query, $resourceType);
         $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
+        $this->applySortToBookQuery($query, $sort);
 
         return $query->paginate($perPage)->withQueryString();
     }
@@ -137,7 +150,6 @@ class BookService
         int $perPage,
         ?array $keywordColumns,
         ?int $classificationId,
-        ?int $classificationDetailId,
         ?string $stock,
         string $sort = 'newest'
     ): LengthAwarePaginator {
@@ -147,9 +159,6 @@ class BookService
 
         if ($classificationId !== null) {
             $query->where('classification_id', $classificationId);
-        }
-        if ($classificationDetailId !== null) {
-            $query->where('classification_detail_id', $classificationDetailId);
         }
         if ($stock === 'in_stock') {
             $query->where('quantity', '>', 0);
@@ -207,11 +216,50 @@ class BookService
         return Book::query()
             ->with([
                 'classification:id,code,name',
-                'classificationDetail:id,code,name',
                 'warehouse:id,code,name',
                 'authors:id,name',
                 'publishers:id,name',
-            ]);
+                'representativeStoredCopy',
+            ])
+            ->withCount([
+                'availableCopies as available_copies_count',
+                'copies as copies_count',
+                'copies as borrowed_copies_count' => fn (Builder $q) => $q
+                    ->where('status', BookStatus::BORROWED),
+                'copies as lost_copies_count' => fn (Builder $q) => $q
+                    ->where('status', BookStatus::LOST),
+                'copies as warehouse_copies_count' => fn (Builder $q) => $q
+                    ->where('status', BookStatus::AVAILABLE),
+            ])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
+    private function applySortToBookQuery(Builder $query, ?string $sort): void
+    {
+        $sort = strtolower(trim((string) $sort));
+        if ($sort === '') {
+            return;
+        }
+
+        $query->reorder();
+        if ($sort === 'oldest') {
+            $query->orderBy('created_at')->orderBy('id');
+
+            return;
+        }
+        if ($sort === 'az') {
+            $query->orderBy('title')->orderBy('id');
+
+            return;
+        }
+        if ($sort === 'za') {
+            $query->orderByDesc('title')->orderByDesc('id');
+
+            return;
+        }
+
+        $query->orderByDesc('created_at')->orderByDesc('id');
     }
 
     /**
@@ -260,10 +308,6 @@ class BookService
             if (in_array('classification', $effectiveColumns, true)) {
                 $method = $applied ? 'orWhereHas' : 'whereHas';
                 $q->{$method}('classification', function ($sub) use ($keyword) {
-                    $sub->where('code', 'like', "%{$keyword}%")
-                        ->orWhere('name', 'like', "%{$keyword}%");
-                });
-                $q->orWhereHas('classificationDetail', function ($sub) use ($keyword) {
                     $sub->where('code', 'like', "%{$keyword}%")
                         ->orWhere('name', 'like', "%{$keyword}%");
                 });
@@ -416,10 +460,10 @@ class BookService
         return Book::onlyTrashed()
             ->with([
                 'classification:id,code,name',
-                'classificationDetail:id,code,name',
                 'warehouse:id,code,name',
                 'authors:id,name',
                 'publishers:id,name',
+                'representativeStoredCopy',
             ])
             ->orderByDesc('deleted_at')
             ->paginate($perPage)
@@ -484,7 +528,11 @@ class BookService
     public function adminList(int $perPage = 20): array
     {
         $books = Book::query()
-            ->with(['classification:id,name', 'classificationDetail:id,name', 'warehouse:id,name'])
+            ->with([
+                'classification:id,name',
+                'warehouse:id,name',
+                'representativeStoredCopy',
+            ])
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
@@ -504,47 +552,161 @@ class BookService
     }
 
     /**
-     * Sinh số đăng ký cá biệt theo từng kho.
-     * Ví dụ: TVTT-0001
+     * Gợi ý mã sách và số đăng ký cá biệt theo kho (mã kho + phần số, viết liền).
+     *
+     * @return array{book_code: ?string, registration_number: string}
      */
-    private function generateRegistrationNumber(Warehouse $warehouse): string
+    public function previewIdentifiers(int $warehouseId): array
     {
-        $lastRegistration = Book::query()
-            ->where('warehouse_id', $warehouse->id)
-            ->whereNotNull('registration_number')
-            ->orderByDesc('id')
-            ->value('registration_number');
-        $nextNumber = 1;
-        if ($lastRegistration && preg_match('/(\d+)$/', $lastRegistration, $matches)) {
-            $nextNumber = (int) $matches[1] + 1;
-        }
-
-        return sprintf('%s-%04d', $warehouse->code, $nextNumber);
+        $warehouse = Warehouse::findOrFail($warehouseId);
+        return [
+            'book_code' => $this->generateBookCode($warehouse),
+            'registration_number' => $this->generateRegistrationNumber($warehouse),
+        ];
     }
 
     /**
-     * Sinh mã đầu sách (book_code) theo quy tắc:
-     * <Mã phân loại rút gọn> - <Mã kho> - <Số thứ tự 4 chữ số>
-     *
-     * Ví dụ: 6242-TVTT-0015
+     * Kho tài liệu số (KHO-SO, …) không gán vị trí lưu trữ vật lý.
      */
-    private function generateBookCode(ClassificationDetail $classificationDetail, Warehouse $warehouse): string
+    public function isDigitalDocumentWarehouse(Warehouse $warehouse): bool
     {
-        $shortClassificationCode = str_replace('.', '', (string) $classificationDetail->code);
-
-        $lastBookCode = Book::query()
-            ->where('classification_detail_id', $classificationDetail->id)
-            ->where('warehouse_id', $warehouse->id)
-            ->whereNotNull('book_code')
-            ->orderByDesc('id')
-            ->value('book_code');
-        $nextOrder = 1;
-        if ($lastBookCode && preg_match('/-(\d{4})$/', $lastBookCode, $matches)) {
-            $nextOrder = (int) $matches[1] + 1;
+        $code = strtolower(trim((string) $warehouse->code));
+        if (str_contains($code, 'kho-so')) {
+            return true;
         }
-        $orderPart = str_pad((string) $nextOrder, 4, '0', STR_PAD_LEFT);
+        $name = strtolower((string) $warehouse->name);
 
-        return sprintf('%s-%s-%s', $shortClassificationCode, $warehouse->code, $orderPart);
+        return str_contains($name, 'tài liệu số') || str_contains($name, 'tai lieu so');
+    }
+
+    /**
+     * @return array<int, array{cabinet:string,stored_count:int}>
+     */
+    public function suggestStorageCabinets(int $warehouseId): array
+    {
+        $warehouse = Warehouse::query()->find($warehouseId);
+        if (! $warehouse || $this->isDigitalDocumentWarehouse($warehouse)) {
+            return [];
+        }
+
+        return StorageCabinet::query()
+            ->select(['id', 'name', 'current_quantity'])
+            ->where('warehouse_id', $warehouseId)
+            ->where('is_active', true)
+            ->get()
+            ->map(function (StorageCabinet $cabinet) {
+                return [
+                    'cabinet' => (string) ($cabinet->name ?? ''),
+                    'stored_count' => max(0, (int) ($cabinet->current_quantity ?? 0)),
+                ];
+            })
+            ->sortBy('stored_count')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Sinh số đăng ký cá biệt theo từng kho (mã kho + 4 chữ số, không gạch nối), ví dụ TVTT0001.
+     */
+    private function generateRegistrationNumber(Warehouse $warehouse): string
+    {
+        return WarehouseBookIdentifiers::nextRegistrationNumber($warehouse);
+    }
+
+    /**
+     * Sinh mã sách: mã kho + số thứ tự 4 chữ số, không gạch nối (ví dụ KHO-GT0001).
+     */
+    private function generateBookCode(Warehouse $warehouse): string
+    {
+        return WarehouseBookIdentifiers::nextBookCode($warehouse);
+    }
+
+    /**
+     * Đồng bộ vị trí tủ theo kho + phân loại.
+     * Nếu chưa có tủ phù hợp thì tự tạo mới.
+     *
+     * @param  array<string, mixed>  $bookData
+     */
+    private function ensureStorageLocationForBookData(array &$bookData, ?Book $existingBook): void
+    {
+        $warehouseId = isset($bookData['warehouse_id'])
+            ? (int) $bookData['warehouse_id']
+            : (int) ($existingBook?->warehouse_id ?? 0);
+        $classificationId = isset($bookData['classification_id'])
+            ? (int) $bookData['classification_id']
+            : (int) ($existingBook?->classification_id ?? 0);
+
+        if ($warehouseId <= 0 || $classificationId <= 0) {
+            return;
+        }
+
+        $warehouse = Warehouse::findOrFail($warehouseId);
+        if ($this->isDigitalDocumentWarehouse($warehouse)) {
+            $bookData['cabinet'] = null;
+
+            return;
+        }
+
+        $classification = Classification::findOrFail($classificationId);
+        $cabinet = StorageCabinet::withTrashed()
+            ->where('warehouse_id', $warehouse->id)
+            ->where('classification_id', $classification->id)
+            ->orderByDesc('id')
+            ->first();
+        if (! $cabinet) {
+            $cabinetName = trim(sprintf(
+                'Tủ %s%s',
+                $classification->code ? "{$classification->code} - " : '',
+                (string) $classification->name
+            ));
+            $cabinet = StorageCabinet::query()->create([
+                'warehouse_id' => (int) $warehouse->id,
+                'classification_id' => (int) $classification->id,
+                'code' => $this->generateStorageCabinetCode($warehouse),
+                'name' => mb_substr($cabinetName, 0, 160),
+                'is_active' => true,
+                'current_quantity' => 0,
+                'params' => [],
+            ]);
+        } else {
+            if ($cabinet->trashed()) {
+                $cabinet->restore();
+            }
+            if (! $cabinet->is_active) {
+                $cabinet->is_active = true;
+                $cabinet->save();
+            }
+        }
+
+        $bookData['cabinet'] = (string) $cabinet->name;
+    }
+
+    private function generateStorageCabinetCode(Warehouse $warehouse): string
+    {
+        $shortWarehouseCode = strtoupper(str_replace('KHO-', '', trim((string) $warehouse->code)));
+        $prefix = 'TU-'.($shortWarehouseCode !== '' ? $shortWarehouseCode : 'WH').'-';
+
+        $existingCodes = StorageCabinet::query()
+            ->withTrashed()
+            ->where('warehouse_id', $warehouse->id)
+            ->pluck('code')
+            ->filter()
+            ->values();
+
+        $max = 0;
+        foreach ($existingCodes as $code) {
+            $codeStr = (string) $code;
+            if (! str_starts_with($codeStr, $prefix)) {
+                continue;
+            }
+            $numberPart = substr($codeStr, strlen($prefix));
+            if (! ctype_digit($numberPart)) {
+                continue;
+            }
+            $max = max($max, (int) $numberPart);
+        }
+
+        return sprintf('%s%02d', $prefix, $max + 1);
     }
 
     /**

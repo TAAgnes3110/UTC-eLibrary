@@ -125,7 +125,7 @@ class LibraryCard extends BaseModel
     {
         return DB::transaction(function () {
             do {
-                $candidate = 'UTC-'.now()->format('Ymd').'-'.strtoupper(Str::random(6));
+                $candidate = 'UTC'.now()->format('Ymd').strtoupper(Str::random(6));
             } while (static::query()->where('card_number', $candidate)->exists());
 
             return $candidate;

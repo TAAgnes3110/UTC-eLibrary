@@ -42,8 +42,20 @@ export const booksApi = {
             responseType: 'blob',
         });
     },
+    exportLost(params = {}) {
+        return client.get('/books/export-lost', {
+            params,
+            responseType: 'blob',
+        });
+    },
     import(formData) {
         return client.post('/books/import', formData).then((r) => r.data);
+    },
+    previewIdentifiers(params = {}) {
+        return client.get('/books/preview-identifiers', { params }).then((r) => r.data);
+    },
+    storageSuggestions(params = {}) {
+        return client.get('/books/storage-suggestions', { params }).then((r) => r.data);
     },
     updateCover(id, formData) {
         return client.post(`/books/${id}/image`, formData).then((r) => r.data);

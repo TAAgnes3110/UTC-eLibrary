@@ -341,14 +341,17 @@ onMounted(() => {
                                             :href="item.proof_image_url"
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
+                                            class="inline-flex flex-col items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                                             title="Xem ảnh minh chứng"
                                         >
-                                            <img
-                                                :src="item.proof_image_url"
-                                                alt="Minh chứng"
-                                                class="h-11 w-11 object-cover"
-                                            />
+                                            <span class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                                                <img
+                                                    :src="item.proof_image_url"
+                                                    alt="Minh chứng"
+                                                    class="h-11 w-11 object-cover"
+                                                />
+                                            </span>
+                                            <span class="text-[10px] font-semibold leading-none">Nhấn để xem</span>
                                         </a>
                                         <span v-else class="text-[12px] text-slate-500">—</span>
                                     </td>

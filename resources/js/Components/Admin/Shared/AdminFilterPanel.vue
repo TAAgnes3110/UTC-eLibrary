@@ -31,7 +31,7 @@ const toggleFilter = (key) => {
     <div ref="panelRef" class="relative flex items-center">
         <button
             type="button"
-            class="flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
+            class="flex items-center gap-1.5 h-10 px-3 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700"
             :class="{ 'bg-slate-100 dark:bg-slate-800 ring-1 ring-blue-500/30': show }"
             @click="$emit('update:show', !show)"
         >
@@ -40,7 +40,7 @@ const toggleFilter = (key) => {
         </button>
         <div
             v-show="show"
-            class="absolute top-full left-0 mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-3 z-30 flex gap-6"
+            class="absolute top-full left-0 mt-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-3 z-30 flex flex-col sm:flex-row gap-4 sm:gap-6 max-w-[calc(100vw-1rem)] overflow-x-auto"
         >
             <div class="min-w-[160px]">
                 <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Tìm theo các cột</p>

@@ -24,7 +24,7 @@ class ReaderBookCardResource extends JsonResource
             }
 
             $coverImage = Storage::disk('public')->exists($normalizedPath)
-                ? Storage::disk('public')->url($normalizedPath)
+                ? Storage::url($normalizedPath)
                 : $defaultCover;
         }
 
@@ -42,7 +42,6 @@ class ReaderBookCardResource extends JsonResource
             'resource_type' => $rt,
             'resource_type_label' => self::resourceTypeLabel($rt),
             'classification_name' => $this->whenLoaded('classification', fn () => $this->classification?->name),
-            'classification_detail_name' => $this->whenLoaded('classificationDetail', fn () => $this->classificationDetail?->name),
             'quantity' => (int) ($this->quantity ?? 0),
             'status_label' => $this->status_label,
             'is_available' => $this->is_available,
@@ -54,8 +53,8 @@ class ReaderBookCardResource extends JsonResource
         return match ($value) {
             'textbook' => 'Sách giáo khoa',
             'reference' => 'Sách tham khảo',
-            'thesis' => 'Luận văn / luận án',
-            'journal' => 'Tạp chí',
+            // Legacy data: vẫn hiển thị theo nhóm tham khảo.
+            'thesis', 'journal' => 'Sách tham khảo',
             'digital' => 'Tài liệu số',
             default => $value,
         };

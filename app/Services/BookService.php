@@ -11,6 +11,10 @@ use App\Imports\BookImport;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\Classification;
+use App\Models\Loan;
+use App\Models\LoanBorrowRequest;
+use App\Models\LoanBorrowRequestItem;
+use App\Models\LoanItem;
 use App\Models\Publisher;
 use App\Models\StorageCabinet;
 use App\Models\Warehouse;
@@ -18,6 +22,7 @@ use App\Support\WarehouseBookIdentifiers;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -114,7 +119,7 @@ class BookService
                 ->with([
                     'loan:id,loan_code,loan_date,due_date,return_date,status,library_card_id',
                     'loan.libraryCard:id,user_id,full_name,card_number',
-                    'loan.libraryCard.user:id,full_name,name,email',
+                    'loan.libraryCard.user:id,name,email',
                 ])
                 ->latest('id')
                 ->limit(20),
@@ -154,6 +159,7 @@ class BookService
         string $sort = 'newest'
     ): LengthAwarePaginator {
         $query = $this->baseBookListQuery();
+        $this->applyBorrowableAvailabilityProjection($query);
         $this->applyResourceTypeFilter($query, $resourceType);
         $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
 
@@ -161,11 +167,9 @@ class BookService
             $query->where('classification_id', $classificationId);
         }
         if ($stock === 'in_stock') {
-            $query->where('quantity', '>', 0);
+            $query->whereRaw('(COALESCE(books.quantity, 0) - COALESCE(on_loan_total_count, 0) - COALESCE(reserved_pending_count, 0)) > 0');
         } elseif ($stock === 'out_of_stock') {
-            $query->where(function ($q) {
-                $q->where('quantity', '<=', 0)->orWhereNull('quantity');
-            });
+            $query->whereRaw('(COALESCE(books.quantity, 0) - COALESCE(on_loan_total_count, 0) - COALESCE(reserved_pending_count, 0)) <= 0');
         }
 
         if ($sort === 'oldest') {
@@ -178,20 +182,55 @@ class BookService
     }
 
     /**
+     * @param  list<int>  $bookIds
+     * @return Collection<int, Book>
+     */
+    public function readerBorrowPreview(array $bookIds)
+    {
+        $ids = array_values(array_unique(array_map('intval', array_filter($bookIds, fn ($v) => is_numeric($v)))));
+        if ($ids === []) {
+            return collect();
+        }
+
+        $query = $this->baseBookListQuery();
+        $this->applyBorrowableAvailabilityProjection($query);
+
+        $books = $query->whereIn('books.id', $ids)->get()->keyBy('id');
+
+        return collect($ids)
+            ->map(fn (int $id) => $books->get($id))
+            ->filter();
+    }
+
+    /**
      * Thống kê bản in cho trang chi tiết tra cứu (book_copies; fallback quantity nếu chưa có bản).
      *
      * @return array{total: int, available: int, borrowed: int}
      */
     public function readerCopyStats(Book $book): array
     {
+        $reservedPending = (int) LoanBorrowRequestItem::query()
+            ->join('loan_borrow_requests as req', 'loan_borrow_request_items.borrow_request_id', '=', 'req.id')
+            ->where('loan_borrow_request_items.book_id', (int) $book->id)
+            ->where('req.status', LoanBorrowRequest::STATUS_PENDING)
+            ->sum('loan_borrow_request_items.quantity');
+
         $total = (int) $book->copies()->count();
         if ($total === 0) {
             $q = max(0, (int) ($book->quantity ?? 0));
+            $borrowed = (int) LoanItem::query()
+                ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
+                ->where('loan_items.book_id', (int) $book->id)
+                ->where('loans.deleted', false)
+                ->whereIn('loans.status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+                ->sum('loan_items.quantity');
+            $available = max(0, $q - $borrowed - $reservedPending);
 
             return [
                 'total' => $q,
-                'available' => $book->is_available ? $q : 0,
-                'borrowed' => $book->is_available ? 0 : $q,
+                'available' => $available,
+                'borrowed' => min($q, $borrowed),
+                'reserved_pending' => $reservedPending,
             ];
         }
 
@@ -200,12 +239,63 @@ class BookService
             ->whereIn('physical_condition', BookPhysicalCondition::borrowableValues())
             ->count();
         $borrowed = (int) $book->copies()->where('status', BookStatus::BORROWED)->count();
+        $effectiveAvailable = max(0, $available - $reservedPending);
 
         return [
             'total' => $total,
-            'available' => $available,
+            'available' => $effectiveAvailable,
             'borrowed' => $borrowed,
+            'reserved_pending' => $reservedPending,
         ];
+    }
+
+    /**
+     * Bổ sung các cột tính khả dụng theo nghiệp vụ đặt mượn:
+     * - on_loan_total_count: số bản đang mượn/chưa trả
+     * - reserved_pending_count: số bản đang được giữ chỗ bởi yêu cầu mượn pending
+     * - available_for_borrow: số bản còn có thể nhận yêu cầu mới
+     *
+     * @param  Builder<Book>  $query
+     */
+    private function applyBorrowableAvailabilityProjection(Builder $query): void
+    {
+        $query->selectRaw(
+            '(SELECT COALESCE(SUM(li.quantity), 0)
+                FROM loan_items li
+                INNER JOIN loans l ON l.id = li.loan_id
+                WHERE li.book_id = books.id
+                  AND l.deleted = 0
+                  AND l.status IN (?, ?)
+            ) AS on_loan_total_count',
+            [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE]
+        );
+
+        $query->selectRaw(
+            '(SELECT COALESCE(SUM(bri.quantity), 0)
+                FROM loan_borrow_request_items bri
+                INNER JOIN loan_borrow_requests br ON br.id = bri.borrow_request_id
+                WHERE bri.book_id = books.id
+                  AND br.status = ?
+            ) AS reserved_pending_count',
+            [LoanBorrowRequest::STATUS_PENDING]
+        );
+
+        $query->selectRaw(
+            '(COALESCE(books.quantity, 0)
+                - (SELECT COALESCE(SUM(li2.quantity), 0)
+                    FROM loan_items li2
+                    INNER JOIN loans l2 ON l2.id = li2.loan_id
+                    WHERE li2.book_id = books.id
+                      AND l2.deleted = 0
+                      AND l2.status IN (?, ?))
+                - (SELECT COALESCE(SUM(bri2.quantity), 0)
+                    FROM loan_borrow_request_items bri2
+                    INNER JOIN loan_borrow_requests br2 ON br2.id = bri2.borrow_request_id
+                    WHERE bri2.book_id = books.id
+                      AND br2.status = ?)
+            ) AS available_for_borrow',
+            [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE, LoanBorrowRequest::STATUS_PENDING]
+        );
     }
 
     /**
@@ -559,6 +649,7 @@ class BookService
     public function previewIdentifiers(int $warehouseId): array
     {
         $warehouse = Warehouse::findOrFail($warehouseId);
+
         return [
             'book_code' => $this->generateBookCode($warehouse),
             'registration_number' => $this->generateRegistrationNumber($warehouse),

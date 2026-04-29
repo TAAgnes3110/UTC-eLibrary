@@ -21,6 +21,9 @@ class LoanRenewalRequestController extends Controller
         $validated = $request->validate([
             'status' => ['nullable', 'string', 'in:pending,approved,rejected'],
             'search' => ['nullable', 'string', 'max:100'],
+            'search_in' => ['nullable', 'array'],
+            'search_in.*' => ['string', 'in:loan_code,card,reader'],
+            'sort' => ['nullable', 'string', 'in:newest,oldest'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $perPage = min(max((int) ($validated['per_page'] ?? 20), 1), 100);

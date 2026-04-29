@@ -37,4 +37,9 @@ class LoanPageController extends Controller
     {
         return Inertia::render('Admin/Loans/RenewalRequests');
     }
+
+    public function borrowRequests(): Response
+    {
+        return Inertia::render('Admin/Loans/BorrowRequests');
+    }
 }

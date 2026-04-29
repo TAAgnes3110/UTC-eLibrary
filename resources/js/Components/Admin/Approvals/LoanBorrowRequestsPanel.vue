@@ -1,6 +1,6 @@
 <script setup>
-import { router } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
+import { router } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
@@ -18,24 +18,22 @@ const sortBy = ref('newest');
 const searchKeyword = ref('');
 const showFilterPanel = ref(false);
 const searchIn = ref({
-    loan_code: true,
+    request_code: true,
     card: true,
     reader: true,
+    book: true,
 });
 const meta = ref({ current_page: 1, last_page: 1, per_page: 20, total: 0 });
 const actionId = ref(null);
 const detailRow = ref(null);
-const actionModal = ref({
-    show: false,
-    mode: 'approve',
-    row: null,
-    note: '',
-});
+const rejectTargetRow = ref(null);
+const rejectNote = ref('');
 
 const SEARCH_IN_OPTIONS = [
-    { key: 'loan_code', label: 'Mã phiếu' },
+    { key: 'request_code', label: 'Mã yêu cầu' },
     { key: 'card', label: 'Mã thẻ / tên thẻ' },
     { key: 'reader', label: 'Bạn đọc' },
+    { key: 'book', label: 'Tên sách / mã sách' },
 ];
 
 const sortOptions = [
@@ -46,6 +44,7 @@ const sortOptions = [
 function statusLabel(s) {
     if (s === 'approved') return 'Đã duyệt';
     if (s === 'rejected') return 'Đã từ chối';
+    if (s === 'cancelled') return 'Đã hủy';
     return 'Chờ duyệt';
 }
 
@@ -56,6 +55,9 @@ function statusClass(s) {
     if (s === 'rejected') {
         return 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300';
     }
+    if (s === 'cancelled') {
+        return 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200';
+    }
     return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
 }
 
@@ -63,6 +65,8 @@ function formatDate(v) {
     if (!v) return '—';
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return '—';
+    const year = d.getFullYear();
+    if (year < 2000 || year > 2100) return '—';
     return d.toLocaleDateString('vi-VN');
 }
 
@@ -70,7 +74,7 @@ async function loadRows() {
     loading.value = true;
     try {
         const q = searchKeyword.value.trim();
-        const payload = await loansApi.renewalRequests({
+        const payload = await loansApi.borrowRequests({
             status: 'pending',
             search: q || undefined,
             search_in: selectedSearchIn.value,
@@ -89,7 +93,7 @@ async function loadRows() {
         page.value = m.current_page;
     } catch (e) {
         rows.value = [];
-        toast.error(e?.response?.data?.messages || 'Không tải được danh sách yêu cầu gia hạn.', { title: 'Gia hạn' });
+        toast.error(e?.response?.data?.messages || 'Không tải được danh sách yêu cầu mượn.', { title: 'Duyệt yêu cầu' });
     } finally {
         loading.value = false;
     }
@@ -139,50 +143,68 @@ function formatDateTime(v) {
     return d.toLocaleString('vi-VN');
 }
 
+function holderTypeLabel(type) {
+    if (type === 'student') return 'Sinh viên';
+    if (type === 'teacher') return 'Giảng viên';
+    if (type === 'external') return 'Bạn đọc ngoài';
+    return type || '—';
+}
+
+function totalRequestedBooks(items = []) {
+    return items.reduce((sum, it) => sum + Number(it?.quantity || 0), 0);
+}
+
 async function approveRow(row) {
-    openActionModal(row, 'approve');
+    const payload = {
+        request_id: row.id,
+        request_code: row.request_code || '',
+        library_card_id: row.library_card?.id || null,
+        card_number: row.library_card?.card_number || '',
+        card_full_name: row.library_card?.full_name || '',
+        holder_type: row.library_card?.holder_type || '',
+        loan_type: row.loan_type || 'home',
+        requested_loan_date: row.requested_loan_date || '',
+        requested_due_date: row.requested_due_date || '',
+        request_note: row.request_note || '',
+        items: (row.items || []).map((it) => ({
+            request_item_id: it.id,
+            book_id: it.book_id,
+            book_title: it.book_title || '',
+            book_code: it.book_code || '',
+            quantity: Number(it.quantity || 1),
+            resource_type: it.resource_type || '',
+            cabinet: it.cabinet || '',
+            warehouse_name: it.warehouse_name || '',
+            warehouse_code: it.warehouse_code || '',
+            book_total_quantity: it.book_total_quantity ?? null,
+        })),
+    };
+    window.sessionStorage.setItem('loanBorrowRequestApprovalPrefill', JSON.stringify(payload));
+    router.visit(route('admin.loans.create', { from_borrow_request: row.id }));
 }
 
 async function rejectRow(row) {
-    openActionModal(row, 'reject');
+    rejectTargetRow.value = row;
+    rejectNote.value = '';
 }
 
-function openActionModal(row, mode) {
-    actionModal.value = {
-        show: true,
-        mode,
-        row,
-        note: '',
-    };
+function closeRejectModal() {
+    rejectTargetRow.value = null;
+    rejectNote.value = '';
 }
 
-function closeActionModal() {
-    actionModal.value = {
-        show: false,
-        mode: 'approve',
-        row: null,
-        note: '',
-    };
-}
-
-async function confirmActionModal() {
-    const row = actionModal.value.row;
-    if (!row) return;
-    const mode = actionModal.value.mode;
-    const note = actionModal.value.note.trim();
+async function confirmReject() {
+    if (!rejectTargetRow.value) return;
+    const row = rejectTargetRow.value;
+    const note = rejectNote.value.trim();
     actionId.value = row.id;
     try {
-        if (mode === 'approve') {
-            await loansApi.approveRenewalRequest(row.id, { review_note: note || null });
-            toast.success('Đã duyệt gia hạn.', { title: 'Gia hạn' });
-        } else {
-            await loansApi.rejectRenewalRequest(row.id, { review_note: note || null });
-            toast.success('Đã từ chối yêu cầu.', { title: 'Gia hạn' });
-        }
-        closeActionModal();
+        await loansApi.rejectBorrowRequest(row.id, { review_note: note || null });
+        toast.success('Đã từ chối yêu cầu mượn.', { title: 'Duyệt yêu cầu' });
+        closeRejectModal();
         await loadRows();
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không thể thực hiện thao tác.', { title: 'Gia hạn' });
+        toast.error(e?.response?.data?.messages || 'Không thể từ chối yêu cầu mượn.', { title: 'Duyệt yêu cầu' });
     } finally {
         actionId.value = null;
     }
@@ -191,9 +213,9 @@ async function confirmActionModal() {
 
 <template>
     <div class="space-y-4 animate-in fade-in-50 duration-500">
-        <AdminPageHeading title="Duyệt yêu cầu gia hạn mượn">
+        <AdminPageHeading title="Duyệt phiếu mượn từ yêu cầu bạn đọc">
             <template #description>
-                Chỉ hiển thị yêu cầu đang chờ duyệt. Dùng tìm kiếm và sắp xếp để xử lý nhanh hơn.
+                Chỉ hiển thị yêu cầu đang chờ duyệt để thủ thư duyệt/từ chối và tạo phiếu mượn.
             </template>
             <template #actions>
                 <button
@@ -209,7 +231,7 @@ async function confirmActionModal() {
 
         <AdminFilterSearch
             v-model="searchKeyword"
-            search-placeholder="Mã phiếu, mã thẻ, tên bạn đọc..."
+            search-placeholder="Mã yêu cầu, mã thẻ, tên bạn đọc..."
             :show-filter-button="false"
             @search="runSearch"
         >
@@ -238,30 +260,28 @@ async function confirmActionModal() {
 
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <div class="overflow-x-auto">
-                <table class="w-full min-w-[1080px] border-collapse text-left text-sm">
+                <table class="w-full min-w-[980px] border-collapse text-left text-sm">
                     <thead class="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800/60">
                         <tr>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
                                 Mã yêu cầu
                             </th>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
-                                Phiếu mượn
+                                Họ tên
                             </th>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
-                                Thẻ thư viện
+                                Loại thẻ
                             </th>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
-                                Bạn đọc
+                                Số lượng sách mượn
                             </th>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
-                                Hạn hiện tại → đề xuất
+                                Ngày trả
                             </th>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
                                 Trạng thái
                             </th>
-                            <th
-                                class="p-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4 min-w-[320px]"
-                            >
+                            <th class="p-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4 min-w-[320px]">
                                 Thao tác
                             </th>
                         </tr>
@@ -275,24 +295,28 @@ async function confirmActionModal() {
                         </tr>
                         <template v-else>
                             <tr v-for="row in rows" :key="row.id" class="admin-table-row">
-                                <td class="p-3 tabular-nums sm:p-4">{{ row.request_code || `#${row.id}` }}</td>
-                                <td class="p-3 sm:p-4">
-                                    <div class="font-medium text-slate-900 dark:text-white">{{ row.loan?.loan_code || '—' }}</div>
+                                <td class="p-3 tabular-nums sm:p-4">
+                                    <div
+                                        class="font-medium text-slate-900 dark:text-white"
+                                        :title="row.request_code || `#${row.id}`"
+                                    >
+                                        {{ row.request_code || `#${row.id}` }}
+                                    </div>
                                 </td>
                                 <td class="p-3 sm:p-4">
-                                    <div class="font-medium text-slate-900 dark:text-white">{{ row.loan?.library_card_number || '—' }}</div>
+                                    <div class="font-medium text-slate-900 dark:text-white">{{ row.requester?.name || '—' }}</div>
                                 </td>
                                 <td class="p-3 sm:p-4">
-                                    <div class="text-slate-900 dark:text-white">{{ row.requester?.name || '—' }}</div>
+                                    <span class="text-slate-700 dark:text-slate-300">{{ holderTypeLabel(row.library_card?.holder_type) }}</span>
+                                </td>
+                                <td class="p-3 tabular-nums text-slate-700 dark:text-slate-300 sm:p-4">
+                                    {{ totalRequestedBooks(row.items || []) }}
                                 </td>
                                 <td class="whitespace-nowrap p-3 text-slate-700 dark:text-slate-300 sm:p-4">
-                                    {{ formatDate(row.current_due_date) }} → {{ formatDate(row.requested_due_date) }}
+                                    {{ formatDate(row.requested_due_date) }}
                                 </td>
                                 <td class="p-3 sm:p-4">
-                                    <span
-                                        class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap"
-                                        :class="statusClass(row.status)"
-                                    >
+                                    <span class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap" :class="statusClass(row.status)">
                                         {{ statusLabel(row.status) }}
                                     </span>
                                 </td>
@@ -311,7 +335,6 @@ async function confirmActionModal() {
                                             type="button"
                                             class="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
                                             :disabled="actionId === row.id"
-                                            title="Duyệt gia hạn"
                                             @click="approveRow(row)"
                                         >
                                             <Icon :icon="ADMIN_ICONS.checkCircle" class="h-4 w-4 shrink-0" />
@@ -321,7 +344,6 @@ async function confirmActionModal() {
                                             type="button"
                                             class="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
                                             :disabled="actionId === row.id"
-                                            title="Từ chối yêu cầu"
                                             @click="rejectRow(row)"
                                         >
                                             <Icon :icon="ADMIN_ICONS.xCircle" class="h-4 w-4 shrink-0" />
@@ -348,17 +370,17 @@ async function confirmActionModal() {
         <p class="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <Icon icon="lucide:info" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-                « Đồng ý » cập nhật hạn trả phiếu theo ngày đề xuất; « Từ chối » giữ hạn cũ và đánh dấu yêu cầu đã từ chối.
+                « Đồng ý » sẽ tạo phiếu mượn từ yêu cầu bạn đọc; « Từ chối » giữ nguyên trạng thái yêu cầu và ghi nhận kết quả xử lý.
             </span>
         </p>
 
         <div v-if="detailRow" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-slate-900/60" @click="closeDetails" />
-            <div class="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5">
+            <div class="relative w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5">
                 <div class="mb-4 flex items-center justify-between gap-3">
                     <div>
-                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết yêu cầu gia hạn</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Xem đầy đủ thông tin trước khi duyệt hoặc từ chối.</p>
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết yêu cầu mượn</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Xem kỹ nội dung yêu cầu trước khi tạo phiếu.</p>
                     </div>
                     <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeDetails">
                         <Icon icon="lucide:x" class="w-5 h-5" />
@@ -370,10 +392,10 @@ async function confirmActionModal() {
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Thông tin yêu cầu</p>
                         <div class="mt-2 space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
                             <p><span class="text-slate-400">Mã yêu cầu:</span> {{ detailRow.request_code || `#${detailRow.id}` }}</p>
-                            <p><span class="text-slate-400">Mã phiếu:</span> {{ detailRow.loan?.loan_code || '—' }}</p>
                             <p><span class="text-slate-400">Ngày yêu cầu:</span> {{ formatDateTime(detailRow.created_at) }}</p>
-                            <p><span class="text-slate-400">Hạn hiện tại:</span> {{ formatDate(detailRow.current_due_date) }}</p>
-                            <p><span class="text-slate-400">Hạn đề xuất:</span> {{ formatDate(detailRow.requested_due_date) }}</p>
+                            <p><span class="text-slate-400">Ngày mượn đề xuất:</span> {{ formatDate(detailRow.requested_loan_date) }}</p>
+                            <p><span class="text-slate-400">Hạn trả đề xuất:</span> {{ formatDate(detailRow.requested_due_date) }}</p>
+                            <p><span class="text-slate-400">Loại mượn:</span> {{ detailRow.loan_type || '—' }}</p>
                         </div>
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
@@ -381,8 +403,55 @@ async function confirmActionModal() {
                         <div class="mt-2 space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
                             <p><span class="text-slate-400">Bạn đọc:</span> {{ detailRow.requester?.name || '—' }}</p>
                             <p><span class="text-slate-400">Mã định danh:</span> {{ detailRow.requester?.code || '—' }}</p>
-                            <p><span class="text-slate-400">Mã thẻ:</span> {{ detailRow.loan?.library_card_number || '—' }}</p>
-                            <p><span class="text-slate-400">Tên thẻ:</span> {{ detailRow.loan?.library_card_name || '—' }}</p>
+                            <p><span class="text-slate-400">Mã thẻ:</span> {{ detailRow.library_card?.card_number || '—' }}</p>
+                            <p><span class="text-slate-400">Tên thẻ:</span> {{ detailRow.library_card?.full_name || '—' }}</p>
+                        </div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Danh sách sách yêu cầu</p>
+                        <div class="mt-3 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                            <div class="overflow-x-auto">
+                                <table class="w-full min-w-[860px] border-collapse text-sm">
+                                    <thead class="bg-slate-50 dark:bg-slate-800/60">
+                                        <tr class="border-b border-slate-200 dark:border-slate-700">
+                                            <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                                Mã sách
+                                            </th>
+                                            <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                                Sách
+                                            </th>
+                                            <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                                Tủ lưu trữ
+                                            </th>
+                                            <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                                Kho lưu trữ
+                                            </th>
+                                            <th class="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
+                                                Số lượng yêu cầu
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                                        <tr v-for="it in (detailRow.items || [])" :key="`detail-${detailRow.id}-${it.id}`" class="bg-white dark:bg-slate-900">
+                                            <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ it.book_code || '—' }}</td>
+                                            <td class="px-3 py-2 text-slate-700 dark:text-slate-200">{{ it.book_title || 'Chưa có tên' }}</td>
+                                            <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ it.cabinet || '—' }}</td>
+                                            <td class="px-3 py-2 text-slate-700 dark:text-slate-300">
+                                                {{ it.warehouse_name || '—' }}
+                                                <template v-if="it.warehouse_code">({{ it.warehouse_code }})</template>
+                                            </td>
+                                            <td class="px-3 py-2 text-left font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                                                {{ it.quantity || 1 }}
+                                            </td>
+                                        </tr>
+                                        <tr v-if="!(detailRow.items || []).length" class="bg-white dark:bg-slate-900">
+                                            <td colspan="5" class="px-3 py-4 text-center text-slate-500 dark:text-slate-400">
+                                                Không có sách trong yêu cầu.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">
@@ -392,7 +461,7 @@ async function confirmActionModal() {
                     <div v-if="detailProofUrl" class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Minh chứng</p>
                         <div class="mt-2">
-                            <img v-if="detailProofIsImage" :src="detailProofUrl" alt="Minh chứng gia hạn" class="max-h-[60vh] w-auto rounded-lg border border-slate-200 dark:border-slate-700" />
+                            <img v-if="detailProofIsImage" :src="detailProofUrl" alt="Minh chứng yêu cầu mượn" class="max-h-[60vh] w-auto rounded-lg border border-slate-200 dark:border-slate-700" />
                             <iframe v-else-if="detailProofIsPdf" :src="detailProofUrl" class="h-[60vh] w-full rounded-lg border border-slate-200 dark:border-slate-700" />
                             <a v-else :href="detailProofUrl" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-300 underline">Mở tệp minh chứng</a>
                         </div>
@@ -401,51 +470,42 @@ async function confirmActionModal() {
             </div>
         </div>
 
-        <div v-if="actionModal.show && actionModal.row" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-slate-900/60" @click="closeActionModal" />
+        <div v-if="rejectTargetRow" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60" @click="closeRejectModal" />
             <div class="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
                 <div class="mb-3 flex items-start justify-between gap-3">
                     <div>
-                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">
-                            {{ actionModal.mode === 'approve' ? 'Duyệt yêu cầu gia hạn' : 'Từ chối yêu cầu gia hạn' }}
-                        </h3>
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Từ chối yêu cầu mượn</h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                            Mã yêu cầu: {{ actionModal.row.request_code || `#${actionModal.row.id}` }}
+                            Mã yêu cầu: {{ rejectTargetRow.request_code || `#${rejectTargetRow.id}` }}
                         </p>
                     </div>
-                    <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeActionModal">
+                    <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeRejectModal">
                         <Icon icon="lucide:x" class="h-5 w-5" />
                     </button>
                 </div>
 
                 <label class="block space-y-1">
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-200">
-                        {{ actionModal.mode === 'approve' ? 'Ghi chú duyệt (tuỳ chọn)' : 'Lý do từ chối (tuỳ chọn)' }}
-                    </span>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Lý do từ chối (tuỳ chọn)</span>
                     <textarea
-                        v-model="actionModal.note"
+                        v-model="rejectNote"
                         rows="4"
                         class="admin-filter-input w-full"
-                        :placeholder="actionModal.mode === 'approve' ? 'Nhập ghi chú xử lý (nếu có)...' : 'Nhập lý do để bạn đọc dễ theo dõi...'"
+                        placeholder="Nhập lý do để bạn đọc dễ theo dõi..."
                     />
                 </label>
 
                 <div class="mt-4 flex items-center justify-end gap-2">
-                    <button type="button" class="admin-filter-btn px-4 py-2 min-h-[40px]" @click="closeActionModal">
+                    <button type="button" class="admin-filter-btn px-4 py-2 min-h-[40px]" @click="closeRejectModal">
                         Hủy
                     </button>
                     <button
                         type="button"
-                        class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50"
-                        :class="
-                            actionModal.mode === 'approve'
-                                ? 'border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50'
-                                : 'border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45'
-                        "
-                        :disabled="actionId === actionModal.row.id"
-                        @click="confirmActionModal"
+                        class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                        :disabled="actionId === rejectTargetRow.id"
+                        @click="confirmReject"
                     >
-                        {{ actionModal.mode === 'approve' ? 'Xác nhận duyệt' : 'Xác nhận từ chối' }}
+                        Xác nhận từ chối
                     </button>
                 </div>
             </div>

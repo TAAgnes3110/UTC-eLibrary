@@ -237,7 +237,11 @@ class LoanController extends Controller
 
     public function destroy(Loan $loan): JsonResponse
     {
-        $this->loanService->destroy($loan);
+        try {
+            $this->loanService->destroy($loan);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
 
         return ApiResponse::success(null, __('messages.success_delete'));
     }
@@ -294,58 +298,5 @@ class LoanController extends Controller
         }
 
         return ApiResponse::success(null, 'Đã trả sách cho các phiếu đã chọn.');
-    }
-
-    /**
-     * Phiếu mượn đã xóa mềm (thùng rác).
-     */
-    public function trash(Request $request): JsonResponse
-    {
-        $perPage = min(max((int) $request->input('per_page', 50), 1), 100);
-        $items = $this->loanService->trash($perPage);
-
-        return ApiResponse::success(LoanResource::collection($items));
-    }
-
-    public function restore(int $id): JsonResponse
-    {
-        $loan = $this->loanService->restore($id);
-        if ($loan === null) {
-            return ApiResponse::notFound(__('messages.error_404'));
-        }
-        $loan->load(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
-
-        return ApiResponse::success(new LoanResource($loan), __('Đã khôi phục.'));
-    }
-
-    public function restoreMany(Request $request): JsonResponse
-    {
-        $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer',
-        ]);
-        $restored = $this->loanService->restoreMany($request->input('ids', []));
-
-        return ApiResponse::success(['restored' => $restored], __('messages.success_restore'));
-    }
-
-    public function forceDelete(int $id): JsonResponse
-    {
-        if (! $this->loanService->forceDelete($id)) {
-            return ApiResponse::notFound(__('messages.error_404'));
-        }
-
-        return ApiResponse::success(null, __('messages.success_force_delete'));
-    }
-
-    public function forceDeleteMany(Request $request): JsonResponse
-    {
-        $request->validate([
-            'ids' => 'required|array',
-            'ids.*' => 'integer',
-        ]);
-        $deleted = $this->loanService->forceDeleteMany($request->input('ids', []));
-
-        return ApiResponse::success(['deleted' => $deleted], __('messages.success_force_delete'));
     }
 }

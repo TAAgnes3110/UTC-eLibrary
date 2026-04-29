@@ -13,6 +13,10 @@ class ReaderBookCardResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        if ($this->resource === null) {
+            return [];
+        }
+
         $coverImage = $this->cover_image;
         $defaultCover = asset('images/default-book-cover.png');
         if (empty($coverImage)) {
@@ -42,9 +46,15 @@ class ReaderBookCardResource extends JsonResource
             'resource_type' => $rt,
             'resource_type_label' => self::resourceTypeLabel($rt),
             'classification_name' => $this->whenLoaded('classification', fn () => $this->classification?->name),
+            'warehouse_name' => $this->whenLoaded('warehouse', fn () => $this->warehouse?->name),
+            'warehouse_code' => $this->whenLoaded('warehouse', fn () => $this->warehouse?->code),
+            'cabinet' => $this->cabinet,
             'quantity' => (int) ($this->quantity ?? 0),
+            'on_loan_total_count' => (int) ($this->on_loan_total_count ?? 0),
+            'reserved_pending_count' => (int) ($this->reserved_pending_count ?? 0),
+            'available_for_borrow' => max(0, (int) ($this->available_for_borrow ?? 0)),
             'status_label' => $this->status_label,
-            'is_available' => $this->is_available,
+            'is_available' => max(0, (int) ($this->available_for_borrow ?? 0)) > 0,
         ];
     }
 

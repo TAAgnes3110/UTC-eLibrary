@@ -92,10 +92,12 @@ class StatisticsService
                 ->count('library_card_id'),
             'books_on_loan' => (int) LoanItem::query()
                 ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
+                ->where('loans.deleted', false)
                 ->whereIn('loans.status', $openStatuses)
                 ->sum('loan_items.quantity'),
             'lost_books' => (int) LoanItem::query()
                 ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
+                ->where('loans.deleted', false)
                 ->where('loans.status', Loan::STATUS_RETURNED)
                 ->where('loan_items.condition_on_return', LoanItemCondition::LOST->value)
                 ->sum('loan_items.quantity'),

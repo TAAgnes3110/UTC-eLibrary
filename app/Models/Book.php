@@ -72,7 +72,6 @@ class Book extends BaseModel
         return $this->belongsTo(Classification::class);
     }
 
-
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
@@ -110,6 +109,11 @@ class Book extends BaseModel
     public function loanItems(): HasMany
     {
         return $this->hasMany(LoanItem::class);
+    }
+
+    public function borrowRequestItems(): HasMany
+    {
+        return $this->hasMany(LoanBorrowRequestItem::class);
     }
 
     public function digitalAssets(): HasMany

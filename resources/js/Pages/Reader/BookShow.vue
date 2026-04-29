@@ -1,14 +1,21 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { Head, Link, router, usePage } from '@inertiajs/vue3'
+import { computed, ref } from 'vue'
+import { Head, Link, usePage } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { readerBookShowStrings as S } from '@/config/readerStrings'
 import { toast } from '@/store/toast'
+import { meBorrowRequestsApi } from '@/api/meBorrowRequests'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
-const saving = ref(false)
+const creatingBorrowRequest = ref(false)
+const borrowQty = ref(1)
+const showBorrowPreview = ref(false)
+const loanType = ref('home')
+const requestedDueDate = ref('')
+const CART_KEY = 'reader_borrow_cart_v1'
+const todayIso = computed(() => new Date().toISOString().slice(0, 10))
 
 const props = defineProps({
     book: { type: Object, required: true },
@@ -17,49 +24,76 @@ const props = defineProps({
         required: true,
         validator: (v) => v && typeof v.total === 'number',
     },
-    is_saved: { type: Boolean, default: false },
 })
 
-const saved = ref(props.is_saved)
-watch(
-    () => props.is_saved,
-    (value) => {
-        saved.value = value
-    }
-)
-
-const savedBookEndpoint = computed(() => `${route('reader.catalog.show', { book: props.book.id })}/luu`)
-
-function toggleSave() {
-    if (!isAuthed.value || saving.value) {
+async function createBorrowRequestSingle() {
+    if (!isAuthed.value || creatingBorrowRequest.value) {
         return
     }
-    const previous = saved.value
-    const next = !previous
-    saved.value = next
-    saving.value = true
-    const opts = {
-        preserveState: false,
-        preserveScroll: true,
-        onSuccess: () => {
-            toast.success(previous ? 'Đã bỏ sách khỏi danh sách lưu.' : 'Đã lưu sách thành công.', {
-                title: 'Sách đã lưu',
-            })
-        },
-        onError: () => {
-            saved.value = previous
-            toast.error('Không thể cập nhật danh sách lưu. Vui lòng thử lại.', {
-                title: 'Sách đã lưu',
-            })
-        },
-        onFinish: () => {
-            saving.value = false
-        },
+    if (loanType.value === 'home' && !requestedDueDate.value) {
+        toast.warn('Vui lòng chọn ngày trả dự kiến khi mượn về nhà.', { title: 'Yêu cầu mượn' })
+        return
     }
-    if (previous) {
-        router.delete(savedBookEndpoint.value, opts)
-    } else {
-        router.post(savedBookEndpoint.value, {}, opts)
+    if (Number(props.availability?.available || 0) <= 0) {
+        toast.warn('Sách hiện đã hết khả dụng để tạo yêu cầu mượn.', { title: 'Yêu cầu mượn' })
+        return
+    }
+    creatingBorrowRequest.value = true
+    try {
+        await meBorrowRequestsApi.create({
+            loan_type: loanType.value,
+            book_ids: [props.book.id],
+            quantity: [Math.max(1, Number(borrowQty.value || 1))],
+            requested_due_date: loanType.value === 'home' ? requestedDueDate.value : undefined,
+        })
+        toast.success('Đã tạo yêu cầu mượn cho sách này.', { title: 'Yêu cầu mượn' })
+    } catch (e) {
+        toast.error(e?.response?.data?.messages || 'Không tạo được yêu cầu mượn.', { title: 'Yêu cầu mượn' })
+    } finally {
+        creatingBorrowRequest.value = false
+    }
+}
+
+function openBorrowPreview() {
+    if (Number(props.availability?.available || 0) <= 0) {
+        toast.warn('Sách hiện đã hết khả dụng để tạo yêu cầu mượn.', { title: 'Yêu cầu mượn' })
+        return
+    }
+    borrowQty.value = Math.max(1, Math.min(Number(props.availability?.available || 1), Number(borrowQty.value || 1)))
+    showBorrowPreview.value = true
+}
+
+function adjustBorrowQty(delta) {
+    const max = Math.max(1, Number(props.availability?.available || 1))
+    const current = Math.max(1, Number(borrowQty.value || 1))
+    borrowQty.value = Math.max(1, Math.min(max, current + delta))
+}
+
+function onBorrowQtyInput(event) {
+    const max = Math.max(1, Number(props.availability?.available || 1))
+    const next = Math.max(1, Math.min(max, Number(event?.target?.value || 1)))
+    borrowQty.value = next
+}
+
+function addToBorrowCart() {
+    if (!isAuthed.value) {
+        toast.warn('Vui lòng đăng nhập để dùng giỏ mượn.', { title: 'Giỏ mượn' })
+        return
+    }
+    const qty = Math.max(1, Math.min(Number(props.availability?.available || 1), Number(borrowQty.value || 1)))
+    try {
+        const current = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
+        const items = Array.isArray(current) ? current : []
+        const idx = items.findIndex((x) => Number(x.book_id) === Number(props.book.id))
+        if (idx >= 0) {
+            items[idx].quantity = qty
+        } else {
+            items.push({ book_id: Number(props.book.id), quantity: qty })
+        }
+        localStorage.setItem(CART_KEY, JSON.stringify(items))
+        toast.success('Đã thêm vào giỏ mượn.', { title: 'Giỏ mượn' })
+    } catch {
+        toast.error('Không thể thêm vào giỏ mượn.', { title: 'Giỏ mượn' })
     }
 }
 
@@ -212,44 +246,79 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                             {{ S.borrowAtDeskHint }}
                         </p>
 
-                        <div class="mt-6 flex flex-wrap items-center gap-3">
+                        <div class="mt-6">
                             <template v-if="!isAuthed">
                                 <Link
                                     :href="route('login')"
                                     class="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl bg-blue-900 px-6 text-sm font-bold text-white hover:bg-blue-800"
                                 >
                                     <Icon icon="lucide:bookmark" class="h-5 w-5 shrink-0" aria-hidden="true" />
-                                    {{ S.saveCta }}
+                                    Đăng nhập để mượn
                                 </Link>
                             </template>
                             <template v-else>
+                                <div class="mb-3 flex flex-wrap items-center gap-3">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Số lượng:</label>
+                                    <div class="inline-flex h-11 items-center overflow-hidden rounded-xl border border-slate-300/80 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900">
+                                        <button
+                                            type="button"
+                                            class="inline-flex h-full w-11 items-center justify-center text-xl font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                                            :disabled="Number(borrowQty || 1) <= 1"
+                                            @click="adjustBorrowQty(-1)"
+                                        >
+                                            -
+                                        </button>
+                                        <input
+                                            :value="borrowQty"
+                                            type="number"
+                                            min="1"
+                                            :max="Math.max(1, Number(availability.available || 1))"
+                                            class="h-full w-14 border-x border-slate-200 bg-transparent text-center text-base font-bold text-slate-900 [appearance:textfield] focus:outline-none dark:border-slate-700 dark:text-slate-100"
+                                            @input="onBorrowQtyInput($event)"
+                                        />
+                                        <button
+                                            type="button"
+                                            class="inline-flex h-full w-11 items-center justify-center text-xl font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                                            :disabled="Number(borrowQty || 1) >= Math.max(1, Number(availability.available || 1))"
+                                            @click="adjustBorrowQty(1)"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">Tối đa {{ Math.max(0, Number(availability.available || 0)) }}</p>
+                                </div>
+                                <div class="grid gap-3 sm:grid-cols-3">
                                 <button
                                     type="button"
-                                    class="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl px-6 text-sm font-bold transition-colors"
-                                    :class="
-                                        saved
-                                            ? 'border-2 border-blue-900 bg-white text-blue-900 hover:bg-blue-50 dark:border-blue-400 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-slate-800'
-                                            : 'bg-blue-900 text-white hover:bg-blue-800'
-                                    "
-                                    :disabled="saving"
-                                    :aria-busy="saving"
-                                    @click="toggleSave"
+                                        class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-emerald-600 bg-white px-4 text-sm font-bold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-400 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-slate-800"
+                                    :disabled="Number(availability.available || 0) <= 0"
+                                    @click="addToBorrowCart"
                                 >
-                                    <Icon
-                                        :icon="saved ? 'lucide:bookmark-check' : 'lucide:bookmark'"
-                                        class="h-5 w-5 shrink-0"
-                                        aria-hidden="true"
-                                    />
-                                    {{ saved ? S.savedCta : S.saveCta }}
+                                    <Icon icon="lucide:shopping-cart" class="h-5 w-5" />
+                                    {{ Number(availability.available || 0) > 0 ? 'Thêm vào giỏ mượn' : 'Hết sách' }}
                                 </button>
+                                <button
+                                    type="button"
+                                        class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+                                    :disabled="creatingBorrowRequest || Number(availability.available || 0) <= 0"
+                                    @click="openBorrowPreview"
+                                >
+                                    <Icon :icon="creatingBorrowRequest ? 'lucide:loader-2' : 'lucide:shopping-cart'" :class="creatingBorrowRequest ? 'h-5 w-5 animate-spin' : 'h-5 w-5'" />
+                                    {{ Number(availability.available || 0) > 0 ? 'Tạo yêu cầu mượn' : 'Hết sách' }}
+                                </button>
+                                </div>
                             </template>
                         </div>
                         <p v-if="!isAuthed" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            {{ S.loginToSave }}
+                            Đăng nhập để thêm vào giỏ mượn và gửi yêu cầu mượn.
                         </p>
-                        <p v-else class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            {{ S.saveHelpAuthed }}
-                        </p>
+                        <Link
+                            v-if="isAuthed"
+                            :href="route('reader.services.borrow-cart')"
+                            class="mt-2 inline-flex text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
+                        >
+                            Xem giỏ mượn
+                        </Link>
                     </div>
                 </div>
 
@@ -294,6 +363,84 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                 </div>
 
             </article>
+
+            <div v-if="showBorrowPreview" class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-[2px] sm:items-center">
+                <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+                    <div class="mb-2 flex items-center justify-between">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Xác nhận tạo yêu cầu mượn</h3>
+                        <button type="button" class="rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white" @click="showBorrowPreview = false">Đóng</button>
+                    </div>
+                    <p class="text-sm text-slate-700 dark:text-slate-200">Sách: <span class="font-semibold">{{ book.title }}</span></p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Số lượng sách khả dụng: {{ availability.available }}</p>
+                    <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-800/80">
+                        <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Hình thức mượn</p>
+                        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <label class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                                <input v-model="loanType" type="radio" value="home" />
+                                Mượn về nhà
+                            </label>
+                            <label class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                                <input v-model="loanType" type="radio" value="onsite" />
+                                Đọc tại chỗ
+                            </label>
+                        </div>
+                        <div v-if="loanType === 'home'" class="mt-3">
+                            <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-200">
+                                Ngày trả dự kiến
+                            </label>
+                            <input
+                                v-model="requestedDueDate"
+                                type="date"
+                                :min="todayIso"
+                                class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-emerald-400 dark:focus:ring-emerald-900/50"
+                            />
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Số lượng mượn</label>
+                        <div class="inline-flex h-11 items-center overflow-hidden rounded-xl border border-slate-300/80 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900">
+                            <button
+                                type="button"
+                                class="inline-flex h-full w-11 items-center justify-center text-xl font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                                :disabled="Number(borrowQty || 1) <= 1"
+                                @click="adjustBorrowQty(-1)"
+                            >
+                                -
+                            </button>
+                            <input
+                                :value="borrowQty"
+                                type="text"
+                                inputmode="numeric"
+                                pattern="[0-9]*"
+                                class="h-full w-14 border-x border-slate-200 bg-transparent text-center text-base font-bold text-slate-900 [appearance:textfield] focus:outline-none dark:border-slate-700 dark:text-slate-100"
+                                @input="onBorrowQtyInput($event)"
+                            />
+                            <button
+                                type="button"
+                                class="inline-flex h-full w-11 items-center justify-center text-xl font-semibold text-slate-500 transition hover:bg-slate-100 disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+                                :disabled="Number(borrowQty || 1) >= Math.max(1, Number(availability.available || 1))"
+                                @click="adjustBorrowQty(1)"
+                            >
+                                +
+                            </button>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Tối đa: {{ Math.max(1, Number(availability.available || 1)) }} · Hình thức: {{ loanType === 'home' ? 'Mượn về nhà' : 'Đọc tại chỗ' }}
+                        </p>
+                    </div>
+                    <div class="mt-4 flex justify-end gap-2">
+                        <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700" @click="showBorrowPreview = false">Hủy</button>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60 dark:bg-emerald-500 dark:hover:bg-emerald-400"
+                            :disabled="creatingBorrowRequest"
+                            @click="showBorrowPreview = false; createBorrowRequestSingle()"
+                        >
+                            {{ creatingBorrowRequest ? 'Đang gửi...' : 'Gửi yêu cầu' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </ReaderLayout>
 </template>

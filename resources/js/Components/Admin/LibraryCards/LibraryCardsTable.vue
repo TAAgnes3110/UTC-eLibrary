@@ -48,7 +48,7 @@ const tableMinWidthClass = computed(() => {
     return 'min-w-[900px]';
 });
 
-const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject']);
+const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject', 'detail']);
 
 const previewCard = ref(null);
 const showPreviewModal = ref(false);
@@ -206,6 +206,16 @@ function formatDateTime(value) {
                         <td class="px-3 py-3 align-middle whitespace-nowrap">
                             <div class="flex flex-nowrap justify-start gap-1">
                                 <template v-if="reviewMode">
+                                    <button
+                                        v-if="showApprove && row.workflow_status === 'pending_review'"
+                                        type="button"
+                                        class="min-h-[38px] inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-[12px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                        title="Xem chi tiết hồ sơ"
+                                        @click="emit('detail', row)"
+                                    >
+                                        <Icon icon="lucide:eye" class="w-3.5 h-3.5 shrink-0" />
+                                        <span class="leading-none">Chi tiết</span>
+                                    </button>
                                     <button
                                         v-if="showApprove && row.workflow_status === 'pending_review'"
                                         type="button"

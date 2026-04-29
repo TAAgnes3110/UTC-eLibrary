@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Link, usePage, router } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import { DropdownMenuItem } from '@/Components/ui/dropdown-menu'
@@ -22,6 +22,8 @@ const user = computed(() => page.props.auth?.user)
 /** Nhân viên thư viện / quản trị — vào admin; độc giả — về trang reader. */
 const isStaff = computed(() => page.props.auth?.is_staff === true)
 const mobileOpen = ref(false)
+const borrowCartCount = ref(0)
+const BORROW_CART_KEY = 'reader_borrow_cart_v1'
 const {
     notifications,
     unreadCount,
@@ -34,6 +36,31 @@ const {
     deletingIds,
 } = useNotifications()
 const hasNotifications = computed(() => Array.isArray(notifications.value) && notifications.value.length > 0)
+
+const syncBorrowCartCount = () => {
+    try {
+        const raw = JSON.parse(localStorage.getItem(BORROW_CART_KEY) || '[]')
+        const items = Array.isArray(raw) ? raw : []
+        borrowCartCount.value = items.filter((x) => Number(x?.book_id) > 0).length
+    } catch {
+        borrowCartCount.value = 0
+    }
+}
+
+const onStorage = (event) => {
+    if (!event?.key || event.key === BORROW_CART_KEY) {
+        syncBorrowCartCount()
+    }
+}
+
+onMounted(() => {
+    syncBorrowCartCount()
+    window.addEventListener('storage', onStorage)
+})
+
+onBeforeUnmount(() => {
+    window.removeEventListener('storage', onStorage)
+})
 
 const hasRoute = (routeName) => {
     try {
@@ -207,6 +234,20 @@ const navChildLinkClass = (childRoute) => {
                     </Link>
                 </template>
                 <template v-else>
+                    <Link
+                        :href="route('reader.services.borrow-cart')"
+                        class="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                        aria-label="Giỏ mượn"
+                        title="Giỏ mượn"
+                    >
+                        <Icon icon="lucide:shopping-cart" class="h-5 w-5" />
+                        <span
+                            v-if="borrowCartCount > 0"
+                            class="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white"
+                        >
+                            {{ borrowCartCount > 99 ? '99+' : borrowCartCount }}
+                        </span>
+                    </Link>
                     <DropdownMenu>
                         <DropdownMenuTrigger as-child>
                             <button
@@ -399,14 +440,6 @@ const navChildLinkClass = (childRoute) => {
                         @click="mobileOpen = false"
                     >
                         {{ S.catalog }}
-                    </Link>
-                    <Link
-                        v-if="hasRoute('reader.saved-books')"
-                        :href="route('reader.saved-books')"
-                        class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
-                        @click="mobileOpen = false"
-                    >
-                        {{ S.savedBooks }}
                     </Link>
                     <Link
                         v-if="isStaff"

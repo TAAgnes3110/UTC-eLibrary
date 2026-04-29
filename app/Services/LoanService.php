@@ -10,7 +10,6 @@ use App\Models\Book;
 use App\Models\LibraryCard;
 use App\Models\Loan;
 use App\Models\LoanItem;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -264,9 +263,7 @@ class LoanService
     }
 
     /**
-     * Xóa mềm phiếu mượn.
-     * - Đang mượn / quá hạn: hoàn tồn kho rồi đánh dấu xóa mềm.
-     * - Đã trả: chỉ xóa mềm bản ghi (sách đã nhập kho lúc trả, không cộng tồn lần hai).
+     * Ẩn phiếu mượn khỏi nghiệp vụ: chỉ cho phép khi phiếu đã trả; đặt {@see Loan::$deleted} = true (không dùng xóa mềm Laravel).
      */
     public function destroy(Loan $loan): void
     {
@@ -276,18 +273,15 @@ class LoanService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedLoan->status === Loan::STATUS_RETURNED) {
-                $lockedLoan->delete();
-
-                return;
+            if ($lockedLoan->deleted) {
+                throw new RuntimeException('Phiếu đã được xóa.');
             }
 
-            $this->assertLoanOpenForOfficeOps($lockedLoan);
-            $items = $lockedLoan->items()->lockForUpdate()->get();
-            $bookDeltas = $this->loanHelper->aggregateBookDeltas($items);
-            $this->loanHelper->restockBooksByDeltas($bookDeltas);
+            if ($lockedLoan->status !== Loan::STATUS_RETURNED) {
+                throw new RuntimeException('Chỉ được xóa phiếu ở trạng thái đã trả.');
+            }
 
-            $lockedLoan->delete();
+            $lockedLoan->update(['deleted' => true]);
         });
     }
 
@@ -339,7 +333,7 @@ class LoanService
     }
 
     /**
-     * Xóa mềm nhiều phiếu (đang mượn / quá hạn / đã trả). Một phiếu lỗi sẽ rollback cả lô.
+     * Ẩn nhiều phiếu đã trả. Một phiếu không hợp lệ sẽ rollback cả lô.
      *
      * @param  list<int>  $ids
      */
@@ -377,90 +371,6 @@ class LoanService
     }
 
     /**
-     * Danh sách phiếu đã xóa mềm (thùng rác).
-     */
-    public function trash(int $perPage = 20): LengthAwarePaginator
-    {
-        $perPage = min(max($perPage, 1), 100);
-
-        return Loan::onlyTrashed()
-            ->with(['libraryCard:id,card_number,full_name', 'createdBy:id,name'])
-            ->orderByDesc('deleted_at')
-            ->paginate($perPage)
-            ->withQueryString();
-    }
-
-    /**
-     * Khôi phục phiếu đã xóa mềm. Phiếu đang mượn / quá hạn: trừ tồn kho lại (đã được cộng khi xóa mềm).
-     */
-    public function restore(int $id): ?Loan
-    {
-        return DB::transaction(function () use ($id): ?Loan {
-            $loan = Loan::onlyTrashed()
-                ->with(['items'])
-                ->whereKey($id)
-                ->lockForUpdate()
-                ->first();
-            if (! $loan instanceof Loan) {
-                return null;
-            }
-
-            if (in_array($loan->status, [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE], true)) {
-                $bookDeltas = $this->loanHelper->aggregateBookDeltas($loan->items);
-                $this->loanHelper->deductBooksByDeltas($bookDeltas);
-            }
-
-            $loan->restore();
-
-            return $loan->fresh(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
-        });
-    }
-
-    /**
-     * @return int số phiếu đã khôi phục
-     */
-    public function restoreMany(array $ids): int
-    {
-        $ids = array_values(array_unique(array_map('intval', array_filter($ids, 'is_numeric'))));
-        if ($ids === []) {
-            return 0;
-        }
-
-        $restored = 0;
-        foreach ($ids as $id) {
-            if ($this->restore($id) !== null) {
-                $restored++;
-            }
-        }
-
-        return $restored;
-    }
-
-    public function forceDelete(int $id): bool
-    {
-        $loan = Loan::onlyTrashed()->whereKey($id)->first();
-        if (! $loan instanceof Loan) {
-            return false;
-        }
-        $loan->forceDelete();
-
-        return true;
-    }
-
-    /**
-     * @return int số bản ghi đã xóa vĩnh viễn (kèm loan_items theo cascade)
-     */
-    public function forceDeleteMany(array $ids): int
-    {
-        $ids = array_values(array_unique(array_map('intval', array_filter($ids, 'is_numeric'))));
-        if ($ids === []) {
-            return 0;
-        }
-
-        return (int) Loan::onlyTrashed()->whereIn('id', $ids)->forceDelete();
-    }
-
-    /**
      * Tải thẻ (khóa hàng DB trong transaction) trước khi mượn.
      * Việc ghi trạng thái LOCKED do quá hạn nặng do lệnh {@see SyncLibraryCardOverdueLocksCommand} xử lý định kỳ.
      */
@@ -490,7 +400,7 @@ class LoanService
         do {
             $attempts++;
             $code = $prefix.strtoupper(Str::random(4));
-            $exists = Loan::withTrashed()->where('loan_code', $code)->exists();
+            $exists = Loan::withoutGlobalScopes()->where('loan_code', $code)->exists();
         } while ($exists && $attempts < 10);
 
         if ($exists) {

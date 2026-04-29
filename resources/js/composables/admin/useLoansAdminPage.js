@@ -209,16 +209,18 @@ export function useLoansAdminPage() {
         selectedIds.value.filter((id) => ['da_muon', 'qua_han'].includes(loanStatusById[id])),
     );
 
-    /** Mọi trạng thái có thể xóa (gồm đã trả). */
+    /** Chỉ phiếu đã trả mới được xóa khỏi danh sách. */
     const bulkDeletableLoanIds = computed(() =>
-        selectedIds.value.filter((id) => ['da_muon', 'qua_han', 'da_tra'].includes(loanStatusById[id])),
+        selectedIds.value.filter((id) => loanStatusById[id] === 'da_tra'),
     );
 
     const skippedNonOpenBulkCount = computed(() => selectedIds.value.length - openLoanIdsForBulk.value.length);
 
     function openBulkDelete() {
         if (bulkDeletableLoanIds.value.length === 0) {
-            toast.warn('Không có phiếu hợp lệ để xóa trong lựa chọn.', { title: 'Xóa phiếu' });
+            toast.warn('Chỉ có thể xóa phiếu đã trả. Chọn ít nhất một phiếu trạng thái “Đã trả”.', {
+                title: 'Xóa phiếu',
+            });
             return;
         }
         showBulkDeleteModal.value = true;
@@ -229,13 +231,10 @@ export function useLoansAdminPage() {
         bulkDeleteLoading.value = true;
         try {
             await loansApi.bulkDelete({ ids });
-            toast.success(`Đã chuyển ${ids.length} phiếu vào thùng rác.`, { title: 'Thành công' });
+            toast.success(`Đã xóa ${ids.length} phiếu khỏi danh sách.`, { title: 'Thành công' });
             showBulkDeleteModal.value = false;
             deselectAll();
             await loadLoans(false);
-            if (showTrashDrawer.value) {
-                await fetchTrashLoans();
-            }
         } catch (e) {
             toast.error(e?.response?.data?.messages || 'Không xóa được các phiếu đã chọn.', { title: 'Lỗi' });
         } finally {
@@ -273,82 +272,6 @@ export function useLoansAdminPage() {
 
     const emptyText = computed(() => (loading.value ? 'Đang tải dữ liệu...' : 'Chưa có phiếu mượn nào.'));
 
-    const trashedLoans = ref([]);
-    const showTrashDrawer = ref(false);
-    const loadingTrash = ref(false);
-
-    async function fetchTrashLoans() {
-        loadingTrash.value = true;
-        try {
-            const payload = await loansApi.trash({ per_page: 100 });
-            const { items } = extractApiPaginator(payload, 100);
-            trashedLoans.value = items;
-        } catch (e) {
-            trashedLoans.value = [];
-            toast.error(e?.response?.data?.messages || 'Không tải được thùng rác.', { title: 'Thùng rác' });
-        } finally {
-            loadingTrash.value = false;
-        }
-    }
-
-    watch(showTrashDrawer, (open) => {
-        if (open) {
-            fetchTrashLoans();
-        }
-    });
-
-    async function restoreLoan(id) {
-        try {
-            await loansApi.restore(id);
-            await loadLoans(false);
-            await fetchTrashLoans();
-            toast.success('Đã khôi phục phiếu mượn.', { title: 'Thùng rác' });
-        } catch (e) {
-            toast.error(e?.response?.data?.messages || 'Không khôi phục được.', { title: 'Thùng rác' });
-        }
-    }
-
-    async function restoreManyLoans(ids) {
-        if (!Array.isArray(ids) || ids.length === 0) return;
-        if (!window.confirm(`Khôi phục ${ids.length} phiếu?`)) return;
-        try {
-            await loansApi.restoreMany(ids);
-            await loadLoans(false);
-            await fetchTrashLoans();
-            toast.success(`Đã khôi phục ${ids.length} phiếu.`, { title: 'Thùng rác' });
-        } catch (e) {
-            toast.error(e?.response?.data?.messages || 'Không khôi phục được các phiếu đã chọn.', { title: 'Thùng rác' });
-        }
-    }
-
-    async function forceDeleteLoan(id) {
-        if (!window.confirm('Xóa vĩnh viễn phiếu này? Không thể khôi phục.')) return;
-        try {
-            await loansApi.forceDelete(id);
-            trashedLoans.value = (trashedLoans.value || []).filter((x) => x.id !== id);
-            await loadLoans(false);
-            await fetchTrashLoans();
-            toast.success('Đã xóa vĩnh viễn.', { title: 'Thùng rác' });
-        } catch (e) {
-            toast.error(e?.response?.data?.messages || 'Không xóa vĩnh viễn được.', { title: 'Thùng rác' });
-        }
-    }
-
-    async function forceDeleteManyLoans(ids) {
-        if (!Array.isArray(ids) || ids.length === 0) return;
-        if (!window.confirm(`Xóa vĩnh viễn ${ids.length} phiếu? Không thể khôi phục.`)) return;
-        try {
-            await loansApi.forceDeleteMany(ids);
-            const set = new Set(ids);
-            trashedLoans.value = (trashedLoans.value || []).filter((x) => !set.has(x.id));
-            await loadLoans(false);
-            await fetchTrashLoans();
-            toast.success(`Đã xóa vĩnh viễn ${ids.length} phiếu.`, { title: 'Thùng rác' });
-        } catch (e) {
-            toast.error(e?.response?.data?.messages || 'Không xóa vĩnh viễn được.', { title: 'Thùng rác' });
-        }
-    }
-
     function goCreate() {
         router.visit(route('admin.loans.create'));
     }
@@ -384,7 +307,7 @@ export function useLoansAdminPage() {
         singleDeleteLoading.value = true;
         try {
             await loansApi.remove(id);
-            toast.success('Đã xóa phiếu mượn.', { title: 'Thành công' });
+            toast.success('Đã xóa phiếu khỏi danh sách.', { title: 'Thành công' });
             selectedIds.value = selectedIds.value.filter((x) => x !== id);
             delete loanStatusById[id];
             closeSingleDeleteModal();
@@ -474,13 +397,5 @@ export function useLoansAdminPage() {
         goReturn,
         removeLoan,
         exportExcel,
-        trashedLoans,
-        showTrashDrawer,
-        loadingTrash,
-        fetchTrashLoans,
-        restoreLoan,
-        restoreManyLoans,
-        forceDeleteLoan,
-        forceDeleteManyLoans,
     };
 }

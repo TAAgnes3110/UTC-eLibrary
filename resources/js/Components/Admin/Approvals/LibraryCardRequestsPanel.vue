@@ -1,9 +1,12 @@
 <script setup>
 import { Icon } from '@iconify/vue';
+import { ref } from 'vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import LibraryCardsTable from '@/Components/Admin/LibraryCards/LibraryCardsTable.vue';
+import { libraryCardsApi } from '@/api/libraryCards';
+import { toast } from '@/store/toast';
 import { useLibraryCardsAdminPage } from '@/composables/admin/useLibraryCardsAdminPage';
 import { HOLDER_LABELS } from '@/config/libraryCardUi';
 
@@ -13,6 +16,45 @@ const props = defineProps({
 });
 
 const lc = useLibraryCardsAdminPage(props, { screen: 'requests' });
+const detailRow = ref(null);
+const rejectRow = ref(null);
+const rejectNote = ref('');
+const rejectLoading = ref(false);
+
+function openDetail(row) {
+    detailRow.value = row;
+}
+
+function closeDetail() {
+    detailRow.value = null;
+}
+
+function openReject(row) {
+    rejectRow.value = row;
+    rejectNote.value = '';
+}
+
+function closeReject() {
+    rejectRow.value = null;
+    rejectNote.value = '';
+}
+
+async function confirmReject() {
+    if (!rejectRow.value) return;
+    rejectLoading.value = true;
+    try {
+        const notes = rejectNote.value.trim();
+        await libraryCardsApi.rejectReview(rejectRow.value.id, notes ? { notes } : {});
+        toast.success('Đã từ chối hồ sơ.', { title: 'Thành công' });
+        closeReject();
+        await lc.loadCards();
+    } catch (e) {
+        const msg = e?.response?.data?.messages || e?.response?.data?.message || 'Không từ chối được.';
+        toast.error(msg, { title: 'Lỗi' });
+    } finally {
+        rejectLoading.value = false;
+    }
+}
 </script>
 
 <template>
@@ -108,7 +150,8 @@ const lc = useLibraryCardsAdminPage(props, { screen: 'requests' });
             @toggle-all="lc.toggleSelectAll"
             @toggle="lc.toggleSelect"
             @approve="lc.onApprove"
-            @reject="lc.onReject"
+            @reject="openReject"
+            @detail="openDetail"
         />
 
         <AdminPaginationBar
@@ -122,5 +165,73 @@ const lc = useLibraryCardsAdminPage(props, { screen: 'requests' });
             <Icon icon="lucide:info" class="inline w-3.5 h-3.5 -mt-0.5" />
             « Đồng ý » kích hoạt thẻ (hoạt động); « Từ chối » loại hồ sơ khỏi hệ thống (xóa mềm).
         </p>
+
+        <div v-if="detailRow" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60" @click="closeDetail" />
+            <div class="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết hồ sơ cấp thẻ</h3>
+                    <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeDetail">
+                        <Icon icon="lucide:x" class="h-5 w-5" />
+                    </button>
+                </div>
+                <div class="grid gap-3 md:grid-cols-2 text-sm">
+                    <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Thông tin thẻ</p>
+                        <div class="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+                            <p><span class="text-slate-400">Mã thẻ:</span> {{ detailRow.card_number || '—' }}</p>
+                            <p><span class="text-slate-400">Loại thẻ:</span> {{ HOLDER_LABELS[detailRow.holder_type] || detailRow.holder_type || '—' }}</p>
+                            <p><span class="text-slate-400">Quy trình:</span> {{ detailRow.workflow_status || '—' }}</p>
+                        </div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Thông tin bạn đọc</p>
+                        <div class="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+                            <p><span class="text-slate-400">Họ tên:</span> {{ detailRow.full_name || '—' }}</p>
+                            <p><span class="text-slate-400">Email:</span> {{ detailRow.email || '—' }}</p>
+                            <p><span class="text-slate-400">SĐT:</span> {{ detailRow.phone || '—' }}</p>
+                            <p><span class="text-slate-400">Mã định danh:</span> {{ detailRow.code || '—' }}</p>
+                        </div>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Địa chỉ / ghi chú</p>
+                        <div class="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+                            <p><span class="text-slate-400">Địa chỉ:</span> {{ detailRow.address || '—' }}</p>
+                            <p><span class="text-slate-400">Ghi chú:</span> {{ detailRow.notes || '—' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="rejectRow" class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60" @click="closeReject" />
+            <div class="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Từ chối hồ sơ cấp thẻ</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Mã thẻ: {{ rejectRow.card_number || '—' }}</p>
+                    </div>
+                    <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeReject">
+                        <Icon icon="lucide:x" class="h-5 w-5" />
+                    </button>
+                </div>
+                <label class="block space-y-1">
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Lý do từ chối (tuỳ chọn)</span>
+                    <textarea v-model="rejectNote" rows="4" class="admin-filter-input w-full" placeholder="Nhập lý do để bạn đọc dễ theo dõi..." />
+                </label>
+                <div class="mt-4 flex items-center justify-end gap-2">
+                    <button type="button" class="admin-filter-btn px-4 py-2 min-h-[40px]" @click="closeReject">Hủy</button>
+                    <button
+                        type="button"
+                        class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                        :disabled="rejectLoading"
+                        @click="confirmReject"
+                    >
+                        Xác nhận từ chối
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>

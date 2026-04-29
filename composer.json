@@ -60,6 +60,12 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "db:standard": [
+            "@php artisan db:setup-standard"
+        ],
+        "db:standard:demo": [
+            "@php artisan db:setup-standard --demo"
+        ],
         "test:backend-storage": [
             "@php artisan config:clear --ansi",
             "@php artisan test tests/Feature/Backend/LoanStorageQuantitySyncTest.php tests/Feature/Backend/StorageCabinetApiTest.php"

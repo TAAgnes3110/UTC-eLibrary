@@ -178,14 +178,36 @@ class LoanRenewalRequestService
         }
         if (! empty($filters['search'])) {
             $kw = trim((string) $filters['search']);
-            $query->where(function ($q) use ($kw) {
-                $q->whereHas('loan', fn ($x) => $x->where('loan_code', 'like', "%{$kw}%"))
-                    ->orWhereHas('loan.libraryCard', fn ($x) => $x->where('card_number', 'like', "%{$kw}%")->orWhere('full_name', 'like', "%{$kw}%"))
-                    ->orWhereHas('requester', fn ($x) => $x->where('name', 'like', "%{$kw}%")->orWhere('code', 'like', "%{$kw}%"));
+            $searchIn = array_values(array_filter((array) ($filters['search_in'] ?? []), static fn ($v): bool => is_string($v) && $v !== ''));
+            if ($searchIn === []) {
+                $searchIn = ['loan_code', 'card', 'reader'];
+            }
+            $query->where(function ($q) use ($kw, $searchIn): void {
+                $applied = false;
+                if (in_array('loan_code', $searchIn, true)) {
+                    $q->whereHas('loan', fn ($x) => $x->where('loan_code', 'like', "%{$kw}%"));
+                    $applied = true;
+                }
+                if (in_array('card', $searchIn, true)) {
+                    $method = $applied ? 'orWhereHas' : 'whereHas';
+                    $q->{$method}('loan.libraryCard', fn ($x) => $x->where('card_number', 'like', "%{$kw}%")->orWhere('full_name', 'like', "%{$kw}%"));
+                    $applied = true;
+                }
+                if (in_array('reader', $searchIn, true)) {
+                    $method = $applied ? 'orWhereHas' : 'whereHas';
+                    $q->{$method}('requester', fn ($x) => $x->where('name', 'like', "%{$kw}%")->orWhere('code', 'like', "%{$kw}%"));
+                }
             });
         }
 
-        return $query->orderByDesc('id')->paginate($perPage)->withQueryString();
+        $sort = (string) ($filters['sort'] ?? 'newest');
+        if ($sort === 'oldest') {
+            $query->orderBy('id');
+        } else {
+            $query->orderByDesc('id');
+        }
+
+        return $query->paginate($perPage)->withQueryString();
     }
 
     public function approve(LoanRenewalRequest $request, User $reviewer, ?string $reviewNote = null): LoanRenewalRequest

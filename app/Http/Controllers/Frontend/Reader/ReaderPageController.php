@@ -15,9 +15,6 @@ use App\Models\LibraryCard;
 use App\Models\LoanPolicy;
 use App\Models\Period;
 use App\Services\BookService;
-use App\Services\SavedBookService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -27,8 +24,7 @@ use Inertia\Response;
 class ReaderPageController extends Controller
 {
     public function __construct(
-        private BookService $bookService,
-        private SavedBookService $savedBookService
+        private BookService $bookService
     ) {}
 
     /**
@@ -130,70 +126,10 @@ class ReaderPageController extends Controller
     public function catalogShow(Book $book): Response
     {
         $book = $this->bookService->getForApiDetail($book);
-        $user = auth()->user();
-        $isSaved = $user !== null && $this->savedBookService->isSaved($user, (int) $book->id);
-
         return Inertia::render('Reader/BookShow', [
             'book' => (new ReaderBookDetailResource($book))->resolve(),
             'availability' => $this->bookService->readerCopyStats($book),
-            'is_saved' => $isSaved,
         ]);
-    }
-
-    public function savedBooks(Request $request): Response
-    {
-        $request->validate([
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:60'],
-        ]);
-        $perPage = min(60, max(1, (int) $request->input('per_page', 12)));
-        $user = $request->user();
-        if ($user === null) {
-            abort(403);
-        }
-        $paginator = $this->savedBookService->paginateForUser($user, $perPage);
-
-        return Inertia::render('Reader/Services/SavedBooks', [
-            'saved' => $paginator->through(function ($saved) {
-                return [
-                    'id' => $saved->id,
-                    'saved_at' => $saved->created_at?->toIso8601String(),
-                    'book' => (new ReaderBookCardResource($saved->book))->resolve(),
-                ];
-            }),
-            'filters' => [
-                'per_page' => $perPage,
-            ],
-        ]);
-    }
-
-    public function storeSavedBook(Request $request, Book $book): RedirectResponse|JsonResponse
-    {
-        $user = $request->user();
-        if ($user === null) {
-            abort(403);
-        }
-        $this->savedBookService->save($user, $book);
-
-        if ($request->expectsJson()) {
-            return response()->json(['status' => 'success']);
-        }
-
-        return back(status: 303);
-    }
-
-    public function destroySavedBook(Request $request, Book $book): RedirectResponse|JsonResponse
-    {
-        $user = $request->user();
-        if ($user === null) {
-            abort(403);
-        }
-        $this->savedBookService->unsave($user, $book);
-
-        if ($request->expectsJson()) {
-            return response()->json(['status' => 'success']);
-        }
-
-        return back(status: 303);
     }
 
     /**
@@ -273,6 +209,11 @@ class ReaderPageController extends Controller
     public function servicesLoanRequests(): Response
     {
         return Inertia::render('Reader/Loans/Index');
+    }
+
+    public function servicesBorrowCart(): Response
+    {
+        return Inertia::render('Reader/Services/BorrowCart');
     }
 
     public function servicesLoanRequestShow(int $loan): Response

@@ -101,6 +101,7 @@ class LoanHelper
             ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
             ->join('books', 'loan_items.book_id', '=', 'books.id')
             ->where('loans.library_card_id', $card->id)
+            ->where('loans.deleted', false)
             ->whereIn('loans.loan_type', [Loan::TYPE_HOME, Loan::TYPE_ONSITE])
             ->whereIn('loans.status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
             ->selectRaw('books.resource_type as resource_type, COALESCE(SUM(loan_items.quantity), 0) as total_quantity')

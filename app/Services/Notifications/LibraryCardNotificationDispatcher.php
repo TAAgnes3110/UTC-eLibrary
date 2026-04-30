@@ -2,10 +2,12 @@
 
 namespace App\Services\Notifications;
 
+use App\Mail\LibraryCardPickupReminderMail;
 use App\Enums\NotificationSeverity;
 use App\Enums\NotificationType;
 use App\Models\LibraryCard;
 use App\Models\Notification;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Thông báo nghiệp vụ đăng ký / duyệt thẻ thư viện (staff + bạn đọc có tài khoản).
@@ -26,18 +28,34 @@ class LibraryCardNotificationDispatcher
 
     public function notifyReaderCardApproved(LibraryCard $card): void
     {
+        $this->notifyReaderCardPickupReminder($card, 3);
+    }
+
+    /**
+     * Gửi nhắc nhận thẻ sau khi thủ thư duyệt/cấp tại quầy:
+     * - Chuông thông báo trong web
+     * - Email tới bạn đọc
+     */
+    public function notifyReaderCardPickupReminder(LibraryCard $card, int $pickupWithinDays = 3): void
+    {
         $userId = (int) ($card->user_id ?? 0);
-        if ($userId <= 0) {
-            return;
-        }
+        if ($userId <= 0) return;
+
+        $pickupWithinDays = max(1, $pickupWithinDays);
+        $cardCode = (string) ($card->card_number ?? $card->code ?? '—');
+        $message = sprintf(
+            'Thẻ thư viện của bạn đã được duyệt/cấp. Vui lòng đến thư viện nhận thẻ trong vòng %d ngày. Mã thẻ: %s.',
+            $pickupWithinDays,
+            $cardCode
+        );
 
         try {
             $this->notificationService->notify([
                 'recipient_type' => Notification::RECIPIENT_USER,
                 'recipient_id' => $userId,
                 'type' => NotificationType::USER_CARD_APPROVED,
-                'title' => 'Thẻ thư viện đã được duyệt',
-                'message' => sprintf('Hồ sơ thẻ của bạn đã được duyệt. Mã thẻ: %s.', (string) ($card->card_number ?? $card->code ?? '—')),
+                'title' => 'Thẻ thư viện đã sẵn sàng nhận',
+                'message' => $message,
                 'severity' => NotificationSeverity::INFO,
                 'entity_type' => LibraryCard::class,
                 'entity_id' => (int) $card->id,
@@ -50,6 +68,15 @@ class LibraryCardNotificationDispatcher
                     (int) $card->id
                 ),
             ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        try {
+            $email = trim((string) ($card->email ?? ''));
+            if ($email !== '') {
+                Mail::to($email)->send(new LibraryCardPickupReminderMail($card, $pickupWithinDays));
+            }
         } catch (\Throwable $e) {
             report($e);
         }

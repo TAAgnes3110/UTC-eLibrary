@@ -19,8 +19,8 @@ export const readerNavItems = [
         route: 'reader.services',
         children: [
             { key: 'services_card', label: 'Thẻ thư viện', route: 'reader.services.library-card' },
-            { key: 'services_saved', label: 'Sách đã lưu', route: 'reader.saved-books' },
-            { key: 'services_loan', label: 'Phiếu mượn và gia hạn', route: 'reader.services.loan-requests' },
+            { key: 'services_borrow_cart', label: 'Giỏ mượn', route: 'reader.services.borrow-cart' },
+            { key: 'services_loan', label: 'Quản lý phiếu mượn', route: 'reader.services.loan-requests' },
         ],
     },
 ]

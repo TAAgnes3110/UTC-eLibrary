@@ -58,10 +58,11 @@ const goChangePassword = () => {
 
 const logout = () => {
     clearStaffWorkQueueSessionHint()
+    // Xóa token local ngay khi bấm đăng xuất để tránh dùng lại token cũ.
+    clearClientApiCredentials()
     router.post(route('logout'), {}, {
-        replace: true,
         onSuccess: () => {
-            clearClientApiCredentials()
+            window.location.href = '/'
         },
     })
 }

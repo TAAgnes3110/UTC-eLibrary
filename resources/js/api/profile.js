@@ -19,4 +19,7 @@ export const profileApi = {
     myProfileUpdateRequests() {
         return client.get('/me/profile-update-requests').then((r) => r.data)
     },
+    hideProfileUpdateRequests(ids) {
+        return client.post('/me/profile-update-requests/hide', { ids }).then((r) => r.data)
+    },
 }

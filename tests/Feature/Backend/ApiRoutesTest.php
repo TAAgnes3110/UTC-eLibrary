@@ -93,6 +93,7 @@ class ApiRoutesTest extends TestCase
             'me password put' => ['PUT', "{$base}/me/password", ['current_password' => 'x', 'password' => 'x12345678', 'password_confirmation' => 'x12345678']],
             'me profile-update-requests list' => ['GET', "{$base}/me/profile-update-requests"],
             'me profile-update-requests store' => ['POST', "{$base}/me/profile-update-requests"],
+            'me profile-update-requests hide' => ['POST', "{$base}/me/profile-update-requests/hide", ['ids' => [1]]],
             'me library-card post' => ['POST', "{$base}/me/library-card", []],
             'me notifications list' => ['GET', "{$base}/me/notifications"],
             'me notifications read-all' => ['POST', "{$base}/me/notifications/read-all", []],

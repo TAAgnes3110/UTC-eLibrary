@@ -12,7 +12,9 @@ use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardStaffController;
 use App\Http\Controllers\Api\LibraryCard\MeLibraryCardController;
 use App\Http\Controllers\Api\LibraryCardController;
+use App\Http\Controllers\Api\Loan\LoanBorrowRequestController;
 use App\Http\Controllers\Api\Loan\LoanRenewalRequestController;
+use App\Http\Controllers\Api\Loan\MeLoanBorrowRequestController;
 use App\Http\Controllers\Api\Loan\MeLoanController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\LoanPoliciesController;
@@ -90,11 +92,17 @@ Route::prefix('v1')->group(function () {
         Route::put('password', [ProfileController::class, 'updatePassword']);
         Route::get('profile-update-requests', [UserProfileUpdateRequestController::class, 'myIndex']);
         Route::post('profile-update-requests', [UserProfileUpdateRequestController::class, 'store']);
+        Route::post('profile-update-requests/hide', [UserProfileUpdateRequestController::class, 'hideMyRequests']);
         Route::post('library-card', [MeLibraryCardController::class, 'store']);
         Route::get('loans', [MeLoanController::class, 'index']);
+        Route::get('loans/summary', [MeLoanController::class, 'summary']);
         Route::get('loans/export', [MeLoanController::class, 'export']);
         Route::get('loans/{loan}', [MeLoanController::class, 'show']);
+        Route::delete('loans/{loan}', [MeLoanController::class, 'destroy']);
         Route::post('loans/{loan}/renewal-requests', [MeLoanController::class, 'requestRenewal']);
+        Route::get('loan-borrow-requests', [MeLoanBorrowRequestController::class, 'index']);
+        Route::post('loan-borrow-requests', [MeLoanBorrowRequestController::class, 'store']);
+        Route::post('loan-borrow-requests/preview', [MeLoanBorrowRequestController::class, 'preview']);
         Route::get('notifications', [NotificationController::class, 'index']);
         Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead']);
         Route::post('notifications/delete-all', [NotificationController::class, 'destroyAll']);
@@ -116,6 +124,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/profile-update-requests', [UserProfileUpdateRequestController::class, 'adminIndex']);
                 Route::post('/profile-update-requests/{id}/approve', [UserProfileUpdateRequestController::class, 'approve']);
                 Route::post('/profile-update-requests/{id}/reject', [UserProfileUpdateRequestController::class, 'reject']);
+                Route::post('/profile-update-requests/{id}/hide', [UserProfileUpdateRequestController::class, 'adminHide']);
                 Route::get('/', [UserController::class, 'index']);
                 Route::get('/export', [UserController::class, 'exportUsers']);
                 Route::get('/trash', [UserController::class, 'trash']);
@@ -159,7 +168,6 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/{classification}', [ClassificationController::class, 'destroy']);
             });
 
-
             Route::group(['prefix' => '/warehouses'], function () {
                 Route::get('/', [WarehouseController::class, 'index']);
                 Route::get('/export', [WarehouseController::class, 'exportWarehouses']);
@@ -198,12 +206,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('/renewal-requests', [LoanRenewalRequestController::class, 'index']);
                 Route::post('/renewal-requests/{renewalRequest}/approve', [LoanRenewalRequestController::class, 'approve']);
                 Route::post('/renewal-requests/{renewalRequest}/reject', [LoanRenewalRequestController::class, 'reject']);
-                Route::get('/trash', [LoanController::class, 'trash']);
-                Route::post('/restore', [LoanController::class, 'restoreMany']);
-                Route::post('/restore/{id}', [LoanController::class, 'restore']);
-                Route::post('/force', [LoanController::class, 'forceDeleteMany']);
-                Route::delete('/force', [LoanController::class, 'forceDeleteMany']);
-                Route::delete('/force/{id}', [LoanController::class, 'forceDelete']);
+                Route::get('/borrow-requests', [LoanBorrowRequestController::class, 'index']);
+                Route::post('/borrow-requests/{borrowRequest}/approve', [LoanBorrowRequestController::class, 'approve']);
+                Route::post('/borrow-requests/{borrowRequest}/reject', [LoanBorrowRequestController::class, 'reject']);
                 Route::post('/bulk-delete', [LoanController::class, 'bulkDestroy']);
                 Route::post('/bulk-return', [LoanController::class, 'bulkReturn']);
                 Route::post('/', [LoanController::class, 'store']);

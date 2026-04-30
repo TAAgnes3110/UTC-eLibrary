@@ -59,7 +59,8 @@ export const adminNavigation = [
         active: ['admin.loans.*'],
         children: [
             { name: 'Quản lý phiếu', href: 'admin.loans.index', active: 'admin.loans.index' },
-            { name: 'Duyệt gia hạn', href: 'admin.loans.renewal-requests', active: 'admin.loans.renewal-requests' },
+            { name: 'Duyệt yêu cầu gia hạn', href: 'admin.loans.renewal-requests', active: 'admin.loans.renewal-requests' },
+            { name: 'Duyệt yêu cầu mượn', href: 'admin.loans.borrow-requests', active: 'admin.loans.borrow-requests' },
             { name: 'Tạo phiếu mới', href: 'admin.loans.create', active: 'admin.loans.create' },
         ],
     },

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
@@ -18,14 +18,16 @@ const props = defineProps({
 
 const form = reactive({
     avatar_file: null,
+    full_name: String(props.profile?.name || '').trim(),
 })
 const errors = reactive({})
 const state = reactive({
     submitting: false,
-    uploadingAvatar: false,
     avatarPreview: props.profile?.avatar ?? '',
     avatarFileName: '',
 })
+const avatarInput = ref(null)
+const showAvatarPreviewModal = ref(false)
 
 const role = computed(() => String(props.profile?.user_type || '').trim().toUpperCase())
 const isStudent = computed(() => role.value === 'STUDENT')
@@ -87,6 +89,41 @@ const cardStatusLabel = computed(() => {
 })
 const cardOwnerName = computed(() => String(props.card?.full_name || profileName.value || 'Bạn đọc'))
 const cardPhotoUrl = computed(() => props.card?.photo_url || state.avatarPreview || null)
+const cardHolderType = computed(() => String(props.card?.holder_type || '').trim().toLowerCase())
+const cardHolderTypeLabel = computed(() => {
+    if (cardHolderType.value === 'student') return 'Thẻ sinh viên'
+    if (cardHolderType.value === 'teacher') return 'Thẻ giáo viên'
+    if (cardHolderType.value === 'external') return 'Thẻ bạn đọc'
+    return 'Thẻ thư viện'
+})
+const cardDetailItems = computed(() => {
+    const card = props.card || {}
+    const items = [
+        { label: 'Họ tên', value: cardOwnerName.value },
+        { label: 'Loại thẻ', value: cardHolderTypeLabel.value },
+        { label: 'Mã định danh', value: card.code || profileCode.value || '—' },
+    ]
+
+    if (cardHolderType.value === 'student') {
+        items.push(
+            { label: 'Khoa', value: card.faculty?.name || '—' },
+            { label: 'Niên khóa', value: card.period?.name || '—' },
+            { label: 'Lớp', value: card.class_code || '—' },
+        )
+    } else if (cardHolderType.value === 'teacher') {
+        items.push({ label: 'Khoa', value: card.faculty?.name || '—' })
+    } else if (cardHolderType.value === 'external') {
+        items.push({ label: 'Đơn vị', value: card.external_organization || 'Bạn đọc ngoài' })
+    }
+
+    items.push(
+        { label: 'Trạng thái', value: cardStatusLabel.value },
+        { label: 'Quy trình', value: workflowLabel.value },
+        { label: 'Hiệu lực', value: `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}` },
+    )
+
+    return items
+})
 
 function formatDate(value) {
     if (!value) return '—'
@@ -101,9 +138,11 @@ function clearErrors() {
 
 function onAvatarChange(event) {
     const file = event?.target?.files?.[0] || null
-    form.avatar_file = file
-    state.avatarFileName = file?.name || ''
+    // Nếu người dùng đóng hộp chọn file mà không chọn gì, giữ nguyên file/preview hiện tại.
     if (!file) return
+    form.avatar_file = file
+    delete errors.avatar
+    state.avatarFileName = file?.name || ''
     const reader = new FileReader()
     reader.onload = (ev) => {
         state.avatarPreview = String(ev?.target?.result || '')
@@ -111,26 +150,17 @@ function onAvatarChange(event) {
     reader.readAsDataURL(file)
 }
 
-async function uploadAvatar() {
-    if (!form.avatar_file) {
-        errors.avatar = 'Vui lòng chọn ảnh 3x4 trước khi tải lên.'
-        return
-    }
-    state.uploadingAvatar = true
-    delete errors.avatar
-    try {
-        const formData = new FormData()
-        formData.append('avatar', form.avatar_file)
-        const res = await profileApi.updateAvatar(formData)
-        state.avatarPreview = res?.data?.avatar || state.avatarPreview
-        toast.success('Đã cập nhật ảnh đại diện.', { title: 'Thẻ thư viện' })
-        form.avatar_file = null
-        state.avatarFileName = ''
-    } catch (err) {
-        mapApiErrors(err)
-    } finally {
-        state.uploadingAvatar = false
-    }
+function triggerAvatarPicker() {
+    avatarInput.value?.click()
+}
+
+function openAvatarPreviewModal() {
+    if (!state.avatarPreview) return
+    showAvatarPreviewModal.value = true
+}
+
+function closeAvatarPreviewModal() {
+    showAvatarPreviewModal.value = false
 }
 
 function mapApiErrors(err) {
@@ -146,6 +176,11 @@ function mapApiErrors(err) {
 
 async function submitApply() {
     clearErrors()
+    form.full_name = String(form.full_name || '').trim()
+    if (!form.full_name) {
+        errors.full_name = 'Vui lòng nhập tên hiển thị trên thẻ thư viện.'
+        return
+    }
     if (!canSubmitApply.value) {
         errors.general = `Thông tin tài khoản còn thiếu: ${missingProfileFields.value.join(', ')}. Vui lòng cập nhật ở trang Tài khoản trước khi cấp thẻ.`
         return
@@ -154,7 +189,7 @@ async function submitApply() {
     try {
         let payload = {
             code: profileCode.value,
-            full_name: profileName.value,
+            full_name: form.full_name,
         }
 
         if (isStudent.value) {
@@ -218,40 +253,28 @@ async function submitApply() {
                             <div class="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
                             <div class="pointer-events-none absolute -bottom-16 -left-20 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
 
-                            <div class="relative flex items-start justify-between gap-4">
-                                <div>
-                                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-100/90">Thẻ thư viện UTC</p>
-                                    <p class="mt-1 text-xl font-black sm:text-2xl">{{ card.card_number || '—' }}</p>
+                            <div class="relative flex items-start justify-between gap-5">
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-100/90">{{ cardHolderTypeLabel }}</p>
+                                    <p class="mt-1 truncate text-xl font-black sm:text-2xl">{{ card.card_number || '—' }}</p>
+                                    <div class="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                                        <div v-for="item in cardDetailItems" :key="item.label" class="min-w-0">
+                                            <p class="text-[11px] uppercase tracking-wider text-blue-100/80">{{ item.label }}</p>
+                                            <p class="truncate font-semibold">{{ item.value }}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="h-24 w-20 overflow-hidden rounded-lg border border-white/40 bg-white/10">
+                                <div class="h-24 w-20 shrink-0 overflow-hidden rounded-lg border border-white/40 bg-white/10 sm:h-28 sm:w-24">
                                     <img v-if="cardPhotoUrl" :src="cardPhotoUrl" alt="Ảnh thẻ" class="h-full w-full object-cover">
                                     <div v-else class="flex h-full w-full items-center justify-center text-[10px] text-blue-100/80">No photo</div>
-                                </div>
-                            </div>
-
-                            <div class="relative mt-5 grid gap-3 text-sm sm:grid-cols-2">
-                                <div>
-                                    <p class="text-[11px] uppercase tracking-wider text-blue-100/80">Họ tên</p>
-                                    <p class="font-semibold">{{ cardOwnerName }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[11px] uppercase tracking-wider text-blue-100/80">Trạng thái</p>
-                                    <p class="font-semibold">{{ cardStatusLabel }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[11px] uppercase tracking-wider text-blue-100/80">Quy trình</p>
-                                    <p class="font-semibold">{{ workflowLabel }}</p>
-                                </div>
-                                <div>
-                                    <p class="text-[11px] uppercase tracking-wider text-blue-100/80">Hiệu lực</p>
-                                    <p class="font-semibold">{{ formatDate(card.issue_date) }} — {{ formatDate(card.expiry_date) }}</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div v-else class="mt-6 rounded-xl border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                        Bạn chưa có thẻ thư viện. Hoàn thiện thông tin dưới đây và bấm <strong>Cấp thẻ thư viện</strong>.
+                        Bạn chưa có thẻ thư viện. Vui lòng kiểm tra đầy đủ thông tin bên dưới (Mã định danh, Tên hiển thị, Khoa/Niên khóa/Lớp nếu có) và ảnh 3x4, sau đó bấm
+                        <strong>Cấp thẻ thư viện</strong> để gửi yêu cầu.
                     </div>
 
                     <div v-if="!hasCard" class="mt-6 space-y-4">
@@ -273,11 +296,12 @@ async function submitApply() {
                             <div>
                                 <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Tên</label>
                                 <input
-                                    :value="profileName || 'Chưa cập nhật'"
+                                    v-model="form.full_name"
                                     type="text"
-                                    readonly
-                                    class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                                    maxlength="255"
+                                    class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
                                 >
+                                <p v-if="errors.full_name" class="mt-1 text-xs text-rose-600 dark:text-rose-300">{{ errors.full_name }}</p>
                             </div>
 
                             <div v-if="isStudent || isTeacher">
@@ -315,8 +339,7 @@ async function submitApply() {
                             Tài khoản bạn đọc ngoài chỉ yêu cầu mã định danh và thông tin cá nhân hiện có trên tài khoản.
                         </p>
                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                            Các thông tin trên được đồng bộ từ tài khoản và không chỉnh sửa tại đây. Nếu cần thay đổi, vui lòng vào
-                            <Link :href="route('reader.profile')" class="font-semibold text-blue-700 hover:underline dark:text-blue-300">Tài khoản</Link>.
+                            Mã định danh và thông tin học thuật được đồng bộ từ tài khoản; riêng trường <span class="font-semibold">Tên</span> có thể chỉnh trực tiếp để hiển thị trên thẻ.
                         </p>
 
                         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
@@ -335,21 +358,32 @@ async function submitApply() {
                                 </div>
                                 <div class="min-w-[240px] flex-1 space-y-2">
                                     <input
+                                        ref="avatarInput"
                                         type="file"
                                         accept=".jpg,.jpeg,.png,.webp"
-                                        class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                                        class="hidden"
                                         @change="onAvatarChange"
                                     >
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                                            @click="triggerAvatarPicker"
+                                        >
+                                            <Icon icon="lucide:camera" class="h-3.5 w-3.5" />
+                                            {{ state.avatarPreview ? 'Đổi ảnh' : 'Chọn ảnh' }}
+                                        </button>
+                                        <button
+                                            v-if="state.avatarPreview"
+                                            type="button"
+                                            class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/45"
+                                            @click="openAvatarPreviewModal"
+                                        >
+                                            <Icon icon="lucide:image" class="h-3.5 w-3.5" />
+                                            Xem ảnh
+                                        </button>
+                                    </div>
                                     <p class="text-xs text-slate-500 dark:text-slate-400">{{ state.avatarFileName || 'Chọn ảnh rõ mặt, tỷ lệ 3x4. Ảnh này sẽ được dùng ngay khi bấm Cấp thẻ thư viện.' }}</p>
-                                    <button
-                                        type="button"
-                                        :disabled="state.uploadingAvatar"
-                                        class="inline-flex min-h-[40px] items-center rounded-lg border border-blue-300 bg-blue-50 px-4 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/45"
-                                        @click="uploadAvatar"
-                                    >
-                                        <Icon v-if="state.uploadingAvatar" icon="lucide:loader-2" class="mr-2 h-4 w-4 animate-spin" />
-                                        Tải ảnh lên
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -381,6 +415,30 @@ async function submitApply() {
                     </div>
                 </template>
             </article>
+        </div>
+        <div v-if="showAvatarPreviewModal && state.avatarPreview" class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60" @click="closeAvatarPreviewModal" />
+            <div class="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-3 flex items-center justify-between">
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Ảnh đại diện 3x4</h4>
+                    <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeAvatarPreviewModal">
+                        <Icon icon="lucide:x" class="h-4 w-4" />
+                    </button>
+                </div>
+                <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                    <img :src="state.avatarPreview" alt="Ảnh đại diện 3x4" class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800" />
+                </div>
+                <div class="mt-3 flex justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/35 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                        @click="closeAvatarPreviewModal(); triggerAvatarPicker()"
+                    >
+                        <Icon icon="lucide:camera" class="h-3.5 w-3.5" />
+                        Đổi ảnh
+                    </button>
+                </div>
+            </div>
         </div>
     </ReaderLayout>
 </template>

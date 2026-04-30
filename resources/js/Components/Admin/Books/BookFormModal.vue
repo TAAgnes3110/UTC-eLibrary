@@ -50,6 +50,7 @@ function matchLookupId(list, text) {
 
 function onCoverFileChange(event) {
     const file = event?.target?.files?.[0] ?? null;
+    if (!file) return;
     createCoverFileName.value = file ? String(file.name || '') : '';
     props.setCreateCoverFile(file);
 }

@@ -5,8 +5,9 @@ import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors';
 import { isLibraryStaffUserType } from '@/utils/readerAuth';
 import { toast } from '@/store/toast';
 
-export function useLoginPage() {
+export function useLoginPage(options = {}) {
     const showPassword = ref(false);
+    const fromRegister = options.fromRegister === true;
 
     const form = useForm({
         login: '',
@@ -22,20 +23,36 @@ export function useLoginPage() {
             remember: form.remember,
         })
             .then((data) => {
-                const token = data?.token;
-                const userPayload = data?.user?.data ?? data?.user;
+                const payload = data?.data && typeof data.data === 'object' ? data.data : data;
+                const token = payload?.token ?? data?.token ?? null;
+                const userPayload = payload?.user?.data ?? payload?.user ?? data?.user?.data ?? data?.user ?? null;
+                const loginSuccess = String(payload?.status ?? data?.status ?? '').toLowerCase() === 'success';
+
+                // Có backend trả session login thành công nhưng không kèm token trong body.
+                // Vẫn cho điều hướng theo user/session để tránh chặn đăng nhập.
                 if (token) {
                     localStorage.setItem('token', token);
-                    if (userPayload) {
-                        localStorage.setItem('user', JSON.stringify(userPayload));
-                    }
+                }
+                if (userPayload) {
+                    localStorage.setItem('user', JSON.stringify(userPayload));
+                }
+                if (token || userPayload || loginSuccess) {
                     form.reset('password');
                     const dest = isLibraryStaffUserType(userPayload?.user_type) ? 'admin.dashboard' : 'reader.home';
                     toast.success('Đăng nhập thành công.', { title: 'Xác thực' });
+                    if (fromRegister && !isLibraryStaffUserType(userPayload?.user_type)) {
+                        toast.success('Bạn có thể đổi sang Sinh viên/Giáo viên trong mục Thông tin cá nhân.', {
+                            title: 'Gợi ý hồ sơ',
+                        });
+                    }
                     router.visit(window.route(dest), { replace: true });
-                } else {
-                    form.errors.login = 'Lỗi hệ thống: Không nhận được Token xác thực.';
+                    return;
                 }
+
+                // Fallback an toàn: backend đã trả 2xx nhưng payload không đúng format mong đợi.
+                // Điều hướng về dashboard để web middleware tự phân luồng theo quyền.
+                toast.success('Đăng nhập thành công.', { title: 'Xác thực' });
+                router.visit(window.route('dashboard'), { replace: true });
             })
             .catch((error) => {
                 const status = error.response?.status;

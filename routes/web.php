@@ -18,6 +18,7 @@ use App\Http\Controllers\Frontend\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Frontend\Auth\RegisteredUserController;
 use App\Http\Controllers\Frontend\Auth\SocialAuthController;
 use App\Http\Controllers\Frontend\Reader\ReaderPageController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ReaderPageController::class, 'home'])->name('reader.home');
@@ -34,8 +35,8 @@ Route::get('/tra-cuu-sach/{book}', [ReaderPageController::class, 'catalogShow'])
 Route::get('/dich-vu', [ReaderPageController::class, 'services'])->name('reader.services');
 Route::prefix('dich-vu')->name('reader.services.')->group(function () {
     Route::get('/cap-the-thu-vien', [ReaderPageController::class, 'servicesLibraryCard'])->name('library-card');
-    Route::redirect('/sach-da-luu', '/sach-da-luu', 301)->name('saved-books');
     Route::get('/phieu-muon', [ReaderPageController::class, 'servicesLoanRequests'])->middleware('auth')->name('loan-requests');
+    Route::get('/gio-muon', [ReaderPageController::class, 'servicesBorrowCart'])->middleware('auth')->name('borrow-cart');
     Route::get('/phieu-muon/{loan}', [ReaderPageController::class, 'servicesLoanRequestShow'])->middleware('auth')->name('loan-requests.show');
 });
 
@@ -54,12 +55,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/tai-khoan', [ReaderPageController::class, 'profile'])->name('reader.profile');
     Route::get('/tai-khoan/lich-su-yeu-cau-cap-nhat', [ReaderPageController::class, 'profileUpdateRequests'])->name('reader.profile-update-requests');
     Route::get('/tai-khoan/doi-mat-khau', [ReaderPageController::class, 'changePassword'])->name('reader.change-password');
-    Route::get('/sach-da-luu', [ReaderPageController::class, 'savedBooks'])->name('reader.saved-books');
-    Route::post('/tra-cuu-sach/{book}/luu', [ReaderPageController::class, 'storeSavedBook'])->name('reader.saved-books.store');
-    Route::delete('/tra-cuu-sach/{book}/luu', [ReaderPageController::class, 'destroySavedBook'])->name('reader.saved-books.destroy');
 
     Route::get('/dashboard', function () {
-        $user = auth()->user();
+        $user = Auth::user();
         if (! $user) {
             return redirect()->route('login');
         }
@@ -96,6 +94,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/library-cards/counter', [LibraryCardPageController::class, 'counter'])->name('library-cards.counter');
         Route::get('/loans', [LoanPageController::class, 'index'])->name('loans.index');
         Route::get('/loans/renewal-requests', [LoanPageController::class, 'renewalRequests'])->name('loans.renewal-requests');
+        Route::get('/loans/borrow-requests', [LoanPageController::class, 'borrowRequests'])->name('loans.borrow-requests');
         Route::get('/loans/create', [LoanPageController::class, 'create'])->name('loans.create');
         Route::get('/loans/{loan}', [LoanPageController::class, 'show'])->name('loans.show');
         Route::get('/loans/{loan}/edit', [LoanPageController::class, 'edit'])->name('loans.edit');

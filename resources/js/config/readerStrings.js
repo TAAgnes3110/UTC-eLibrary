@@ -15,7 +15,6 @@ export const readerLayoutStrings = {
     about: "Giới thiệu",
     regulationsShort: "Quy định",
     catalog: "Tra cứu sách",
-    savedBooks: "Sách đã lưu",
     services: "Dịch vụ",
     catalogFooterHint: "Đăng nhập để lưu đầu mục vào danh sách nhớ khi đến quầy mượn.",
     footerEmailLabel: "Liên hệ",
@@ -157,31 +156,9 @@ export const readerBookShowStrings = {
     availableCopies: "Sẵn sàng mượn",
     borrowedCopies: "Đang mượn",
     summaryTitle: "Mô tả chung",
-    saveCta: "Lưu để nhớ mượn",
-    savedCta: "Đã lưu",
-    loginToSave: "Đăng nhập để lưu đầu mục vào danh sách nhớ khi ra quầy mượn.",
     borrowAtDeskHint: "Mượn sách thực hiện tại quầy thư viện khi có thẻ đọc hợp lệ theo quy định.",
-    saveHelpAuthed:
-        "Danh sách giúp bạn ghi nhớ mã/tên sách — khi đến quầy, đọc cho thủ thư để làm thủ tục mượn.",
-    savedListLink: "Xem sách đã lưu",
     digitalAssets: "Tài liệu số đính kèm",
     noCover: "Chưa có ảnh bìa"
-}
-
-/** Trang sách đã lưu (độc giả đăng nhập). */
-export const readerSavedBooksPageStrings = {
-    headTitle: "Sách đã lưu",
-    heroTitle: "Sách đã lưu",
-    lead: "Danh sách ghi nhớ khi bạn muốn mượn tại quầy — đọc mã hoặc tên sách cho thủ thư.",
-    backCatalog: "Về tra cứu sách",
-    emptyTitle: "Chưa có đầu mục nào",
-    emptyHint: "Vào tra cứu sách và chọn «Lưu để nhớ mượn» ở trang chi tiết.",
-    savedAt: "Đã lưu",
-    removeFromList: "Bỏ khỏi danh sách",
-    seeDetail: "Chi tiết",
-    paginationPrev: "Trước",
-    paginationNext: "Sau",
-    paginationPage: "Trang"
 }
 
 /** Quy định mượn sách — bảng chính sách theo loại thẻ. */

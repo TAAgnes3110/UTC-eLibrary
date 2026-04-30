@@ -83,11 +83,6 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasManyThrough(Loan::class, LibraryCard::class, 'user_id', 'library_card_id', 'id', 'id');
     }
 
-    public function savedBooks(): HasMany
-    {
-        return $this->hasMany(SavedBook::class);
-    }
-
     public function scopeDuplicate($query, array $data, ?int $excludeId = null)
     {
         return $query->when($excludeId, fn ($q) => $q->where('id', '!=', $excludeId))

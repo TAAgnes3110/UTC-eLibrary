@@ -1,7 +1,7 @@
 <script setup>
 import { Link, usePage, useForm, router } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { profileApi } from '@/api/profile'
 import { fetchMasterDataPayload } from '@/api/masterData'
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors'
@@ -194,6 +194,7 @@ const showFacultyClassInProfile = computed(() => {
     if (isStaff.value) return false
     return PROFILE_FACULTY_CLASS_USER_TYPES.has(user.value?.user_type)
 })
+const isStudentProfile = computed(() => effectiveUser.value?.user_type === 'STUDENT')
 /** Profile update request UI: readers only (see shared auth.is_staff). */
 const showProfileUpdateRequestSection = computed(() => !isStaff.value)
 
@@ -206,11 +207,13 @@ const infoItems = computed(() => {
     },
     ]
     if (showFacultyClassInProfile.value) {
-        rows.push(
-            { icon: 'lucide:building-2', label: 'Khoa', value: profile.value?.faculty?.name || 'Chưa cập nhật' },
-            { icon: 'lucide:calendar-range', label: 'Niên khóa', value: profile.value?.period?.name || 'Chưa cập nhật' },
-            { icon: 'lucide:graduation-cap', label: 'Lớp', value: profile.value?.class_code || 'Chưa cập nhật' },
-        )
+        rows.push({ icon: 'lucide:building-2', label: 'Khoa', value: profile.value?.faculty?.name || 'Chưa cập nhật' })
+        if (isStudentProfile.value) {
+            rows.push(
+                { icon: 'lucide:calendar-range', label: 'Niên khóa', value: profile.value?.period?.name || 'Chưa cập nhật' },
+                { icon: 'lucide:graduation-cap', label: 'Lớp', value: profile.value?.class_code || 'Chưa cập nhật' },
+            )
+        }
     }
     rows.push(
     { icon: 'lucide:mail', label: 'Email', value: profile.value?.email || user.value?.email || 'Chưa cập nhật' },
@@ -229,15 +232,36 @@ const faculties = ref([])
 const periods = ref([])
 const proofFileName = ref('')
 const proofPreviewUrl = ref('')
+const showProofPreviewModal = ref(false)
+const proofImageInput = ref(null)
 
 const profileUpdateRequestForm = useForm({
     requested_code: '',
+    requested_user_type: '',
     requested_faculty_id: '',
     requested_period_id: '',
     requested_class_code: '',
     reason: '',
     proof_image: null,
 })
+const selectedRequestedUserType = computed(() => {
+    const requested = normalizeString(profileUpdateRequestForm.requested_user_type)
+    if (requested) return requested
+    return normalizeString(effectiveUser.value?.user_type) || 'MEMBER'
+})
+const showRequestedFacultyField = computed(() => ['STUDENT', 'TEACHER'].includes(selectedRequestedUserType.value))
+const showRequestedPeriodField = computed(() => selectedRequestedUserType.value === 'STUDENT')
+const showRequestedClassField = computed(() => selectedRequestedUserType.value === 'STUDENT')
+const READER_CONFIRM_TYPES = new Set(['STUDENT', 'TEACHER'])
+
+const applyDefaultRequestedUserType = () => {
+    const currentUserType = normalizeString(effectiveUser.value?.user_type)
+    if (!currentUserType || !READER_CONFIRM_TYPES.has(currentUserType)) return
+    const currentRequested = normalizeString(profileUpdateRequestForm.requested_user_type)
+    if (!currentRequested) {
+        profileUpdateRequestForm.requested_user_type = currentUserType
+    }
+}
 
 const loadFaculties = async () => {
     try {
@@ -252,6 +276,17 @@ const loadFaculties = async () => {
 
 const onProofImageChange = (event) => {
     const file = event.target?.files?.[0] || null
+    if (!file) {
+        // Đồng bộ trạng thái với input file mặc định: Cancel => không còn file được chọn.
+        if (proofPreviewUrl.value) {
+            URL.revokeObjectURL(proofPreviewUrl.value)
+            proofPreviewUrl.value = ''
+        }
+        profileUpdateRequestForm.proof_image = null
+        proofFileName.value = ''
+        showProofPreviewModal.value = false
+        return
+    }
     if (proofPreviewUrl.value) {
         URL.revokeObjectURL(proofPreviewUrl.value)
         proofPreviewUrl.value = ''
@@ -261,6 +296,19 @@ const onProofImageChange = (event) => {
     if (file) {
         proofPreviewUrl.value = URL.createObjectURL(file)
     }
+}
+
+const openProofPreviewModal = () => {
+    if (!proofPreviewUrl.value) return
+    showProofPreviewModal.value = true
+}
+
+const closeProofPreviewModal = () => {
+    showProofPreviewModal.value = false
+}
+
+const triggerProofImageChange = () => {
+    proofImageInput.value?.click()
 }
 
 const normalizeString = (value) => {
@@ -274,26 +322,54 @@ const normalizeNumber = (value) => {
     return Number.isFinite(n) ? n : null
 }
 
+watch(
+    () => profileUpdateRequestForm.requested_user_type,
+    (nextType) => {
+        const targetType = normalizeString(nextType)
+        if (targetType === 'TEACHER') {
+            profileUpdateRequestForm.requested_period_id = ''
+            profileUpdateRequestForm.requested_class_code = ''
+        }
+        if (!targetType) {
+            const currentType = normalizeString(effectiveUser.value?.user_type)
+            if (currentType === 'TEACHER') {
+                profileUpdateRequestForm.requested_period_id = ''
+                profileUpdateRequestForm.requested_class_code = ''
+            }
+        }
+    },
+)
+
+watch(
+    () => effectiveUser.value?.user_type,
+    () => {
+        applyDefaultRequestedUserType()
+    },
+)
+
 const submitProfileUpdateRequest = async () => {
     profileUpdateRequestSaving.value = true
     profileUpdateRequestForm.clearErrors()
     try {
         const currentCode = normalizeString(effectiveUser.value?.code)
+        const currentUserType = normalizeString(effectiveUser.value?.user_type)
         const currentFacultyId = normalizeNumber(effectiveUser.value?.faculty_id)
         const currentPeriodId = normalizeNumber(effectiveUser.value?.period_id)
         const currentClassCode = normalizeString(effectiveUser.value?.class_code)
         const nextCode = normalizeString(profileUpdateRequestForm.requested_code)
+        const nextUserType = normalizeString(profileUpdateRequestForm.requested_user_type)
         const nextFacultyId = normalizeNumber(profileUpdateRequestForm.requested_faculty_id)
         const nextPeriodId = normalizeNumber(profileUpdateRequestForm.requested_period_id)
         const nextClassCode = normalizeString(profileUpdateRequestForm.requested_class_code)
         const hasChange = (
-            (nextCode !== null && nextCode !== currentCode)
+            (nextUserType !== null && nextUserType !== currentUserType)
+            || (nextCode !== null && nextCode !== currentCode)
             || (nextFacultyId !== null && nextFacultyId !== currentFacultyId)
             || (nextPeriodId !== null && nextPeriodId !== currentPeriodId)
             || (nextClassCode !== null && nextClassCode !== currentClassCode)
         )
         if (!hasChange) {
-            const msg = 'Bạn chưa thay đổi thông tin nào (mã định danh/khoa/niên khóa/lớp).'
+            const msg = 'Bạn chưa thay đổi thông tin nào (loại xác nhận/mã định danh/khoa/niên khóa/lớp).'
             profileUpdateRequestForm.setError('requested_code', msg)
             toast.error(msg, { title: 'Cập nhật hồ sơ' })
             return
@@ -302,6 +378,9 @@ const submitProfileUpdateRequest = async () => {
         const formData = new FormData()
         if (profileUpdateRequestForm.requested_code) {
             formData.append('requested_code', profileUpdateRequestForm.requested_code)
+        }
+        if (profileUpdateRequestForm.requested_user_type) {
+            formData.append('requested_user_type', profileUpdateRequestForm.requested_user_type)
         }
         if (profileUpdateRequestForm.requested_faculty_id) {
             formData.append('requested_faculty_id', profileUpdateRequestForm.requested_faculty_id)
@@ -321,6 +400,7 @@ const submitProfileUpdateRequest = async () => {
 
         await profileApi.submitProfileUpdateRequest(formData)
         profileUpdateRequestForm.reset()
+        applyDefaultRequestedUserType()
         proofFileName.value = ''
         if (proofPreviewUrl.value) {
             URL.revokeObjectURL(proofPreviewUrl.value)
@@ -339,6 +419,7 @@ const submitProfileUpdateRequest = async () => {
 
 onMounted(() => {
     syncProfileForm(user.value)
+    applyDefaultRequestedUserType()
     if (showProfileUpdateRequestSection.value) {
         loadFaculties()
     }
@@ -531,11 +612,11 @@ onBeforeUnmount(() => {
                                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Khoa</p>
                                 <p class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{{ effectiveUser?.faculty?.name || 'Chưa cập nhật' }}</p>
                             </div>
-                            <div v-if="showFacultyClassInProfile" class="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                            <div v-if="isStudentProfile" class="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:shadow-sm dark:border-slate-700 dark:bg-slate-800">
                                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Niên khóa</p>
                                 <p class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{{ effectiveUser?.period?.name || 'Chưa cập nhật' }}</p>
                             </div>
-                            <div v-if="showFacultyClassInProfile" class="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:shadow-sm dark:border-slate-700 dark:bg-slate-800">
+                            <div v-if="isStudentProfile" class="rounded-xl border border-slate-200 bg-slate-50 p-4 transition hover:shadow-sm dark:border-slate-700 dark:bg-slate-800">
                                 <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Lớp</p>
                                 <p class="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{{ effectiveUser?.class_code || 'Chưa cập nhật' }}</p>
                             </div>
@@ -572,14 +653,11 @@ onBeforeUnmount(() => {
                     >
                         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
                             <div>
-                                <h3 class="text-base font-bold text-slate-900 dark:text-white">Yêu cầu đổi mã định danh / khoa / niên khóa / lớp</h3>
-                                <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">
-                                    Khi thay đổi các trường này, bạn cần tải ảnh minh chứng. Yêu cầu chỉ có hiệu lực sau khi thủ thư/admin duyệt.
-                                </p>
+                                <h3 class="text-base font-bold text-slate-900 dark:text-white">Yêu cầu thay đổi thông tin</h3>
                             </div>
                             <Link
                                 :href="route('reader.profile-update-requests')"
-                                class="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                                class="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                             >
                                 <Icon icon="lucide:history" class="h-3.5 w-3.5" />
                                 Xem lịch sử ở trang riêng
@@ -591,15 +669,31 @@ onBeforeUnmount(() => {
                         >
                             Đã gửi yêu cầu cập nhật. Bạn có thể theo dõi trạng thái ở trang lịch sử.
                         </div>
+                        <div class="mx-6 mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+                            <p>
+                                <span class="font-bold">Lưu ý:</span> Thông tin cá nhân cơ bản có thể tự sửa ở phần
+                                <span class="font-semibold">Chỉnh sửa hồ sơ</span> phía trên; riêng loại bạn đọc, mã định danh, khoa/niên khóa/lớp cần gửi yêu cầu duyệt bằng biểu mẫu bên dưới.
+                            </p>
+                        </div>
                         <form class="space-y-4 p-6" @submit.prevent="submitProfileUpdateRequest">
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Xác nhận loại bạn đọc</label>
+                                    <select v-model="profileUpdateRequestForm.requested_user_type" class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                                        <option value="">-- Chọn loại xác nhận --</option>
+                                        <option value="STUDENT">Sinh viên</option>
+                                        <option value="TEACHER">Giáo viên</option>
+                                    </select>
+                                    <p class="mt-1 text-[11px] text-slate-500">Hiện tại: {{ roleLabel(effectiveUser?.user_type) || '—' }}</p>
+                                    <p v-if="profileUpdateRequestForm.errors.requested_user_type" class="mt-1 text-xs font-medium text-red-500">{{ profileUpdateRequestForm.errors.requested_user_type }}</p>
+                                </div>
                                 <div>
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Mã định danh mới</label>
                                     <input v-model="profileUpdateRequestForm.requested_code" type="text" class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                                     <p class="mt-1 text-[11px] text-slate-500">Hiện tại: {{ effectiveUser?.code || '—' }}</p>
                                     <p v-if="profileUpdateRequestForm.errors.requested_code" class="mt-1 text-xs font-medium text-red-500">{{ profileUpdateRequestForm.errors.requested_code }}</p>
                                 </div>
-                                <div>
+                                <div v-if="showRequestedFacultyField">
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Khoa mới</label>
                                     <select v-model="profileUpdateRequestForm.requested_faculty_id" class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                                         <option value="">-- Chọn khoa --</option>
@@ -610,7 +704,7 @@ onBeforeUnmount(() => {
                                     <p class="mt-1 text-[11px] text-slate-500">Hiện tại: {{ effectiveUser?.faculty?.name || '—' }}</p>
                                     <p v-if="profileUpdateRequestForm.errors.requested_faculty_id" class="mt-1 text-xs font-medium text-red-500">{{ profileUpdateRequestForm.errors.requested_faculty_id }}</p>
                                 </div>
-                                <div>
+                                <div v-if="showRequestedPeriodField">
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Niên khóa mới</label>
                                     <select v-model="profileUpdateRequestForm.requested_period_id" class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
                                         <option value="">-- Chọn niên khóa --</option>
@@ -621,7 +715,7 @@ onBeforeUnmount(() => {
                                     <p class="mt-1 text-[11px] text-slate-500">Hiện tại: {{ effectiveUser?.period?.name || '—' }}</p>
                                     <p v-if="profileUpdateRequestForm.errors.requested_period_id" class="mt-1 text-xs font-medium text-red-500">{{ profileUpdateRequestForm.errors.requested_period_id }}</p>
                                 </div>
-                                <div>
+                                <div v-if="showRequestedClassField">
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Lớp mới</label>
                                     <input v-model="profileUpdateRequestForm.requested_class_code" type="text" class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
                                     <p class="mt-1 text-[11px] text-slate-500">Hiện tại: {{ effectiveUser?.class_code || '—' }}</p>
@@ -629,18 +723,17 @@ onBeforeUnmount(() => {
                                 </div>
                                 <div>
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Ảnh minh chứng <span class="text-red-500">*</span></label>
-                                    <input type="file" accept=".jpg,.jpeg,.png,.webp" class="block h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" @change="onProofImageChange" />
+                                    <input ref="proofImageInput" type="file" accept=".jpg,.jpeg,.png,.webp" class="block h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200" @change="onProofImageChange" />
                                     <p class="mt-1 truncate text-[11px] text-slate-500">{{ proofFileName || 'Chưa chọn file' }}</p>
-                                    <a
+                                    <button
                                         v-if="proofPreviewUrl"
-                                        :href="proofPreviewUrl"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        type="button"
                                         class="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                        @click="openProofPreviewModal"
                                     >
                                         <Icon icon="lucide:image" class="h-3.5 w-3.5" />
                                         Nhấn để xem ảnh đã chọn
-                                    </a>
+                                    </button>
                                     <p v-if="profileUpdateRequestForm.errors.proof_image" class="mt-1 text-xs font-medium text-red-500">{{ profileUpdateRequestForm.errors.proof_image }}</p>
                                 </div>
                                 <div class="sm:col-span-2">
@@ -659,5 +752,30 @@ onBeforeUnmount(() => {
                 </div>
             </section>
 
+        </div>
+
+        <div v-if="showProofPreviewModal && proofPreviewUrl" class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-slate-900/60" @click="closeProofPreviewModal" />
+            <div class="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                <div class="mb-3 flex items-center justify-between">
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Ảnh minh chứng đã chọn</h4>
+                    <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeProofPreviewModal">
+                        <Icon icon="lucide:x" class="h-4 w-4" />
+                    </button>
+                </div>
+                <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng" class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800" />
+                </div>
+                <div class="mt-3 flex justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/35 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                        @click="triggerProofImageChange"
+                    >
+                        <Icon icon="lucide:camera" class="h-3.5 w-3.5" />
+                        Đổi ảnh
+                    </button>
+                </div>
+            </div>
         </div>
 </template>

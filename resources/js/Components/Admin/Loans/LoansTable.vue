@@ -44,9 +44,9 @@ function canReturn(row) {
     return isOpenLoan(row);
 }
 
-/** Xóa được mọi trạng thái hiển thị trên danh sách (đã trả: backend không cộng tồn kho lại). */
+/** Chỉ phiếu đã trả mới được xóa khỏi danh sách. */
 function canDelete(row) {
-    return ['da_muon', 'qua_han', 'da_tra'].includes(row.status);
+    return row.status === 'da_tra';
 }
 
 /** Giống UsersTable: badge góc nhỏ, chữ 11px, không pill tròn */

@@ -43,19 +43,13 @@ export const loansApi = {
     rejectRenewalRequest(id, payload = {}) {
         return client.post(`/loans/renewal-requests/${id}/reject`, payload).then((r) => r.data);
     },
-    trash(params = {}) {
-        return client.get('/loans/trash', { params }).then((r) => r.data);
+    borrowRequests(params = {}) {
+        return client.get('/loans/borrow-requests', { params }).then((r) => r.data);
     },
-    restore(id) {
-        return client.post(`/loans/restore/${id}`).then((r) => r.data);
+    approveBorrowRequest(id, payload = {}) {
+        return client.post(`/loans/borrow-requests/${id}/approve`, payload).then((r) => r.data);
     },
-    restoreMany(ids = []) {
-        return client.post('/loans/restore', { ids }).then((r) => r.data);
-    },
-    forceDelete(id) {
-        return client.delete(`/loans/force/${id}`).then((r) => r.data);
-    },
-    forceDeleteMany(ids = []) {
-        return client.post('/loans/force', { ids }).then((r) => r.data);
+    rejectBorrowRequest(id, payload = {}) {
+        return client.post(`/loans/borrow-requests/${id}/reject`, payload).then((r) => r.data);
     },
 };

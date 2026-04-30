@@ -3,22 +3,27 @@
 namespace App\Http\Controllers\Api\Loan;
 
 use App\Exports\LoanExport;
+use App\Enums\ResourceType;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LoanResource;
 use App\Models\Loan;
+use App\Models\LoanItem;
 use App\Models\LoanRenewalRequest;
+use App\Services\LoanService;
 use App\Services\LoanRenewalRequestService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MeLoanController extends Controller
 {
     public function __construct(
-        private LoanRenewalRequestService $loanRenewalRequestService
+        private LoanRenewalRequestService $loanRenewalRequestService,
+        private LoanService $loanService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -27,7 +32,7 @@ class MeLoanController extends Controller
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string', 'max:100'],
             'search_in' => ['nullable', 'string'],
-            'sort' => ['nullable', 'string', 'in:due_asc,due_desc,loan_asc,loan_desc'],
+            'sort' => ['nullable', 'string', 'in:newest,oldest,due_asc,due_desc,loan_asc,loan_desc'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
@@ -91,6 +96,30 @@ class MeLoanController extends Controller
         }));
     }
 
+    public function summary(Request $request): JsonResponse
+    {
+        $userId = (int) ($request->user()?->id ?? 0);
+        $base = $this->baseReaderLoanQuery($userId)
+            ->whereIn('status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+            ->select('id');
+
+        $totals = LoanItem::query()
+            ->join('books', 'books.id', '=', 'loan_items.book_id')
+            ->whereIn('loan_items.loan_id', $base)
+            ->selectRaw('COALESCE(books.resource_type, ?) as resource_type_key, SUM(loan_items.quantity) as qty', [ResourceType::REFERENCE->value])
+            ->groupBy('resource_type_key')
+            ->get();
+
+        $textbook = (int) ($totals->firstWhere('resource_type_key', ResourceType::TEXTBOOK->value)?->qty ?? 0);
+        $reference = (int) ($totals->firstWhere('resource_type_key', ResourceType::REFERENCE->value)?->qty ?? 0);
+
+        return ApiResponse::success([
+            'borrowed_textbooks' => $textbook,
+            'borrowed_references' => $reference,
+            'borrowed_total' => $textbook + $reference,
+        ]);
+    }
+
     public function show(Request $request, Loan $loan): JsonResponse
     {
         /** @var \App\Models\User $reader */
@@ -131,7 +160,7 @@ class MeLoanController extends Controller
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string', 'max:100'],
             'search_in' => ['nullable', 'string'],
-            'sort' => ['nullable', 'string', 'in:due_asc,due_desc,loan_asc,loan_desc'],
+            'sort' => ['nullable', 'string', 'in:newest,oldest,due_asc,due_desc,loan_asc,loan_desc'],
             'ids' => ['nullable', 'array', 'max:500'],
             'ids.*' => ['integer', 'exists:loans,id'],
         ]);
@@ -207,6 +236,22 @@ class MeLoanController extends Controller
         ], __('Đã gửi yêu cầu gia hạn tới quản trị viên.'), 201);
     }
 
+    public function destroy(Request $request, Loan $loan): JsonResponse
+    {
+        $userId = (int) ($request->user()?->id ?? 0);
+        if ((int) ($loan->libraryCard?->user_id ?? 0) !== $userId) {
+            return ApiResponse::error(__('Không có quyền xóa phiếu này.'), 403);
+        }
+
+        try {
+            $this->loanService->destroy($loan);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success([], __('Đã xóa phiếu khỏi danh sách.'));
+    }
+
     /**
      * @return Builder<Loan>
      */
@@ -230,6 +275,8 @@ class MeLoanController extends Controller
     {
         $sort = $validated['sort'] ?? null;
         match ($sort) {
+            'newest' => $query->orderByDesc('id'),
+            'oldest' => $query->orderBy('id'),
             'due_asc' => $query->orderBy('due_date', 'asc'),
             'due_desc' => $query->orderBy('due_date', 'desc'),
             'loan_asc' => $query->orderBy('loan_date', 'asc'),

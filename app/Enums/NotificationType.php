@@ -7,11 +7,13 @@ enum NotificationType: string
     case ADMIN_PROFILE_REVIEW_NEEDED = 'admin.profile_review_needed';
     case ADMIN_CARD_REQUEST_SUBMITTED = 'admin.card_request_submitted';
     case ADMIN_LOAN_OVERDUE_DETECTED = 'admin.loan_overdue_detected';
+    case ADMIN_LOAN_DUE_SOON_DIGEST = 'admin.loan_due_soon_digest';
     case ADMIN_LOAN_RENEWAL_PENDING = 'admin.loan_renewal_pending';
 
     case USER_PROFILE_UPDATE_APPROVED = 'user.profile_update_approved';
     case USER_PROFILE_UPDATE_REJECTED = 'user.profile_update_rejected';
     case USER_LOAN_OVERDUE_REMINDER = 'user.loan_overdue_reminder';
+    case USER_LOAN_DUE_SOON_REMINDER = 'user.loan_due_soon_reminder';
     case USER_LOAN_RENEWAL_APPROVED = 'user.loan_renewal_approved';
     case USER_LOAN_RENEWAL_REJECTED = 'user.loan_renewal_rejected';
     case USER_CARD_APPROVED = 'user.card_approved';
@@ -36,6 +38,7 @@ enum NotificationType: string
             self::ADMIN_PROFILE_REVIEW_NEEDED->value,
             self::ADMIN_CARD_REQUEST_SUBMITTED->value,
             self::ADMIN_LOAN_OVERDUE_DETECTED->value,
+            self::ADMIN_LOAN_DUE_SOON_DIGEST->value,
             self::ADMIN_LOAN_RENEWAL_PENDING->value,
         ];
     }
@@ -49,6 +52,7 @@ enum NotificationType: string
             self::USER_PROFILE_UPDATE_APPROVED->value,
             self::USER_PROFILE_UPDATE_REJECTED->value,
             self::USER_LOAN_OVERDUE_REMINDER->value,
+            self::USER_LOAN_DUE_SOON_REMINDER->value,
             self::USER_LOAN_RENEWAL_APPROVED->value,
             self::USER_LOAN_RENEWAL_REJECTED->value,
             self::USER_CARD_APPROVED->value,
@@ -68,4 +72,3 @@ enum NotificationType: string
         return str_starts_with($this->value, 'user.');
     }
 }
-

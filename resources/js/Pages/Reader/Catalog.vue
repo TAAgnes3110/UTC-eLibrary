@@ -220,12 +220,12 @@ function goPage(p) {
                                 <span
                                     class="rounded-full px-2 py-0.5 text-[10px] font-bold"
                                     :class="
-                                        b.is_available
+                                        Number(b.available_for_borrow || 0) > 0
                                             ? 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200'
                                             : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
                                     "
                                 >
-                                    {{ b.status_label }}
+                                    {{ Number(b.available_for_borrow || 0) > 0 ? 'Còn sách' : 'Hết sách' }}
                                 </span>
                                 <span class="text-xs font-semibold text-blue-800 dark:text-blue-400">{{ C.seeDetail }} →</span>
                             </div>

@@ -27,7 +27,11 @@ class CheckRoleOrPermission
         }
 
         if (! $currentUser) {
-            return ApiResponse::error(__('Bạn cần đăng nhập để sử dụng chức năng này.'), 401);
+            if ($request->is('api/*') || $request->expectsJson()) {
+                return ApiResponse::error(__('Bạn cần đăng nhập để sử dụng chức năng này.'), 401);
+            }
+
+            return redirect()->route('login');
         }
 
         if (empty($roleOrPermission)) {
@@ -38,6 +42,10 @@ class CheckRoleOrPermission
             return $next($request);
         }
 
-        return ApiResponse::error(__('Không đủ quyền.'), 403);
+        if ($request->is('api/*') || $request->expectsJson()) {
+            return ApiResponse::error(__('Không đủ quyền.'), 403);
+        }
+
+        abort(403, __('Không đủ quyền.'));
     }
 }

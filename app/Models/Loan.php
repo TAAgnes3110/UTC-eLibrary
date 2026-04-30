@@ -3,14 +3,14 @@
 namespace App\Models;
 
 use App\Models\Traits\HasAuditFields;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOneThrough;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Loan extends BaseModel
 {
-    use HasAuditFields, SoftDeletes;
+    use HasAuditFields;
 
     protected static bool $persistParamsToDatabase = false;
 
@@ -32,13 +32,22 @@ class Loan extends BaseModel
         'due_date',
         'return_date',
         'status',
+        'deleted',
     ];
 
     protected $casts = [
         'loan_date' => 'date',
         'due_date' => 'date',
         'return_date' => 'date',
+        'deleted' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::addGlobalScope('notDeleted', function (Builder $builder): void {
+            $builder->where($builder->getModel()->getTable().'.deleted', false);
+        });
+    }
 
     /**
      * Bạn đọc có tài khoản: loan → library_card → user.

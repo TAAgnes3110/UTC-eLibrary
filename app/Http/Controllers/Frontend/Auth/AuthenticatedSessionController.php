@@ -15,11 +15,12 @@ use Inertia\Response;
  */
 class AuthenticatedSessionController extends Controller
 {
-    public function create(): Response
+    public function create(Request $request): Response
     {
         return Inertia::render('Auth/Login', [
             'canResetPassword' => Route::has('password.request'),
             'status' => session('status'),
+            'fromRegister' => $request->boolean('registered'),
         ]);
     }
 

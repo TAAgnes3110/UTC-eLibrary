@@ -22,6 +22,10 @@ Schedule::command('loans:sync-overdue')
     ->dailyAt('06:05')
     ->withoutOverlapping();
 
+Schedule::command('loans:notify-due-soon')
+    ->dailyAt('07:00')
+    ->withoutOverlapping();
+
 Schedule::command('storage:sync-quantities')
     ->dailyAt('01:10')
     ->withoutOverlapping();

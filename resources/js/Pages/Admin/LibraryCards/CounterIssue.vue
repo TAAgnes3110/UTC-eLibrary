@@ -14,6 +14,7 @@ const c = useLibraryCardCounterPage(props);
 
 function onPhotoChange(e) {
     const file = e.target?.files?.[0];
+    if (!file) return;
     c.form.photoFile = file instanceof File ? file : null;
 }
 </script>

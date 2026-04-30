@@ -20,6 +20,8 @@ const allowOnsite = ref(true);
 const limits = ref(null);
 const currentBorrowed = ref(null);
 const dueDateError = ref('');
+const borrowRequestPrefill = ref(null);
+const BORROW_REQUEST_PREFILL_KEY = 'loanBorrowRequestApprovalPrefill';
 
 const form = reactive({
     card_number_input: '',
@@ -32,6 +34,8 @@ const form = reactive({
     lines: [createEmptyLine()],
 });
 
+const isBorrowRequestMode = computed(() => !!borrowRequestPrefill.value?.request_id);
+
 const bookSearchTimers = {};
 let cardSuggestTimer = null;
 let cardAutoLookupTimer = null;
@@ -39,6 +43,7 @@ let cardSuggestRequestId = 0;
 
 function createEmptyLine() {
     return {
+        request_item_id: null,
         bookQuery: '',
         searchResults: [],
         loadingBooks: false,
@@ -52,6 +57,58 @@ function createEmptyLine() {
         stockMsg: '',
         qtyMsg: '',
     };
+}
+
+function loadBorrowRequestPrefillFromSession() {
+    const queryRequestId = String(new URLSearchParams(window.location.search).get('from_borrow_request') || '').trim();
+    if (!queryRequestId) {
+        borrowRequestPrefill.value = null;
+        return;
+    }
+    try {
+        const raw = window.sessionStorage.getItem(BORROW_REQUEST_PREFILL_KEY);
+        if (!raw) {
+            toast.warn('Không tìm thấy dữ liệu yêu cầu mượn để tự điền. Vui lòng mở lại từ màn Duyệt yêu cầu.');
+            return;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || String(parsed.request_id || '') !== queryRequestId) {
+            toast.warn('Dữ liệu tự điền không khớp yêu cầu đang mở. Vui lòng thao tác lại từ màn Duyệt yêu cầu.');
+            return;
+        }
+        borrowRequestPrefill.value = parsed;
+        form.card_number_input = parsed.card_number || '';
+        form.library_card_id = String(parsed.library_card_id || '');
+        form.loan_type = parsed.loan_type || 'home';
+        form.loan_date = parsed.requested_loan_date || new Date().toISOString().slice(0, 10);
+        form.due_date = parsed.requested_due_date || '';
+        form.notes = parsed.request_note || '';
+        resolvedCard.value = {
+            id: parsed.library_card_id || null,
+            card_number: parsed.card_number || '',
+            full_name: parsed.card_full_name || '—',
+            holder_type: parsed.holder_type || '',
+        };
+        allowHome.value = true;
+        allowOnsite.value = true;
+        currentBorrowed.value = { textbook: 0, reference: 0, total: 0 };
+        form.lines = (parsed.items || []).map((it) => ({
+            ...createEmptyLine(),
+            request_item_id: it.request_item_id || null,
+            book_id: String(it.book_id || ''),
+            bookTitle: it.book_title || '',
+            bookQuery: it.book_title || it.book_code || '',
+            stock: Number(it.book_total_quantity ?? 0),
+            resource_type: it.resource_type || '',
+            quantity: Number(it.quantity || 1),
+            condition_on_loan: 'tot',
+        }));
+        if (!form.lines.length) {
+            form.lines = [createEmptyLine()];
+        }
+    } catch {
+        toast.warn('Không đọc được dữ liệu tự điền từ yêu cầu mượn.');
+    }
 }
 
 function holderTypeLabel(ht) {
@@ -423,6 +480,20 @@ function buildPayload() {
     };
 }
 
+function buildBorrowRequestApprovalPayload() {
+    const validLines = form.lines.filter((x) => x.book_id && Number(x.quantity) > 0);
+    const source = borrowRequestPrefill.value;
+    return {
+        loan_date: form.loan_date,
+        due_date: form.due_date,
+        loan_type: form.loan_type,
+        review_note: form.notes || source?.request_note || null,
+        book_ids: validLines.map((x) => Number(x.book_id)),
+        quantity: validLines.map((x) => Number(x.quantity)),
+        condition_on_loan: validLines.map((x) => x.condition_on_loan || 'tot'),
+    };
+}
+
 async function saveLoan() {
     if (!form.library_card_id || !resolvedCard.value) {
         toast.warn('Vui lòng kiểm tra mã thẻ trước khi tạo phiếu.');
@@ -450,14 +521,34 @@ async function saveLoan() {
         }
     }
 
-    const payload = buildPayload();
-    if (payload.book_ids.length === 0) {
-        toast.warn('Vui lòng thêm ít nhất 1 sách mượn hợp lệ.');
-        return;
-    }
-
     saving.value = true;
     try {
+        if (isBorrowRequestMode.value) {
+            const requestId = Number(borrowRequestPrefill.value?.request_id || 0);
+            if (!requestId) {
+                toast.warn('Không tìm thấy yêu cầu mượn để duyệt.');
+                saving.value = false;
+                return;
+            }
+            const approvalPayload = buildBorrowRequestApprovalPayload();
+            if (approvalPayload.book_ids.length === 0) {
+                toast.warn('Vui lòng thêm ít nhất 1 sách mượn hợp lệ.');
+                saving.value = false;
+                return;
+            }
+            await loansApi.approveBorrowRequest(requestId, approvalPayload);
+            window.sessionStorage.removeItem(BORROW_REQUEST_PREFILL_KEY);
+            toast.success('Đã duyệt yêu cầu và tạo phiếu mượn.', { title: 'Thành công' });
+            router.visit(route('admin.loans.borrow-requests'));
+            return;
+        }
+
+        const payload = buildPayload();
+        if (payload.book_ids.length === 0) {
+            toast.warn('Vui lòng thêm ít nhất 1 sách mượn hợp lệ.');
+            saving.value = false;
+            return;
+        }
         await loansApi.create(payload);
         toast.success('Tạo phiếu mượn thành công.', { title: 'Thành công' });
         router.visit(route('admin.loans.index'));
@@ -477,7 +568,10 @@ async function saveLoan() {
     }
 }
 
-onMounted(() => validateDueDate());
+onMounted(() => {
+    validateDueDate();
+    loadBorrowRequestPrefillFromSession();
+});
 onBeforeUnmount(() => clearCardTimers());
 </script>
 
@@ -494,6 +588,12 @@ onBeforeUnmount(() => clearCardTimers());
         <div class="space-y-4">
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 p-4 space-y-4">
                 <h2 class="text-base font-bold text-gray-800 dark:text-white">Thông tin phiếu mượn</h2>
+                <div
+                    v-if="isBorrowRequestMode"
+                    class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800/70 dark:bg-emerald-900/20 dark:text-emerald-300"
+                >
+                    Chế độ duyệt yêu cầu mượn: thông tin từ yêu cầu đã được tự điền để tham khảo. Thủ thư có thể chỉnh sửa thông tin, thêm/xóa sách trước khi duyệt tạo phiếu.
+                </div>
 
                 <div class="space-y-2">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
@@ -633,7 +733,12 @@ onBeforeUnmount(() => clearCardTimers());
 
                 <label class="space-y-1 block">
                     <span class="text-sm font-medium">Ghi chú</span>
-                    <textarea v-model="form.notes" rows="2" class="admin-filter-input w-full" placeholder="Ghi chú thêm..." />
+                    <textarea
+                        v-model="form.notes"
+                        rows="2"
+                        class="admin-filter-input w-full"
+                        placeholder="Ghi chú thêm..."
+                    />
                 </label>
             </div>
 
@@ -732,9 +837,13 @@ onBeforeUnmount(() => clearCardTimers());
 
             <div class="flex items-center gap-2">
                 <button type="button" class="admin-filter-btn px-4 py-2.5 min-h-[44px]" :disabled="saving" @click="saveLoan">
-                    {{ saving ? 'Đang lưu...' : 'Tạo phiếu' }}
+                    {{ saving ? 'Đang lưu...' : (isBorrowRequestMode ? 'Duyệt và tạo phiếu' : 'Tạo phiếu') }}
                 </button>
-                <button type="button" class="admin-filter-btn px-4 py-2.5 min-h-[44px]" @click="router.visit(route('admin.loans.index'))">
+                <button
+                    type="button"
+                    class="admin-filter-btn px-4 py-2.5 min-h-[44px]"
+                    @click="router.visit(route(isBorrowRequestMode ? 'admin.loans.borrow-requests' : 'admin.loans.index'))"
+                >
                     Quay lại
                 </button>
             </div>

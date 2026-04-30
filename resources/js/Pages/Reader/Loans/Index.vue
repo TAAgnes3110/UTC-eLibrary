@@ -8,6 +8,7 @@ import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue'
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue'
 import AdminImportExportBar from '@/Components/Admin/Shared/AdminImportExportBar.vue'
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue'
+import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue'
 import { meLoansApi } from '@/api/meLoans'
 import { extractApiPaginator } from '@/utils/adminPagination'
 import { toast } from '@/store/toast'
@@ -24,7 +25,15 @@ const rows = ref([])
 const pageNum = ref(1)
 const meta = ref({ current_page: 1, last_page: 1, total: 0, per_page: PER_PAGE })
 const selectedIds = ref([])
+const showSingleDeleteModal = ref(false)
+const singleDeleteLoading = ref(false)
+const deletingLoan = ref(null)
 const showFilterPanel = ref(false)
+const borrowSummary = ref({
+    borrowed_textbooks: 0,
+    borrowed_references: 0,
+    borrowed_total: 0,
+})
 const filters = reactive({
     searchKeyword: '',
     searchIn: {
@@ -125,6 +134,83 @@ function goShow(id) {
     router.visit(route('reader.services.loan-requests.show', { loan: id }))
 }
 
+function canRenew(row) {
+    const status = String(row?.status || '').toLowerCase().trim()
+    const statusLabel = String(row?.status_label || '').toLowerCase().trim()
+    const raw = `${status} ${statusLabel}`
+    return (
+        raw.includes('da_muon')
+        || raw.includes('dang_muon')
+        || raw.includes('borrowed')
+        || raw.includes('qua_han')
+        || raw.includes('overdue')
+        || raw.includes('đang mượn')
+        || raw.includes('qua han')
+        || raw.includes('quá hạn')
+    )
+}
+
+function isEligibleToRenew(row) {
+    return row?.renewal_eligibility?.eligible === true
+}
+
+function canDelete(row) {
+    return row?.status === 'da_tra'
+}
+
+function isReturnedLoan(row) {
+    const status = String(row?.status || '').toLowerCase().trim()
+    const statusLabel = String(row?.status_label || '').toLowerCase().trim()
+    return status === 'da_tra' || status === 'returned' || statusLabel === 'đã trả'
+}
+
+function goRenew(row) {
+    if (!canRenew(row)) {
+        toast.warn('Chỉ phiếu đang mượn hoặc quá hạn mới có thể gia hạn.', { title: 'Gia hạn' })
+        return
+    }
+    if (!isEligibleToRenew(row)) {
+        const msg = row?.renewal_eligibility?.message || 'Phiếu này hiện không thể gia hạn.'
+        toast.warn(msg, { title: 'Gia hạn' })
+        return
+    }
+    goShow(row.id)
+}
+
+function removeLoan(row) {
+    if (!canDelete(row)) {
+        toast.warn('Chỉ có thể xóa phiếu ở trạng thái đã trả.', { title: 'Xóa phiếu' })
+        return
+    }
+    deletingLoan.value = { id: row.id, code: row.loan_code || `#${row.id}` }
+    showSingleDeleteModal.value = true
+}
+
+function closeSingleDeleteModal() {
+    showSingleDeleteModal.value = false
+    deletingLoan.value = null
+}
+
+async function confirmSingleDelete() {
+    const id = deletingLoan.value?.id
+    if (!id) {
+        closeSingleDeleteModal()
+        return
+    }
+    singleDeleteLoading.value = true
+    try {
+        await meLoansApi.remove(id)
+        toast.success('Đã xóa phiếu khỏi danh sách.', { title: 'Xóa phiếu' })
+        selectedIds.value = selectedIds.value.filter((x) => x !== id)
+        closeSingleDeleteModal()
+        await loadLoans(false)
+    } catch (e) {
+        toast.error(e?.response?.data?.messages || 'Không xóa được phiếu mượn.', { title: 'Xóa phiếu' })
+    } finally {
+        singleDeleteLoading.value = false
+    }
+}
+
 async function exportExcel() {
     try {
         const params = selectedIds.value.length > 0
@@ -153,7 +239,28 @@ async function exportExcel() {
     }
 }
 
-onMounted(() => loadLoans(false))
+async function loadBorrowSummary() {
+    try {
+        const payload = await meLoansApi.summary()
+        const data = payload?.data || {}
+        borrowSummary.value = {
+            borrowed_textbooks: Number(data.borrowed_textbooks || 0),
+            borrowed_references: Number(data.borrowed_references || 0),
+            borrowed_total: Number(data.borrowed_total || 0),
+        }
+    } catch {
+        borrowSummary.value = {
+            borrowed_textbooks: 0,
+            borrowed_references: 0,
+            borrowed_total: 0,
+        }
+    }
+}
+
+onMounted(() => {
+    loadLoans(false)
+    loadBorrowSummary()
+})
 </script>
 
 <template>
@@ -175,6 +282,21 @@ onMounted(() => loadLoans(false))
                     Theo dõi danh sách phiếu mượn và xem thông tin chi tiết từng phiếu.
                 </template>
             </AdminPageHeading>
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sách giáo trình đang mượn</p>
+                    <p class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ borrowSummary.borrowed_textbooks }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sách tham khảo đang mượn</p>
+                    <p class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">{{ borrowSummary.borrowed_references }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tổng số sách đang mượn</p>
+                    <p class="mt-1 text-2xl font-bold text-blue-700 dark:text-blue-300">{{ borrowSummary.borrowed_total }}</p>
+                </div>
+            </div>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"
@@ -209,10 +331,8 @@ onMounted(() => loadLoans(false))
                         </select>
                         <select v-model="filters.sort" class="admin-filter-select admin-filter-select-centered min-w-[188px]">
                             <option value="">Sắp xếp</option>
-                            <option value="due_asc">Hạn trả tăng dần</option>
-                            <option value="due_desc">Hạn trả giảm dần</option>
-                            <option value="loan_asc">Ngày mượn tăng dần</option>
-                            <option value="loan_desc">Ngày mượn giảm dần</option>
+                            <option value="newest">Mới nhất</option>
+                            <option value="oldest">Cũ nhất</option>
                         </select>
                     </div>
                 </template>
@@ -239,7 +359,7 @@ onMounted(() => loadLoans(false))
                                 <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ngày mượn</th>
                                 <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Hạn trả</th>
                                 <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trạng thái</th>
-                                <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 w-[150px]">Thao tác</th>
+                                <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300 w-[220px]">Thao tác</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -270,7 +390,7 @@ onMounted(() => loadLoans(false))
                                     </span>
                                 </td>
                                 <td class="p-1.5 sm:p-2 align-middle">
-                                    <div class="grid grid-cols-1 gap-1 w-full max-w-[86px]" role="group" aria-label="Thao tác phiếu mượn">
+                                    <div class="flex items-center gap-1 w-full max-w-[210px]" role="group" aria-label="Thao tác phiếu mượn">
                                         <button
                                             type="button"
                                             class="loan-action-btn border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
@@ -279,6 +399,26 @@ onMounted(() => loadLoans(false))
                                         >
                                             <Icon icon="lucide:eye" class="w-4 h-4 shrink-0" />
                                             <span class="loan-action-btn__label">Xem</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="loan-action-btn border-blue-200 bg-blue-50/90 text-blue-800 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-200 dark:hover:bg-blue-900/40 disabled:opacity-40 disabled:pointer-events-none"
+                                            title="Gửi yêu cầu gia hạn"
+                                            :disabled="isReturnedLoan(row)"
+                                            @click="goRenew(row)"
+                                        >
+                                            <Icon icon="lucide:calendar-clock" class="w-4 h-4 shrink-0" />
+                                            <span class="loan-action-btn__label">Gia hạn</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="loan-action-btn border-rose-200 bg-rose-50/90 text-rose-800 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/35 dark:text-rose-200 dark:hover:bg-rose-900/30 disabled:opacity-40 disabled:pointer-events-none"
+                                            title="Xóa phiếu"
+                                            :disabled="!canDelete(row)"
+                                            @click="removeLoan(row)"
+                                        >
+                                            <Icon icon="lucide:trash-2" class="w-4 h-4 shrink-0" />
+                                            <span class="loan-action-btn__label">Xóa</span>
                                         </button>
                                     </div>
                                 </td>
@@ -296,6 +436,18 @@ onMounted(() => loadLoans(false))
                 :last-page="meta.last_page"
                 :disabled="loading"
                 @go-page="goPage"
+            />
+
+            <AdminDeleteConfirmModal
+                :show="showSingleDeleteModal"
+                title="Xóa phiếu khỏi danh sách"
+                confirm-button-label="Xóa"
+                item-label="phiếu mượn"
+                :item="deletingLoan"
+                :selected-count="0"
+                :loading="singleDeleteLoading"
+                @close="closeSingleDeleteModal"
+                @confirm="confirmSingleDelete"
             />
         </div>
     </ReaderLayout>

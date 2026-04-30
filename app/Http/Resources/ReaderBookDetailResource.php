@@ -60,6 +60,8 @@ class ReaderBookDetailResource extends JsonResource
             'quantity' => (int) ($this->quantity ?? 0),
             'status_label' => $this->status_label,
             'is_available' => $this->is_available,
+            'available_for_borrow' => max(0, (int) ($this->available_for_borrow ?? 0)),
+            'reserved_pending_count' => (int) ($this->reserved_pending_count ?? 0),
             'classification' => $this->whenLoaded('classification', fn () => $this->classification ? [
                 'id' => $this->classification->id,
                 'code' => $this->classification->code,

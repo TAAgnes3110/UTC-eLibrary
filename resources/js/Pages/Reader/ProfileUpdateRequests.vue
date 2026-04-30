@@ -8,6 +8,7 @@ import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue'
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue'
 import { ADMIN_ICONS } from '@/config/adminIcons'
 import { profileApi } from '@/api/profile'
+import { toast } from '@/store/toast'
 
 const PER_PAGE = 10
 
@@ -17,7 +18,13 @@ const loadError = ref('')
 const searchKeyword = ref('')
 const sortBy = ref('newest')
 const statusFilter = ref('')
-const expandedRowId = ref(null)
+const selectedIds = ref([])
+const hideSubmitting = ref(false)
+const deletingIds = ref([])
+const detailDialogOpen = ref(false)
+const detailDialogItem = ref(null)
+const proofPreviewOpen = ref(false)
+const proofPreviewUrl = ref('')
 const pageNum = ref(1)
 
 const statusOptions = [
@@ -49,6 +56,12 @@ const formatDateTime = (iso) => {
 const hasText = (v) => v != null && String(v).trim() !== ''
 
 const renderField = (value) => (value === null || value === undefined || value === '' ? '—' : value)
+const userTypeLabel = (value) => {
+    if (value === 'STUDENT') return 'Sinh viên'
+    if (value === 'TEACHER') return 'Giáo viên'
+    if (value === 'MEMBER') return 'Thành viên'
+    return value || '—'
+}
 
 /**
  * Chỉ các trường có gửi trong yêu cầu (giống admin Duyệt yêu cầu).
@@ -56,6 +69,14 @@ const renderField = (value) => (value === null || value === undefined || value =
  */
 function requestChangeLines(item) {
     const lines = []
+    if (hasText(item?.requested_user_type)) {
+        lines.push({
+            key: 'user_type',
+            label: 'Loại xác nhận',
+            from: userTypeLabel(item.user?.user_type || 'MEMBER'),
+            to: userTypeLabel(item.requested_user_type),
+        })
+    }
     if (hasText(item?.requested_code)) {
         lines.push({
             key: 'code',
@@ -93,12 +114,87 @@ function requestChangeLines(item) {
     return lines
 }
 
-function toggleDetails(id) {
-    expandedRowId.value = expandedRowId.value === id ? null : id
+function openDetails(item) {
+    detailDialogItem.value = item || null
+    detailDialogOpen.value = Boolean(item)
+}
+
+function closeDetails() {
+    detailDialogOpen.value = false
+    detailDialogItem.value = null
+}
+
+function openProofPreview(url) {
+    if (!url) return
+    proofPreviewUrl.value = url
+    proofPreviewOpen.value = true
+}
+
+function closeProofPreview() {
+    proofPreviewOpen.value = false
+    proofPreviewUrl.value = ''
+}
+
+function toggleSelect(id) {
+    const i = selectedIds.value.indexOf(id)
+    if (i === -1) {
+        selectedIds.value = [...selectedIds.value, id]
+    } else {
+        selectedIds.value = selectedIds.value.filter((x) => x !== id)
+    }
+}
+
+const isAllPageSelected = computed(
+    () => pagedRows.value.length > 0 && pagedRows.value.every((item) => selectedIds.value.includes(item.id)),
+)
+
+function toggleSelectAllPage() {
+    if (isAllPageSelected.value) {
+        const pageIds = new Set(pagedRows.value.map((item) => item.id))
+        selectedIds.value = selectedIds.value.filter((id) => !pageIds.has(id))
+    } else {
+        const merged = new Set([...selectedIds.value, ...pagedRows.value.map((item) => item.id)])
+        selectedIds.value = [...merged]
+    }
+}
+
+async function hideSelected() {
+    if (!selectedIds.value.length || hideSubmitting.value) return
+    hideSubmitting.value = true
+    try {
+        await profileApi.hideProfileUpdateRequests(selectedIds.value)
+        toast.success(`Đã xóa ${selectedIds.value.length} yêu cầu.`, { title: 'Lịch sử yêu cầu' })
+        selectedIds.value = []
+        closeDetails()
+        await loadRequests()
+    } catch (e) {
+        toast.error(e?.response?.data?.messages || 'Không thể xóa yêu cầu đã chọn.', { title: 'Lịch sử yêu cầu' })
+    } finally {
+        hideSubmitting.value = false
+    }
+}
+
+async function hideOne(item) {
+    if (!item?.id || deletingIds.value.includes(item.id)) return
+    deletingIds.value = [...deletingIds.value, item.id]
+    try {
+        await profileApi.hideProfileUpdateRequests([item.id])
+        toast.success('Đã xóa yêu cầu.', { title: 'Lịch sử yêu cầu' })
+        selectedIds.value = selectedIds.value.filter((id) => id !== item.id)
+        if (detailDialogItem.value?.id === item.id) {
+            closeDetails()
+        }
+        await loadRequests()
+    } catch (e) {
+        toast.error(e?.response?.data?.messages || 'Không thể xóa yêu cầu.', { title: 'Lịch sử yêu cầu' })
+    } finally {
+        deletingIds.value = deletingIds.value.filter((id) => id !== item.id)
+    }
 }
 
 function runSearch() {
-    expandedRowId.value = null
+    pageNum.value = 1
+    closeDetails()
 }
 
 const filteredRows = computed(() => {
@@ -160,12 +256,12 @@ const rangeLabel = computed(() => {
 
 watch([statusFilter, sortBy], () => {
     pageNum.value = 1
-    expandedRowId.value = null
+    closeDetails()
 })
 
 watch(searchKeyword, () => {
     pageNum.value = 1
-    expandedRowId.value = null
+    closeDetails()
 })
 
 watch(
@@ -181,7 +277,7 @@ function goPage(p) {
     const n = Number(p)
     if (!Number.isFinite(n) || n < 1 || n > lastPage.value) return
     pageNum.value = n
-    expandedRowId.value = null
+    closeDetails()
 }
 
 const loadRequests = async () => {
@@ -190,8 +286,11 @@ const loadRequests = async () => {
     try {
         const response = await profileApi.myProfileUpdateRequests()
         rows.value = Array.isArray(response?.data) ? response.data : []
+        const allowed = new Set(rows.value.map((item) => item.id))
+        selectedIds.value = selectedIds.value.filter((id) => allowed.has(id))
     } catch {
         rows.value = []
+        selectedIds.value = []
         loadError.value = 'Không thể tải lịch sử yêu cầu. Vui lòng thử lại.'
     } finally {
         loading.value = false
@@ -265,10 +364,30 @@ onMounted(() => {
                 </template>
             </AdminFilterSearch>
 
-            <p class="shrink-0 text-xs text-slate-500 dark:text-slate-400">
-                Đang xem <span class="font-semibold text-slate-700 dark:text-slate-200">{{ rangeLabel }}</span> yêu cầu
-                (tổng trong hệ thống: {{ rows.length }})
-            </p>
+            <div
+                v-if="selectedIds.length"
+                class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40"
+            >
+                <span class="text-sm text-slate-600 dark:text-slate-300">
+                    Đã chọn <strong>{{ selectedIds.length }}</strong> yêu cầu
+                </span>
+                <button
+                    type="button"
+                    class="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                    :disabled="hideSubmitting"
+                    @click="hideSelected"
+                >
+                    <Icon :icon="ADMIN_ICONS.xCircle" class="h-4 w-4" />
+                    {{ hideSubmitting ? 'Đang xóa...' : 'Xóa đã chọn' }}
+                </button>
+                <button
+                    type="button"
+                    class="inline-flex min-h-[44px] items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    @click="selectedIds = []"
+                >
+                    Bỏ chọn
+                </button>
+            </div>
 
             <!-- Khung bảng cố định theo viewport: dư nội dung cuộn trong khung, không kéo footer -->
             <div
@@ -278,6 +397,18 @@ onMounted(() => {
                     <table class="w-full min-w-[1020px] border-collapse text-left">
                         <thead class="border-b border-slate-100 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/50">
                             <tr>
+                                <th class="w-12 p-3">
+                                    <span class="admin-table-checkbox-wrap">
+                                        <input
+                                            type="checkbox"
+                                            :checked="isAllPageSelected"
+                                            :disabled="!pagedRows.length || loading"
+                                            :indeterminate="selectedIds.length > 0 && !isAllPageSelected"
+                                            class="admin-table-checkbox"
+                                            @change="toggleSelectAllPage"
+                                        />
+                                    </span>
+                                </th>
                                 <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Thời gian</th>
                                 <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Mã yêu cầu</th>
                                 <th class="p-3 min-w-[220px] text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">
@@ -292,17 +423,17 @@ onMounted(() => {
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                             <template v-if="loading">
                                 <tr>
-                                    <td colspan="7" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
+                                    <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
                                 </tr>
                             </template>
                             <template v-else-if="rows.length === 0">
                                 <tr>
-                                    <td colspan="7" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Bạn chưa gửi yêu cầu nào.</td>
+                                    <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Bạn chưa gửi yêu cầu nào.</td>
                                 </tr>
                             </template>
                             <template v-else-if="filteredRows.length === 0">
                                 <tr>
-                                    <td colspan="7" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                                    <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">
                                         Không có bản ghi phù hợp bộ lọc / từ khóa.
                                     </td>
                                 </tr>
@@ -310,10 +441,20 @@ onMounted(() => {
                             <template v-else>
                             <template v-for="item in pagedRows" :key="item.id">
                                 <tr class="align-top admin-table-row">
-                                    <td class="p-3 text-[12px] text-slate-700 dark:text-slate-300">
+                                    <td class="p-3 align-middle text-center">
+                                        <span class="admin-table-checkbox-wrap">
+                                            <input
+                                                type="checkbox"
+                                                :checked="selectedIds.includes(item.id)"
+                                                class="admin-table-checkbox"
+                                                @change="toggleSelect(item.id)"
+                                            />
+                                        </span>
+                                    </td>
+                                    <td class="p-3 align-middle text-center text-[12px] text-slate-700 dark:text-slate-300">
                                         {{ formatDateTime(item.created_at) }}
                                     </td>
-                                    <td class="p-3 font-mono text-[12px] font-semibold text-slate-800 dark:text-slate-100">
+                                    <td class="p-3 align-middle text-center font-mono text-[12px] font-semibold text-slate-800 dark:text-slate-100">
                                         #{{ item.id }}
                                     </td>
                                     <td class="p-3 text-[12px] text-slate-600 dark:text-slate-300">
@@ -335,14 +476,13 @@ onMounted(() => {
                                             </p>
                                         </div>
                                     </td>
-                                    <td class="p-3 align-middle">
-                                        <a
+                                    <td class="p-3 align-middle text-center">
+                                        <button
                                             v-if="item.proof_image_url"
-                                            :href="item.proof_image_url"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                            type="button"
                                             class="inline-flex flex-col items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                                             title="Xem ảnh minh chứng"
+                                            @click="openProofPreview(item.proof_image_url)"
                                         >
                                             <span class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                                                 <img
@@ -352,10 +492,10 @@ onMounted(() => {
                                                 />
                                             </span>
                                             <span class="text-[10px] font-semibold leading-none">Nhấn để xem</span>
-                                        </a>
+                                        </button>
                                         <span v-else class="text-[12px] text-slate-500">—</span>
                                     </td>
-                                    <td class="p-3 align-middle whitespace-nowrap">
+                                    <td class="p-3 align-middle whitespace-nowrap text-center">
                                         <span
                                             :class="[
                                                 statusClass(item.status),
@@ -365,94 +505,32 @@ onMounted(() => {
                                             {{ statusLabel(item.status) }}
                                         </span>
                                     </td>
-                                    <td class="p-3 text-[12px] text-slate-700 dark:text-slate-300">
-                                        <p class="line-clamp-3 max-w-[220px]" :title="item.review_note || ''">
+                                    <td class="p-3 text-center text-[12px] text-slate-700 dark:text-slate-300">
+                                        <p class="line-clamp-3 mx-auto max-w-[220px]" :title="item.review_note || ''">
                                             {{ item.review_note || '—' }}
                                         </p>
                                     </td>
-                                    <td class="p-2 align-middle">
-                                        <button
-                                            type="button"
-                                            class="inline-flex min-h-[40px] w-full max-w-[100px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                                            title="Xem chi tiết"
-                                            @click="toggleDetails(item.id)"
-                                        >
-                                            <Icon icon="lucide:eye" class="h-3.5 w-3.5 shrink-0" />
-                                            <span class="leading-none">Chi tiết</span>
-                                        </button>
-                                    </td>
-                                </tr>
-                                <tr v-if="expandedRowId === item.id" class="bg-slate-50/70 dark:bg-slate-800/40">
-                                    <td colspan="7" class="px-4 py-4">
-                                        <div class="grid gap-3 md:grid-cols-2">
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                    Thông tin hiện tại
-                                                </p>
-                                                <div class="mt-2 space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
-                                                    <template v-if="requestChangeLines(item).length">
-                                                        <p v-for="line in requestChangeLines(item)" :key="`cur-${item.id}-${line.key}`">
-                                                            <span class="text-slate-400">{{ line.label }}:</span> {{ renderField(line.from) }}
-                                                        </p>
-                                                    </template>
-                                                    <p v-else class="text-xs text-slate-500">Không có trường được liệt kê.</p>
-                                                </div>
-                                            </div>
-                                            <div class="rounded-lg border border-blue-200 bg-blue-50/60 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-                                                <p class="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                                                    Yêu cầu thay đổi
-                                                </p>
-                                                <div class="mt-2 space-y-1.5 text-sm text-slate-800 dark:text-slate-200">
-                                                    <template v-if="requestChangeLines(item).length">
-                                                        <p v-for="line in requestChangeLines(item)" :key="`req-${item.id}-${line.key}`">
-                                                            <span class="text-slate-500 dark:text-slate-400">{{ line.label }}:</span>
-                                                            {{ renderField(line.to) }}
-                                                        </p>
-                                                    </template>
-                                                    <p v-else class="text-xs text-slate-500">Không có trường được liệt kê.</p>
-                                                </div>
-                                            </div>
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">
-                                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                    Ảnh minh chứng
-                                                </p>
-                                                <a
-                                                    v-if="item.proof_image_url"
-                                                    :href="item.proof_image_url"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="mt-2 inline-block max-h-64 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
-                                                >
-                                                    <img :src="item.proof_image_url" alt="Minh chứng" class="max-h-64 w-full object-contain" />
-                                                </a>
-                                                <p v-else class="mt-2 text-sm text-slate-500">—</p>
-                                            </div>
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                    Ghi chú duyệt
-                                                </p>
-                                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ item.review_note || '—' }}</p>
-                                            </div>
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
-                                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                    Người xử lý
-                                                </p>
-                                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ item.reviewer?.name || '—' }}</p>
-                                                <p v-if="item.reviewer?.email" class="mt-0.5 text-xs text-slate-500">{{ item.reviewer.email }}</p>
-                                                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                                                    Duyệt lúc: {{ formatDateTime(item.reviewed_at) }}<br />
-                                                    Áp dụng: {{ formatDateTime(item.applied_at) }}
-                                                </p>
-                                            </div>
-                                            <div
-                                                v-if="item.reason"
-                                                class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2"
+                                    <td class="p-2 align-middle text-center">
+                                        <div class="grid gap-1.5">
+                                            <button
+                                                type="button"
+                                                class="inline-flex min-h-[40px] w-full max-w-[100px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-slate-50 px-2 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                                title="Xem chi tiết"
+                                                @click="openDetails(item)"
                                             >
-                                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                                    Lý do gửi kèm
-                                                </p>
-                                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ item.reason }}</p>
-                                            </div>
+                                                <Icon icon="lucide:eye" class="h-3.5 w-3.5 shrink-0" />
+                                                <span class="leading-none">Chi tiết</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="inline-flex min-h-[40px] w-full max-w-[100px] items-center justify-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-2 py-1.5 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-60 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                                                :disabled="deletingIds.includes(item.id)"
+                                                title="Ẩn yêu cầu này"
+                                                @click="hideOne(item)"
+                                            >
+                                                <Icon icon="lucide:trash-2" class="h-3.5 w-3.5 shrink-0" />
+                                                <span class="leading-none">{{ deletingIds.includes(item.id) ? 'Đang xóa...' : 'Xóa' }}</span>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -469,6 +547,93 @@ onMounted(() => {
                         :disabled="loading"
                         @go-page="goPage"
                     />
+                </div>
+            </div>
+
+            <div
+                v-if="detailDialogOpen && detailDialogItem"
+                class="fixed inset-0 z-[80] flex items-center justify-center p-4"
+                role="dialog"
+                aria-modal="true"
+                @click.self="closeDetails"
+            >
+                <div class="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px]" />
+                <div class="relative w-full max-w-5xl rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-5">
+                    <div class="mb-4 flex items-start justify-between gap-4">
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết yêu cầu cập nhật</h3>
+                            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                Mã yêu cầu #{{ detailDialogItem.id }} - {{ formatDateTime(detailDialogItem.created_at) }}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            class="min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            @click="closeDetails"
+                        >
+                            Đóng
+                        </button>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-2">
+                        <div class="space-y-3">
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Thông tin cập nhật</p>
+                                <div class="mt-2 space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
+                                    <template v-if="requestChangeLines(detailDialogItem).length">
+                                        <p v-for="line in requestChangeLines(detailDialogItem)" :key="`modal-${detailDialogItem.id}-${line.key}`">
+                                            <span class="text-slate-400 dark:text-slate-500">{{ line.label }}:</span>
+                                            {{ renderField(line.from) }} -> {{ renderField(line.to) }}
+                                        </p>
+                                    </template>
+                                    <p v-else class="text-slate-500 dark:text-slate-400">Không có trường được liệt kê trong yêu cầu.</p>
+                                </div>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Lý do gửi kèm</p>
+                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ detailDialogItem.reason || '—' }}</p>
+                            </div>
+                            <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                                <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ghi chú duyệt</p>
+                                <p class="mt-2 text-sm text-slate-700 dark:text-slate-300">{{ detailDialogItem.review_note || '—' }}</p>
+                            </div>
+                        </div>
+                        <div class="rounded-lg border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+                            <p class="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300">Minh chứng</p>
+                            <button
+                                v-if="detailDialogItem.proof_image_url"
+                                type="button"
+                                class="mt-2 block w-full overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                                @click="openProofPreview(detailDialogItem.proof_image_url)"
+                            >
+                                <img :src="detailDialogItem.proof_image_url" alt="Minh chứng" class="h-[260px] w-full object-contain bg-slate-100 dark:bg-slate-800" />
+                            </button>
+                            <p v-else class="mt-2 text-sm text-slate-500 dark:text-slate-400">Không có ảnh minh chứng.</p>
+                            <div class="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900">
+                                <p><span class="text-slate-500">Trạng thái:</span> {{ statusLabel(detailDialogItem.status) }}</p>
+                                <p><span class="text-slate-500">Người xử lý:</span> {{ detailDialogItem.reviewer?.name || '—' }}</p>
+                                <p><span class="text-slate-500">Duyệt lúc:</span> {{ formatDateTime(detailDialogItem.reviewed_at) }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                v-if="proofPreviewOpen && proofPreviewUrl"
+                class="fixed inset-0 z-[81] flex items-center justify-center bg-slate-950/80 p-4"
+                role="dialog"
+                aria-modal="true"
+                @click.self="closeProofPreview"
+            >
+                <div class="relative w-full max-w-6xl">
+                    <button
+                        type="button"
+                        class="absolute right-0 top-0 -translate-y-12 rounded-lg border border-slate-500 bg-slate-900/80 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800"
+                        @click="closeProofPreview"
+                    >
+                        Đóng
+                    </button>
+                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng chi tiết" class="max-h-[85vh] w-full rounded-xl object-contain" />
                 </div>
             </div>
         </div>

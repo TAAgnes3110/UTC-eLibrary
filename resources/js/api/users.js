@@ -55,4 +55,7 @@ export const usersApi = {
     rejectProfileUpdateRequest(id, payload = {}) {
         return client.post(`/users/profile-update-requests/${id}/reject`, payload).then((r) => r.data);
     },
+    hideProfileUpdateRequest(id) {
+        return client.post(`/users/profile-update-requests/${id}/hide`).then((r) => r.data);
+    },
 };

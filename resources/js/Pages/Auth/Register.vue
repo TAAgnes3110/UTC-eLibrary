@@ -126,7 +126,7 @@ const {
                         </div>
                         <!-- Personal Details Group -->
                         <div
-                            class="grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr] gap-3"
+                            class="grid grid-cols-1 gap-3 sm:grid-cols-2"
                         >
                             <FormField
                                 id="date_of_birth"
@@ -158,7 +158,7 @@ const {
                                 <select
                                     id="gender"
                                     v-model="form.gender"
-                                    class="h-10 w-full border border-white/5 bg-white/5 pl-11 pr-10 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner appearance-none outline-none transition-all duration-300 cursor-pointer"
+                                    class="h-11 w-full border border-white/5 bg-white/5 pl-11 pr-10 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner appearance-none outline-none transition-all duration-300 cursor-pointer"
                                 >
                                     <option
                                         value="male"
@@ -185,41 +185,6 @@ const {
                                 />
                             </FormField>
 
-                            <FormField
-                                id="user_type"
-                                label="Vai trò"
-                                :error="form.errors.user_type"
-                            >
-                                <template #icon><Users :size="18" /></template>
-                                <select
-                                    id="user_type"
-                                    v-model="form.user_type"
-                                    class="h-10 w-full border border-white/5 bg-white/5 pl-11 pr-10 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner appearance-none outline-none cursor-pointer transition-all duration-300"
-                                >
-                                    <option
-                                        value="TEACHER"
-                                        class="bg-slate-900 py-2"
-                                    >
-                                        Giáo viên
-                                    </option>
-                                    <option
-                                        value="STUDENT"
-                                        class="bg-slate-900 py-2"
-                                    >
-                                        Sinh viên
-                                    </option>
-                                    <option
-                                        value="MEMBER"
-                                        class="bg-slate-900 py-2"
-                                    >
-                                        Bạn đọc
-                                    </option>
-                                </select>
-                                <ChevronDown
-                                    class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-blue-400"
-                                    :size="14"
-                                />
-                            </FormField>
                         </div>
 
                         <!-- Password Group -->

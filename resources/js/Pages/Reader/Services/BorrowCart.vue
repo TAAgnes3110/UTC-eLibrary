@@ -15,6 +15,68 @@ const loanType = ref('home')
 const requestedDueDate = ref('')
 const todayIso = computed(() => new Date().toISOString().slice(0, 10))
 
+function extractApiErrorMessage(error, fallback) {
+    const data = error?.response?.data || {}
+    const msg = typeof data?.messages === 'string' && data.messages.trim() ? data.messages.trim() : ''
+    if (msg) return msg
+
+    const message = typeof data?.message === 'string' && data.message.trim() ? data.message.trim() : ''
+    const errors = data?.errors
+    if (errors && typeof errors === 'object') {
+        const firstFieldErrors = Object.values(errors).find((list) => Array.isArray(list) && list.length > 0)
+        if (Array.isArray(firstFieldErrors) && typeof firstFieldErrors[0] === 'string' && firstFieldErrors[0].trim()) {
+            return firstFieldErrors[0].trim()
+        }
+    }
+
+    if (message) return message
+    return fallback
+}
+
+function normalizeBorrowRequestErrorText(raw) {
+    let msg = String(raw || '').trim()
+    if (!msg) return 'Có lỗi xảy ra, vui lòng thử lại.'
+
+    msg = msg.replace(
+        /Trường\s+Ngày hẹn mượn\s+phải là thời gian bắt đầu sau hoặc đúng bằng\s+today\.?/gi,
+        'Ngày hẹn mượn không được nhỏ hơn ngày hiện tại'
+    )
+    msg = msg.replace(
+        /Trường\s+Ngày hẹn mượn\s+phải là thời gian bắt đầu sau hoặc đúng bằng\s+hôm nay\.?/gi,
+        'Ngày hẹn mượn không được nhỏ hơn ngày hiện tại'
+    )
+    msg = msg.replace(
+        /Trường\s+Ngày hẹn trả\s+phải là thời gian bắt đầu sau hoặc đúng bằng\s+today\.?/gi,
+        'Ngày hẹn trả không được nhỏ hơn ngày hiện tại'
+    )
+    msg = msg.replace(
+        /Trường\s+Ngày hẹn trả\s+phải là thời gian bắt đầu sau hoặc đúng bằng\s+hôm nay\.?/gi,
+        'Ngày hẹn trả không được nhỏ hơn ngày hiện tại'
+    )
+    msg = msg.replace(/requested due date/gi, 'Ngày hẹn trả')
+    msg = msg.replace(/requested loan date/gi, 'Ngày hẹn mượn')
+    msg = msg.replace(/due date/gi, 'Ngày hẹn trả')
+    msg = msg.replace(/loan date/gi, 'Ngày hẹn mượn')
+    msg = msg.replace(/today/gi, 'ngày hiện tại')
+    msg = msg.replace(/field/gi, 'trường thông tin')
+    msg = msg.replace(/must be/gi, 'phải')
+    msg = msg.replace(/must/gi, 'phải')
+    msg = msg.replace(/greater than or equal to/gi, 'không được nhỏ hơn')
+    msg = msg.replace(/less than or equal to/gi, 'không được lớn hơn')
+    msg = msg.replace(/after or equal to today/gi, 'không được nhỏ hơn ngày hiện tại')
+    msg = msg.replace(/after or equal to requested loan date/gi, 'không được nhỏ hơn ngày hẹn mượn')
+    msg = msg.replace(/before or equal to/gi, 'không được lớn hơn')
+    msg = msg.replace(/The\s+/gi, '')
+    msg = msg.replace(/^Trường\s+/i, '')
+    msg = msg.replace(/\.$/, '')
+
+    if (/\b(requested|loan|due|today|after|before|must|field)\b/i.test(msg)) {
+        return 'Dữ liệu chưa hợp lệ. Vui lòng kiểm tra lại thông tin phiếu mượn.'
+    }
+
+    return msg
+}
+
 function loadCartRaw() {
     try {
         const raw = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
@@ -53,10 +115,10 @@ async function refreshPreview() {
             ...b,
             quantity: byId.get(Number(b.id)) || 1,
         }))
-        selectedIds.value = rows.value.filter((r) => Number(r.available_for_borrow || 0) > 0).map((r) => Number(r.id))
+        selectedIds.value = []
         syncQtyToStorage()
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không tải được giỏ mượn.', { title: 'Giỏ mượn' })
+        toast.error(extractApiErrorMessage(e, 'Không tải được giỏ mượn.'), { title: 'Giỏ mượn' })
     } finally {
         loading.value = false
     }
@@ -105,12 +167,10 @@ const selectableIds = computed(() =>
         .filter((r) => Number(r.available_for_borrow || 0) > 0)
         .map((r) => Number(r.id))
 )
-const isAllSelected = computed(() =>
-    selectableIds.value.length > 0 && selectableIds.value.every((id) => selectedIds.value.includes(id))
-)
+const selectedCount = computed(() => selectedIds.value.length)
 
 function toggleSelectAll() {
-    if (isAllSelected.value) {
+    if (selectedIds.value.length > 0) {
         selectedIds.value = []
         return
     }
@@ -152,7 +212,17 @@ async function submitBorrowRequest() {
         syncQtyToStorage()
         toast.success('Đã gửi yêu cầu mượn từ giỏ mượn.', { title: 'Giỏ mượn' })
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không tạo được yêu cầu mượn.', { title: 'Giỏ mượn' })
+        const detail = extractApiErrorMessage(e, 'Không tạo được yêu cầu mượn.')
+        const normalized = detail.toLowerCase()
+        if (normalized.includes('thẻ thư viện')) {
+            toast.error(normalizeBorrowRequestErrorText(detail), {
+                title: 'Tạo phiếu không thành công',
+            })
+            return
+        }
+        toast.error(normalizeBorrowRequestErrorText(detail), {
+            title: 'Tạo phiếu không thành công',
+        })
     } finally {
         submitting.value = false
     }
@@ -204,9 +274,9 @@ onMounted(refreshPreview)
                         <div class="grid grid-cols-[1fr_220px_140px_44px] items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <label class="flex items-center gap-2 normal-case text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 <span class="admin-table-checkbox-wrap">
-                                    <input type="checkbox" :checked="isAllSelected" class="admin-table-checkbox" @change="toggleSelectAll" />
+                                    <input type="checkbox" :checked="selectedCount > 0" class="admin-table-checkbox" @change="toggleSelectAll" />
                                 </span>
-                                Chọn tất cả ({{ rows.length }} sách)
+                                Đã chọn {{ selectedCount }} sách
                             </label>
                             <span class="text-left normal-case">Vị trí kho/tủ</span>
                             <span class="text-center normal-case">Số lượng</span>
@@ -239,6 +309,7 @@ onMounted(refreshPreview)
                                             v-if="row.cover_image"
                                             :src="row.cover_image"
                                             :alt="row.title"
+                                            loading="lazy"
                                             class="h-full w-full object-cover"
                                         />
                                         <div v-else class="flex h-full w-full items-center justify-center text-slate-400">

@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Backend;
 
+use App\Enums\RoleType;
 use App\Models\Faculty;
+use App\Models\Period;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,12 +92,22 @@ class UserProfileUpdateRequestFlowTest extends TestCase
         ]);
         $user->update(['faculty_id' => $oldFaculty->id]);
 
+        $period = Period::query()->create([
+            'code' => 'K62',
+            'name' => 'K62',
+            'start_year' => 2024,
+            'end_year' => 2028,
+            'is_active' => true,
+        ]);
+
         $proof = UploadedFile::fake()->image('proof.jpg');
         $submitResponse = $this->post(
             '/api/v1/me/profile-update-requests',
             [
+                'requested_user_type' => RoleType::STUDENT->value,
                 'requested_code' => '111222333444',
                 'requested_faculty_id' => $newFaculty->id,
+                'requested_period_id' => $period->id,
                 'requested_class_code' => 'K62-CNTT',
                 'proof_image' => $proof,
             ],
@@ -121,14 +133,67 @@ class UserProfileUpdateRequestFlowTest extends TestCase
 
         $this->assertDatabaseHas('users', [
             'id' => $user->id,
+            'user_type' => RoleType::STUDENT->value,
             'code' => '111222333444',
             'faculty_id' => $newFaculty->id,
+            'period_id' => $period->id,
             'class_code' => 'K62-CNTT',
         ]);
         $this->assertDatabaseHas('user_profile_update_requests', [
             'id' => $requestRecord->id,
             'status' => UserProfileUpdateRequest::STATUS_APPROVED,
             'reviewed_by' => $admin->id,
+        ]);
+    }
+
+    public function test_user_can_hide_own_profile_update_requests_without_hard_delete(): void
+    {
+        [$user, $token] = $this->createUserAndToken();
+        [$otherUser] = $this->createUserAndToken([
+            'email' => 'reader2@test.com',
+            'code' => '200000000001',
+        ]);
+
+        $ownVisible = UserProfileUpdateRequest::query()->create([
+            'user_id' => $user->id,
+            'proof_image_path' => 'upload/user-profile-update-requests/a.png',
+            'status' => UserProfileUpdateRequest::STATUS_PENDING,
+            'is_visible' => true,
+        ]);
+        $ownVisible2 = UserProfileUpdateRequest::query()->create([
+            'user_id' => $user->id,
+            'proof_image_path' => 'upload/user-profile-update-requests/b.png',
+            'status' => UserProfileUpdateRequest::STATUS_REJECTED,
+            'is_visible' => true,
+        ]);
+        $otherVisible = UserProfileUpdateRequest::query()->create([
+            'user_id' => $otherUser->id,
+            'proof_image_path' => 'upload/user-profile-update-requests/c.png',
+            'status' => UserProfileUpdateRequest::STATUS_PENDING,
+            'is_visible' => true,
+        ]);
+
+        $response = $this->postJson(
+            '/api/v1/me/profile-update-requests/hide',
+            ['ids' => [$ownVisible->id, $otherVisible->id]],
+            $this->apiTokenHeaders($token)
+        );
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.affected', 1);
+
+        $this->assertDatabaseHas('user_profile_update_requests', [
+            'id' => $ownVisible->id,
+            'is_visible' => false,
+        ]);
+        $this->assertDatabaseHas('user_profile_update_requests', [
+            'id' => $ownVisible2->id,
+            'is_visible' => true,
+        ]);
+        $this->assertDatabaseHas('user_profile_update_requests', [
+            'id' => $otherVisible->id,
+            'is_visible' => true,
         ]);
     }
 }

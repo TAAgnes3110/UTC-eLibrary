@@ -55,7 +55,6 @@ export function useRegisterPage() {
         date_of_birth: '',
         gender: 'male',
         address: '',
-        user_type: 'MEMBER',
         password: '',
         password_confirmation: '',
     });
@@ -76,7 +75,6 @@ export function useRegisterPage() {
                 date_of_birth: form.date_of_birth,
                 gender: form.gender,
                 address: form.address,
-                user_type: form.user_type,
                 password: form.password,
                 password_confirmation: form.password_confirmation,
             })

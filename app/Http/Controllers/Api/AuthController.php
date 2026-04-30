@@ -13,6 +13,7 @@ use App\Services\AuthService;
 use App\Services\Notifications\StaffWorkQueueNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
@@ -46,7 +47,16 @@ class AuthController extends Controller
         Auth::guard('web')->login($result['user'], $remember);
 
         $user = $result['user'];
-        $staffWorkQueue = $this->staffWorkQueueNotificationService->syncForUser($user);
+        $staffWorkQueue = null;
+        try {
+            $staffWorkQueue = $this->staffWorkQueueNotificationService->syncForUser($user);
+        } catch (\Throwable $e) {
+            // Không để lỗi đồng bộ hàng chờ staff làm hỏng luồng đăng nhập.
+            Log::warning('Bỏ qua lỗi đồng bộ staff work queue khi đăng nhập.', [
+                'user_id' => $user->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         $payload = [
             'status' => 'success',

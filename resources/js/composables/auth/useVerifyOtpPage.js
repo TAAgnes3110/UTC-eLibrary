@@ -37,7 +37,7 @@ export function useVerifyOtpPage(props) {
             .then((response) => {
                 form.processing = false;
                 if (response.data.status === 'success' || response.status === 200) {
-                    window.location.href = window.route('login');
+                    window.location.href = `${window.route('login')}?registered=1`;
                 }
             })
             .catch((error) => {

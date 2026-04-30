@@ -24,11 +24,13 @@ const searchIn = ref({
 });
 const meta = ref({ current_page: 1, last_page: 1, per_page: 20, total: 0 });
 const actionId = ref(null);
+const selectedIds = ref([]);
 const detailRow = ref(null);
 const actionModal = ref({
     show: false,
     mode: 'approve',
     row: null,
+    ids: [],
     note: '',
 });
 
@@ -87,8 +89,11 @@ async function loadRows() {
             total: m.total,
         };
         page.value = m.current_page;
+        const allowed = new Set(items.map((r) => r.id));
+        selectedIds.value = selectedIds.value.filter((id) => allowed.has(id));
     } catch (e) {
         rows.value = [];
+        selectedIds.value = [];
         toast.error(e?.response?.data?.messages || 'Không tải được danh sách yêu cầu gia hạn.', { title: 'Gia hạn' });
     } finally {
         loading.value = false;
@@ -97,16 +102,19 @@ async function loadRows() {
 
 function runSearch() {
     page.value = 1;
+    clearSelection();
     loadRows();
 }
 
 function goPage(p) {
     page.value = p;
+    clearSelection();
     loadRows();
 }
 
 watch(sortBy, () => {
     page.value = 1;
+    clearSelection();
     loadRows();
 });
 
@@ -119,6 +127,36 @@ const pagination = computed(() => ({
     last_page: meta.value.last_page,
 }));
 const selectedSearchIn = computed(() => Object.keys(searchIn.value).filter((k) => searchIn.value[k]));
+const selectableRows = computed(() => rows.value.filter((r) => r.status === 'pending'));
+const hasSelection = computed(() => selectedIds.value.length > 0);
+const isAllSelected = computed(
+    () => selectableRows.value.length > 0 && selectableRows.value.every((r) => selectedIds.value.includes(r.id)),
+);
+
+function toggleSelect(id) {
+    const row = rows.value.find((r) => r.id === id);
+    if (!row || row.status !== 'pending') {
+        return;
+    }
+    const i = selectedIds.value.indexOf(id);
+    if (i === -1) {
+        selectedIds.value = [...selectedIds.value, id];
+    } else {
+        selectedIds.value = selectedIds.value.filter((x) => x !== id);
+    }
+}
+
+function toggleSelectAll() {
+    if (isAllSelected.value) {
+        selectedIds.value = [];
+    } else {
+        selectedIds.value = selectableRows.value.map((r) => r.id);
+    }
+}
+
+function clearSelection() {
+    selectedIds.value = [];
+}
 
 function openDetails(row) {
     detailRow.value = row;
@@ -152,6 +190,20 @@ function openActionModal(row, mode) {
         show: true,
         mode,
         row,
+        ids: [],
+        note: '',
+    };
+}
+
+function openBulkActionModal(mode) {
+    if (!selectedIds.value.length) {
+        return;
+    }
+    actionModal.value = {
+        show: true,
+        mode,
+        row: null,
+        ids: [...selectedIds.value],
         note: '',
     };
 }
@@ -161,24 +213,44 @@ function closeActionModal() {
         show: false,
         mode: 'approve',
         row: null,
+        ids: [],
         note: '',
     };
 }
 
 async function confirmActionModal() {
-    const row = actionModal.value.row;
-    if (!row) return;
+    const ids = actionModal.value.row ? [actionModal.value.row.id] : [...actionModal.value.ids];
+    if (!ids.length) return;
     const mode = actionModal.value.mode;
     const note = actionModal.value.note.trim();
-    actionId.value = row.id;
+    actionId.value = ids[0];
     try {
-        if (mode === 'approve') {
-            await loansApi.approveRenewalRequest(row.id, { review_note: note || null });
-            toast.success('Đã duyệt gia hạn.', { title: 'Gia hạn' });
-        } else {
-            await loansApi.rejectRenewalRequest(row.id, { review_note: note || null });
-            toast.success('Đã từ chối yêu cầu.', { title: 'Gia hạn' });
+        let ok = 0;
+        let fail = 0;
+        for (const id of ids) {
+            try {
+                if (mode === 'approve') {
+                    await loansApi.approveRenewalRequest(id, { review_note: note || null });
+                } else {
+                    await loansApi.rejectRenewalRequest(id, { review_note: note || null });
+                }
+                ok += 1;
+            } catch {
+                fail += 1;
+            }
         }
+        if (mode === 'approve') {
+            if (ok) {
+                toast.success(`Đã duyệt ${ok} yêu cầu.${fail ? ` ${fail} lỗi.` : ''}`, { title: 'Gia hạn' });
+            } else {
+                toast.error('Không duyệt được yêu cầu nào.', { title: 'Gia hạn' });
+            }
+        } else if (ok) {
+            toast.success(`Đã từ chối ${ok} yêu cầu.${fail ? ` ${fail} lỗi.` : ''}`, { title: 'Gia hạn' });
+        } else {
+            toast.error('Không từ chối được yêu cầu nào.', { title: 'Gia hạn' });
+        }
+        clearSelection();
         closeActionModal();
         await loadRows();
     } catch (e) {
@@ -236,11 +308,55 @@ async function confirmActionModal() {
             </template>
         </AdminFilterSearch>
 
+        <div
+            v-if="hasSelection"
+            class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200/90 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/40"
+        >
+            <span class="text-sm text-slate-600 dark:text-slate-300">
+                Đã chọn <strong>{{ selectedIds.length }}</strong> dòng
+            </span>
+            <button
+                type="button"
+                class="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                @click="openBulkActionModal('approve')"
+            >
+                <Icon :icon="ADMIN_ICONS.checkCircle" class="h-4 w-4" />
+                Đồng ý đã chọn
+            </button>
+            <button
+                type="button"
+                class="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                @click="openBulkActionModal('reject')"
+            >
+                <Icon :icon="ADMIN_ICONS.xCircle" class="h-4 w-4" />
+                Từ chối đã chọn
+            </button>
+            <button
+                type="button"
+                class="min-h-[44px] px-2 text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                @click="clearSelection"
+            >
+                Bỏ chọn
+            </button>
+        </div>
+
         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[1080px] border-collapse text-left text-sm">
                     <thead class="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800/60">
                         <tr>
+                            <th class="w-12 p-3 sm:p-4">
+                                <span class="admin-table-checkbox-wrap">
+                                    <input
+                                        type="checkbox"
+                                        :checked="isAllSelected"
+                                        :disabled="!selectableRows.length || loading"
+                                        :indeterminate="hasSelection && !isAllSelected"
+                                        class="admin-table-checkbox"
+                                        @change="toggleSelectAll"
+                                    />
+                                </span>
+                            </th>
                             <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
                                 Mã yêu cầu
                             </th>
@@ -268,13 +384,24 @@ async function confirmActionModal() {
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                         <tr v-if="loading">
-                            <td colspan="6" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
+                            <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
                         </tr>
                         <tr v-else-if="!rows.length">
-                            <td colspan="6" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Không có bản ghi.</td>
+                            <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Không có bản ghi.</td>
                         </tr>
                         <template v-else>
                             <tr v-for="row in rows" :key="row.id" class="admin-table-row">
+                                <td class="p-3 align-middle sm:p-4">
+                                    <span v-if="row.status === 'pending'" class="admin-table-checkbox-wrap">
+                                        <input
+                                            type="checkbox"
+                                            :checked="selectedIds.includes(row.id)"
+                                            class="admin-table-checkbox"
+                                            @change="toggleSelect(row.id)"
+                                        />
+                                    </span>
+                                    <span v-else class="inline-block w-6" />
+                                </td>
                                 <td class="p-3 tabular-nums sm:p-4">{{ row.request_code || `#${row.id}` }}</td>
                                 <td class="p-3 sm:p-4">
                                     <div class="font-medium text-slate-900 dark:text-white">{{ row.loan?.loan_code || '—' }}</div>
@@ -401,7 +528,7 @@ async function confirmActionModal() {
             </div>
         </div>
 
-        <div v-if="actionModal.show && actionModal.row" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <div v-if="actionModal.show" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-slate-900/60" @click="closeActionModal" />
             <div class="relative w-full max-w-lg rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
                 <div class="mb-3 flex items-start justify-between gap-3">
@@ -410,7 +537,11 @@ async function confirmActionModal() {
                             {{ actionModal.mode === 'approve' ? 'Duyệt yêu cầu gia hạn' : 'Từ chối yêu cầu gia hạn' }}
                         </h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400">
-                            Mã yêu cầu: {{ actionModal.row.request_code || `#${actionModal.row.id}` }}
+                            {{
+                                actionModal.row
+                                    ? `Mã yêu cầu: ${actionModal.row.request_code || `#${actionModal.row.id}`}`
+                                    : `Số yêu cầu đã chọn: ${actionModal.ids.length}`
+                            }}
                         </p>
                     </div>
                     <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeActionModal">
@@ -442,7 +573,7 @@ async function confirmActionModal() {
                                 ? 'border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50'
                                 : 'border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45'
                         "
-                        :disabled="actionId === actionModal.row.id"
+                        :disabled="actionModal.row ? actionId === actionModal.row.id : actionId !== null"
                         @click="confirmActionModal"
                     >
                         {{ actionModal.mode === 'approve' ? 'Xác nhận duyệt' : 'Xác nhận từ chối' }}

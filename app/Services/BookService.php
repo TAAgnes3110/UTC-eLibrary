@@ -192,7 +192,23 @@ class BookService
             return collect();
         }
 
-        $query = $this->baseBookListQuery();
+        // Query nhẹ riêng cho giỏ mượn: chỉ lấy cột cần hiển thị để giảm tải.
+        $query = Book::query()
+            ->select([
+                'books.id',
+                'books.book_code',
+                'books.title',
+                'books.cover_image',
+                'books.resource_type',
+                'books.cabinet',
+                'books.quantity',
+                'books.warehouse_id',
+            ])
+            ->with([
+                'warehouse:id,code,name',
+                'authors:id,name',
+                'publishers:id,name',
+            ]);
         $this->applyBorrowableAvailabilityProjection($query);
 
         $books = $query->whereIn('books.id', $ids)->get()->keyBy('id');

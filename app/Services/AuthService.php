@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\AuthHelper;
+use App\Enums\RoleType;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\LibraryCard\LibraryCardManagementService;
@@ -41,6 +42,9 @@ class AuthService
      */
     public function register(array $data): array
     {
+        // Luôn khởi tạo tài khoản ở vai trò MEMBER; xác nhận STUDENT/TEACHER xử lý qua luồng duyệt hồ sơ.
+        $data['user_type'] = RoleType::MEMBER->value;
+
         if ($existingUser = User::duplicate($data)->first()) {
             return ['error' => AuthHelper::duplicateUserMessage($existingUser, $data)];
         }

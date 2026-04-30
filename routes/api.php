@@ -92,6 +92,7 @@ Route::prefix('v1')->group(function () {
         Route::put('password', [ProfileController::class, 'updatePassword']);
         Route::get('profile-update-requests', [UserProfileUpdateRequestController::class, 'myIndex']);
         Route::post('profile-update-requests', [UserProfileUpdateRequestController::class, 'store']);
+        Route::post('profile-update-requests/hide', [UserProfileUpdateRequestController::class, 'hideMyRequests']);
         Route::post('library-card', [MeLibraryCardController::class, 'store']);
         Route::get('loans', [MeLoanController::class, 'index']);
         Route::get('loans/summary', [MeLoanController::class, 'summary']);
@@ -123,6 +124,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/profile-update-requests', [UserProfileUpdateRequestController::class, 'adminIndex']);
                 Route::post('/profile-update-requests/{id}/approve', [UserProfileUpdateRequestController::class, 'approve']);
                 Route::post('/profile-update-requests/{id}/reject', [UserProfileUpdateRequestController::class, 'reject']);
+                Route::post('/profile-update-requests/{id}/hide', [UserProfileUpdateRequestController::class, 'adminHide']);
                 Route::get('/', [UserController::class, 'index']);
                 Route::get('/export', [UserController::class, 'exportUsers']);
                 Route::get('/trash', [UserController::class, 'trash']);

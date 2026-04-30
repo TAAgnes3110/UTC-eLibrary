@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Backend;
 
+use App\Enums\RoleType;
 use App\Enums\LibraryCardStatus;
 use App\Models\Customer;
 use App\Models\EmailOtp;
@@ -79,9 +80,33 @@ class AuthApiTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'teststudent@example.com', 'code' => '012345678912']);
         $user = User::where('email', 'teststudent@example.com')->first();
         $this->assertNotNull($user);
+        $this->assertSame(RoleType::MEMBER->value, $user->user_type->value);
         $this->assertDatabaseMissing('library_cards', [
             'user_id' => $user->id,
         ]);
+    }
+
+    public function test_register_forces_member_even_if_user_sends_student_type(): void
+    {
+        $this->postJson('/api/v1/auth/register', [
+            'name' => 'Test Student',
+            'code' => '012345678912',
+            'email' => 'memberforced@example.com',
+            'phone' => '0912345678',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'user_type' => RoleType::STUDENT->value,
+        ])->assertStatus(200);
+
+        $otpRecord = EmailOtp::where('email', 'memberforced@example.com')->firstOrFail();
+
+        $this->postJson('/api/v1/auth/verify-otp', [
+            'email' => 'memberforced@example.com',
+            'otp' => $otpRecord->otp,
+        ])->assertStatus(200);
+
+        $user = User::where('email', 'memberforced@example.com')->firstOrFail();
+        $this->assertSame(RoleType::MEMBER->value, $user->user_type->value);
     }
 
     /**

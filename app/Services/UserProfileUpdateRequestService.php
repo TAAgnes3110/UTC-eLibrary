@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\RoleType;
 use App\Helpers\FileHelpers;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
@@ -11,10 +12,13 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class UserProfileUpdateRequestService
 {
+    private ?bool $hasVisibilityColumn = null;
+
     public function __construct(
         private readonly UserProfileUpdateNotificationService $userProfileUpdateNotificationService
     ) {}
@@ -24,9 +28,9 @@ class UserProfileUpdateRequestService
      */
     public function myRequests(User $user): Collection
     {
-        return UserProfileUpdateRequest::query()
+        $query = UserProfileUpdateRequest::query()
             ->with([
-                'user:id,name,email,code,class_code,faculty_id,period_id',
+                'user:id,name,email,code,user_type,class_code,faculty_id,period_id',
                 'user.faculty:id,code,name',
                 'user.period:id,code,name',
                 'requestedFaculty:id,code,name',
@@ -34,8 +38,13 @@ class UserProfileUpdateRequestService
                 'reviewer:id,name,email',
             ])
             ->where('user_id', $user->id)
-            ->orderByDesc('id')
-            ->get();
+            ->orderByDesc('id');
+
+        if ($this->supportsVisibilityColumn()) {
+            $query->where('is_visible', true);
+        }
+
+        return $query->get();
     }
 
     /**
@@ -44,6 +53,7 @@ class UserProfileUpdateRequestService
     public function submit(User $user, array $payload, UploadedFile $proofImage): UserProfileUpdateRequest
     {
         $requestedCode = isset($payload['requested_code']) ? trim((string) $payload['requested_code']) : null;
+        $requestedUserType = isset($payload['requested_user_type']) ? trim((string) $payload['requested_user_type']) : null;
         $requestedClassCode = isset($payload['requested_class_code']) ? trim((string) $payload['requested_class_code']) : null;
         $requestedFacultyId = array_key_exists('requested_faculty_id', $payload) && $payload['requested_faculty_id'] !== null
             ? (int) $payload['requested_faculty_id']
@@ -53,9 +63,14 @@ class UserProfileUpdateRequestService
             : null;
 
         $requestedCode = $requestedCode !== '' ? $requestedCode : null;
+        $requestedUserType = $requestedUserType !== '' ? strtoupper($requestedUserType) : null;
         $requestedClassCode = $requestedClassCode !== '' ? $requestedClassCode : null;
+        $currentUserType = $user->user_type instanceof RoleType ? $user->user_type->value : (string) $user->user_type;
 
         $hasChange = false;
+        if ($requestedUserType !== null && $requestedUserType !== $currentUserType) {
+            $hasChange = true;
+        }
         if ($requestedCode !== null && $requestedCode !== (string) $user->code) {
             $hasChange = true;
         }
@@ -91,18 +106,38 @@ class UserProfileUpdateRequestService
             }
         }
 
+        $targetUserType = $requestedUserType ?? $currentUserType;
+        $targetFacultyId = $requestedFacultyId ?? $user->faculty_id;
+        $targetPeriodId = $requestedPeriodId ?? $user->period_id;
+        $targetClassCode = $requestedClassCode ?? $user->class_code;
+
+        if ($targetUserType === RoleType::STUDENT->value) {
+            if ($targetFacultyId === null || $targetPeriodId === null || blank($targetClassCode)) {
+                throw new RuntimeException('Xác nhận Sinh viên cần đủ Khoa, Niên khóa và Lớp.');
+            }
+        }
+        if ($targetUserType === RoleType::TEACHER->value && $targetFacultyId === null) {
+            throw new RuntimeException('Xác nhận Giáo viên cần có thông tin Khoa.');
+        }
+
         $proofPath = FileHelpers::storeUploadedFile($proofImage, 'public', 'upload/user-profile-update-requests');
 
-        $record = UserProfileUpdateRequest::query()->create([
+        $createPayload = [
             'user_id' => $user->id,
             'requested_code' => $requestedCode,
+            'requested_user_type' => $requestedUserType,
             'requested_faculty_id' => $requestedFacultyId,
             'requested_period_id' => $requestedPeriodId,
             'requested_class_code' => $requestedClassCode,
             'proof_image_path' => $proofPath,
             'reason' => isset($payload['reason']) ? trim((string) $payload['reason']) : null,
             'status' => UserProfileUpdateRequest::STATUS_PENDING,
-        ]);
+        ];
+        if ($this->supportsVisibilityColumn()) {
+            $createPayload['is_visible'] = true;
+        }
+
+        $record = UserProfileUpdateRequest::query()->create($createPayload);
 
         $this->userProfileUpdateNotificationService->notifyAdminsProfileReviewNeeded($record, $user);
 
@@ -116,7 +151,7 @@ class UserProfileUpdateRequestService
 
         $query = UserProfileUpdateRequest::query()
             ->with([
-                'user:id,name,email,phone,code,class_code,faculty_id,period_id',
+                'user:id,name,email,phone,code,user_type,class_code,faculty_id,period_id',
                 'user.faculty:id,code,name',
                 'user.period:id,code,name',
                 'requestedFaculty:id,code,name',
@@ -133,6 +168,9 @@ class UserProfileUpdateRequestService
                         ->orWhere('phone', 'like', $like);
                 });
             });
+        if ($this->supportsVisibilityColumn()) {
+            $query->where('is_visible', true);
+        }
 
         $query->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END");
 
@@ -172,6 +210,9 @@ class UserProfileUpdateRequestService
             }
 
             $updates = [];
+            if (! empty($record->requested_user_type)) {
+                $updates['user_type'] = $record->requested_user_type;
+            }
             if (! empty($record->requested_code)) {
                 $updates['code'] = $record->requested_code;
             }
@@ -226,6 +267,58 @@ class UserProfileUpdateRequestService
 
             return $record->fresh(['user.faculty:id,code,name', 'user.period:id,code,name', 'requestedFaculty:id,code,name', 'requestedPeriod:id,code,name', 'reviewer:id,name,email']);
         });
+    }
+
+    /**
+     * @param  array<int, int>  $ids
+     */
+    public function hideMyRequests(User $user, array $ids): int
+    {
+        if (! $this->supportsVisibilityColumn()) {
+            throw new RuntimeException('Cơ sở dữ liệu chưa cập nhật chức năng ẩn yêu cầu. Vui lòng chạy migration mới nhất.');
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if ($ids === []) {
+            return 0;
+        }
+
+        return UserProfileUpdateRequest::query()
+            ->where('user_id', $user->id)
+            ->whereIn('id', $ids)
+            ->where('is_visible', true)
+            ->update([
+                'is_visible' => false,
+                'updated_by' => $user->id,
+                'updated_at' => now(),
+            ]);
+    }
+
+    public function hideByAdmin(int $id): UserProfileUpdateRequest
+    {
+        if (! $this->supportsVisibilityColumn()) {
+            throw new RuntimeException('Cơ sở dữ liệu chưa cập nhật chức năng ẩn yêu cầu. Vui lòng chạy migration mới nhất.');
+        }
+
+        $record = UserProfileUpdateRequest::query()->whereKey($id)->firstOrFail();
+        $record->update([
+            'is_visible' => false,
+            'updated_by' => Auth::id(),
+            'updated_at' => now(),
+        ]);
+
+        return $record;
+    }
+
+    private function supportsVisibilityColumn(): bool
+    {
+        if ($this->hasVisibilityColumn !== null) {
+            return $this->hasVisibilityColumn;
+        }
+
+        $this->hasVisibilityColumn = Schema::hasColumn('user_profile_update_requests', 'is_visible');
+
+        return $this->hasVisibilityColumn;
     }
 
 }

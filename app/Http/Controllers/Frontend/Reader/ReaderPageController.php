@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Frontend\Reader;
 
 use App\Enums\ResourceType;
+use App\Enums\LibraryCardStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LibraryCardResource;
 use App\Http\Resources\LoanPolicyResource;
@@ -126,9 +127,20 @@ class ReaderPageController extends Controller
     public function catalogShow(Book $book): Response
     {
         $book = $this->bookService->getForApiDetail($book);
+        $user = request()->user();
+        $hasActiveLibraryCard = false;
+        if ($user !== null) {
+            $hasActiveLibraryCard = LibraryCard::query()
+                ->where('user_id', $user->id)
+                ->where('workflow_status', LibraryCard::WORKFLOW_ACTIVE)
+                ->where('status', LibraryCardStatus::ACTIVE)
+                ->exists();
+        }
+
         return Inertia::render('Reader/BookShow', [
             'book' => (new ReaderBookDetailResource($book))->resolve(),
             'availability' => $this->bookService->readerCopyStats($book),
+            'has_active_library_card' => $hasActiveLibraryCard,
         ]);
     }
 

@@ -9,11 +9,15 @@ import FormField from "@/Components/Auth/FormField.vue";
 import { User, Lock, Eye, EyeOff, ArrowRight, LogIn } from "lucide-vue-next";
 import { useLoginPage } from "@/composables/auth/useLoginPage";
 
-const { status } = defineProps({
+const { status, fromRegister } = defineProps({
     status: String,
+    fromRegister: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const { showPassword, form, submit } = useLoginPage();
+const { showPassword, form, submit } = useLoginPage({ fromRegister });
 </script>
 
 <template>
@@ -63,6 +67,13 @@ const { showPassword, form, submit } = useLoginPage();
                         >
                             {{ status }}
                         </p>
+                    </div>
+                    <div
+                        v-if="fromRegister"
+                        class="mb-6 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-xs font-semibold text-blue-100"
+                    >
+                        Sau khi đăng nhập, bạn có thể vào <span class="text-white">Thông tin cá nhân</span> để cập nhật hồ sơ và gửi yêu cầu xác nhận
+                        <span class="text-white">Sinh viên / Giáo viên</span>.
                     </div>
 
                     <form @submit.prevent="submit" class="space-y-5">

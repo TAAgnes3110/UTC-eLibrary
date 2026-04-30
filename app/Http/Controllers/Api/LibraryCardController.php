@@ -213,6 +213,7 @@ class LibraryCardController extends Controller
     public function store(LibraryCardRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $isStaffCounterIssue = !empty($data['user_id']);
         if ($request->hasFile('photo')) {
             $dir = trim(UploadDirectory::forTable('library_cards'), '/');
             $data['photo_path'] = $request->file('photo')->store($dir, 'public');
@@ -220,6 +221,9 @@ class LibraryCardController extends Controller
         unset($data['photo']);
         $card = $this->libraryCardService->create($data);
         $this->libraryCardNotificationDispatcher->notifyStaffOnNewCardApplication($card);
+        if ($isStaffCounterIssue) {
+            $this->libraryCardNotificationDispatcher->notifyReaderCardPickupReminder($card, 3);
+        }
         $card->loadMissing(['payment.collector', 'period', 'faculty', 'department', 'user']);
 
         return ApiResponse::success(

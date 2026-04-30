@@ -22,11 +22,13 @@ class UserProfileUpdateRequest extends BaseModel
     protected $fillable = [
         'user_id',
         'requested_code',
+        'requested_user_type',
         'requested_faculty_id',
         'requested_period_id',
         'requested_class_code',
         'proof_image_path',
         'status',
+        'is_visible',
         'reason',
         'review_note',
         'reviewed_by',
@@ -35,6 +37,7 @@ class UserProfileUpdateRequest extends BaseModel
     ];
 
     protected $casts = [
+        'is_visible' => 'boolean',
         'reviewed_at' => 'datetime',
         'applied_at' => 'datetime',
     ];

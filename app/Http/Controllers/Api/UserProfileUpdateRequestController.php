@@ -9,9 +9,11 @@ use App\Http\Requests\StoreUserProfileUpdateRequest;
 use App\Http\Resources\UserProfileUpdateRequestResource;
 use App\Models\UserProfileUpdateRequest;
 use App\Services\UserProfileUpdateRequestService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
+use Throwable;
 
 class UserProfileUpdateRequestController extends Controller
 {
@@ -37,10 +39,37 @@ class UserProfileUpdateRequestController extends Controller
             $record = $this->service->submit($request->user(), $request->validated(), $file);
         } catch (RuntimeException $e) {
             return ApiResponse::error($e->getMessage(), 422);
+        } catch (QueryException $e) {
+            $errorText = strtolower((string) $e->getMessage());
+            if (str_contains($errorText, 'unknown column') || str_contains($errorText, 'doesn\'t exist')) {
+                return ApiResponse::error('Cơ sở dữ liệu chưa được cập nhật đầy đủ. Vui lòng chạy migration mới nhất rồi thử lại.', 500);
+            }
+
+            return ApiResponse::error('Không thể gửi yêu cầu cập nhật lúc này. Vui lòng thử lại sau.', 500);
+        } catch (Throwable) {
+            return ApiResponse::error('Không thể gửi yêu cầu cập nhật lúc này. Vui lòng thử lại sau.', 500);
         }
         $record->load(['requestedFaculty:id,code,name', 'requestedPeriod:id,code,name', 'reviewer:id,name,email']);
 
         return ApiResponse::success(new UserProfileUpdateRequestResource($record), 'Đã gửi yêu cầu cập nhật. Vui lòng chờ duyệt.', 201);
+    }
+
+    public function hideMyRequests(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $affected = $this->service->hideMyRequests($request->user(), $validated['ids']);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        return ApiResponse::success([
+            'affected' => $affected,
+        ], 'Đã ẩn các yêu cầu đã chọn.');
     }
 
     public function adminIndex(Request $request): JsonResponse
@@ -85,6 +114,19 @@ class UserProfileUpdateRequestController extends Controller
         }
 
         return ApiResponse::success(new UserProfileUpdateRequestResource($record), 'Đã từ chối yêu cầu.');
+    }
+
+    public function adminHide(int $id): JsonResponse
+    {
+        try {
+            $this->service->hideByAdmin($id);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Throwable) {
+            return ApiResponse::notFound(__('messages.error_404'));
+        }
+
+        return ApiResponse::success(null, 'Đã ẩn yêu cầu.');
     }
 }
 

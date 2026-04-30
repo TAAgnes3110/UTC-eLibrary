@@ -24,10 +24,17 @@ const props = defineProps({
         required: true,
         validator: (v) => v && typeof v.total === 'number',
     },
+    has_active_library_card: { type: Boolean, default: false },
 })
+
+const hasActiveLibraryCard = computed(() => Boolean(props.has_active_library_card))
 
 async function createBorrowRequestSingle() {
     if (!isAuthed.value || creatingBorrowRequest.value) {
+        return
+    }
+    if (!hasActiveLibraryCard.value) {
+        toast.warn('Bạn chưa có thẻ thư viện hoạt động. Vui lòng gửi yêu cầu cấp thẻ trước khi mượn sách.', { title: 'Yêu cầu mượn' })
         return
     }
     if (loanType.value === 'home' && !requestedDueDate.value) {
@@ -55,6 +62,14 @@ async function createBorrowRequestSingle() {
 }
 
 function openBorrowPreview() {
+    if (!isAuthed.value) {
+        toast.warn('Vui lòng đăng nhập để tạo yêu cầu mượn.', { title: 'Yêu cầu mượn' })
+        return
+    }
+    if (!hasActiveLibraryCard.value) {
+        toast.warn('Bạn chưa có thẻ thư viện hoạt động. Vui lòng gửi yêu cầu cấp thẻ trước khi mượn sách.', { title: 'Yêu cầu mượn' })
+        return
+    }
     if (Number(props.availability?.available || 0) <= 0) {
         toast.warn('Sách hiện đã hết khả dụng để tạo yêu cầu mượn.', { title: 'Yêu cầu mượn' })
         return
@@ -81,17 +96,27 @@ function addToBorrowCart() {
         return
     }
     const qty = Math.max(1, Math.min(Number(props.availability?.available || 1), Number(borrowQty.value || 1)))
+    const maxAvailable = Math.max(1, Number(props.availability?.available || 1))
     try {
         const current = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
         const items = Array.isArray(current) ? current : []
         const idx = items.findIndex((x) => Number(x.book_id) === Number(props.book.id))
         if (idx >= 0) {
-            items[idx].quantity = qty
+            const currentQty = Math.max(1, Number(items[idx].quantity || 1))
+            const nextQty = Math.min(maxAvailable, currentQty + 1)
+            if (nextQty === currentQty) {
+                toast.warn('Số lượng trong giỏ đã đạt tối đa theo số sách khả dụng.', { title: 'Giỏ mượn' })
+                return
+            }
+            items[idx].quantity = nextQty
+            localStorage.setItem(CART_KEY, JSON.stringify(items))
+            toast.success('Thêm vào giỏ mượn thành công.', { title: 'Giỏ mượn' })
+            return
         } else {
             items.push({ book_id: Number(props.book.id), quantity: qty })
         }
         localStorage.setItem(CART_KEY, JSON.stringify(items))
-        toast.success('Đã thêm vào giỏ mượn.', { title: 'Giỏ mượn' })
+        toast.success('Thêm vào giỏ mượn thành công.', { title: 'Giỏ mượn' })
     } catch {
         toast.error('Không thể thêm vào giỏ mượn.', { title: 'Giỏ mượn' })
     }
@@ -242,10 +267,6 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                             </div>
                         </dl>
 
-                        <p class="mt-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
-                            {{ S.borrowAtDeskHint }}
-                        </p>
-
                         <div class="mt-6">
                             <template v-if="!isAuthed">
                                 <Link
@@ -270,9 +291,9 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                                         </button>
                                         <input
                                             :value="borrowQty"
-                                            type="number"
-                                            min="1"
-                                            :max="Math.max(1, Number(availability.available || 1))"
+                                            type="text"
+                                            inputmode="numeric"
+                                            pattern="[0-9]*"
                                             class="h-full w-14 border-x border-slate-200 bg-transparent text-center text-base font-bold text-slate-900 [appearance:textfield] focus:outline-none dark:border-slate-700 dark:text-slate-100"
                                             @input="onBorrowQtyInput($event)"
                                         />

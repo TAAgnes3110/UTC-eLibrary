@@ -97,6 +97,8 @@ const {
                             @change="loadLoans(true)"
                         >
                             <option value="">Sắp xếp</option>
+                            <option value="newest">Mới nhất</option>
+                            <option value="oldest">Cũ nhất</option>
                             <option value="due_asc">Hạn trả tăng dần</option>
                             <option value="due_desc">Hạn trả giảm dần</option>
                             <option value="loan_asc">Ngày mượn tăng dần</option>

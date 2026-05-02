@@ -31,6 +31,7 @@ class LoanBorrowRequestService
         return DB::transaction(function () use ($user, $data): LoanBorrowRequest {
             $card = $this->loadActiveCardByUser($user);
             $loanType = (string) ($data['loan_type'] ?? Loan::TYPE_HOME);
+            $this->assertLoanTypeAllowedForCard($card, $loanType);
             $requestEntries = $this->buildRequestEntries($data, $loanType);
 
             [$sumTextbook, $sumReference, $sumAll] = $this->sumByResourceType($requestEntries);
@@ -246,6 +247,43 @@ class LoanBorrowRequestService
         return [$bookIds, $quantities, $conditions];
     }
 
+    /**
+     * Từ chối nhiều yêu cầu trong một giao dịch (chỉ các bản ghi đang chờ duyệt).
+     *
+     * @param  list<int>  $ids
+     */
+    public function bulkReject(User $reviewer, array $ids, ?string $reviewNote = null): int
+    {
+        return DB::transaction(function () use ($reviewer, $ids, $reviewNote): int {
+            $ids = array_values(array_unique(array_map(static fn ($v): int => (int) $v, $ids)));
+            sort($ids);
+
+            $reviewNoteTrimmed = $this->nullableTrim($reviewNote);
+            $count = 0;
+            foreach ($ids as $id) {
+                $locked = LoanBorrowRequest::query()
+                    ->whereKey($id)
+                    ->lockForUpdate()
+                    ->first();
+                if (! $locked instanceof LoanBorrowRequest) {
+                    continue;
+                }
+                if ($locked->status !== LoanBorrowRequest::STATUS_PENDING) {
+                    continue;
+                }
+                $locked->update([
+                    'status' => LoanBorrowRequest::STATUS_REJECTED,
+                    'reviewed_by' => (int) $reviewer->id,
+                    'reviewed_at' => now(),
+                    'review_note' => $reviewNoteTrimmed,
+                ]);
+                $count++;
+            }
+
+            return $count;
+        });
+    }
+
     public function reject(LoanBorrowRequest $borrowRequest, User $reviewer, ?string $reviewNote = null): LoanBorrowRequest
     {
         return DB::transaction(function () use ($borrowRequest, $reviewer, $reviewNote): LoanBorrowRequest {
@@ -274,6 +312,21 @@ class LoanBorrowRequestService
                 'items.book.warehouse:id,code,name',
             ]);
         });
+    }
+
+    private function assertLoanTypeAllowedForCard(LibraryCard $card, string $loanType): void
+    {
+        $permissions = $this->loanPoliciesService->getBorrowPermissionsForHolderType((string) $card->holder_type);
+        if ($loanType === Loan::TYPE_HOME && ! $permissions['allow_home']) {
+            throw new RuntimeException(
+                'Theo quy định thư viện UTC, loại thẻ của bạn chỉ được đăng ký đọc tại chỗ, không mượn về nhà.'
+            );
+        }
+        if ($loanType === Loan::TYPE_ONSITE && ! $permissions['allow_onsite']) {
+            throw new RuntimeException(
+                'Theo quy định thư viện, loại thẻ này không áp dụng hình thức đọc tại chỗ qua yêu cầu trực tuyến. Vui lòng liên hệ thủ thư.'
+            );
+        }
     }
 
     private function loadActiveCardByUser(User $user): LibraryCard

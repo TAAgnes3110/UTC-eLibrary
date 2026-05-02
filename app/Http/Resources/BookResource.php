@@ -14,10 +14,9 @@ class BookResource extends JsonResource
     public function toArray(Request $request): array
     {
         $coverImage = $this->cover_image;
-        if (! empty($coverImage) && ! str_starts_with($coverImage, 'http')) {
-            $coverImage = Storage::disk('public')->exists($coverImage)
-                ? asset(ltrim($coverImage, '/'))
-                : null;
+        if (! empty($coverImage) && ! str_starts_with((string) $coverImage, 'http')) {
+            // Tránh exists() trên từng sách khi list lớn — trình duyệt chịu ảnh lỗi nếu file thiếu.
+            $coverImage = asset(ltrim((string) $coverImage, '/'));
         }
 
         return [
@@ -49,7 +48,6 @@ class BookResource extends JsonResource
                 'code' => $this->classification->code,
                 'name' => $this->classification->name,
             ] : null),
-
 
             'warehouse' => $this->whenLoaded('warehouse', fn () => $this->warehouse ? [
                 'id' => $this->warehouse->id,
@@ -102,6 +100,7 @@ class BookResource extends JsonResource
             ] : null),
 
             'digital_assets' => $this->whenLoaded('digitalAssets', fn () => DigitalAssetResource::collection($this->digitalAssets)),
+            'primary_digital_asset_url' => $this->resolvePrimaryDigitalAssetUrl(),
             'loan_history' => $this->whenLoaded('loanItems', function () {
                 return $this->loanItems->map(function ($item) {
                     $loan = $item->loan;
@@ -124,6 +123,24 @@ class BookResource extends JsonResource
                         'condition_on_return' => $item->condition_on_return?->value,
                     ];
                 })->values();
+            }),
+
+            /** Meta từ bản gửi độc giả (nếu đầu mục được tạo từ duyệt gửi). */
+            'digital_submission' => $this->whenLoaded('digitalDocumentSubmission', function () {
+                $submission = $this->digitalDocumentSubmission;
+                if ($submission === null) {
+                    return null;
+                }
+
+                return [
+                    'submitted_at' => $submission->created_at?->toIso8601String(),
+                    'reviewed_at' => $submission->reviewed_at?->toIso8601String(),
+                    'submitter' => $submission->relationLoaded('submitter') && $submission->submitter ? [
+                        'id' => $submission->submitter->id,
+                        'name' => $submission->submitter->name,
+                        'email' => $submission->submitter->email,
+                    ] : null,
+                ];
             }),
 
             'created_at' => $this->created_at?->toIso8601String(),
@@ -196,5 +213,26 @@ class BookResource extends JsonResource
     private function resolveCirculationStatusLabel(): string
     {
         return $this->resolveRealQuantity() > 0 ? 'Còn lưu hành' : 'Không lưu hành';
+    }
+
+    private function resolvePrimaryDigitalAssetUrl(): ?string
+    {
+        if (! $this->relationLoaded('digitalAssets')) {
+            return null;
+        }
+
+        $asset = $this->digitalAssets
+            ->sortByDesc(fn ($it) => (int) ($it->is_primary ?? false))
+            ->first();
+        if (! $asset) {
+            return null;
+        }
+
+        $disk = $asset->storage_disk ?: 'public';
+        if (! $asset->path) {
+            return null;
+        }
+
+        return Storage::disk($disk)->url($asset->path);
     }
 }

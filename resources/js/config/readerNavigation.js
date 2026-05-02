@@ -19,7 +19,7 @@ export const readerNavItems = [
         route: 'reader.services',
         children: [
             { key: 'services_card', label: 'Thẻ thư viện', route: 'reader.services.library-card' },
-            { key: 'services_borrow_cart', label: 'Giỏ mượn', route: 'reader.services.borrow-cart' },
+            { key: 'services_digital_documents', label: 'Tài liệu số', route: 'reader.services.digital-documents' },
             { key: 'services_loan', label: 'Quản lý phiếu mượn', route: 'reader.services.loan-requests' },
         ],
     },

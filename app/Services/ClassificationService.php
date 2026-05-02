@@ -15,6 +15,7 @@ class ClassificationService
         if (! isset($data['code']) || trim((string) $data['code']) === '') {
             $data['code'] = $this->generateNextCode();
         }
+        $data['parent_id'] = null;
         $classification = Classification::create($data);
         MasterDataService::clearCache();
 
@@ -24,6 +25,7 @@ class ClassificationService
     public function update(Classification $classification, array $data): Classification
     {
         unset($data['id'], $data['created_at'], $data['updated_at']);
+        $data['parent_id'] = null;
         $classification->update($data);
         MasterDataService::clearCache();
 
@@ -33,7 +35,7 @@ class ClassificationService
     public function index(?string $keyword, int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         return Classification::query()
-            ->with('parent:id,code,name')
+            ->roots()
             ->when($keyword !== null && $keyword !== '', fn ($q) => $q->where(function ($q) use ($keyword) {
                 $q->where('code', 'like', "%{$keyword}%")
                     ->orWhere('name', 'like', "%{$keyword}%");
@@ -47,7 +49,7 @@ class ClassificationService
     {
         /** @var Collection $items */
         $items = MasterLookupCacheService::remember('classifications:list-all', function () {
-            return Classification::orderBy('code')->get(['id', 'code', 'name']);
+            return Classification::query()->roots()->orderBy('code')->get(['id', 'code', 'name']);
         });
 
         return $items;

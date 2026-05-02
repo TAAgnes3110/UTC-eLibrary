@@ -195,6 +195,7 @@ export function useBooksAdminPage() {
     const storageSuggestionMessage = ref('');
     const createCoverFile = ref(null);
     const createCoverPreviewUrl = ref('');
+    const createDigitalFile = ref(null);
 
     const {
         fieldErrors: bookFormErrors,
@@ -265,6 +266,12 @@ export function useBooksAdminPage() {
     });
 
     async function previewIdentifiers() {
+        const resourceType = normalizeResourceTypeInput(form.value.resource_type);
+        if (resourceType === 'digital') {
+            form.value.book_code = '';
+            form.value.registration_number = '';
+            return;
+        }
         const warehouseId = matchLookupId(warehouses.value, form.value.warehouse);
         if (!warehouseId) return;
         const requestSerial = ++identifiersRequestSerial;
@@ -529,6 +536,18 @@ export function useBooksAdminPage() {
         createCoverPreviewUrl.value = URL.createObjectURL(file);
     }
 
+    function clearCreateDigitalFile() {
+        createDigitalFile.value = null;
+    }
+
+    function setCreateDigitalFile(file) {
+        if (!(file instanceof File)) {
+            clearCreateDigitalFile();
+            return;
+        }
+        createDigitalFile.value = file;
+    }
+
     function suggestWarehouseByResourceType(resourceType) {
         if (!Array.isArray(warehouses.value) || warehouses.value.length === 0) return null;
         const rt = String(resourceType || '').trim();
@@ -604,29 +623,33 @@ export function useBooksAdminPage() {
 
         await loadWarehouses();
         let warehouseId = null;
-        const wh = String(form.value.warehouse || '').trim();
-        if (!wh) {
-            errors.warehouse = bookFormClientError.warehouseEmpty;
-        } else {
-            warehouseId = matchLookupId(warehouses.value, form.value.warehouse);
-            if (!warehouseId) {
-                errors.warehouse = bookFormClientError.warehouseNoMatch;
+        if (pageKind.value !== 'digital') {
+            const wh = String(form.value.warehouse || '').trim();
+            if (!wh) {
+                errors.warehouse = bookFormClientError.warehouseEmpty;
+            } else {
+                warehouseId = matchLookupId(warehouses.value, form.value.warehouse);
+                if (!warehouseId) {
+                    errors.warehouse = bookFormClientError.warehouseNoMatch;
+                }
             }
         }
 
         const cls = String(form.value.classification || '').trim();
         let classificationId = null;
-        if (!cls) {
-            errors.classification = bookFormClientError.classificationEmpty;
-        } else {
-            classificationId = matchLookupId(classifications.value, form.value.classification);
-            if (!classificationId) {
-                errors.classification = bookFormClientError.classificationNoMatch;
+        if (pageKind.value !== 'digital') {
+            if (!cls) {
+                errors.classification = bookFormClientError.classificationEmpty;
+            } else {
+                classificationId = matchLookupId(classifications.value, form.value.classification);
+                if (!classificationId) {
+                    errors.classification = bookFormClientError.classificationNoMatch;
+                }
             }
         }
 
         const qtyRaw = parseInt(String(form.value.quantity ?? 0), 10);
-        if (Number.isNaN(qtyRaw) || qtyRaw < 0) {
+        if (pageKind.value !== 'digital' && (Number.isNaN(qtyRaw) || qtyRaw < 0)) {
             errors.quantity = bookFormClientError.quantityInvalid;
         }
 
@@ -645,16 +668,23 @@ export function useBooksAdminPage() {
             resourceType,
             warehouseId,
             classificationId,
-            quantity: Math.max(0, qtyRaw),
+            quantity: pageKind.value === 'digital' ? 0 : Math.max(0, qtyRaw),
             cabinetName,
         };
     }
 
     const openAddModal = async () => {
-        await Promise.allSettled([loadWarehouses()]);
+        await Promise.allSettled([loadWarehouses(), loadClassifications()]);
         isEditing.value = false;
         form.value = emptyForm();
         clearCreateCoverFile();
+        clearCreateDigitalFile();
+        if (pageKind.value === 'digital') {
+            form.value.resource_type = 'Tài liệu số';
+            form.value.quantity = 0;
+            form.value.book_code = '';
+            form.value.registration_number = '';
+        }
         warehouseTouched.value = false;
         settingWarehouseSuggestion.value = false;
         bookCodeTouched.value = false;
@@ -697,6 +727,7 @@ export function useBooksAdminPage() {
             resource_type: editResourceTypeLabel,
         };
         clearCreateCoverFile();
+        clearCreateDigitalFile();
         warehouseTouched.value = true;
         settingWarehouseSuggestion.value = false;
         bookCodeTouched.value = true;
@@ -722,16 +753,23 @@ export function useBooksAdminPage() {
             quantity: qty,
             cabinetName
         } = client;
+        if (!isEditing.value && pageKind.value === 'digital' && !(createDigitalFile.value instanceof File)) {
+            setBookClientErrors({ general: 'Vui lòng đính kèm file PDF cho tài liệu số.' });
+            toast.error(toastShort.fail);
+            return;
+        }
         const payload = {
             title,
-            warehouse_id: warehouseId,
-            quantity: qty,
             resource_type: resourceType,
         };
-        const reg = String(form.value.registration_number || '').trim();
-        if (reg) payload.registration_number = reg;
-        const bookCode = String(form.value.book_code || '').trim();
-        if (bookCode) payload.book_code = bookCode;
+        if (pageKind.value !== 'digital') payload.quantity = qty;
+        if (pageKind.value !== 'digital' && warehouseId) payload.warehouse_id = warehouseId;
+        if (pageKind.value !== 'digital') {
+            const reg = String(form.value.registration_number || '').trim();
+            if (reg) payload.registration_number = reg;
+            const bookCode = String(form.value.book_code || '').trim();
+            if (bookCode) payload.book_code = bookCode;
+        }
         const authors = String(form.value.authors || '').trim();
         payload.authors = authors;
         const publisher = String(form.value.publisher || '').trim();
@@ -751,12 +789,19 @@ export function useBooksAdminPage() {
         if (bookSize) payload.book_size = bookSize;
         const priceNum = parseInt(String(form.value.price ?? ''), 10);
         if (!Number.isNaN(priceNum) && priceNum >= 0) payload.price = priceNum;
-        if (classificationId) payload.classification_id = classificationId;
+        if (pageKind.value !== 'digital' && classificationId) payload.classification_id = classificationId;
 
         saveBookLoading.value = true;
         try {
             if (isEditing.value && form.value.id != null) {
                 await booksApi.update(form.value.id, payload);
+                if (pageKind.value === 'digital' && createDigitalFile.value instanceof File) {
+                    const digitalData = new FormData();
+                    digitalData.append('file', createDigitalFile.value);
+                    digitalData.append('is_primary', '1');
+                    digitalData.append('visibility', 'public');
+                    await booksApi.uploadDigitalAsset(form.value.id, digitalData);
+                }
                 toast.success(toastShort.ok);
             } else {
                 const created = await booksApi.create(payload);
@@ -767,10 +812,18 @@ export function useBooksAdminPage() {
                     coverData.append('book_cover', createCoverFile.value);
                     await booksApi.updateCover(createdId, coverData);
                 }
+                if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && Number.isInteger(createdId) && createdId > 0) {
+                    const digitalData = new FormData();
+                    digitalData.append('file', createDigitalFile.value);
+                    digitalData.append('is_primary', '1');
+                    digitalData.append('visibility', 'public');
+                    await booksApi.uploadDigitalAsset(createdId, digitalData);
+                }
                 toast.success(toastShort.ok);
             }
             showModal.value = false;
             clearCreateCoverFile();
+            clearCreateDigitalFile();
             await loadBooks();
         } catch (e) {
             // eslint-disable-next-line no-console
@@ -845,6 +898,9 @@ export function useBooksAdminPage() {
             } else if (filteredBooks.value.length > 0) {
                 params.ids = filteredBooks.value.map((b) => b.id);
             }
+            if (pageKind.value === 'digital') {
+                params.resource_type = 'digital';
+            }
             const response = await booksApi.export(params);
             const blob = new Blob([response.data], {
                 type:
@@ -854,7 +910,7 @@ export function useBooksAdminPage() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'Danh_sach_sach_in.xlsx';
+            link.download = pageKind.value === 'digital' ? 'Danh_sach_tai_lieu_so.xlsx' : 'Danh_sach_sach_in.xlsx';
             document.body.appendChild(link);
             link.click();
             link.remove();
@@ -1191,6 +1247,8 @@ export function useBooksAdminPage() {
         createCoverPreviewUrl,
         setCreateCoverFile,
         clearCreateCoverFile,
+        setCreateDigitalFile,
+        clearCreateDigitalFile,
         filterValues,
         showFilterPanel,
         filteredBooks,

@@ -340,12 +340,22 @@ async function confirmActionModal() {
             </button>
         </div>
 
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[1080px] border-collapse text-left text-sm">
+        <div class="min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+            <div class="w-full min-w-0 overflow-x-auto">
+                <table class="w-full table-fixed border-collapse text-left text-sm leading-snug">
+                    <colgroup>
+                        <col class="w-12 shrink-0" />
+                        <col class="w-[9%]" />
+                        <col class="w-[15%]" />
+                        <col class="w-[10%]" />
+                        <col class="w-[19%]" />
+                        <col class="w-[17%]" />
+                        <col class="w-[8%]" />
+                        <col class="w-[22%]" />
+                    </colgroup>
                     <thead class="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800/60">
                         <tr>
-                            <th class="w-12 p-3 sm:p-4">
+                            <th class="px-3 py-2.5">
                                 <span class="admin-table-checkbox-wrap">
                                     <input
                                         type="checkbox"
@@ -357,41 +367,42 @@ async function confirmActionModal() {
                                     />
                                 </span>
                             </th>
-                            <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
-                                Mã yêu cầu
+                            <th
+                                class="max-w-0 px-2 py-2.5 text-left text-xs font-semibold leading-tight text-slate-600 dark:text-slate-200 sm:text-sm"
+                                title="Mã yêu cầu"
+                            >
+                                <span class="block line-clamp-2">Mã yêu cầu</span>
                             </th>
-                            <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
+                            <th class="px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-200">
                                 Phiếu mượn
                             </th>
-                            <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
+                            <th class="px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-200">
                                 Thẻ thư viện
                             </th>
-                            <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
+                            <th class="px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-200">
                                 Bạn đọc
                             </th>
-                            <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
-                                Hạn hiện tại → đề xuất
+                            <th class="whitespace-nowrap px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-200">
+                                Hạn cũ → mới
                             </th>
-                            <th class="p-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4">
+                            <th class="whitespace-nowrap px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-200">
                                 Trạng thái
                             </th>
-                            <th
-                                class="p-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 sm:p-4 min-w-[320px]"
-                            >
+                            <th class="px-3 py-2.5 text-left font-semibold text-slate-600 dark:text-slate-200">
                                 Thao tác
                             </th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                         <tr v-if="loading">
-                            <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
+                            <td colspan="8" class="p-6 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải…</td>
                         </tr>
                         <tr v-else-if="!rows.length">
-                            <td colspan="8" class="p-8 text-center text-sm text-slate-500 dark:text-slate-400">Không có bản ghi.</td>
+                            <td colspan="8" class="p-6 text-center text-sm text-slate-500 dark:text-slate-400">Không có bản ghi.</td>
                         </tr>
                         <template v-else>
                             <tr v-for="row in rows" :key="row.id" class="admin-table-row">
-                                <td class="p-3 align-middle sm:p-4">
+                                <td class="px-3 py-2 align-middle">
                                     <span v-if="row.status === 'pending'" class="admin-table-checkbox-wrap">
                                         <input
                                             type="checkbox"
@@ -402,60 +413,84 @@ async function confirmActionModal() {
                                     </span>
                                     <span v-else class="inline-block w-6" />
                                 </td>
-                                <td class="p-3 tabular-nums sm:p-4">{{ row.request_code || `#${row.id}` }}</td>
-                                <td class="p-3 sm:p-4">
-                                    <div class="font-medium text-slate-900 dark:text-white">{{ row.loan?.loan_code || '—' }}</div>
+                                <td
+                                    class="max-w-0 px-2 py-2 align-middle tabular-nums text-slate-800 dark:text-slate-200"
+                                    :title="row.request_code || `#${row.id}`"
+                                >
+                                    <span class="break-words">{{ row.request_code || `#${row.id}` }}</span>
                                 </td>
-                                <td class="p-3 sm:p-4">
-                                    <div class="font-medium text-slate-900 dark:text-white">{{ row.loan?.library_card_number || '—' }}</div>
+                                <td class="max-w-0 px-3 py-2 align-middle">
+                                    <div
+                                        class="break-words font-medium leading-snug text-slate-900 dark:text-white"
+                                        :title="row.loan?.loan_code || ''"
+                                    >
+                                        {{ row.loan?.loan_code || '—' }}
+                                    </div>
                                 </td>
-                                <td class="p-3 sm:p-4">
-                                    <div class="text-slate-900 dark:text-white">{{ row.requester?.name || '—' }}</div>
+                                <td
+                                    class="max-w-0 truncate px-3 py-2 align-middle font-medium tabular-nums text-slate-900 dark:text-white"
+                                    :title="row.loan?.library_card_number || ''"
+                                >
+                                    {{ row.loan?.library_card_number || '—' }}
                                 </td>
-                                <td class="whitespace-nowrap p-3 text-slate-700 dark:text-slate-300 sm:p-4">
-                                    {{ formatDate(row.current_due_date) }} → {{ formatDate(row.requested_due_date) }}
+                                <td class="max-w-0 px-3 py-2 align-middle">
+                                    <div
+                                        class="truncate whitespace-nowrap text-slate-900 dark:text-white"
+                                        :title="row.requester?.name || ''"
+                                    >
+                                        {{ row.requester?.name || '—' }}
+                                    </div>
                                 </td>
-                                <td class="p-3 sm:p-4">
+                                <td
+                                    class="whitespace-nowrap px-3 py-2 align-middle tabular-nums text-slate-700 dark:text-slate-300"
+                                    :title="`${formatDate(row.current_due_date)} → ${formatDate(row.requested_due_date)}`"
+                                >
+                                    {{ formatDate(row.current_due_date) }}→{{ formatDate(row.requested_due_date) }}
+                                </td>
+                                <td class="whitespace-nowrap px-3 py-2 align-middle">
                                     <span
-                                        class="inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap"
+                                        class="inline-flex whitespace-nowrap rounded-md px-2 py-1 text-xs font-semibold leading-tight"
                                         :class="statusClass(row.status)"
                                     >
                                         {{ statusLabel(row.status) }}
                                     </span>
                                 </td>
-                                <td class="p-3 text-left sm:p-4 min-w-[320px]">
-                                    <div v-if="row.status === 'pending'" class="flex flex-nowrap items-center justify-start gap-2 whitespace-nowrap">
+                                <td class="min-w-0 px-1.5 py-2 align-middle">
+                                    <div
+                                        v-if="row.status === 'pending'"
+                                        class="flex flex-nowrap items-center justify-end gap-0.5 sm:justify-start"
+                                    >
                                         <button
                                             type="button"
-                                            class="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                                            title="Xem chi tiết"
+                                            class="inline-flex h-9 shrink-0 items-center justify-center gap-0.5 rounded-md border border-slate-300 bg-slate-50 px-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                            title="Xem chi tiết yêu cầu gia hạn"
                                             @click="openDetails(row)"
                                         >
-                                            <Icon icon="lucide:eye" class="h-4 w-4 shrink-0" />
-                                            Chi tiết
+                                            <Icon icon="lucide:eye" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                            <span class="whitespace-nowrap">Chi tiết</span>
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                                            class="inline-flex h-9 shrink-0 items-center justify-center gap-0.5 rounded-md border border-emerald-300 bg-emerald-50 px-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
+                                            title="Đồng ý — cập nhật hạn trả theo ngày đề xuất"
                                             :disabled="actionId === row.id"
-                                            title="Duyệt gia hạn"
                                             @click="approveRow(row)"
                                         >
-                                            <Icon :icon="ADMIN_ICONS.checkCircle" class="h-4 w-4 shrink-0" />
-                                            Đồng ý
+                                            <Icon :icon="ADMIN_ICONS.checkCircle" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                            <span class="whitespace-nowrap">Đồng ý</span>
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                                            class="inline-flex h-9 shrink-0 items-center justify-center gap-0.5 rounded-md border border-rose-300 bg-rose-50 px-1.5 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45"
+                                            title="Từ chối yêu cầu gia hạn"
                                             :disabled="actionId === row.id"
-                                            title="Từ chối yêu cầu"
                                             @click="rejectRow(row)"
                                         >
-                                            <Icon :icon="ADMIN_ICONS.xCircle" class="h-4 w-4 shrink-0" />
-                                            Từ chối
+                                            <Icon :icon="ADMIN_ICONS.xCircle" class="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                            <span class="whitespace-nowrap">Từ chối</span>
                                         </button>
                                     </div>
-                                    <span v-else class="text-xs text-slate-500 dark:text-slate-400">—</span>
+                                    <span v-else class="text-sm text-slate-500 dark:text-slate-400">—</span>
                                 </td>
                             </tr>
                         </template>
@@ -472,8 +507,8 @@ async function confirmActionModal() {
             @go-page="goPage"
         />
 
-        <p class="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <Icon icon="lucide:info" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <p class="flex items-start gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+            <Icon icon="lucide:info" class="mt-0.5 h-4 w-4 shrink-0" />
             <span>
                 « Đồng ý » cập nhật hạn trả phiếu theo ngày đề xuất; « Từ chối » giữ hạn cũ và đánh dấu yêu cầu đã từ chối.
             </span>

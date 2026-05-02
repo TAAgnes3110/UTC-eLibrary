@@ -26,11 +26,13 @@ class BookRequest extends BaseRequest
                 'max:255',
             ],
             'warehouse_id' => [
-                $isUpdate ? 'sometimes' : 'required',
+                $isUpdate ? 'sometimes' : 'required_unless:resource_type,digital',
+                'nullable',
                 'exists:warehouses,id',
             ],
             'quantity' => [
-                $isUpdate ? 'sometimes' : 'required',
+                $isUpdate ? 'sometimes' : 'required_unless:resource_type,digital',
+                'nullable',
                 'integer',
                 'min:0',
             ],
@@ -58,7 +60,8 @@ class BookRequest extends BaseRequest
             'price' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'cabinet' => ['sometimes', 'nullable', 'string', 'max:255'],
             'classification_id' => [
-                $isUpdate ? 'sometimes' : 'required',
+                $isUpdate ? 'sometimes' : 'required_unless:resource_type,digital',
+                'nullable',
                 'integer',
                 'exists:classifications,id',
             ],

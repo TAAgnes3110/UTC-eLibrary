@@ -7,6 +7,7 @@ import { libraryCardsApi } from '@/api/libraryCards';
 import { booksApi } from '@/api/books';
 import { toast } from '@/store/toast';
 import { extractApiPaginator } from '@/utils/adminPagination';
+import { bookResourceTypeLabel } from '@/utils/bookResourceTypeLabel';
 
 const saving = ref(false);
 const cardLookupLoading = ref(false);
@@ -122,14 +123,6 @@ function holderTypeLabel(ht) {
         return 'Bạn đọc ngoài';
     }
     return ht || '';
-}
-
-function resourceTypeLabel(type) {
-    if (type === 'textbook') return 'Giáo trình';
-    if (type === 'reference') return 'Tài liệu tham khảo';
-    if (type === 'journal' || type === 'thesis') return 'Tài liệu tham khảo';
-    if (type === 'digital') return 'Tài liệu số';
-    return '—';
 }
 
 function borrowedValue(key) {
@@ -785,7 +778,7 @@ onBeforeUnmount(() => clearCardTimers());
                                     type="text"
                                     class="admin-filter-input w-full bg-slate-50 dark:bg-slate-800"
                                     readonly
-                                    :value="resourceTypeLabel(line.resource_type)"
+                                    :value="bookResourceTypeLabel(line.resource_type)"
                                 />
                             </div>
                             <div v-if="line.book_id" class="space-y-1">

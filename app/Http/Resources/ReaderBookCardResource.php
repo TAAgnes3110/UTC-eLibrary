@@ -26,10 +26,8 @@ class ReaderBookCardResource extends JsonResource
             if (str_starts_with($normalizedPath, 'storage/')) {
                 $normalizedPath = substr($normalizedPath, 8);
             }
-
-            $coverImage = Storage::disk('public')->exists($normalizedPath)
-                ? Storage::url($normalizedPath)
-                : $defaultCover;
+            // Không gọi Storage::exists từng bản ghi (catalog lớn ⇒ N lần I/O đĩa / request).
+            $coverImage = Storage::disk('public')->url($normalizedPath);
         }
 
         $rt = $this->resource_type instanceof \BackedEnum
@@ -61,7 +59,7 @@ class ReaderBookCardResource extends JsonResource
     public static function resourceTypeLabel(string $value): string
     {
         return match ($value) {
-            'textbook' => 'Sách giáo khoa',
+            'textbook' => 'Sách giáo trình',
             'reference' => 'Sách tham khảo',
             // Legacy data: vẫn hiển thị theo nhóm tham khảo.
             'thesis', 'journal' => 'Sách tham khảo',

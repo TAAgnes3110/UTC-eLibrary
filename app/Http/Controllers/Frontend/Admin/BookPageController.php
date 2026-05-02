@@ -38,4 +38,10 @@ class BookPageController extends Controller
             'resourceTypeFilter' => 'digital',
         ]);
     }
+
+    /** Duyệt yêu cầu tài liệu số độc giả gửi (upload mới chờ duyệt). */
+    public function digitalSubmissions(): Response
+    {
+        return Inertia::render('Admin/Books/DigitalSubmissions');
+    }
 }

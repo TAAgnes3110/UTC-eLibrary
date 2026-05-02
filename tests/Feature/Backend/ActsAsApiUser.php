@@ -68,6 +68,9 @@ trait ActsAsApiUser
 
     protected function apiTokenHeaders(string $token): array
     {
-        return ['Authorization' => 'Bearer '.$token];
+        return [
+            'Authorization' => 'Bearer '.$token,
+            'Accept' => 'application/json',
+        ];
     }
 }

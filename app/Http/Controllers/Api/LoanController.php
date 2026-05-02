@@ -32,7 +32,7 @@ class LoanController extends Controller
             'library_card_id' => ['nullable', 'integer', 'exists:library_cards,id'],
             'search' => ['nullable', 'string', 'max:100'],
             'search_in' => ['nullable', 'string'],
-            'sort' => ['nullable', 'string', 'in:due_asc,due_desc,loan_asc,loan_desc'],
+            'sort' => ['nullable', 'string', 'in:newest,oldest,due_asc,due_desc,loan_asc,loan_desc'],
             'sort_due_date' => ['nullable', 'in:asc,desc'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
@@ -110,7 +110,7 @@ class LoanController extends Controller
             'library_card_id' => ['nullable', 'integer', 'exists:library_cards,id'],
             'search' => ['nullable', 'string', 'max:100'],
             'search_in' => ['nullable', 'string'],
-            'sort' => ['nullable', 'string', 'in:due_asc,due_desc,loan_asc,loan_desc'],
+            'sort' => ['nullable', 'string', 'in:newest,oldest,due_asc,due_desc,loan_asc,loan_desc'],
             'sort_due_date' => ['nullable', 'in:asc,desc'],
             'ids' => ['nullable', 'array', 'max:500'],
             'ids.*' => ['integer', 'exists:loans,id'],
@@ -182,11 +182,13 @@ class LoanController extends Controller
         }
 
         match ($sort) {
+            'newest' => $query->orderByDesc('created_at')->orderByDesc('id'),
+            'oldest' => $query->orderBy('created_at')->orderBy('id'),
             'due_asc' => $query->orderBy('due_date', 'asc'),
             'due_desc' => $query->orderBy('due_date', 'desc'),
             'loan_asc' => $query->orderBy('loan_date', 'asc'),
             'loan_desc' => $query->orderBy('loan_date', 'desc'),
-            default => $query->orderByDesc('id'),
+            default => $query->orderByDesc('created_at')->orderByDesc('id'),
         };
     }
 

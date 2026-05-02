@@ -87,14 +87,7 @@ async function loadLoans(resetPage = false) {
     }
 }
 
-let searchDebounce = null
-watch(
-    () => filters.searchKeyword,
-    () => {
-        if (searchDebounce) clearTimeout(searchDebounce)
-        searchDebounce = setTimeout(() => loadLoans(true), 350)
-    }
-)
+/** Ô tìm kiếm: chỉ load qua @search (AdminFilterSearch debounce + emit), không watch keyword để tránh gọi API hai lần. */
 watch(() => filters.searchIn, () => loadLoans(true), { deep: true })
 watch(() => [filters.status, filters.sort], () => loadLoans(true))
 

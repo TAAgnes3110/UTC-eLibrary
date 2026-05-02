@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Frontend\Reader;
 
-use App\Enums\ResourceType;
 use App\Enums\LibraryCardStatus;
+use App\Enums\ResourceType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LibraryCardResource;
 use App\Http\Resources\LoanPolicyResource;
@@ -16,6 +16,8 @@ use App\Models\LibraryCard;
 use App\Models\LoanPolicy;
 use App\Models\Period;
 use App\Services\BookService;
+use App\Services\LoanPoliciesService;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -25,8 +27,37 @@ use Inertia\Response;
 class ReaderPageController extends Controller
 {
     public function __construct(
-        private BookService $bookService
+        private BookService $bookService,
+        private LoanPoliciesService $loanPoliciesService
     ) {}
+
+    /**
+     * @return array{allow_home: bool, allow_onsite: bool, holder_type: string}|null
+     */
+    private function readerBorrowPermissions(?Authenticatable $user): ?array
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        $card = LibraryCard::query()
+            ->where('user_id', $user->getAuthIdentifier())
+            ->where('workflow_status', LibraryCard::WORKFLOW_ACTIVE)
+            ->where('status', LibraryCardStatus::ACTIVE)
+            ->first();
+
+        if ($card === null) {
+            return null;
+        }
+
+        $p = $this->loanPoliciesService->getBorrowPermissionsForHolderType((string) $card->holder_type);
+
+        return [
+            'allow_home' => $p['allow_home'],
+            'allow_onsite' => $p['allow_onsite'],
+            'holder_type' => (string) $card->holder_type,
+        ];
+    }
 
     /**
      * @return list<array<string, mixed>>
@@ -119,7 +150,7 @@ class ReaderPageController extends Controller
                 'sort' => $request->input('sort') ?: 'newest',
                 'search_in' => $request->input('search_in'),
             ],
-            'classifications' => Classification::query()->orderBy('code')->get(['id', 'code', 'name']),
+            'classifications' => Classification::query()->roots()->orderBy('code')->get(['id', 'code', 'name']),
             'resourceTypeOptions' => $resourceTypeOptions,
         ]);
     }
@@ -141,6 +172,7 @@ class ReaderPageController extends Controller
             'book' => (new ReaderBookDetailResource($book))->resolve(),
             'availability' => $this->bookService->readerCopyStats($book),
             'has_active_library_card' => $hasActiveLibraryCard,
+            'borrow_permissions' => $this->readerBorrowPermissions($user),
         ]);
     }
 
@@ -223,9 +255,16 @@ class ReaderPageController extends Controller
         return Inertia::render('Reader/Loans/Index');
     }
 
-    public function servicesBorrowCart(): Response
+    public function servicesDigitalDocuments(): Response
     {
-        return Inertia::render('Reader/Services/BorrowCart');
+        return Inertia::render('Reader/Services/DigitalDocuments');
+    }
+
+    public function servicesBorrowCart(Request $request): Response
+    {
+        return Inertia::render('Reader/Services/BorrowCart', [
+            'borrow_permissions' => $this->readerBorrowPermissions($request->user()),
+        ]);
     }
 
     public function servicesLoanRequestShow(int $loan): Response

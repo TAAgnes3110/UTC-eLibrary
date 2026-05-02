@@ -12,7 +12,7 @@ final class ClassificationExport
 {
     public static function stream(?array $ids = null): StreamedResponse
     {
-        $query = Classification::query()->withCount('details');
+        $query = Classification::query()->roots()->withCount('books');
         if (! empty($ids)) {
             $query->whereIn('id', $ids);
         }
@@ -23,11 +23,10 @@ final class ClassificationExport
             ->map(static fn (Classification $classification) => [
                 $classification->code,
                 $classification->name,
-                (int) $classification->details_count,
+                (int) $classification->books_count,
             ])
             ->all();
 
-        return FileHelpers::downloadExcel($rows, 'Danh_muc_phan_loai.xlsx', ['Mã phân loại', 'Tên phân loại', 'Số phân loại chi tiết']);
+        return FileHelpers::downloadExcel($rows, 'Danh_muc_phan_loai.xlsx', ['Mã phân loại', 'Tên phân loại', 'Số đầu sách']);
     }
 }
-

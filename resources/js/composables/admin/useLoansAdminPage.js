@@ -38,11 +38,10 @@ export function useLoansAdminPage() {
             created_by_name: true,
         },
         status: '',
-        sort: '',
+        sort: 'newest',
     });
 
     const showFilterPanel = ref(false);
-    let loansSearchDebounce = null;
 
     const showBulkDeleteModal = ref(false);
     const bulkDeleteLoading = ref(false);
@@ -138,23 +137,15 @@ export function useLoansAdminPage() {
                 created_by_name: true,
             },
             status: '',
-            sort: '',
+            sort: 'newest',
         };
         loadLoans(true);
     }
 
-    watch(
-        () => filterValues.value.searchKeyword,
-        () => {
-            if (loansSearchDebounce) {
-                clearTimeout(loansSearchDebounce);
-            }
-            loansSearchDebounce = setTimeout(() => {
-                loadLoans(true);
-            }, 350);
-        }
-    );
-
+    /**
+     * Từ khóa tìm kiếm: chỉ tải lại qua @search từ AdminFilterSearch (đã debounce 300ms + emit),
+     * tránh gọi API trùng với watch searchKeyword.
+     */
     watch(
         () => filterValues.value.searchIn,
         () => {

@@ -35,7 +35,7 @@ class DigitalAssetService
                 DigitalAsset::query()->where('book_id', $book->id)->update(['is_primary' => false]);
             }
 
-            return DigitalAsset::create([
+            $asset = DigitalAsset::create([
                 'book_id' => $book->id,
                 'version' => $maxVersion + 1,
                 'is_primary' => $isPrimary,
@@ -48,7 +48,52 @@ class DigitalAssetService
                 'visibility' => $attrs['visibility'] ?? 'internal',
                 'embargo_until' => $attrs['embargo_until'] ?? null,
             ]);
+
+            $this->trySetBookCoverFromPdf($book, $disk, $path, $asset->mime);
+
+            return $asset;
         });
+    }
+
+    public function trySetBookCoverFromPdf(Book $book, string $disk, string $pdfPath, ?string $mime = null): void
+    {
+        if (! empty($book->cover_image)) {
+            return;
+        }
+
+        $normalizedMime = strtolower(trim((string) $mime));
+        if ($normalizedMime !== '' && $normalizedMime !== 'application/pdf') {
+            return;
+        }
+
+        if (! class_exists(\Imagick::class)) {
+            return;
+        }
+
+        if (! Storage::disk($disk)->exists($pdfPath)) {
+            return;
+        }
+
+        $absolutePdfPath = Storage::disk($disk)->path($pdfPath);
+        $imagick = new \Imagick;
+        try {
+            $imagick->setResolution(120, 120);
+            $imagick->readImage($absolutePdfPath.'[0]');
+            $imagick->setImageFormat('png');
+            $imagick->thumbnailImage(600, 0, true, true);
+
+            $coverDir = 'upload/books/pdf-covers';
+            $coverPath = $coverDir.'/'.($book->book_code ?: (string) $book->id).'.png';
+            Storage::disk($disk)->put($coverPath, $imagick->getImageBlob());
+
+            $book->cover_image = $coverPath;
+            $book->save();
+        } catch (\Throwable) {
+            // Bỏ qua nếu môi trường chưa có đủ thư viện render PDF thumbnail.
+        } finally {
+            $imagick->clear();
+            $imagick->destroy();
+        }
     }
 
     public function destroy(Book $book, DigitalAsset $asset): void

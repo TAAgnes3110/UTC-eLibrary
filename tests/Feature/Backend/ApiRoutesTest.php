@@ -65,15 +65,18 @@ class ApiRoutesTest extends TestCase
             $response = $this->deleteJson($uri);
         }
 
-        if (! in_array($response->status(), $allowedStatuses, true)) {
+        $status = $response->status();
+        if (! in_array($status, $allowedStatuses, true)) {
             throw new \RuntimeException(sprintf(
                 'Unexpected status %s for %s %s. Allowed: %s',
-                $response->status(),
+                $status,
                 $method,
                 $uri,
                 implode(', ', $allowedStatuses)
             ));
         }
+
+        $this->assertContains($status, $allowedStatuses);
     }
 
     /**

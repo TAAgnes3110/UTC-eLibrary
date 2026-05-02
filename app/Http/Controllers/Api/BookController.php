@@ -206,6 +206,7 @@ class BookController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        $resourceType = trim((string) $request->input('resource_type', ''));
         $ids = $request->input('ids');
         if (is_array($ids)) {
             $ids = array_values(array_filter($ids, static fn ($v) => is_numeric($v)));
@@ -213,7 +214,7 @@ class BookController extends Controller
             $ids = null;
         }
 
-        return $this->bookService->exportBooks($ids);
+        return $this->bookService->exportBooks($ids, $resourceType !== '' ? $resourceType : null);
     }
 
     public function exportLost(Request $request): StreamedResponse

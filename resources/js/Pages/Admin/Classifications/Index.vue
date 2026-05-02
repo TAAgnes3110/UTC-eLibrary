@@ -180,7 +180,6 @@ async function exportExcel() {
         window.URL.revokeObjectURL(url);
         toast.success('Đã xuất Excel phân loại.');
     } catch (e) {
-        console.error(e);
         toast.error('Không thể xuất Excel phân loại.');
     }
 }

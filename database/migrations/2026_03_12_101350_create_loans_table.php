@@ -17,10 +17,10 @@ return new class extends Migration
             $table->date('due_date');
             $table->date('return_date')->nullable();
             $table->enum('status', ['da_muon', 'da_tra', 'qua_han'])->default('da_muon')->index();
+            $table->boolean('deleted')->default(false)->comment('Ẩn phiếu khỏi danh sách khi xóa (chỉ áp dụng phiếu đã trả)');
             $table->userAuditColumns();
 
             $table->timestamps();
-            $table->softDeletes();
 
             $table->index(['library_card_id', 'status']);
             $table->index(['status', 'due_date'], 'loans_status_due_date_index');

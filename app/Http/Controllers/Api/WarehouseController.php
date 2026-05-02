@@ -6,7 +6,7 @@ use App\Exports\WarehouseImportTemplateExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\WarehouseRequest;
-use App\Http\Resources\WarehouseResoure;
+use App\Http\Resources\WarehouseResource;
 use App\Models\Warehouse;
 use App\Services\WarehouseService;
 use Illuminate\Http\JsonResponse;
@@ -33,7 +33,7 @@ class WarehouseController extends Controller
         $searchColumns = $this->parseSearchInFilter($request);
         $items = $this->warehouseService->index($keyword, $perPage, $searchColumns);
 
-        return ApiResponse::success(WarehouseResoure::collection($items));
+        return ApiResponse::success(WarehouseResource::collection($items));
     }
 
     /**
@@ -59,7 +59,7 @@ class WarehouseController extends Controller
      */
     public function show(Warehouse $warehouse): JsonResponse
     {
-        return ApiResponse::success(new WarehouseResoure($warehouse));
+        return ApiResponse::success(new WarehouseResource($warehouse));
     }
 
     /**
@@ -71,7 +71,7 @@ class WarehouseController extends Controller
         $warehouse = $this->warehouseService->create($data);
         $warehouse->load('parent', 'createdBy', 'updatedBy');
 
-        return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_create'), 201);
+        return ApiResponse::success(new WarehouseResource($warehouse), __('messages.success_create'), 201);
     }
 
     /**
@@ -88,7 +88,7 @@ class WarehouseController extends Controller
         }
         $warehouse = $this->warehouseService->update($warehouse, $request->validated());
 
-        return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_update'));
+        return ApiResponse::success(new WarehouseResource($warehouse), __('messages.success_update'));
     }
 
     /**
@@ -111,7 +111,7 @@ class WarehouseController extends Controller
     {
         $items = $this->warehouseService->trash();
 
-        return ApiResponse::success(WarehouseResoure::collection($items));
+        return ApiResponse::success(WarehouseResource::collection($items));
     }
 
     /**
@@ -124,7 +124,7 @@ class WarehouseController extends Controller
             return ApiResponse::notFound();
         }
 
-        return ApiResponse::success(new WarehouseResoure($warehouse), __('messages.success_restore'));
+        return ApiResponse::success(new WarehouseResource($warehouse), __('messages.success_restore'));
     }
 
     public function restoreMany(Request $request): JsonResponse
@@ -193,14 +193,14 @@ class WarehouseController extends Controller
     {
         $items = $this->warehouseService->warehouseList();
 
-        return ApiResponse::success(WarehouseResoure::collection($items));
+        return ApiResponse::success(WarehouseResource::collection($items));
     }
 
     public function trashList(Request $request): JsonResponse
     {
         $items = $this->warehouseService->trashList();
 
-        return ApiResponse::success(WarehouseResoure::collection($items));
+        return ApiResponse::success(WarehouseResource::collection($items));
     }
 
     public function downloadImportTemplate(): StreamedResponse

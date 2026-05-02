@@ -13,6 +13,14 @@ const tiles = [
         iconClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
     },
     {
+        key: 'digital-documents',
+        title: 'Tài liệu số',
+        description: 'Tải lên tài liệu PDF, theo dõi trạng thái duyệt và xem trực tiếp trên web.',
+        route: 'reader.services.digital-documents',
+        icon: 'lucide:file-text',
+        iconClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
+    },
+    {
         key: 'loan-requests',
         title: 'Quản lý phiếu mượn',
         description: 'Theo dõi danh sách phiếu mượn và thao tác gia hạn theo trạng thái.',

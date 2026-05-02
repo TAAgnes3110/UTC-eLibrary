@@ -7,6 +7,11 @@ export const adminNavigation = [
         children: [
             { name: 'Sách in', href: 'admin.books.printed', active: ['admin.books.printed', 'admin.books.textbook', 'admin.books.reference'] },
             { name: 'Tài liệu số', href: 'admin.books.digital', active: 'admin.books.digital' },
+            {
+                name: 'Duyệt tài liệu số',
+                href: 'admin.books.digital-submissions',
+                active: 'admin.books.digital-submissions',
+            },
         ],
     },
     {

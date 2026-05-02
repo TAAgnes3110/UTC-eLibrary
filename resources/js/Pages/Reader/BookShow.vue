@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Head, Link, usePage } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
@@ -14,8 +14,74 @@ const borrowQty = ref(1)
 const showBorrowPreview = ref(false)
 const loanType = ref('home')
 const requestedDueDate = ref('')
+const borrowSubmitError = ref('')
 const CART_KEY = 'reader_borrow_cart_v1'
 const todayIso = computed(() => new Date().toISOString().slice(0, 10))
+
+const maxDueIso = computed(() => {
+    const d = new Date()
+    d.setFullYear(d.getFullYear() + 1)
+    return d.toISOString().slice(0, 10)
+})
+
+function extractBorrowRequestApiError(error, fallback) {
+    const data = error?.response?.data || {}
+
+    const errors = data?.errors
+    if (errors && typeof errors === 'object') {
+        const lists = Object.values(errors).filter((x) => Array.isArray(x))
+        const first = lists.flat().find((x) => typeof x === 'string' && x.trim())
+        if (first) return normalizeBorrowValidationText(first.trim())
+    }
+
+    const top = typeof data.messages === 'string' && data.messages.trim() ? data.messages.trim() : ''
+    if (top) return normalizeBorrowValidationText(top)
+
+    const msg = typeof data.message === 'string' && data.message.trim() ? data.message.trim() : ''
+    if (msg) return normalizeBorrowValidationText(msg)
+
+    return fallback
+}
+
+function normalizeBorrowValidationText(raw) {
+    let msg = String(raw || '').trim()
+    if (!msg) return 'Không gửi được yêu cầu. Vui lòng kiểm tra lại thông tin.'
+    msg = msg.replace(/The\s+requested\s+due\s+date\s+field\s+must\s+be\s+a\s+date\s+after\s+or\s+equal\s+to\s+today\.?/gi, 'Ngày trả dự kiến phải từ hôm nay trở đi.')
+    msg = msg.replace(/requested_due_date/gi, 'Ngày trả dự kiến')
+    return msg
+}
+
+function validateBorrowRequestClient() {
+    const maxAvail = Math.max(0, Number(props.availability?.available || 0))
+    if (maxAvail <= 0) {
+        return 'Sách hiện đã hết khả dụng để tạo yêu cầu mượn.'
+    }
+    const qty = Math.max(1, Number(borrowQty.value || 1))
+    if (qty > maxAvail) {
+        return `Số lượng mượn không được vượt quá ${maxAvail} (theo số sách khả dụng).`
+    }
+    const perm = props.borrow_permissions
+    if (perm && loanType.value === 'home' && !perm.allow_home) {
+        return 'Theo quy định thư viện UTC, loại thẻ của bạn chỉ được đăng ký đọc tại chỗ, không mượn về nhà.'
+    }
+    if (perm && loanType.value === 'onsite' && !perm.allow_onsite) {
+        return 'Hình thức đọc tại chỗ không áp dụng với loại thẻ của bạn. Vui lòng liên hệ thủ thư.'
+    }
+    if (loanType.value !== 'home') {
+        return null
+    }
+    const raw = String(requestedDueDate.value || '').trim()
+    if (!raw) {
+        return 'Vui lòng chọn ngày trả dự kiến khi mượn về nhà.'
+    }
+    if (raw < todayIso.value) {
+        return 'Ngày trả dự kiến không được trước ngày hiện tại.'
+    }
+    if (raw > maxDueIso.value) {
+        return 'Ngày trả dự kiến không được quá một năm kể từ hôm nay.'
+    }
+    return null
+}
 
 const props = defineProps({
     book: { type: Object, required: true },
@@ -25,26 +91,68 @@ const props = defineProps({
         validator: (v) => v && typeof v.total === 'number',
     },
     has_active_library_card: { type: Boolean, default: false },
+    /** @type {{ allow_home: boolean, allow_onsite: boolean, holder_type: string }|null} */
+    borrow_permissions: { type: Object, default: null },
 })
 
 const hasActiveLibraryCard = computed(() => Boolean(props.has_active_library_card))
+
+const canBorrowHome = computed(() => {
+    const p = props.borrow_permissions
+    if (!p) {
+        return true
+    }
+    return Boolean(p.allow_home)
+})
+
+const canBorrowOnsite = computed(() => {
+    const p = props.borrow_permissions
+    if (!p) {
+        return true
+    }
+    return Boolean(p.allow_onsite)
+})
+
+function syncLoanTypeToPermissions() {
+    const p = props.borrow_permissions
+    if (!p) {
+        return
+    }
+    if (!p.allow_home && p.allow_onsite) {
+        loanType.value = 'onsite'
+    } else if (p.allow_home && !p.allow_onsite) {
+        loanType.value = 'home'
+    }
+}
+
+watch(
+    () => props.borrow_permissions,
+    () => syncLoanTypeToPermissions(),
+    { immediate: true, deep: true }
+)
 
 async function createBorrowRequestSingle() {
     if (!isAuthed.value || creatingBorrowRequest.value) {
         return
     }
     if (!hasActiveLibraryCard.value) {
-        toast.warn('Bạn chưa có thẻ thư viện hoạt động. Vui lòng gửi yêu cầu cấp thẻ trước khi mượn sách.', { title: 'Yêu cầu mượn' })
-        return
-    }
-    if (loanType.value === 'home' && !requestedDueDate.value) {
-        toast.warn('Vui lòng chọn ngày trả dự kiến khi mượn về nhà.', { title: 'Yêu cầu mượn' })
+        const t = 'Bạn chưa có thẻ thư viện hoạt động. Vui lòng gửi yêu cầu cấp thẻ trước khi mượn sách.'
+        toast.warn(t, { title: 'Không thể gửi yêu cầu' })
         return
     }
     if (Number(props.availability?.available || 0) <= 0) {
-        toast.warn('Sách hiện đã hết khả dụng để tạo yêu cầu mượn.', { title: 'Yêu cầu mượn' })
+        const t = 'Sách hiện đã hết khả dụng để tạo yêu cầu mượn.'
+        toast.warn(t, { title: 'Không thể gửi yêu cầu' })
         return
     }
+
+    borrowSubmitError.value = ''
+    const clientErr = validateBorrowRequestClient()
+    if (clientErr) {
+        borrowSubmitError.value = clientErr
+        return
+    }
+
     creatingBorrowRequest.value = true
     try {
         await meBorrowRequestsApi.create({
@@ -53,9 +161,11 @@ async function createBorrowRequestSingle() {
             quantity: [Math.max(1, Number(borrowQty.value || 1))],
             requested_due_date: loanType.value === 'home' ? requestedDueDate.value : undefined,
         })
+        borrowSubmitError.value = ''
         toast.success('Đã tạo yêu cầu mượn cho sách này.', { title: 'Yêu cầu mượn' })
+        showBorrowPreview.value = false
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không tạo được yêu cầu mượn.', { title: 'Yêu cầu mượn' })
+        borrowSubmitError.value = extractBorrowRequestApiError(e, 'Không tạo được yêu cầu mượn. Vui lòng thử lại.')
     } finally {
         creatingBorrowRequest.value = false
     }
@@ -74,8 +184,15 @@ function openBorrowPreview() {
         toast.warn('Sách hiện đã hết khả dụng để tạo yêu cầu mượn.', { title: 'Yêu cầu mượn' })
         return
     }
+    borrowSubmitError.value = ''
+    syncLoanTypeToPermissions()
     borrowQty.value = Math.max(1, Math.min(Number(props.availability?.available || 1), Number(borrowQty.value || 1)))
     showBorrowPreview.value = true
+}
+
+function closeBorrowPreview() {
+    showBorrowPreview.value = false
+    borrowSubmitError.value = ''
 }
 
 function adjustBorrowQty(delta) {
@@ -161,14 +278,6 @@ const subjectLine = computed(() => {
     const b = props.book
     const c = b.classification?.name
     return c || '—'
-})
-
-const keywordLine = computed(() => {
-    const k = props.book.thesis_metadata?.keywords
-    if (k && String(k).trim() !== '') {
-        return String(k)
-    }
-    return '—'
 })
 
 const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
@@ -262,8 +371,8 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                                 <dd class="text-slate-900 dark:text-slate-100">{{ subjectLine }}</dd>
                             </div>
                             <div class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.keywords }}</dt>
-                                <dd class="text-slate-900 dark:text-slate-100">{{ keywordLine }}</dd>
+                                <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.resourceType }}</dt>
+                                <dd class="text-slate-900 dark:text-slate-100">{{ book.resource_type_label || '—' }}</dd>
                             </div>
                         </dl>
 
@@ -389,19 +498,38 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                 <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
                     <div class="mb-2 flex items-center justify-between">
                         <h3 class="text-base font-bold text-slate-900 dark:text-slate-100">Xác nhận tạo yêu cầu mượn</h3>
-                        <button type="button" class="rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white" @click="showBorrowPreview = false">Đóng</button>
+                        <button type="button" class="rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white" @click="closeBorrowPreview">Đóng</button>
                     </div>
                     <p class="text-sm text-slate-700 dark:text-slate-200">Sách: <span class="font-semibold">{{ book.title }}</span></p>
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Số lượng sách khả dụng: {{ availability.available }}</p>
+                    <p
+                        v-if="borrowSubmitError"
+                        class="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-100"
+                        role="alert"
+                    >
+                        {{ borrowSubmitError }}
+                    </p>
                     <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-800/80">
                         <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">Hình thức mượn</p>
+                        <p
+                            v-if="borrow_permissions && !borrow_permissions.allow_home && borrow_permissions.allow_onsite"
+                            class="mt-2 text-xs text-slate-600 dark:text-slate-400"
+                        >
+                            Theo quy định UTC, loại thẻ của bạn chỉ đăng ký đọc tại chỗ (không mượn về nhà).
+                        </p>
                         <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <label class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                                <input v-model="loanType" type="radio" value="home" />
+                            <label
+                                class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                :class="!canBorrowHome ? 'opacity-50' : ''"
+                            >
+                                <input v-model="loanType" type="radio" value="home" :disabled="!canBorrowHome" />
                                 Mượn về nhà
                             </label>
-                            <label class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                                <input v-model="loanType" type="radio" value="onsite" />
+                            <label
+                                class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                :class="!canBorrowOnsite ? 'opacity-50' : ''"
+                            >
+                                <input v-model="loanType" type="radio" value="onsite" :disabled="!canBorrowOnsite" />
                                 Đọc tại chỗ
                             </label>
                         </div>
@@ -413,6 +541,7 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                                 v-model="requestedDueDate"
                                 type="date"
                                 :min="todayIso"
+                                :max="maxDueIso"
                                 class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-emerald-400 dark:focus:ring-emerald-900/50"
                             />
                         </div>
@@ -450,12 +579,12 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                         </p>
                     </div>
                     <div class="mt-4 flex justify-end gap-2">
-                        <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700" @click="showBorrowPreview = false">Hủy</button>
+                        <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-700" @click="closeBorrowPreview">Hủy</button>
                         <button
                             type="button"
                             class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60 dark:bg-emerald-500 dark:hover:bg-emerald-400"
                             :disabled="creatingBorrowRequest"
-                            @click="showBorrowPreview = false; createBorrowRequestSingle()"
+                            @click="createBorrowRequestSingle"
                         >
                             {{ creatingBorrowRequest ? 'Đang gửi...' : 'Gửi yêu cầu' }}
                         </button>

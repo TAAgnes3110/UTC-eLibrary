@@ -9,7 +9,7 @@ alwaysApply: true
 
 ## Ngôn ngữ (mặc định repo)
 
-- **Tiếng Việt** là ngôn ngữ mặc định cho: chuỗi UI mới, thông báo API, comment nghiệp vụ, seed/demo, và **phản hồi agent** trong ngữ cảnh repo này.
+- **Tiếng Việt** là ngôn ngữ mặc định cho: chuỗi UI mới, thông báo API, comment nghiệp vụ, nội dung demo/mẫu, và **phản hồi agent** trong ngữ cảnh repo này.
 - **Không** dùng tiếng Trung (giản thể/phồn thể) làm mặc định cho bất kỳ mục nào ở trên.
 
 ## Giao tiếp với người dùng

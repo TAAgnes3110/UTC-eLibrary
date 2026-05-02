@@ -16,6 +16,7 @@ final class BookImportTemplateExport
     public static function stream(): StreamedResponse
     {
         $classifications = Classification::query()
+            ->roots()
             ->orderBy('code')
             ->get(['code', 'name']);
 

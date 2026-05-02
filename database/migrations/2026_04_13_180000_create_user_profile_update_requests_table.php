@@ -12,11 +12,13 @@ return new class extends Migration
             $table->increments('id');
             $table->unsignedInteger('user_id')->index()->comment('Người tạo yêu cầu');
             $table->string('requested_code', 255)->nullable()->comment('Mã định danh mới');
+            $table->string('requested_user_type', 20)->nullable()->comment('Loại bạn đọc yêu cầu xác nhận: STUDENT|TEACHER');
             $table->unsignedInteger('requested_faculty_id')->nullable()->comment('Khoa mới');
             $table->unsignedInteger('requested_period_id')->nullable()->comment('Niên khóa mới');
             $table->string('requested_class_code', 100)->nullable()->comment('Lớp mới');
             $table->string('proof_image_path', 500)->comment('Ảnh minh chứng');
             $table->string('status', 20)->default('pending')->index()->comment('pending|approved|rejected');
+            $table->boolean('is_visible')->default(true)->index()->comment('Hiển thị cho người gửi: true|false');
             $table->text('reason')->nullable()->comment('Lý do người dùng gửi');
             $table->text('review_note')->nullable()->comment('Ghi chú duyệt/từ chối');
             $table->unsignedInteger('reviewed_by')->nullable()->comment('Người duyệt');
@@ -38,4 +40,3 @@ return new class extends Migration
         Schema::dropIfExists('user_profile_update_requests');
     }
 };
-

@@ -44,6 +44,7 @@ Thumbs.db
 
 # Local SQLite (migrate thử nghiệm)
 /database/database.sqlite
+/database/dumps/
 
 # Local env overrides
 .env.local

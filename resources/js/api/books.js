@@ -63,5 +63,8 @@ export const booksApi = {
     bulkUpdateCover(formData) {
         return client.post('/books/image-bulk', formData).then((r) => r.data);
     },
+    uploadDigitalAsset(id, formData) {
+        return client.post(`/books/${id}/digital-assets`, formData).then((r) => r.data);
+    },
 };
 

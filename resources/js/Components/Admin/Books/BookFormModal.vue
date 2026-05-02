@@ -7,6 +7,7 @@ import { Input } from '@/Components/ui/input';
 const props = defineProps({
     show: { type: Boolean, required: true },
     isEditing: { type: Boolean, required: true },
+    pageKind: { type: String, default: 'printed' },
     form: { type: Object, required: true },
     classifications: { type: Array, default: () => [] },
     warehouses: { type: Array, default: () => [] },
@@ -16,6 +17,8 @@ const props = defineProps({
     createCoverPreviewUrl: { type: String, default: '' },
     setCreateCoverFile: { type: Function, default: () => () => {} },
     clearCreateCoverFile: { type: Function, default: () => () => {} },
+    setCreateDigitalFile: { type: Function, default: () => () => {} },
+    clearCreateDigitalFile: { type: Function, default: () => () => {} },
     saveLoading: { type: Boolean, default: false },
     fieldErrors: { type: Object, default: () => ({}) },
     clearFieldError: { type: Function, default: () => () => {} },
@@ -23,6 +26,7 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'save', 'book-code-touched', 'registration-touched']);
 const currentYear = new Date().getFullYear();
+const isDigitalPage = computed(() => props.pageKind === 'digital');
 
 function errClass(key) {
     return props.fieldErrors[key] ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700';
@@ -61,6 +65,21 @@ function removeCreateCover() {
     createCoverFileName.value = '';
     props.clearCreateCoverFile();
 }
+
+const createDigitalFileName = ref('');
+
+function onDigitalFileChange(event) {
+    const file = event?.target?.files?.[0] ?? null;
+    if (!file) return;
+    createDigitalFileName.value = String(file.name || '');
+    props.setCreateDigitalFile(file);
+    props.clearFieldError('general');
+}
+
+function removeCreateDigitalFile() {
+    createDigitalFileName.value = '';
+    props.clearCreateDigitalFile();
+}
 </script>
 
 <template>
@@ -74,7 +93,11 @@ function removeCreateCover() {
                     class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50"
                 >
                     <h3 class="text-base font-bold text-slate-900 dark:text-white">
-                        {{ isEditing ? 'Chỉnh sửa sách' : 'Thêm sách mới' }}
+                        {{
+                            isEditing
+                                ? (isDigitalPage ? 'Chỉnh sửa tài liệu số' : 'Chỉnh sửa sách')
+                                : (isDigitalPage ? 'Thêm tài liệu số mới' : 'Thêm sách mới')
+                        }}
                     </h3>
                     <button
                         type="button"
@@ -88,7 +111,7 @@ function removeCreateCover() {
                     <p v-if="fieldErrors.general" class="sm:col-span-2 text-xs text-red-500 font-medium">
                         {{ fieldErrors.general }}
                     </p>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Phân loại sách <span class="text-rose-500">*</span>
                         </label>
@@ -97,7 +120,7 @@ function removeCreateCover() {
                             list="book-classification-options"
                             class="w-full h-10 px-3 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
                             :class="errClass('classification')"
-                            placeholder="Gõ mã / tên phân loại, ví dụ: 624 / 624.2"
+                            placeholder="Mã hoặc tên đầu phân loại gốc (000 … 900), ví dụ: 600"
                             @input="clearFieldError('classification')"
                         />
                         <datalist id="book-classification-options">
@@ -124,7 +147,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.title" class="text-xs text-red-500 font-medium">{{ fieldErrors.title }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Loại sách <span class="text-rose-500">*</span>
                         </label>
@@ -145,7 +168,7 @@ function removeCreateCover() {
                             {{ fieldErrors.resource_type }}
                         </p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Tên sách phụ</label>
                         <Input
                             v-model="form.sub_title"
@@ -156,7 +179,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.sub_title" class="text-xs text-red-500 font-medium">{{ fieldErrors.sub_title }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Kho sách <span class="text-rose-500">*</span>
                         </label>
@@ -177,7 +200,7 @@ function removeCreateCover() {
                         </datalist>
                         <p v-if="fieldErrors.warehouse" class="text-xs text-red-500 font-medium">{{ fieldErrors.warehouse }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Tủ lưu trữ</label>
                         <input
                             v-model="form.cabinet"
@@ -203,7 +226,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.authors" class="text-xs text-red-500 font-medium">{{ fieldErrors.authors }}</p>
                     </div>
-                    <div class="sm:col-span-2 space-y-1.5">
+                    <div v-if="!isDigitalPage" class="sm:col-span-2 space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Nhà xuất bản</label>
                         <Input
                             v-model="form.publisher"
@@ -214,7 +237,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.publisher" class="text-xs text-red-500 font-medium">{{ fieldErrors.publisher }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Năm xuất bản</label>
                         <Input
                             v-model="form.published_year"
@@ -230,7 +253,7 @@ function removeCreateCover() {
                             {{ fieldErrors.published_year }}
                         </p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Số trang</label>
                         <Input
                             v-model="form.pages"
@@ -243,7 +266,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.pages" class="text-xs text-red-500 font-medium">{{ fieldErrors.pages }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Khổ sách</label>
                         <Input
                             v-model="form.book_size"
@@ -254,7 +277,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.book_size" class="text-xs text-red-500 font-medium">{{ fieldErrors.book_size }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Giá bìa (đ)</label>
                         <Input
                             v-model="form.price"
@@ -267,7 +290,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.price" class="text-xs text-red-500 font-medium">{{ fieldErrors.price }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mã sách</label>
                         <Input
                             v-model="form.book_code"
@@ -283,7 +306,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.book_code" class="text-xs text-red-500 font-medium">{{ fieldErrors.book_code }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Số đăng ký cá biệt (DKCB)</label>
                         <Input
                             v-model="form.registration_number"
@@ -301,7 +324,7 @@ function removeCreateCover() {
                             {{ fieldErrors.registration_number }}
                         </p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Ngôn ngữ</label>
                         <Input
                             v-model="form.language"
@@ -312,7 +335,7 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.language" class="text-xs text-red-500 font-medium">{{ fieldErrors.language }}</p>
                     </div>
-                    <div class="space-y-1.5">
+                    <div v-if="!isDigitalPage" class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
                             Số lượng <span class="text-rose-500">*</span>
                         </label>
@@ -328,7 +351,7 @@ function removeCreateCover() {
                         <p v-if="fieldErrors.quantity" class="text-xs text-red-500 font-medium">{{ fieldErrors.quantity }}</p>
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">
-                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Ảnh bìa (tùy chọn)</label>
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Avatar sách (tùy chọn)</label>
                         <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-3 bg-slate-50/60 dark:bg-slate-800/40">
                             <div class="flex flex-wrap items-center gap-2">
                                 <input
@@ -354,8 +377,36 @@ function removeCreateCover() {
                             </div>
                         </div>
                     </div>
+                    <div v-if="isDigitalPage" class="sm:col-span-2 space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            File đính kèm (PDF) <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-3 bg-slate-50/60 dark:bg-slate-800/40">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input
+                                    id="book-create-digital-upload"
+                                    type="file"
+                                    accept=".pdf,application/pdf"
+                                    class="sr-only"
+                                    @change="onDigitalFileChange"
+                                />
+                                <label
+                                    for="book-create-digital-upload"
+                                    class="inline-flex h-9 items-center rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 text-xs font-semibold text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800"
+                                >
+                                    Chọn file PDF
+                                </label>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[360px]">
+                                    {{ createDigitalFileName || 'Chưa chọn file PDF' }}
+                                </span>
+                                <Button v-if="createDigitalFileName" type="button" variant="outline" size="sm" @click="removeCreateDigitalFile">
+                                    Bỏ file
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="sm:col-span-2 space-y-1.5">
-                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Tóm tắt nội dung</label>
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mô tả</label>
                         <textarea
                             v-model="form.description"
                             rows="3"
@@ -366,10 +417,10 @@ function removeCreateCover() {
                         />
                         <p v-if="fieldErrors.description" class="text-xs text-red-500 font-medium">{{ fieldErrors.description }}</p>
                     </div>
-                    <p v-if="storageSuggestionMessage" class="sm:col-span-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <p v-if="!isDigitalPage && storageSuggestionMessage" class="sm:col-span-2 text-xs font-medium text-amber-600 dark:text-amber-400">
                         {{ storageSuggestionMessage }}
                     </p>
-                    <p v-else-if="form.cabinet || form.warehouse" class="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p v-else-if="!isDigitalPage && (form.cabinet || form.warehouse)" class="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
                         Vị trí đang chọn:
                         <template v-if="form.warehouse">{{ form.warehouse }} · </template>
                         {{ form.cabinet || '—' }}

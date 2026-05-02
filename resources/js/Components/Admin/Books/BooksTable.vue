@@ -1,14 +1,7 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
-
-defineProps({
-    books: { type: Array, required: true },
-    selectedIds: { type: Object, required: true },
-    isAllSelected: { type: Boolean, required: true },
-    hasSelection: { type: Boolean, required: true },
-});
 
 const emit = defineEmits(['toggle-select-all', 'toggle-select', 'view', 'edit', 'delete', 'cover']);
 
@@ -31,10 +24,19 @@ function triggerCoverChange() {
     closeCoverPreview();
 }
 
-function displayQuantity(book) {
-    const qty = Number(book?.real_quantity ?? book?.available_quantity ?? book?.quantity ?? 0);
-    return Math.max(0, qty);
-}
+const props = defineProps({
+    pageKind: { type: String, default: 'printed' },
+    books: { type: Array, required: true },
+    selectedIds: { type: Object, required: true },
+    isAllSelected: { type: Boolean, required: true },
+    hasSelection: { type: Boolean, required: true },
+});
+
+const isDigitalPage = computed(() => props.pageKind === 'digital');
+const books = computed(() => props.books);
+const selectedIds = computed(() => props.selectedIds);
+const isAllSelected = computed(() => props.isAllSelected);
+const hasSelection = computed(() => props.hasSelection);
 
 /** Mã + tên kho (API `warehouse` khi đã eager load). */
 function warehouseLine(book) {
@@ -45,6 +47,31 @@ function warehouseLine(book) {
     const name = rawName.replace(/\s*\([^)]*\)\s*$/u, '').trim();
     if (code && name) return `${code} – ${name}`;
     return name || code || '—';
+}
+
+function fileAttachmentUrl(book) {
+    return book?.primary_digital_asset_url || book?.digital_assets?.[0]?.url || null;
+}
+
+function fileAttachmentName(book) {
+    const raw = book?.digital_assets?.[0]?.original_name;
+    const name = String(raw || '').trim();
+    return name || 'Mở file đính kèm';
+}
+
+const createdAtFmt = new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+});
+
+/** Ngày tạo đầu mục (`books.created_at` từ API). */
+function formatNgayTao(book) {
+    const iso = book?.created_at;
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    return createdAtFmt.format(d);
 }
 </script>
 
@@ -70,12 +97,17 @@ function warehouseLine(book) {
                             <span class="sr-only">Ảnh bìa</span>
                         </th>
                         <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tên sách</th>
-                        <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Kho</th>
-                        <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tủ lưu trữ</th>
                         <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tác giả</th>
-                        <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Nhà xuất bản</th>
-                        <th class="px-2 py-3.5 align-middle whitespace-nowrap text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Số lượng còn</th>
-                        <th class="px-2 py-3.5 align-middle whitespace-nowrap text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trạng thái</th>
+                        <template v-if="isDigitalPage">
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Mô tả</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ngày tạo</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">File đính kèm</th>
+                        </template>
+                        <template v-else>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ngày tạo</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Kho</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tủ lưu trữ</th>
+                        </template>
                         <th class="px-2 py-3.5 align-middle whitespace-nowrap text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Thao tác</th>
                     </tr>
                 </thead>
@@ -125,49 +157,56 @@ function warehouseLine(book) {
                                 {{ book.title || '—' }}
                             </button>
                         </td>
-                        <td class="px-3 py-3 align-middle text-[12px] text-slate-600 dark:text-slate-300">
-                            <p
-                                class="font-medium leading-snug line-clamp-2 break-words"
-                                :title="warehouseLine(book)"
-                            >
-                                {{ warehouseLine(book) }}
-                            </p>
-                        </td>
-                        <td class="px-3 py-3 align-middle text-[12px] text-slate-600 dark:text-slate-300">
-                            <p
-                                class="font-medium leading-snug line-clamp-2 break-words"
-                                :title="book.cabinet ? String(book.cabinet) : 'Chưa gán tủ'"
-                            >
-                                {{ book.cabinet || '—' }}
-                            </p>
-                        </td>
                         <td class="px-3 py-3 align-middle">
                             <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words text-left" :title="book.authors_label || '—'">
                                 {{ book.authors_label || '—' }}
                             </p>
                         </td>
-                        <td class="px-3 py-3 align-middle">
-                            <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words text-left" :title="book.publishers_label || '—'">
-                                {{ book.publishers_label || '—' }}
-                            </p>
-                        </td>
-                        <td class="px-2 py-3 align-middle text-center">
-                            <span class="text-[12px] font-medium tabular-nums text-slate-800 dark:text-slate-200">
-                                {{ displayQuantity(book) }}
-                            </span>
-                        </td>
-                        <td class="px-2 py-3 align-middle text-center">
-                            <span
-                                :class="[
-                                    'inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[11px] font-semibold border whitespace-nowrap',
-                                    book.circulation_status === 'in_circulation'
-                                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-800'
-                                        : 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/25 dark:text-rose-300 dark:border-rose-800',
-                                ]"
-                            >
-                                {{ book.circulation_status_label || 'Không lưu hành' }}
-                            </span>
-                        </td>
+                        <template v-if="isDigitalPage">
+                            <td class="px-3 py-3 align-middle">
+                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words text-left" :title="book.summary || '—'">
+                                    {{ book.summary || '—' }}
+                                </p>
+                            </td>
+                            <td class="px-3 py-3 align-middle whitespace-nowrap">
+                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200" :title="book.created_at || ''">
+                                    {{ formatNgayTao(book) }}
+                                </p>
+                            </td>
+                            <td class="px-3 py-3 align-middle">
+                                <a
+                                    v-if="fileAttachmentUrl(book)"
+                                    :href="fileAttachmentUrl(book)"
+                                    target="_blank"
+                                    class="text-[12px] font-semibold text-blue-700 hover:underline dark:text-blue-300 line-clamp-1 break-all"
+                                    :title="fileAttachmentName(book)"
+                                >
+                                    {{ fileAttachmentName(book) }}
+                                </a>
+                                <span v-else class="text-[12px] text-slate-500 dark:text-slate-400">—</span>
+                            </td>
+                        </template>
+                        <template v-else>
+                            <td class="px-3 py-3 align-middle whitespace-nowrap text-[12px] text-slate-600 dark:text-slate-300">
+                                <p class="font-medium" :title="book.created_at || ''">{{ formatNgayTao(book) }}</p>
+                            </td>
+                            <td class="px-3 py-3 align-middle text-[12px] text-slate-600 dark:text-slate-300">
+                                <p
+                                    class="font-medium leading-snug line-clamp-2 break-words"
+                                    :title="warehouseLine(book)"
+                                >
+                                    {{ warehouseLine(book) }}
+                                </p>
+                            </td>
+                            <td class="px-3 py-3 align-middle text-[12px] text-slate-600 dark:text-slate-300">
+                                <p
+                                    class="font-medium leading-snug line-clamp-2 break-words"
+                                    :title="book.cabinet ? String(book.cabinet) : 'Chưa gán tủ'"
+                                >
+                                    {{ book.cabinet || '—' }}
+                                </p>
+                            </td>
+                        </template>
                         <td class="px-2 py-3 align-middle whitespace-nowrap text-center">
                             <div class="inline-flex flex-nowrap items-center justify-center gap-0.5">
                                 <AdminTableActionIcon

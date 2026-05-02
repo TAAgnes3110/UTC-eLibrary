@@ -25,7 +25,7 @@ class ClassificationRequest extends BaseRequest
                 'max:255',
                 Rule::unique('classifications', 'name')->ignore($id),
             ],
-            'parent_id' => ['sometimes', 'nullable', 'integer', 'exists:classifications,id'],
+            'parent_id' => ['prohibited'],
             'params' => ['sometimes', 'nullable', 'array'],
         ];
     }
@@ -36,7 +36,7 @@ class ClassificationRequest extends BaseRequest
             'code.unique' => __('Mã phân loại đã tồn tại'),
             'name.required' => __('Tên phân loại không được để trống'),
             'name.unique' => __('Tên phân loại đã có trong hệ thống'),
-            'parent_id.exists' => __('Phân loại cha không tồn tại'),
+            'parent_id.prohibited' => __('Không hỗ trợ phân loại lồng nhau; chỉ dùng đầu mục gốc (000 … 900).'),
         ];
     }
 }

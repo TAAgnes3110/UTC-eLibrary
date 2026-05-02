@@ -32,6 +32,8 @@ class BookService
 {
     private const PER_PAGE = 50;
 
+    private const DIGITAL_BOOK_CODE_PREFIX = 'TLS';
+
     public function create(array $data): Book
     {
         return DB::transaction(function () use ($data) {
@@ -42,13 +44,24 @@ class BookService
             $thesisMeta = $bookData['thesis_metadata'] ?? null;
             unset($bookData['thesis_metadata'], $bookData['authors'], $bookData['publisher']);
 
-            $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
-            $this->ensureStorageLocationForBookData($bookData, null);
-            if (empty($bookData['registration_number'])) {
-                $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
-            }
-            if (empty($bookData['book_code'])) {
-                $bookData['book_code'] = $this->generateBookCode($warehouse);
+            $isDigital = $this->isDigitalResourceType($bookData['resource_type'] ?? null);
+            if ($isDigital) {
+                $bookData['warehouse_id'] = null;
+                $bookData['cabinet'] = null;
+                $bookData['registration_number'] = null;
+                $bookData['quantity'] = 0;
+                if (empty($bookData['book_code'])) {
+                    $bookData['book_code'] = $this->generateDigitalBookCode();
+                }
+            } else {
+                $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
+                $this->ensureStorageLocationForBookData($bookData, null);
+                if (empty($bookData['registration_number'])) {
+                    $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
+                }
+                if (empty($bookData['book_code'])) {
+                    $bookData['book_code'] = $this->generateBookCode($warehouse);
+                }
             }
             $book = Book::create($bookData);
             $this->syncContributors($book, $authorsInput, $publisherInput);
@@ -83,6 +96,12 @@ class BookService
             $syncThesis = array_key_exists('thesis_metadata', $data);
             $thesisMeta = $data['thesis_metadata'] ?? null;
             unset($data['thesis_metadata']);
+            if ($this->isDigitalResourceType($data['resource_type'] ?? $book->resource_type)) {
+                $data['warehouse_id'] = null;
+                $data['cabinet'] = null;
+                $data['registration_number'] = null;
+                $data['quantity'] = 0;
+            }
             $this->ensureStorageLocationForBookData($data, $book);
 
             $book->update($data);
@@ -107,7 +126,7 @@ class BookService
      */
     public function getForApiDetail(Book $book): Book
     {
-        return $book->load([
+        $book->load([
             'classification:id,code,name',
             'warehouse:id,code,name',
             'authors:id,name',
@@ -124,6 +143,12 @@ class BookService
                 ->latest('id')
                 ->limit(20),
         ]);
+
+        if ($book->resource_type === ResourceType::DIGITAL) {
+            $book->load(['digitalDocumentSubmission.submitter:id,name,email']);
+        }
+
+        return $book;
     }
 
     /**
@@ -138,6 +163,9 @@ class BookService
     ): LengthAwarePaginator {
         $query = $this->baseBookListQuery();
         $this->applyResourceTypeFilter($query, $resourceType);
+        if ($this->isDigitalOnlyFilter($resourceType)) {
+            $query->with(['digitalAssets' => fn ($q) => $q->orderByDesc('is_primary')->orderByDesc('id')]);
+        }
         $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
         $this->applySortToBookQuery($query, $sort);
 
@@ -647,9 +675,9 @@ class BookService
         ];
     }
 
-    public function exportBooks(?array $ids = null): StreamedResponse
+    public function exportBooks(?array $ids = null, ?string $resourceType = null): StreamedResponse
     {
-        return BooksWorkbookExport::stream($ids);
+        return BooksWorkbookExport::stream($ids, $resourceType);
     }
 
     public function importBooks(UploadedFile $file): array
@@ -726,6 +754,56 @@ class BookService
     private function generateBookCode(Warehouse $warehouse): string
     {
         return WarehouseBookIdentifiers::nextBookCode($warehouse);
+    }
+
+    /**
+     * Sinh mã sách riêng cho tài liệu số, tách khỏi quy tắc mã kho sách in.
+     * Format: TLS + 6 chữ số (ví dụ TLS000001).
+     */
+    private function generateDigitalBookCode(): string
+    {
+        $prefix = self::DIGITAL_BOOK_CODE_PREFIX;
+        $length = 6;
+
+        $latest = (string) Book::query()
+            ->where('resource_type', ResourceType::DIGITAL->value)
+            ->where('book_code', 'like', $prefix.'%')
+            ->orderByDesc('id')
+            ->value('book_code');
+
+        $current = 0;
+        if ($latest !== '' && str_starts_with($latest, $prefix)) {
+            $numeric = preg_replace('/\D+/', '', substr($latest, strlen($prefix)));
+            $current = is_numeric($numeric) ? (int) $numeric : 0;
+        }
+
+        do {
+            $current++;
+            $candidate = $prefix.str_pad((string) $current, $length, '0', STR_PAD_LEFT);
+        } while (Book::query()->where('book_code', $candidate)->exists());
+
+        return $candidate;
+    }
+
+    private function isDigitalResourceType(mixed $resourceType): bool
+    {
+        if ($resourceType instanceof ResourceType) {
+            return $resourceType === ResourceType::DIGITAL;
+        }
+
+        return strtolower(trim((string) $resourceType)) === ResourceType::DIGITAL->value;
+    }
+
+    private function isDigitalOnlyFilter(?string $resourceType): bool
+    {
+        $raw = strtolower(trim((string) $resourceType));
+        if ($raw === '') {
+            return false;
+        }
+
+        $parts = array_values(array_filter(array_map('trim', explode(',', $raw))));
+
+        return count($parts) === 1 && $parts[0] === ResourceType::DIGITAL->value;
     }
 
     /**

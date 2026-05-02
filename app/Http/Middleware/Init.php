@@ -43,7 +43,11 @@ class Init
             $domain = $request->headers->get('domain', request()->getHost());
             $allowedDomains = config('api.allowed_domains', []);
             if (! empty($allowedDomains) && ! $this->isDomainAllowed($domain, $allowedDomains)) {
-                return ApiResponse::error(__('Domain không được phép.'), 403);
+                $allowLocalDev = app()->environment('local', 'testing')
+                    && $this->isLocalDevelopmentHost($domain);
+                if (! $allowLocalDev) {
+                    return ApiResponse::error(__('Domain không được phép.'), 403);
+                }
             }
 
             $currentPerson = $user;
@@ -85,6 +89,29 @@ class Init
             if ($requestKey !== null && $allowedKey !== null && strcasecmp($requestKey, $allowedKey) === 0) {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * Cho phép QA / dev trên localhost khi API_ALLOWED_DOMAINS chỉ ghi domain production.
+     */
+    private function isLocalDevelopmentHost(string $domain): bool
+    {
+        $key = $this->normalizeDomainKey($domain);
+        if ($key === null || $key === '') {
+            return false;
+        }
+        $lower = strtolower($key);
+        if ($lower === 'localhost' || str_starts_with($lower, 'localhost:')) {
+            return true;
+        }
+        if ($lower === '127.0.0.1' || str_starts_with($lower, '127.0.0.1:')) {
+            return true;
+        }
+        if ($lower === '[::1]' || str_starts_with($lower, '[::1]:')) {
+            return true;
         }
 
         return false;

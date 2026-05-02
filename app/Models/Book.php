@@ -126,6 +126,14 @@ class Book extends BaseModel
         return $this->hasOne(ThesisMetadata::class);
     }
 
+    /**
+     * Bản gửi độc giả đã duyệt tạo đầu mục này (nếu có).
+     */
+    public function digitalDocumentSubmission(): HasOne
+    {
+        return $this->hasOne(DigitalDocumentSubmission::class, 'approved_book_id');
+    }
+
     public function availableCopies()
     {
         return $this->hasMany(BookCopy::class)

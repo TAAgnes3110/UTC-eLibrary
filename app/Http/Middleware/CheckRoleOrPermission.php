@@ -19,12 +19,9 @@ class CheckRoleOrPermission
     {
         global $currentUser;
 
-        if (! $currentUser) {
-            $user = $request->user();
-            if ($user !== null) {
-                $currentUser = new CurrentUser($user);
-            }
-        }
+        // Luôn đồng bộ từ user hiện tại (session/JWT) — tránh global $currentUser còn từ request trước (đặc biệt trong test).
+        $user = $request->user();
+        $currentUser = $user !== null ? new CurrentUser($user) : null;
 
         if (! $currentUser) {
             if ($request->is('api/*') || $request->expectsJson()) {

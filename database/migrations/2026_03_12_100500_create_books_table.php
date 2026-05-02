@@ -24,7 +24,6 @@ return new class extends Migration
             $table->unsignedInteger('quantity')->default(0)->required();
             $table->text('summary')->nullable();
             $table->text('notes')->nullable();
-            $table->string('series_name')->nullable();
             $table->string('publisher_place')->nullable();
             $table->string('cabinet', 100)->nullable();
             $table->string('cover_image')->nullable();

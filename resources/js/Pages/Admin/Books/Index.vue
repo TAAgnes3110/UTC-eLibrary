@@ -15,7 +15,7 @@ import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
 import { ADMIN_ICONS } from '@/config/adminIcons';
 import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
 import { useBooksAdminPage, SEARCH_IN_OPTIONS, BOOK_SORT_OPTIONS, PRINT_TYPE_OPTIONS } from '@/composables/admin/useBooksAdminPage';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { booksApi } from '@/api/books';
 
 const {
@@ -34,6 +34,8 @@ const {
     createCoverPreviewUrl,
     setCreateCoverFile,
     clearCreateCoverFile,
+    setCreateDigitalFile,
+    clearCreateDigitalFile,
     filterValues,
     showFilterPanel,
     filteredBooks,
@@ -90,6 +92,22 @@ function formatDate(value) {
     return new Intl.DateTimeFormat('vi-VN').format(d);
 }
 
+/** Modal chi tiết tài liệu số: người gửi bản đăng ký (nếu có). */
+function digitalDetailSubmitterLabel(book) {
+    const sub = book?.digital_submission?.submitter;
+    if (!sub) return '—';
+    const name = sub.name?.trim();
+    const email = sub.email?.trim();
+    if (name && email) return `${name} · ${email}`;
+    return name || email || '—';
+}
+
+/** Ưu tiên thời điểm gửi bản đăng ký; không có thì thời điểm tạo đầu mục trên hệ thống. */
+function digitalDetailTimeLabel(book) {
+    const iso = book?.digital_submission?.submitted_at ?? book?.created_at;
+    return formatDate(iso);
+}
+
 async function openDetailModal(book) {
     detailBook.value = book ?? null;
     showDetailModal.value = true;
@@ -107,6 +125,29 @@ async function openDetailModal(book) {
     } finally {
         detailLoading.value = false;
     }
+}
+
+/** Chi tiết modal: tách hẳn tài liệu số khỏi bố cục sách in. */
+const isDigitalDetailBook = computed(() => String(detailBook.value?.resource_type || '') === 'digital');
+
+function detailDigitalPrimaryUrl(b) {
+    if (!b) return null;
+    if (b.primary_digital_asset_url) return b.primary_digital_asset_url;
+    const arr = b.digital_assets;
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const primary = arr.find((a) => a?.is_primary) || arr[0];
+    return primary?.url || null;
+}
+
+function detailDigitalPrimaryName(b) {
+    if (!b) return 'Mở file PDF';
+    const arr = b.digital_assets;
+    if (Array.isArray(arr) && arr.length > 0) {
+        const primary = arr.find((a) => a?.is_primary) || arr[0];
+        const name = String(primary?.original_name || '').trim();
+        if (name) return name;
+    }
+    return 'Mở file PDF';
 }
 
 const importTitleByPageKind = {
@@ -148,6 +189,7 @@ const importDescriptionByPageKind = {
                 :selected-count="selectedIds.size"
                 update-file-label="Cập nhật ảnh bìa"
                 :show-update-file="true"
+                :show-import="pageKind !== 'digital'"
                 add-label="Thêm sách"
                 @add="openAddModal"
                 @export-excel="exportExcel"
@@ -203,6 +245,7 @@ const importDescriptionByPageKind = {
             </AdminFilterSearch>
 
             <BooksTable
+                :page-kind="pageKind"
                 :books="filteredBooks"
                 :selected-ids="selectedIds"
                 :is-all-selected="isAllSelected"
@@ -227,6 +270,7 @@ const importDescriptionByPageKind = {
         <BookFormModal
             :show="showModal"
             :is-editing="isEditing"
+            :page-kind="pageKind"
             :form="form"
             :classifications="classifications"
             :warehouses="warehouses"
@@ -236,6 +280,8 @@ const importDescriptionByPageKind = {
             :create-cover-preview-url="createCoverPreviewUrl"
             :set-create-cover-file="setCreateCoverFile"
             :clear-create-cover-file="clearCreateCoverFile"
+            :set-create-digital-file="setCreateDigitalFile"
+            :clear-create-digital-file="clearCreateDigitalFile"
             :save-loading="saveBookLoading"
             :field-errors="bookFormErrors"
             :clear-field-error="clearBookFieldError"
@@ -264,6 +310,7 @@ const importDescriptionByPageKind = {
         />
 
         <AdminFileModal
+            v-if="pageKind !== 'digital'"
             :show="showImportModal"
             :title="importTitleByPageKind[pageKind] || importTitleByPageKind.textbook"
             :description="importDescriptionByPageKind[pageKind] || importDescriptionByPageKind.textbook"
@@ -311,8 +358,13 @@ const importDescriptionByPageKind = {
             <div class="relative w-full max-w-4xl max-h-[88vh] overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-5">
                 <div class="flex items-start justify-between gap-3 mb-4">
                     <div>
-                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết sách</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Thông tin nhanh của đầu sách</p>
+                        <template v-if="isDigitalDetailBook">
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết tài liệu số</h3>
+                        </template>
+                        <template v-else>
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết sách</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Thông tin nhanh của đầu sách</p>
+                        </template>
                     </div>
                     <button
                         type="button"
@@ -323,7 +375,73 @@ const importDescriptionByPageKind = {
                     </button>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-[104px,1fr] gap-4">
+                <template v-if="isDigitalDetailBook">
+                    <div class="grid grid-cols-1 md:grid-cols-[140px,1fr] gap-6">
+                        <div
+                            class="mx-auto aspect-[3/4] w-full max-w-[140px] overflow-hidden rounded-xl bg-slate-100 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:ring-slate-700/80 md:mx-0"
+                        >
+                            <img
+                                :src="detailBook.cover_image || '/images/default-book-cover.png'"
+                                :alt="detailBook.title || 'Ảnh bìa'"
+                                class="h-full w-full object-cover"
+                            />
+                        </div>
+                        <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div v-if="detailLoading" class="sm:col-span-2 text-xs text-slate-500 dark:text-slate-400">
+                                Đang tải dữ liệu chi tiết...
+                            </div>
+                            <div class="sm:col-span-2">
+                                <p class="text-slate-500 dark:text-slate-400">Tên tài liệu</p>
+                                <p class="font-semibold text-slate-900 dark:text-white">{{ detailBook.title || '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 dark:text-slate-400">Mã sách</p>
+                                <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.book_code || '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 dark:text-slate-400">Tác giả</p>
+                                <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.authors_label || '—' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 dark:text-slate-400">Người đăng</p>
+                                <p class="font-medium text-slate-800 dark:text-slate-200">
+                                    {{ digitalDetailSubmitterLabel(detailBook) }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-slate-500 dark:text-slate-400">
+                                    {{ detailBook.digital_submission?.submitted_at ? 'Thời gian gửi' : 'Thời gian tạo đầu mục' }}
+                                </p>
+                                <p class="font-medium text-slate-800 dark:text-slate-200">{{ digitalDetailTimeLabel(detailBook) }}</p>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <p class="text-slate-500 dark:text-slate-400">Phân loại</p>
+                                <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.classification?.name || '—' }}</p>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <p class="text-slate-500 dark:text-slate-400">Tóm tắt</p>
+                                <p class="font-medium whitespace-pre-line text-slate-800 dark:text-slate-200">
+                                    {{ detailBook.summary || '—' }}
+                                </p>
+                            </div>
+                            <div class="sm:col-span-2">
+                                <p class="text-slate-500 dark:text-slate-400">File đính kèm (PDF)</p>
+                                <a
+                                    v-if="detailDigitalPrimaryUrl(detailBook)"
+                                    :href="detailDigitalPrimaryUrl(detailBook)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                                >
+                                    {{ detailDigitalPrimaryName(detailBook) }}
+                                </a>
+                                <p v-else class="font-medium text-slate-500 dark:text-slate-400">—</p>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div v-else class="grid grid-cols-1 md:grid-cols-[104px,1fr] gap-4">
                     <div class="h-28 w-20 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800 ring-1 ring-slate-200/80 dark:ring-slate-700/80">
                         <img
                             :src="detailBook.cover_image || '/images/default-book-cover.png'"

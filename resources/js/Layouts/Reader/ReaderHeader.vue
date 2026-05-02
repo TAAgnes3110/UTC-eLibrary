@@ -353,7 +353,7 @@ const navChildLinkClass = (childRoute) => {
                     <UserAccountDropdown
                         :user="user"
                         trigger-size="touch"
-                        :personal-info-route-name="isStaff ? 'admin.profile' : 'reader.profile'"
+                        personal-info-route-name="reader.profile"
                         :change-password-route-name="isStaff ? 'admin.change-password' : 'reader.change-password'"
                     >
                         <template #items>
@@ -451,8 +451,8 @@ const navChildLinkClass = (childRoute) => {
                         {{ S.goToApp }}
                     </Link>
                     <Link
-                        v-if="(isStaff && hasRoute('admin.profile')) || (!isStaff && hasRoute('reader.profile'))"
-                        :href="route(isStaff ? 'admin.profile' : 'reader.profile')"
+                        v-if="hasRoute('reader.profile')"
+                        :href="route('reader.profile')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
                         @click="mobileOpen = false"
                     >

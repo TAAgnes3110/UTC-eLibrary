@@ -22,7 +22,7 @@ class MasterDataService
         return Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
             $faculties = Faculty::where('is_active', true)->orderBy('name')->get();
             $departments = Department::where('is_active', true)->orderBy('faculty_id')->orderBy('name')->get();
-            $classifications = Classification::orderBy('code')->get(['id', 'code', 'name']);
+            $classifications = Classification::query()->roots()->orderBy('code')->get(['id', 'code', 'name']);
             $taxonomy = app(TaxonomyCacheService::class);
             $periods = Period::query()
                 ->where('is_active', true)

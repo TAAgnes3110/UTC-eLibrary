@@ -42,7 +42,7 @@ class LibraryCardAccountService
     private function buildPayloadForAuthenticatedUser(User $user, array $data, bool $paidAtCounter = false, ?UploadedFile $photoFile = null): array
     {
         $role = $this->resolveReaderRoleOrFail($user);
-        $identityCode = $this->resolveIdentityCodeForAccount($user);
+        $identityCode = $this->resolveIdentityCodeForAccount($user, $data);
         $photoPath = $this->resolvePhotoPathForRegistration($user, $data, $photoFile);
 
         $payload = [
@@ -61,7 +61,7 @@ class LibraryCardAccountService
             'card_number' => $identityCode,
         ];
 
-        $payload = array_merge($payload, $this->affiliationPayloadForAccountRole($role, $user));
+        $payload = array_merge($payload, $this->affiliationPayloadForAccountRole($role, $user, $data));
 
         $departmentId = StudentTeacherRegistrationHelper::optionalDepartmentId($data);
         if ($departmentId !== null) {
@@ -89,14 +89,17 @@ class LibraryCardAccountService
     }
 
     /**
+     * Ưu tiên khoa / niên khóa / lớp gửi kèm form; fallback hồ sơ user.
+     *
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function affiliationPayloadForAccountRole(RoleType $role, User $user): array
+    private function affiliationPayloadForAccountRole(RoleType $role, User $user, array $data): array
     {
         $accountData = [
-            'faculty_id' => $user->faculty_id,
-            'period_id' => $user->period_id,
-            'class_code' => $user->class_code,
+            'faculty_id' => $data['faculty_id'] ?? $user->faculty_id,
+            'period_id' => $data['period_id'] ?? $user->period_id,
+            'class_code' => $data['class_code'] ?? $user->class_code,
         ];
 
         return match ($role) {
@@ -149,9 +152,17 @@ class LibraryCardAccountService
     }
 
     /**
+     * Mã in trên thẻ: ưu tiên `code` gửi kèm form đăng ký (đã được validate phía API/UI); không có thì dùng mã trên tài khoản.
+     *
+     * @param  array<string, mixed>  $data
      */
-    private function resolveIdentityCodeForAccount(User $user): string
+    private function resolveIdentityCodeForAccount(User $user, array $data): string
     {
+        $fromPayload = trim((string) ($data['code'] ?? ''));
+        if ($fromPayload !== '') {
+            return $fromPayload;
+        }
+
         $code = trim((string) ($user->code ?? ''));
         if ($code === '') {
             throw ValidationException::withMessages([

@@ -4,6 +4,7 @@ namespace Tests\Feature\Backend;
 
 use App\Enums\LibraryCardStatus;
 use App\Enums\RoleType;
+use App\Mail\LibraryCardPickupReminderMail;
 use App\Models\Faculty;
 use App\Models\LibraryCard;
 use App\Models\Period;
@@ -19,7 +20,7 @@ class LibraryCardApproveForPaymentTest extends TestCase
     use ActsAsApiUser;
     use RefreshDatabase;
 
-    public function test_librarian_approve_activates_card_without_mail(): void
+    public function test_librarian_approve_activates_card_and_sends_pickup_reminder_mail(): void
     {
         Mail::fake();
 
@@ -51,7 +52,7 @@ class LibraryCardApproveForPaymentTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('status', 'success');
 
-        Mail::assertNothingSent();
+        Mail::assertSent(LibraryCardPickupReminderMail::class);
 
         $card->refresh();
         $this->assertSame(LibraryCard::WORKFLOW_ACTIVE, $card->workflow_status);

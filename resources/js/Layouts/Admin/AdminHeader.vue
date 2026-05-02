@@ -187,10 +187,14 @@ const onNotificationClick = async (notification) => {
             <UserAccountDropdown
                 v-if="user"
                 :user="user"
-                personal-info-route-name="admin.profile"
+                personal-info-route-name="reader.profile"
                 change-password-route-name="admin.change-password"
             >
                 <template #items>
+                    <DropdownMenuItem v-if="hasRoute('reader.home')" @click="router.visit(route('reader.home'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-slate-100 dark:focus:bg-slate-800">
+                        <Icon icon="lucide:house" class="mr-3 h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <span class="text-slate-700 dark:text-slate-300">Về trang người dùng</span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem v-if="hasRoute('admin.settings.rules')" @click="router.visit(route('admin.settings.rules'))" class="cursor-pointer mx-2 rounded-xl py-2.5 px-3 text-sm focus:bg-slate-100 dark:focus:bg-slate-800">
                         <Icon icon="lucide:sliders" class="mr-3 h-4 w-4 text-slate-500 dark:text-slate-400 shrink-0" />
                         <span class="text-slate-700 dark:text-slate-300">Cấu hình thư viện</span>

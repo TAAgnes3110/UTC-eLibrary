@@ -80,6 +80,36 @@ class LoanBorrowRequestController extends Controller
         return ApiResponse::success($this->mapBorrowRequest($record), __('Đã từ chối yêu cầu mượn.'));
     }
 
+    public function bulkReject(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer', 'exists:loan_borrow_requests,id'],
+            'review_note' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $count = $this->loanBorrowRequestService->bulkReject(
+                $request->user(),
+                $validated['ids'],
+                $validated['review_note'] ?? null
+            );
+        } catch (ValidationException $e) {
+            return ApiResponse::validationError($e);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
+        if ($count === 0) {
+            return ApiResponse::error(__('Không có yêu cầu nào ở trạng thái chờ duyệt trong danh sách đã gửi.'), 422);
+        }
+
+        return ApiResponse::success(
+            ['rejected_count' => $count],
+            __('Đã từ chối :count yêu cầu mượn.', ['count' => $count])
+        );
+    }
+
     private function mapBorrowRequest(LoanBorrowRequest $r): array
     {
         return [

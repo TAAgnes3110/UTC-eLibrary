@@ -52,4 +52,7 @@ export const loansApi = {
     rejectBorrowRequest(id, payload = {}) {
         return client.post(`/loans/borrow-requests/${id}/reject`, payload).then((r) => r.data);
     },
+    bulkRejectBorrowRequests(payload = {}) {
+        return client.post('/loans/borrow-requests/bulk-reject', payload).then((r) => r.data);
+    },
 };

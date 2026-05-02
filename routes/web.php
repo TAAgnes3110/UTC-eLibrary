@@ -36,6 +36,7 @@ Route::get('/dich-vu', [ReaderPageController::class, 'services'])->name('reader.
 Route::prefix('dich-vu')->name('reader.services.')->group(function () {
     Route::get('/cap-the-thu-vien', [ReaderPageController::class, 'servicesLibraryCard'])->name('library-card');
     Route::get('/phieu-muon', [ReaderPageController::class, 'servicesLoanRequests'])->middleware('auth')->name('loan-requests');
+    Route::get('/tai-lieu-so', [ReaderPageController::class, 'servicesDigitalDocuments'])->name('digital-documents');
     Route::get('/gio-muon', [ReaderPageController::class, 'servicesBorrowCart'])->middleware('auth')->name('borrow-cart');
     Route::get('/phieu-muon/{loan}', [ReaderPageController::class, 'servicesLoanRequestShow'])->middleware('auth')->name('loan-requests.show');
 });
@@ -81,6 +82,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/printed', [BookPageController::class, 'printed'])->name('books.printed');
         Route::get('/books/textbook', [BookPageController::class, 'textbook'])->name('books.textbook');
         Route::get('/books/reference', [BookPageController::class, 'reference'])->name('books.reference');
+        Route::get('/books/digital/submissions', [BookPageController::class, 'digitalSubmissions'])->name('books.digital-submissions');
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');

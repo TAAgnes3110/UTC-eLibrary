@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthorController;
 use App\Http\Controllers\Api\BookController;
 use App\Http\Controllers\Api\ClassificationController;
 use App\Http\Controllers\Api\DigitalAssetController;
+use App\Http\Controllers\Api\DigitalDocumentSubmissionController;
 use App\Http\Controllers\Api\EmailOTPController;
 use App\Http\Controllers\Api\FacultyController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
@@ -68,6 +69,8 @@ Route::get('health', function () {
 })->withoutMiddleware([LogApiRequests::class]);
 
 Route::prefix('v1')->group(function () {
+    Route::get('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'publicIndex']);
+
     Route::middleware(['throttle:auth'])->group(function () {
         Route::group(['prefix' => 'auth'], function () {
             Route::post('login', [AuthController::class, 'login']);
@@ -108,6 +111,9 @@ Route::prefix('v1')->group(function () {
         Route::post('notifications/delete-all', [NotificationController::class, 'destroyAll']);
         Route::post('notifications/{notificationId}/read', [NotificationController::class, 'markAsRead']);
         Route::post('notifications/{notificationId}/delete', [NotificationController::class, 'destroy']);
+        Route::get('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'index']);
+        Route::post('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'store']);
+        Route::post('digital-document-submissions/{id}/hide', [DigitalDocumentSubmissionController::class, 'hideMine']);
     });
 
     Route::middleware(['throttle:auth'])->group(function () {
@@ -118,6 +124,8 @@ Route::prefix('v1')->group(function () {
 
     Route::group(['middleware' => ['init']], function () {
         Route::middleware(['role_or_permission:'.RoleType::SUPER_ADMIN->value.'|role_prefix_'.RoleType::ADMIN->value.'|role_prefix_'.RoleType::LIBRARIAN->value])->group(function () {
+            Route::post('digital-document-submissions/{id}/approve', [DigitalDocumentSubmissionController::class, 'approve']);
+            Route::post('digital-document-submissions/{id}/reject', [DigitalDocumentSubmissionController::class, 'reject']);
             Route::apiResource('faculties', FacultyController::class);
 
             Route::group(['prefix' => '/users'], function () {
@@ -207,6 +215,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/renewal-requests/{renewalRequest}/approve', [LoanRenewalRequestController::class, 'approve']);
                 Route::post('/renewal-requests/{renewalRequest}/reject', [LoanRenewalRequestController::class, 'reject']);
                 Route::get('/borrow-requests', [LoanBorrowRequestController::class, 'index']);
+                Route::post('/borrow-requests/bulk-reject', [LoanBorrowRequestController::class, 'bulkReject']);
                 Route::post('/borrow-requests/{borrowRequest}/approve', [LoanBorrowRequestController::class, 'approve']);
                 Route::post('/borrow-requests/{borrowRequest}/reject', [LoanBorrowRequestController::class, 'reject']);
                 Route::post('/bulk-delete', [LoanController::class, 'bulkDestroy']);

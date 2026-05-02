@@ -143,6 +143,75 @@ class LoanBorrowRequestFlowTest extends TestCase
         $this->assertStringContainsString('không đủ số lượng giữ chỗ', (string) $second->json('messages'));
     }
 
+    public function test_admin_bulk_reject_rejects_multiple_pending_requests(): void
+    {
+        [$book] = $this->seedBookWithStorageAndCopies(2);
+        [$readerA, $tokenA] = $this->createUserAndToken([
+            'user_type' => RoleType::STUDENT,
+            'email' => 'reader-bulk-a@test.com',
+        ]);
+        [$readerB, $tokenB] = $this->createUserAndToken([
+            'user_type' => RoleType::STUDENT,
+            'email' => 'reader-bulk-b@test.com',
+        ]);
+        [, $adminToken] = $this->createAdminUserAndToken();
+
+        LibraryCard::query()->create([
+            'card_number' => 'SV-BR-BULK-A',
+            'code' => 'SV-BR-BULK-A',
+            'holder_type' => LibraryCard::HOLDER_TYPE_STUDENT,
+            'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+            'status' => LibraryCardStatus::ACTIVE,
+            'full_name' => 'Ban doc bulk A',
+            'user_id' => $readerA->id,
+        ]);
+        LibraryCard::query()->create([
+            'card_number' => 'SV-BR-BULK-B',
+            'code' => 'SV-BR-BULK-B',
+            'holder_type' => LibraryCard::HOLDER_TYPE_STUDENT,
+            'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+            'status' => LibraryCardStatus::ACTIVE,
+            'full_name' => 'Ban doc bulk B',
+            'user_id' => $readerB->id,
+        ]);
+
+        $first = $this->postJson('/api/v1/me/loan-borrow-requests', [
+            'loan_type' => 'home',
+            'book_ids' => [$book->id],
+            'quantity' => [1],
+            'requested_loan_date' => now()->toDateString(),
+            'requested_due_date' => now()->addDays(7)->toDateString(),
+        ], $this->apiTokenHeaders($tokenA));
+        $first->assertStatus(201);
+        $id1 = (int) $first->json('data.id');
+
+        $second = $this->postJson('/api/v1/me/loan-borrow-requests', [
+            'loan_type' => 'home',
+            'book_ids' => [$book->id],
+            'quantity' => [1],
+            'requested_loan_date' => now()->toDateString(),
+            'requested_due_date' => now()->addDays(7)->toDateString(),
+        ], $this->apiTokenHeaders($tokenB));
+        $second->assertStatus(201);
+        $id2 = (int) $second->json('data.id');
+
+        $bulk = $this->postJson('/api/v1/loans/borrow-requests/bulk-reject', [
+            'ids' => [$id1, $id2],
+            'review_note' => 'Tu choi hang loat test',
+        ], $this->apiTokenHeaders($adminToken));
+
+        $bulk->assertStatus(200)->assertJsonPath('status', 'success')->assertJsonPath('data.rejected_count', 2);
+
+        $this->assertDatabaseHas('loan_borrow_requests', [
+            'id' => $id1,
+            'status' => LoanBorrowRequest::STATUS_REJECTED,
+        ]);
+        $this->assertDatabaseHas('loan_borrow_requests', [
+            'id' => $id2,
+            'status' => LoanBorrowRequest::STATUS_REJECTED,
+        ]);
+    }
+
     /**
      * @return array{0:Book,1:StorageCabinet}
      */

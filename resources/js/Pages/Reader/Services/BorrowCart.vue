@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
@@ -14,6 +14,50 @@ const selectedIds = ref([])
 const loanType = ref('home')
 const requestedDueDate = ref('')
 const todayIso = computed(() => new Date().toISOString().slice(0, 10))
+const maxDueIso = computed(() => {
+    const d = new Date()
+    d.setFullYear(d.getFullYear() + 1)
+    return d.toISOString().slice(0, 10)
+})
+
+const props = defineProps({
+    /** @type {{ allow_home: boolean, allow_onsite: boolean, holder_type: string }|null|undefined} */
+    borrow_permissions: { type: Object, default: null },
+})
+
+const canBorrowHome = computed(() => {
+    const p = props.borrow_permissions
+    if (!p) {
+        return true
+    }
+    return Boolean(p.allow_home)
+})
+
+const canBorrowOnsite = computed(() => {
+    const p = props.borrow_permissions
+    if (!p) {
+        return true
+    }
+    return Boolean(p.allow_onsite)
+})
+
+function syncLoanTypeToPermissions() {
+    const p = props.borrow_permissions
+    if (!p) {
+        return
+    }
+    if (!p.allow_home && p.allow_onsite) {
+        loanType.value = 'onsite'
+    } else if (p.allow_home && !p.allow_onsite) {
+        loanType.value = 'home'
+    }
+}
+
+watch(
+    () => props.borrow_permissions,
+    () => syncLoanTypeToPermissions(),
+    { immediate: true, deep: true }
+)
 
 function extractApiErrorMessage(error, fallback) {
     const data = error?.response?.data || {}
@@ -186,10 +230,28 @@ function adjustQty(id, delta) {
     syncQtyToStorage()
 }
 
+function validateCartBorrowClient() {
+    const p = props.borrow_permissions
+    if (p && loanType.value === 'home' && !p.allow_home) {
+        return 'Theo quy định thư viện UTC, loại thẻ của bạn chỉ được đăng ký đọc tại chỗ, không mượn về nhà.'
+    }
+    if (p && loanType.value === 'onsite' && !p.allow_onsite) {
+        return 'Hình thức đọc tại chỗ không áp dụng với loại thẻ của bạn. Vui lòng liên hệ thủ thư.'
+    }
+    if (loanType.value === 'home' && !requestedDueDate.value) {
+        return 'Vui lòng chọn ngày trả dự kiến khi mượn về nhà.'
+    }
+    if (loanType.value === 'home' && String(requestedDueDate.value) > maxDueIso.value) {
+        return 'Ngày trả dự kiến không được quá một năm kể từ hôm nay.'
+    }
+    return null
+}
+
 async function submitBorrowRequest() {
     if (selectedRows.value.length === 0 || submitting.value) return
-    if (loanType.value === 'home' && !requestedDueDate.value) {
-        toast.warn('Vui lòng chọn ngày trả dự kiến khi mượn về nhà.', { title: 'Giỏ mượn' })
+    const cartErr = validateCartBorrowClient()
+    if (cartErr) {
+        toast.warn(cartErr, { title: 'Giỏ mượn' })
         return
     }
     const valid = selectedRows.value.filter((r) => Number(r.available_for_borrow || 0) > 0)
@@ -373,13 +435,25 @@ onMounted(refreshPreview)
                             <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                                 Hình thức mượn
                             </p>
+                            <p
+                                v-if="borrow_permissions && !borrow_permissions.allow_home && borrow_permissions.allow_onsite"
+                                class="mt-2 text-xs text-slate-600 dark:text-slate-400"
+                            >
+                                Theo quy định UTC, loại thẻ của bạn chỉ đăng ký đọc tại chỗ (không mượn về nhà).
+                            </p>
                             <div class="mt-2 grid grid-cols-1 gap-2">
-                                <label class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                                    <input v-model="loanType" type="radio" value="home" />
+                                <label
+                                    class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                    :class="!canBorrowHome ? 'opacity-50' : ''"
+                                >
+                                    <input v-model="loanType" type="radio" value="home" :disabled="!canBorrowHome" />
                                     Mượn về nhà
                                 </label>
-                                <label class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                                    <input v-model="loanType" type="radio" value="onsite" />
+                                <label
+                                    class="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                    :class="!canBorrowOnsite ? 'opacity-50' : ''"
+                                >
+                                    <input v-model="loanType" type="radio" value="onsite" :disabled="!canBorrowOnsite" />
                                     Đọc tại chỗ
                                 </label>
                             </div>
@@ -391,6 +465,7 @@ onMounted(refreshPreview)
                                     v-model="requestedDueDate"
                                     type="date"
                                     :min="todayIso"
+                                    :max="maxDueIso"
                                     class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100 dark:[color-scheme:dark] dark:focus:border-emerald-400 dark:focus:ring-emerald-900/50"
                                 />
                             </div>

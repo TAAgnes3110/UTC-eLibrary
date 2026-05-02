@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Traits\HasAuditFields;
+use Illuminate\Database\Eloquent\Builder;
 
 class Classification extends BaseModel
 {
@@ -37,5 +38,11 @@ class Classification extends BaseModel
     public function storageCabinets()
     {
         return $this->hasMany(StorageCabinet::class);
+    }
+
+    /** Chỉ đầu mục phân loại gốc (000 … 900), không có bản con. */
+    public function scopeRoots(Builder $query): Builder
+    {
+        return $query->whereNull($query->qualifyColumn('parent_id'));
     }
 }

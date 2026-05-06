@@ -9,7 +9,7 @@ import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
 import { extractApiPaginator } from '@/utils/adminPagination';
 
-const BOOKS_PER_PAGE = 30;
+const BOOKS_PER_PAGE = 20;
 const CURRENT_YEAR = new Date().getFullYear();
 
 function matchLookupId(list, text) {

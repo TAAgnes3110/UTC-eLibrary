@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import Quill from 'quill';
@@ -61,6 +61,8 @@ const thumbnailPreviewUrl = ref('');
 const uploadingInlineImage = ref(false);
 const quill = ref(null);
 const showThumbnailPreviewModal = ref(false);
+let rowsReloadDebounce = null;
+let rowsRequestSerial = 0;
 
 const hasSelection = computed(() => selectedIds.value.length > 0);
 const isAllSelected = computed(() => rows.value.length > 0 && selectedIds.value.length === rows.value.length);
@@ -85,6 +87,7 @@ function resetForm() {
 }
 
 async function loadRows(page = 1) {
+    const requestSerial = ++rowsRequestSerial;
     loading.value = true;
     try {
         const activeSearchIn = Object.entries(filters.value.searchIn)
@@ -99,6 +102,7 @@ async function loadRows(page = 1) {
             search_in: activeSearchIn.length > 0 ? activeSearchIn : undefined,
         });
         const { items, meta } = extractApiPaginator(payload, 15);
+        if (requestSerial !== rowsRequestSerial) return;
         rows.value = items;
         pagination.value = {
             current_page: Number(meta.current_page || 1),
@@ -108,10 +112,20 @@ async function loadRows(page = 1) {
         };
         selectedIds.value = selectedIds.value.filter((id) => items.some((r) => r.id === id));
     } catch (e) {
+        if (requestSerial !== rowsRequestSerial) return;
         toast.error(e?.response?.data?.messages || 'Không thể tải danh sách bài viết.');
     } finally {
-        loading.value = false;
+        if (requestSerial === rowsRequestSerial) {
+            loading.value = false;
+        }
     }
+}
+
+function scheduleRowsReload({ resetPage = false, delayMs = 180 } = {}) {
+    if (rowsReloadDebounce) clearTimeout(rowsReloadDebounce);
+    rowsReloadDebounce = setTimeout(() => {
+        loadRows(resetPage ? 1 : pagination.value.current_page || 1);
+    }, delayMs);
 }
 
 function openCreateForm() {
@@ -249,6 +263,24 @@ async function confirmDelete() {
 
 onMounted(async () => {
     await loadRows(1);
+});
+
+watch(() => filters.value.keyword, () => {
+    scheduleRowsReload({ resetPage: true, delayMs: 350 });
+});
+watch(() => filters.value.type, () => {
+    scheduleRowsReload({ resetPage: true, delayMs: 120 });
+});
+watch(() => filters.value.sort, () => {
+    scheduleRowsReload({ resetPage: true, delayMs: 120 });
+});
+watch(() => filters.value.searchIn, () => {
+    scheduleRowsReload({ resetPage: true, delayMs: 180 });
+}, { deep: true });
+
+onBeforeUnmount(() => {
+    if (rowsReloadDebounce) clearTimeout(rowsReloadDebounce);
+    rowsRequestSerial++;
 });
 
 function syncEditorFromForm() {
@@ -526,7 +558,7 @@ async function onInlineImageSelected(event) {
                 v-model="filters.keyword"
                 search-placeholder="Tìm theo tiêu đề hoặc nội dung..."
                 :show-filter-button="false"
-                @search="loadRows(1)"
+                @search="scheduleRowsReload({ resetPage: true, delayMs: 0 })"
             >
                 <template #filters>
                     <div class="flex w-full min-w-0 items-center gap-2.5 flex-wrap">
@@ -539,7 +571,7 @@ async function onInlineImageSelected(event) {
                         <select
                             v-model="filters.type"
                             class="admin-filter-select admin-filter-select-centered !h-10 !rounded-xl px-2.5 shadow-sm min-w-[132px] text-sm"
-                            @change="loadRows(1)"
+                            @change="scheduleRowsReload({ resetPage: true, delayMs: 0 })"
                         >
                             <option value="">Tất cả loại</option>
                             <option value="news">Tin tức</option>
@@ -548,7 +580,7 @@ async function onInlineImageSelected(event) {
                         <select
                             v-model="filters.sort"
                             class="admin-filter-select admin-filter-select-centered !h-10 !rounded-xl px-3 shadow-sm min-w-[120px] text-sm"
-                            @change="loadRows(1)"
+                            @change="scheduleRowsReload({ resetPage: true, delayMs: 0 })"
                         >
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>

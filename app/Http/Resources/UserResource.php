@@ -11,11 +11,8 @@ class UserResource extends JsonResource
     {
         $avatar = $this->avatar;
         if (! empty($avatar) && ! str_starts_with($avatar, 'http')) {
-            if (Storage::disk('public')->exists($avatar)) {
-                $avatar = asset(ltrim($avatar, '/'));
-            } else {
-                $avatar = null;
-            }
+            // Avoid per-row filesystem exists() checks in large admin tables.
+            $avatar = Storage::url($avatar);
         }
         $userType = $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type;
         $status = 'active';

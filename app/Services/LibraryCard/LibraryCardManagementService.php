@@ -42,11 +42,39 @@ class LibraryCardManagementService
         ?string $sortBy = null,
     ): LengthAwarePaginator {
         $query = LibraryCard::query()
+            ->select([
+                'id',
+                'user_id',
+                'card_number',
+                'holder_type',
+                'workflow_status',
+                'full_name',
+                'phone',
+                'email',
+                'address',
+                'date_of_birth',
+                'period_id',
+                'faculty_id',
+                'department_id',
+                'class_code',
+                'photo_path',
+                'external_organization',
+                'code',
+                'status',
+                'issue_date',
+                'expiry_date',
+                'revoked_at',
+                'revoked_reason',
+                'notes',
+                'created_at',
+                'params',
+            ])
             ->with([
+                'payment:library_card_id,payment_status,payment_amount,payment_method,receipt_number,paid_at,collected_by',
                 'payment.collector:id,name',
-                'period',
-                'faculty',
-                'department',
+                'period:id,code,name,start_year,end_year',
+                'faculty:id,code,name',
+                'department:id,code,name,faculty_id',
                 'user:id,name,email,code',
             ]);
 
@@ -166,11 +194,39 @@ class LibraryCardManagementService
     public function trash(int $perPage = self::PER_PAGE): LengthAwarePaginator
     {
         return LibraryCard::onlyTrashed()
+            ->select([
+                'id',
+                'user_id',
+                'card_number',
+                'holder_type',
+                'workflow_status',
+                'full_name',
+                'phone',
+                'email',
+                'address',
+                'date_of_birth',
+                'period_id',
+                'faculty_id',
+                'department_id',
+                'class_code',
+                'photo_path',
+                'external_organization',
+                'code',
+                'status',
+                'issue_date',
+                'expiry_date',
+                'revoked_at',
+                'revoked_reason',
+                'notes',
+                'created_at',
+                'params',
+            ])
             ->with([
+                'payment:library_card_id,payment_status,payment_amount,payment_method,receipt_number,paid_at,collected_by',
                 'payment.collector:id,name',
-                'period',
-                'faculty',
-                'department',
+                'period:id,code,name,start_year,end_year',
+                'faculty:id,code,name',
+                'department:id,code,name,faculty_id',
                 'user:id,name,email,code',
             ])
             ->orderByDesc('deleted_at')

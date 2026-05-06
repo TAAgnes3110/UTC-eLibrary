@@ -1,6 +1,5 @@
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue';
-import { router, useForm } from '@inertiajs/vue3';
-import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
+import { useForm } from '@inertiajs/vue3';
 import { fetchMasterDataPayload } from '@/api/masterData';
 import { usersApi } from '@/api/users';
 import { facultyDisplayLabel, periodDisplayLabel, matchFacultyId, matchPeriodId } from '@/utils/lookupMatch';
@@ -116,7 +115,8 @@ export function useUsersAdminPage(props) {
         if (!Number.isFinite(p) || p < 1 || p > last) {
             return;
         }
-        router.get(route('admin.users.index'), { page: p }, { preserveState: true, preserveScroll: true });
+        usersData.value = { ...(usersData.value ?? {}), current_page: p };
+        fetchUsers();
     };
 
     let usersReloadDebounce = null;
@@ -147,6 +147,8 @@ export function useUsersAdminPage(props) {
                 per_page: perPage,
                 keyword: filterValues.value.searchKeyword?.trim() || undefined,
                 search_in: buildSearchInParam(),
+                status: filterValues.value.status || undefined,
+                role_filter: buildRoleFilterParam(),
             });
             const { items, meta } = extractApiPaginator(payload, 20);
             if (requestSerial !== usersRequestSerial) return;
@@ -228,6 +230,15 @@ export function useUsersAdminPage(props) {
         return active.join(',');
     }
 
+    function buildRoleFilterParam() {
+        const rf = filterValues.value.roleFilter || {};
+        const checkedRoles = Object.entries(rf)
+            .filter(([, enabled]) => !!enabled)
+            .map(([role]) => String(role).trim())
+            .filter(Boolean);
+        return checkedRoles.length > 0 ? checkedRoles : undefined;
+    }
+
     const roleOptions = computed(() => {
         const roles = rolesData.value ?? props.roles;
         return roles?.length ? roles : [];
@@ -253,29 +264,7 @@ export function useUsersAdminPage(props) {
             .filter((o) => o.key),
     }));
 
-    const filteredUsers = computed(() => {
-        let result = usersList.value;
-        const kw = (filterValues.value.searchKeyword || '').trim().toLowerCase();
-        const sin = filterValues.value.searchIn || {};
-        if (kw) {
-            const anyChecked = Object.values(sin).some(Boolean);
-            if (anyChecked) {
-                result = result.filter((u) => {
-                    const m = [];
-                    if (sin.name) m.push((u.name || '').toLowerCase().includes(kw));
-                    if (sin.email) m.push((u.email || '').toLowerCase().includes(kw));
-                    if (sin.code) m.push((u.code || '').toLowerCase().includes(kw));
-                    if (sin.phone) m.push((u.phone || '').toLowerCase().includes(kw));
-                    return m.some(Boolean);
-                });
-            }
-        }
-        if (filterValues.value.status) result = result.filter((u) => u.status === filterValues.value.status);
-        const rf = filterValues.value.roleFilter || {};
-        const checkedRoles = Object.entries(rf).filter(([, v]) => v).map(([k]) => k);
-        if (checkedRoles.length) result = result.filter((u) => checkedRoles.includes(u.role));
-        return result;
-    });
+    const filteredUsers = computed(() => usersList.value);
 
     watch(
         () => filterValues.value.searchKeyword,
@@ -288,6 +277,19 @@ export function useUsersAdminPage(props) {
         () => filterValues.value.searchIn,
         () => {
             scheduleUsersReload({ resetPage: true, delayMs: 180 });
+        },
+        { deep: true },
+    );
+    watch(
+        () => filterValues.value.status,
+        () => {
+            scheduleUsersReload({ resetPage: true, delayMs: 120 });
+        },
+    );
+    watch(
+        () => filterValues.value.roleFilter,
+        () => {
+            scheduleUsersReload({ resetPage: true, delayMs: 150 });
         },
         { deep: true },
     );

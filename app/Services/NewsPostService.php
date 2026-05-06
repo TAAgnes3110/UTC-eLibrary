@@ -84,7 +84,20 @@ class NewsPostService
     public function paginate(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         $query = NewsPost::query()
-            ->with(['attachments', 'createdBy:id,name,email'])
+            ->select([
+                'id',
+                'slug',
+                'title',
+                'content',
+                'thumbnail_path',
+                'type',
+                'status',
+                'published_at',
+                'created_by',
+                'created_at',
+                'updated_at',
+            ])
+            ->with(['createdBy:id,name,email'])
             ->where('status', NewsPost::STATUS_ACTIVE);
 
         $type = trim((string) ($filters['type'] ?? ''));

@@ -24,20 +24,25 @@ class UserController extends Controller
      * Danh sách tài khoản người dùng.
      *
      * @param  Request  $request  Request chứa các tham số lọc:
-     *                            - keyword: từ khóa tìm kiếm (id, tên, mã số, email, số điện thoại)
-     *                            - type: 'reader' nếu chỉ lấy bạn đọc, bỏ trống để lấy tất cả
+     * - search_in: các cột tìm kiếm (id, tên, mã số, email, số điện thoại)
+     * - status: trạng thái hoạt động (active, blocked)
+     * - role_filter: các vai trò người dùng (admin, reader, staff)
      */
     public function index(Request $request): JsonResponse
     {
         $request->validate([
             'search_in' => ['nullable', 'string'],
+            'status' => ['nullable', 'string', 'in:active,blocked'],
+            'role_filter' => ['nullable'],
         ]);
         $keyword = $request->input('keyword');
         $typeReader = $request->input('type') === 'reader';
         $perPage = (int) $request->input('per_page', 50);
         $perPage = $perPage < 1 ? 50 : min($perPage, 100);
         $searchColumns = $this->parseSearchInFilter($request);
-        $items = $this->userService->index($keyword, $typeReader, $perPage, $searchColumns);
+        $status = $request->input('status');
+        $roleFilter = $this->parseRoleFilter($request);
+        $items = $this->userService->index($keyword, $typeReader, $perPage, $searchColumns, $status, $roleFilter);
 
         return ApiResponse::success(UserResource::collection($items));
     }
@@ -58,6 +63,23 @@ class UserController extends Controller
         $filtered = array_values(array_intersect($candidates, $allowed));
 
         return $filtered === [] ? null : $filtered;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function parseRoleFilter(Request $request): ?array
+    {
+        if (! $request->filled('role_filter')) {
+            return null;
+        }
+        $raw = $request->input('role_filter');
+        $candidates = is_array($raw)
+            ? $raw
+            : array_map('trim', explode(',', (string) $raw));
+        $roles = array_values(array_filter($candidates, static fn ($v): bool => is_string($v) && $v !== ''));
+
+        return $roles === [] ? null : $roles;
     }
 
     /**

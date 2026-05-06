@@ -21,6 +21,7 @@ const FIELD_MAP = {
     external_organization: 'external_organization',
     notes: 'notes',
 };
+const LIBRARY_CARDS_PER_PAGE = 20;
 
 /**
  * @param {object} props — faculties, periods từ Inertia
@@ -82,7 +83,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         loadingFallback.value = true;
         try {
             const params = {
-                per_page: 50,
+                per_page: LIBRARY_CARDS_PER_PAGE,
                 page: pageNum.value,
                 keyword: filterValues.value.searchKeyword?.trim() || undefined,
             };
@@ -118,7 +119,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 params,
             });
             const payload = response?.data;
-            const { items, meta: m } = extractApiPaginator(payload, 50);
+            const { items, meta: m } = extractApiPaginator(payload, LIBRARY_CARDS_PER_PAGE);
             if (requestSerial !== cardsRequestSerial) return;
             cards.value = items;
             meta.value = {

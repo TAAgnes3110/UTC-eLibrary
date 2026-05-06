@@ -25,43 +25,50 @@ const pageItems = computed(() =>
     }),
 );
 
+const safeCurrentPage = computed(() => Math.max(1, Number(props.currentPage) || 1));
+const safeLastPage = computed(() => Math.max(1, Number(props.lastPage) || 1));
+const isFirstPage = computed(() => safeCurrentPage.value <= 1);
+const isLastPage = computed(() => safeCurrentPage.value >= safeLastPage.value);
+
 function go(p) {
     if (props.disabled) return;
     const n = Number(p);
-    if (!Number.isFinite(n) || n < 1 || n > props.lastPage) return;
+    if (!Number.isFinite(n) || n < 1 || n > safeLastPage.value) return;
     emit('go-page', n);
 }
 
-const show = computed(() => props.alwaysShow || props.lastPage > 1);
+const show = computed(() => props.alwaysShow || safeLastPage.value > 1);
 </script>
 
 <template>
     <div
         v-if="show"
-        class="flex items-center justify-center gap-1 sm:gap-2 flex-wrap pt-2"
+        class="flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-2"
         role="navigation"
         aria-label="Phân trang"
     >
-        <button
-            type="button"
-            class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-2 sm:px-3 disabled:opacity-50 disabled:pointer-events-none shrink-0"
-            title="Về trang 1"
-            aria-label="Về trang đầu (trang 1)"
-            :disabled="disabled || currentPage <= 1"
-            @click="go(1)"
-        >
-            Đầu
-        </button>
-        <button
-            type="button"
-            class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-3 sm:px-4 disabled:opacity-50 disabled:pointer-events-none shrink-0"
-            :disabled="disabled || currentPage <= 1"
-            @click="go(currentPage - 1)"
-        >
-            Trước
-        </button>
+        <div class="flex items-center gap-1.5 sm:gap-2 order-1">
+            <button
+                type="button"
+                class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-2 sm:px-3 disabled:opacity-50 disabled:pointer-events-none shrink-0"
+                title="Về trang 1"
+                aria-label="Về trang đầu (trang 1)"
+                :disabled="disabled || isFirstPage"
+                @click="go(1)"
+            >
+                Đầu
+            </button>
+            <button
+                type="button"
+                class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-3 sm:px-4 disabled:opacity-50 disabled:pointer-events-none shrink-0"
+                :disabled="disabled || isFirstPage"
+                @click="go(safeCurrentPage - 1)"
+            >
+                Trước
+            </button>
+        </div>
 
-        <div class="flex items-center justify-center gap-1 flex-wrap">
+        <div class="flex items-center justify-center gap-1 flex-wrap order-2">
             <template v-for="(item, idx) in pageItems" :key="item.type === 'page' ? `p-${item.value}` : `e-${idx}`">
                 <span
                     v-if="item.type === 'ellipsis'"
@@ -75,40 +82,41 @@ const show = computed(() => props.alwaysShow || props.lastPage > 1);
                     type="button"
                     class="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none shrink-0 px-2"
                     :class="
-                        item.value === currentPage
+                        item.value === safeCurrentPage
                             ? 'bg-primary text-primary-foreground shadow-sm'
                             : 'admin-filter-btn !min-h-[44px] !min-w-[44px]'
                     "
-                    :aria-current="item.value === currentPage ? 'page' : undefined"
-                    :disabled="disabled"
+                    :aria-current="item.value === safeCurrentPage ? 'page' : undefined"
+                    :disabled="disabled || item.value === safeCurrentPage"
                     @click="go(item.value)"
                 >
                     {{ item.value }}
                 </button>
             </template>
         </div>
+        <div class="flex items-center gap-1.5 sm:gap-2 order-3">
+            <button
+                type="button"
+                class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-3 sm:px-4 disabled:opacity-50 disabled:pointer-events-none shrink-0"
+                :disabled="disabled || isLastPage"
+                @click="go(safeCurrentPage + 1)"
+            >
+                Sau
+            </button>
+            <button
+                type="button"
+                class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-2 sm:px-3 disabled:opacity-50 disabled:pointer-events-none shrink-0"
+                title="Về trang cuối"
+                :aria-label="`Về trang cuối (trang ${safeLastPage})`"
+                :disabled="disabled || isLastPage"
+                @click="go(safeLastPage)"
+            >
+                Cuối
+            </button>
+        </div>
 
-        <button
-            type="button"
-            class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-3 sm:px-4 disabled:opacity-50 disabled:pointer-events-none shrink-0"
-            :disabled="disabled || currentPage >= lastPage"
-            @click="go(currentPage + 1)"
-        >
-            Sau
-        </button>
-        <button
-            type="button"
-            class="admin-filter-btn min-h-[44px] min-w-[44px] !h-auto py-2.5 px-2 sm:px-3 disabled:opacity-50 disabled:pointer-events-none shrink-0"
-            title="Về trang cuối"
-            :aria-label="`Về trang cuối (trang ${lastPage})`"
-            :disabled="disabled || currentPage >= lastPage"
-            @click="go(lastPage)"
-        >
-            Cuối
-        </button>
-
-        <span class="w-full sm:w-auto text-center sm:text-left text-xs text-slate-500 dark:text-slate-400 basis-full sm:basis-auto mt-1 sm:mt-0 sm:ml-2">
-            Trang {{ currentPage }} / {{ lastPage }}
+        <span class="order-4 w-full text-center text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Trang {{ safeCurrentPage }} / {{ safeLastPage }}
         </span>
     </div>
 </template>

@@ -11,8 +11,10 @@ class UserResource extends JsonResource
     {
         $avatar = $this->avatar;
         if (! empty($avatar) && ! str_starts_with($avatar, 'http')) {
-            // Avoid per-row filesystem exists() checks in large admin tables.
-            $avatar = Storage::url($avatar);
+            // Backward-compatible with legacy avatar paths saved under public/avatars.
+            $avatar = str_starts_with($avatar, 'avatars/')
+                ? asset(ltrim($avatar, '/'))
+                : Storage::url($avatar);
         }
         $userType = $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type;
         $status = 'active';

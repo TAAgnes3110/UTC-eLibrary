@@ -32,7 +32,7 @@ class NewsPostController extends Controller
         $items = $this->newsPostService->paginate($validated, $perPage);
 
         return ApiResponse::success([
-            'data' => array_map(fn (NewsPost $post): array => $this->mapPost($post), $items->items()),
+            'data' => array_map(fn (NewsPost $post): array => $this->mapPost($post, false), $items->items()),
             'meta' => [
                 'current_page' => $items->currentPage(),
                 'last_page' => $items->lastPage(),
@@ -59,7 +59,7 @@ class NewsPostController extends Controller
         $items = $this->newsPostService->paginatePublicPublished($validated, $perPage);
 
         return ApiResponse::success([
-            'data' => array_map(fn (NewsPost $post): array => $this->mapPost($post), $items->items()),
+            'data' => array_map(fn (NewsPost $post): array => $this->mapPost($post, false), $items->items()),
             'meta' => [
                 'current_page' => $items->currentPage(),
                 'last_page' => $items->lastPage(),
@@ -137,8 +137,19 @@ class NewsPostController extends Controller
         ]);
     }
 
-    private function mapPost(NewsPost $post): array
+    private function mapPost(NewsPost $post, bool $includeAttachments = true): array
     {
+        $attachments = [];
+        if ($includeAttachments && $post->relationLoaded('attachments')) {
+            $attachments = $post->attachments->map(fn ($attachment): array => [
+                'id' => $attachment->id,
+                'original_name' => $attachment->original_name,
+                'mime' => $attachment->mime,
+                'byte_size' => $attachment->byte_size,
+                'file_path' => $attachment->file_path,
+            ])->values()->all();
+        }
+
         return [
             'id' => $post->id,
             'slug' => $post->slug,
@@ -156,13 +167,7 @@ class NewsPostController extends Controller
                 'name' => $post->createdBy->name,
                 'email' => $post->createdBy->email,
             ] : null,
-            'attachments' => $post->attachments->map(fn ($attachment): array => [
-                'id' => $attachment->id,
-                'original_name' => $attachment->original_name,
-                'mime' => $attachment->mime,
-                'byte_size' => $attachment->byte_size,
-                'file_path' => $attachment->file_path,
-            ])->values()->all(),
+            'attachments' => $attachments,
         ];
     }
 }

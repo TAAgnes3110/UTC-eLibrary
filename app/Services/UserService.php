@@ -42,17 +42,42 @@ class UserService
         ?string $keyword,
         bool $typeReader = false,
         int $perPage = self::PER_PAGE,
-        ?array $keywordColumns = null
+        ?array $keywordColumns = null,
+        ?string $status = null,
+        ?array $roleFilter = null
     ): LengthAwarePaginator {
         $query = User::query()
-            ->with(['faculty:id,code,name', 'department:id,name,faculty_id', 'period:id,code,name'])
+            ->select([
+                'id',
+                'code',
+                'name',
+                'email',
+                'phone',
+                'user_type',
+                'avatar',
+                'faculty_id',
+                'period_id',
+                'class_code',
+                'is_active',
+                'created_at',
+                'updated_at',
+            ])
             ->when($typeReader, fn ($q) => $q->whereIn('user_type', RoleType::readerTypes()))
+            ->when($status === 'active', fn ($q) => $q->where('is_active', true))
+            ->when($status === 'blocked', fn ($q) => $q->where('is_active', false))
+            ->when(
+                is_array($roleFilter) && $roleFilter !== [],
+                fn ($q) => $q->whereIn('user_type', $roleFilter)
+            )
             ->when($keyword !== null && $keyword !== '', function ($q) use ($keyword, $keywordColumns) {
+                $keyword = trim($keyword);
                 $effectiveColumns = ! empty($keywordColumns)
                     ? $keywordColumns
                     : ['name', 'email', 'code', 'phone'];
+                $onlyCodePhone = array_values(array_diff($effectiveColumns, ['code', 'phone'])) === [];
+                $canUsePrefixSearch = $onlyCodePhone && ! str_contains($keyword, ' ');
 
-                $q->where(function ($sub) use ($keyword, $effectiveColumns) {
+                $q->where(function ($sub) use ($keyword, $effectiveColumns, $canUsePrefixSearch) {
                     $applied = false;
                     if (in_array('name', $effectiveColumns, true)) {
                         $sub->where('name', 'like', "%{$keyword}%");
@@ -65,16 +90,24 @@ class UserService
                     }
                     if (in_array('code', $effectiveColumns, true)) {
                         $method = $applied ? 'orWhere' : 'where';
-                        $sub->{$method}('code', 'like', "%{$keyword}%");
+                        if ($canUsePrefixSearch) {
+                            $sub->{$method}('code', 'like', "{$keyword}%");
+                        } else {
+                            $sub->{$method}('code', 'like', "%{$keyword}%");
+                        }
                         $applied = true;
                     }
                     if (in_array('phone', $effectiveColumns, true)) {
                         $method = $applied ? 'orWhere' : 'where';
-                        $sub->{$method}('phone', 'like', "%{$keyword}%");
+                        if ($canUsePrefixSearch) {
+                            $sub->{$method}('phone', 'like', "{$keyword}%");
+                        } else {
+                            $sub->{$method}('phone', 'like', "%{$keyword}%");
+                        }
                     }
                 });
             })
-            ->orderByDesc('name');
+            ->orderByDesc('id');
 
         return $query->paginate($perPage)->withQueryString();
     }

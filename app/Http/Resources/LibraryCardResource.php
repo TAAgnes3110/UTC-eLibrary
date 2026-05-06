@@ -18,9 +18,8 @@ class LibraryCardResource extends JsonResource
         $photoPath = $this->photo_path;
         $photoUrl = null;
         if (! empty($photoPath) && ! str_starts_with((string) $photoPath, 'http')) {
-            if (Storage::disk('public')->exists($photoPath)) {
-                $photoUrl = asset(ltrim((string) $photoPath, '/'));
-            }
+            // Avoid per-row filesystem exists() checks in list APIs.
+            $photoUrl = Storage::url((string) $photoPath);
         } elseif (! empty($photoPath) && str_starts_with((string) $photoPath, 'http')) {
             $photoUrl = $photoPath;
         }

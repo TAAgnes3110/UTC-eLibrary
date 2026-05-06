@@ -316,13 +316,13 @@ onMounted(() => {
                             :show="showFilterPanel"
                             @update:show="showFilterPanel = $event"
                         />
-                        <select v-model="filters.status" class="admin-filter-select admin-filter-select-centered min-w-[148px]">
+                        <select v-model="filters.status" class="admin-filter-select admin-filter-select-centered min-w-0 w-full sm:w-auto sm:min-w-[148px]">
                             <option value="">Trạng thái</option>
                             <option value="da_muon">Đang mượn</option>
                             <option value="da_tra">Đã trả</option>
                             <option value="qua_han">Quá hạn</option>
                         </select>
-                        <select v-model="filters.sort" class="admin-filter-select admin-filter-select-centered min-w-[188px]">
+                        <select v-model="filters.sort" class="admin-filter-select admin-filter-select-centered min-w-0 w-full sm:w-auto sm:min-w-[188px]">
                             <option value="">Sắp xếp</option>
                             <option value="newest">Mới nhất</option>
                             <option value="oldest">Cũ nhất</option>

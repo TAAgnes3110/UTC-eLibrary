@@ -37,6 +37,11 @@ class AppServiceProvider extends ServiceProvider
             URL::forceScheme('https');
         }
 
+        // Production/staging: không đọc public/hot — tránh nhầm upload hot file → HTML trỏ [::1]:5173 + CORS.
+        if (! $this->app->environment('local')) {
+            Vite::useHotFile(storage_path('framework/vite-remote-no-hmr'));
+        }
+
         // @intelephense-ignore-next-line
         Inertia::share('auth', function () {
             $user = request()->user();

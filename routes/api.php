@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\Loan\MeLoanController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\LoanPoliciesController;
 use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\NewsPostController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProfileController;
@@ -70,6 +71,8 @@ Route::get('health', function () {
 
 Route::prefix('v1')->group(function () {
     Route::get('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'publicIndex']);
+    Route::get('news-posts/public', [NewsPostController::class, 'publicIndex']);
+    Route::get('news-posts/{slug}', [NewsPostController::class, 'publicShow'])->where('slug', '^[a-z0-9]+(?:-[a-z0-9]+)*$');
 
     Route::middleware(['throttle:auth'])->group(function () {
         Route::group(['prefix' => 'auth'], function () {
@@ -240,6 +243,10 @@ Route::prefix('v1')->group(function () {
                 Route::put('/{publisher}', [PublisherController::class, 'update']);
                 Route::delete('/{publisher}', [PublisherController::class, 'destroy']);
             });
+
+            Route::apiResource('news-posts', NewsPostController::class)->except(['show']);
+            Route::get('news-posts/id/{newsPost}', [NewsPostController::class, 'show']);
+            Route::post('news-posts/upload-content-image', [NewsPostController::class, 'uploadContentImage']);
 
             Route::group(['prefix' => 'library-cards'], function () {
                 Route::get('export', [LibraryCardController::class, 'export']);

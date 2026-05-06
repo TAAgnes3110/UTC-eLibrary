@@ -14,8 +14,8 @@ const tiles = [
     },
     {
         key: 'digital-documents',
-        title: 'Tài liệu số',
-        description: 'Tải lên tài liệu PDF, theo dõi trạng thái duyệt và xem trực tiếp trên web.',
+        title: 'Nộp đồ án, luận văn',
+        description: 'Tải lên đồ án hoặc luận văn PDF, theo dõi trạng thái duyệt và xem trực tiếp trên web.',
         route: 'reader.services.digital-documents',
         icon: 'lucide:file-text',
         iconClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
@@ -47,10 +47,10 @@ const tiles = [
                     />
                     <div class="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                         <div class="min-w-0 max-w-3xl">
-                            <h1 class="text-3xl font-black leading-tight tracking-tight sm:text-4xl">
+                            <h1 class="text-2xl font-black leading-tight tracking-tight sm:text-4xl">
                                 Dịch vụ thư viện
                             </h1>
-                            <p class="mt-3 max-w-2xl text-sm leading-relaxed text-blue-100/95 sm:text-base">
+                            <p class="mt-3 max-w-2xl text-xs leading-relaxed text-blue-100/95 sm:text-base">
                                 Chọn nhóm dịch vụ để thao tác nhanh theo từng nghiệp vụ, tách riêng giống luồng quản trị.
                             </p>
                         </div>

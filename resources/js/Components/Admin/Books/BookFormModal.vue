@@ -95,8 +95,8 @@ function removeCreateDigitalFile() {
                     <h3 class="text-base font-bold text-slate-900 dark:text-white">
                         {{
                             isEditing
-                                ? (isDigitalPage ? 'Chỉnh sửa tài liệu số' : 'Chỉnh sửa sách')
-                                : (isDigitalPage ? 'Thêm tài liệu số mới' : 'Thêm sách mới')
+                                ? (isDigitalPage ? 'Chỉnh sửa đồ án, luận văn' : 'Chỉnh sửa sách')
+                                : (isDigitalPage ? 'Thêm đồ án, luận văn mới' : 'Thêm sách mới')
                         }}
                     </h3>
                     <button
@@ -136,13 +136,13 @@ function removeCreateDigitalFile() {
                     </div>
                     <div class="space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Tên sách <span class="text-rose-500">*</span>
+                            {{ isDigitalPage ? 'Tên đồ án/luận văn' : 'Tên sách' }} <span class="text-rose-500">*</span>
                         </label>
                         <Input
                             v-model="form.title"
                             class="h-10 rounded-lg dark:bg-slate-800"
                             :class="errClass('title')"
-                            placeholder="Nhập tên sách"
+                            :placeholder="isDigitalPage ? 'Nhập tên đồ án hoặc luận văn' : 'Nhập tên sách'"
                             @update:model-value="clearFieldError('title')"
                         />
                         <p v-if="fieldErrors.title" class="text-xs text-red-500 font-medium">{{ fieldErrors.title }}</p>
@@ -162,7 +162,7 @@ function removeCreateDigitalFile() {
                         <datalist id="book-resource-type-options">
                             <option value="Sách giáo trình" />
                             <option value="Sách tham khảo" />
-                            <option value="Tài liệu số" />
+                            <option value="Đồ án, luận văn" />
                         </datalist>
                         <p v-if="fieldErrors.resource_type" class="text-xs text-red-500 font-medium">
                             {{ fieldErrors.resource_type }}
@@ -351,7 +351,9 @@ function removeCreateDigitalFile() {
                         <p v-if="fieldErrors.quantity" class="text-xs text-red-500 font-medium">{{ fieldErrors.quantity }}</p>
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">
-                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Avatar sách (tùy chọn)</label>
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            {{ isDigitalPage ? 'Ảnh minh họa (tùy chọn)' : 'Avatar sách (tùy chọn)' }}
+                        </label>
                         <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-3 bg-slate-50/60 dark:bg-slate-800/40">
                             <div class="flex flex-wrap items-center gap-2">
                                 <input
@@ -379,7 +381,7 @@ function removeCreateDigitalFile() {
                     </div>
                     <div v-if="isDigitalPage" class="sm:col-span-2 space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                            File đính kèm (PDF) <span class="text-rose-500">*</span>
+                            Tệp đồ án/luận văn (PDF) <span class="text-rose-500">*</span>
                         </label>
                         <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-3 bg-slate-50/60 dark:bg-slate-800/40">
                             <div class="flex flex-wrap items-center gap-2">
@@ -412,7 +414,7 @@ function removeCreateDigitalFile() {
                             rows="3"
                             class="w-full rounded-lg border bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-white px-3 py-2 resize-y"
                             :class="errClass('description')"
-                            placeholder="Nhập mô tả ngắn về nội dung sách"
+                            :placeholder="isDigitalPage ? 'Nhập mô tả ngắn về đồ án/luận văn' : 'Nhập mô tả ngắn về nội dung sách'"
                             @input="clearFieldError('description')"
                         />
                         <p v-if="fieldErrors.description" class="text-xs text-red-500 font-medium">{{ fieldErrors.description }}</p>

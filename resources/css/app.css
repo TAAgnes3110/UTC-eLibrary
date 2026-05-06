@@ -139,8 +139,37 @@
     @apply dark:bg-slate-900 dark:border-slate-800;
   }
 
+  /** Hàng lọc full width, thanh tìm kiếm hàng dưới (độc giả / viewport hẹp). */
+  .admin-filter-bar--stack {
+    @apply flex-col items-stretch gap-3;
+  }
+
+  .admin-filter-bar--stack .admin-filter-slot-wrap {
+    @apply w-full max-w-full;
+  }
+
+  .admin-filter-bar--stack .admin-filter-slot-wrap--grow {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-filter-bar--stack .admin-search-group {
+    @apply ml-0 w-full max-w-none flex-nowrap;
+    flex: none;
+  }
+
+  .admin-filter-bar--stack .admin-search-input-wrap {
+    @apply min-w-0 flex-1;
+  }
+
   .admin-filter-slot-wrap {
     @apply flex flex-wrap items-center gap-2.5 min-w-0;
+  }
+
+  /** Khi cần căn phải một nhóm điều khiển trong slot #filters (vd. lọc ngày). */
+  .admin-filter-slot-wrap--grow {
+    @apply flex-1 min-w-0;
   }
 
   .admin-filter-btn {

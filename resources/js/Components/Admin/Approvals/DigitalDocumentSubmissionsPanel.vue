@@ -78,7 +78,7 @@ async function loadRows() {
     } catch (e) {
         rows.value = [];
         selectedIds.value = [];
-        toast.error(e?.response?.data?.messages || 'Không tải được danh sách yêu cầu.', { title: 'Tài liệu số' });
+        toast.error(e?.response?.data?.messages || 'Không tải được danh sách yêu cầu.', { title: 'Đồ án, luận văn' });
     } finally {
         loading.value = false;
     }
@@ -202,7 +202,7 @@ function openRejectBulk() {
         return r?.status === 'pending';
     });
     if (!pendingSelected.length) {
-        toast.warn('Chỉ có thể từ chối các yêu cầu đang chờ duyệt.', { title: 'Tài liệu số' });
+        toast.warn('Chỉ có thể từ chối các yêu cầu đang chờ duyệt.', { title: 'Đồ án, luận văn' });
         return;
     }
     rejectBulk.value = true;
@@ -233,8 +233,8 @@ async function confirmReject() {
                     fail += 1;
                 }
             }
-            if (ok) toast.success(`Đã từ chối ${ok} yêu cầu.${fail ? ` ${fail} lỗi.` : ''}`, { title: 'Tài liệu số' });
-            else if (fail) toast.error('Không từ chối được yêu cầu nào.', { title: 'Tài liệu số' });
+            if (ok) toast.success(`Đã từ chối ${ok} yêu cầu.${fail ? ` ${fail} lỗi.` : ''}`, { title: 'Đồ án, luận văn' });
+            else if (fail) toast.error('Không từ chối được yêu cầu nào.', { title: 'Đồ án, luận văn' });
             clearSelection();
             closeReject();
             await loadRows();
@@ -243,11 +243,11 @@ async function confirmReject() {
 
         actionSubmissionId.value = rejectRow.value.id;
         await digitalDocumentsApi.reject(rejectRow.value.id, { review_note: note });
-        toast.success('Đã từ chối yêu cầu.', { title: 'Tài liệu số' });
+        toast.success('Đã từ chối yêu cầu.', { title: 'Đồ án, luận văn' });
         closeReject();
         await loadRows();
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không từ chối được yêu cầu.', { title: 'Tài liệu số' });
+        toast.error(e?.response?.data?.messages || 'Không từ chối được yêu cầu.', { title: 'Đồ án, luận văn' });
     } finally {
         rejectSubmitting.value = false;
         actionSubmissionId.value = null;
@@ -259,12 +259,12 @@ async function approveRow(row) {
     actionSubmissionId.value = row.id;
     try {
         await digitalDocumentsApi.approve(row.id, {});
-        toast.success('Đã duyệt và tạo bản ghi tài liệu số.', { title: 'Tài liệu số' });
+        toast.success('Đã duyệt và tạo bản ghi đồ án, luận văn.', { title: 'Đồ án, luận văn' });
         detailRow.value = null;
         selectedIds.value = selectedIds.value.filter((x) => x !== row.id);
         await loadRows();
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không duyệt được yêu cầu.', { title: 'Tài liệu số' });
+        toast.error(e?.response?.data?.messages || 'Không duyệt được yêu cầu.', { title: 'Đồ án, luận văn' });
     } finally {
         actionSubmissionId.value = null;
     }
@@ -276,7 +276,7 @@ async function approveSelected() {
         return r?.status === 'pending';
     });
     if (!ids.length) {
-        toast.warn('Chọn ít nhất một yêu cầu đang chờ duyệt.', { title: 'Tài liệu số' });
+        toast.warn('Chọn ít nhất một yêu cầu đang chờ duyệt.', { title: 'Đồ án, luận văn' });
         return;
     }
     let ok = 0;
@@ -289,8 +289,8 @@ async function approveSelected() {
             fail += 1;
         }
     }
-    if (ok) toast.success(`Đã duyệt ${ok} yêu cầu.${fail ? ` ${fail} lỗi.` : ''}`, { title: 'Tài liệu số' });
-    else toast.error('Không duyệt được yêu cầu nào.', { title: 'Tài liệu số' });
+    if (ok) toast.success(`Đã duyệt ${ok} yêu cầu.${fail ? ` ${fail} lỗi.` : ''}`, { title: 'Đồ án, luận văn' });
+    else toast.error('Không duyệt được yêu cầu nào.', { title: 'Đồ án, luận văn' });
     clearSelection();
     detailRow.value = null;
     await loadRows();
@@ -313,7 +313,7 @@ function submitterLabel(row) {
             <div>
                 <h3 class="text-sm font-bold text-gray-800 dark:text-white">Duyệt tài liệu số</h3>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-3xl">
-                    Độc giả gửi PDF (có thể kèm ảnh bìa). Sau khi duyệt, hệ thống tạo đầu mục trong danh mục « Tài liệu số ».
+                    Độc giả gửi PDF (có thể kèm ảnh bìa). Sau khi duyệt, hệ thống tạo đầu mục trong danh mục « Đồ án, luận văn ».
                 </p>
             </div>
             <button

@@ -9,6 +9,7 @@ use App\Http\Controllers\Frontend\Admin\LibraryCardPageController;
 use App\Http\Controllers\Frontend\Admin\LibraryClassificationPageController;
 use App\Http\Controllers\Frontend\Admin\LibrarySettingsPageController;
 use App\Http\Controllers\Frontend\Admin\LoanPageController;
+use App\Http\Controllers\Frontend\Admin\NewsPageController;
 use App\Http\Controllers\Frontend\Admin\ProfileController;
 use App\Http\Controllers\Frontend\Admin\UserController;
 use App\Http\Controllers\Frontend\Admin\WarehousePageController;
@@ -32,6 +33,8 @@ Route::prefix('quy-dinh')->group(function () {
 });
 Route::get('/tra-cuu-sach', [ReaderPageController::class, 'catalog'])->name('reader.catalog');
 Route::get('/tra-cuu-sach/{book}', [ReaderPageController::class, 'catalogShow'])->name('reader.catalog.show');
+Route::get('/tin-tuc', [ReaderPageController::class, 'newsIndex'])->name('reader.news.index');
+Route::get('/tin-tuc/{slug}', [ReaderPageController::class, 'newsShow'])->name('reader.news.show');
 Route::get('/dich-vu', [ReaderPageController::class, 'services'])->name('reader.services');
 Route::prefix('dich-vu')->name('reader.services.')->group(function () {
     Route::get('/cap-the-thu-vien', [ReaderPageController::class, 'servicesLibraryCard'])->name('library-card');
@@ -85,6 +88,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/digital/submissions', [BookPageController::class, 'digitalSubmissions'])->name('books.digital-submissions');
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
+        Route::get('/news-posts', [NewsPageController::class, 'index'])->name('news-posts.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
         Route::get('/warehouses/storage', [WarehousePageController::class, 'storage'])->name('warehouses.storage');
         Route::get('/warehouses/storage-cabinets', [WarehousePageController::class, 'storageCabinets'])->name('warehouses.storage-cabinets');

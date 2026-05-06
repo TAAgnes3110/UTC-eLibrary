@@ -6,12 +6,20 @@ export const adminNavigation = [
         active: ['admin.books.*'],
         children: [
             { name: 'Sách in', href: 'admin.books.printed', active: ['admin.books.printed', 'admin.books.textbook', 'admin.books.reference'] },
-            { name: 'Tài liệu số', href: 'admin.books.digital', active: 'admin.books.digital' },
+            { name: 'Đồ án, luận văn', href: 'admin.books.digital', active: 'admin.books.digital' },
             {
-                name: 'Duyệt tài liệu số',
+                name: 'Duyệt đồ án, luận văn',
                 href: 'admin.books.digital-submissions',
                 active: 'admin.books.digital-submissions',
             },
+        ],
+    },
+    {
+        name: 'Tin tức & thông báo',
+        icon: 'lucide:newspaper',
+        active: ['admin.news-posts.*'],
+        children: [
+            { name: 'Tin tức, thông báo', href: 'admin.news-posts.index', active: 'admin.news-posts.index' },
         ],
     },
     {

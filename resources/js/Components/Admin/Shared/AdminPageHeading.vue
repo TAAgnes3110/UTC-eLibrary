@@ -10,7 +10,7 @@ defineProps({
 <template>
     <div :class="$slots.description ? 'space-y-1' : undefined">
         <div class="flex items-center justify-between gap-2 flex-wrap">
-            <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">
+            <h2 class="text-sm sm:text-base font-bold text-gray-800 dark:text-white leading-8">
                 {{ title }}
             </h2>
             <div v-if="$slots.actions" class="flex items-center gap-2 flex-wrap justify-end">

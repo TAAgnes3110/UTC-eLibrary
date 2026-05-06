@@ -154,15 +154,23 @@ const importTitleByPageKind = {
     printed: 'Nhập sách in từ Excel',
     textbook: 'Nhập sách giáo trình từ Excel',
     reference: 'Nhập sách tham khảo từ Excel',
-    digital: 'Nhập tài liệu số từ Excel',
+    digital: 'Nhập đồ án, luận văn từ Excel',
 };
 
 const importDescriptionByPageKind = {
     printed: 'Tải file mẫu, điền danh sách sách in (giáo trình/tham khảo) rồi chọn file để nhập.',
     textbook: 'Tải file mẫu, điền danh sách sách giáo trình (một dòng một bản ghi), sau đó chọn file để nhập.',
     reference: 'Tải file mẫu, điền danh sách sách tham khảo (một dòng một bản ghi), sau đó chọn file để nhập.',
-    digital: 'Tải file mẫu, điền danh sách tài liệu số (một dòng một bản ghi), sau đó chọn file để nhập.',
+    digital: 'Tải file mẫu, điền danh sách đồ án/luận văn (một dòng một bản ghi), sau đó chọn file để nhập.',
 };
+
+const addLabel = computed(() => (pageKind.value === 'digital' ? 'Thêm đồ án, luận văn' : 'Thêm sách'));
+const updateFileLabel = computed(() => 'Cập nhật ảnh bìa');
+const searchPlaceholder = computed(() => (
+    pageKind.value === 'digital'
+        ? 'Mã tài liệu, tên đồ án/luận văn, tác giả, đơn vị...'
+        : 'Mã sách, tên sách, tác giả, NXB, nơi XB, năm XB...'
+));
 </script>
 
 <template>
@@ -187,10 +195,10 @@ const importDescriptionByPageKind = {
             <AdminImportExportBar
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.size"
-                update-file-label="Cập nhật ảnh bìa"
+                :update-file-label="updateFileLabel"
                 :show-update-file="true"
                 :show-import="pageKind !== 'digital'"
-                add-label="Thêm sách"
+                :add-label="addLabel"
                 @add="openAddModal"
                 @export-excel="exportExcel"
                 @import-excel="openImportModal"
@@ -201,7 +209,7 @@ const importDescriptionByPageKind = {
 
             <AdminFilterSearch
                 v-model="filterValues.searchKeyword"
-                search-placeholder="Mã sách, tên sách, tác giả, NXB, nơi XB, năm XB..."
+                :search-placeholder="searchPlaceholder"
                 :show-filter-button="false"
                 @search="searchBooks"
             >

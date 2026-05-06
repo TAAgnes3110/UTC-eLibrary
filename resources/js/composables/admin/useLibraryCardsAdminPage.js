@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, watch, reactive } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted, watch, reactive } from 'vue';
 import apiClient from '@/api/axios';
 import { libraryCardsApi } from '@/api/libraryCards';
 import { toast } from '@/store/toast';
@@ -51,7 +51,18 @@ export function useLibraryCardsAdminPage(props, options = {}) {
     });
 
     const showFilterPanel = ref(false);
-    let searchDebounce = null;
+    let cardsReloadDebounce = null;
+    let cardsRequestSerial = 0;
+
+    const scheduleCardsReload = ({ resetPage = false, delayMs = 180 } = {}) => {
+        if (resetPage) {
+            pageNum.value = 1;
+        }
+        if (cardsReloadDebounce) clearTimeout(cardsReloadDebounce);
+        cardsReloadDebounce = setTimeout(() => {
+            loadCards();
+        }, delayMs);
+    };
 
     function buildSearchInQueryParam() {
         const sin = filterValues.value.searchIn || {};
@@ -67,6 +78,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
     const periodsList = computed(() => props.periods ?? []);
 
     const loadCards = async () => {
+        const requestSerial = ++cardsRequestSerial;
         loadingFallback.value = true;
         try {
             const params = {
@@ -107,6 +119,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
             });
             const payload = response?.data;
             const { items, meta: m } = extractApiPaginator(payload, 50);
+            if (requestSerial !== cardsRequestSerial) return;
             cards.value = items;
             meta.value = {
                 current_page: m.current_page,
@@ -115,17 +128,19 @@ export function useLibraryCardsAdminPage(props, options = {}) {
             };
             pageNum.value = m.current_page;
         } catch (e) {
+            if (requestSerial !== cardsRequestSerial) return;
             console.error('loadCards', e);
             cards.value = [];
             toast.error('Không tải được danh sách thẻ.', { title: 'Lỗi' });
         } finally {
-            loadingFallback.value = false;
+            if (requestSerial === cardsRequestSerial) {
+                loadingFallback.value = false;
+            }
         }
     };
 
     function searchCards() {
-        pageNum.value = 1;
-        return loadCards();
+        scheduleCardsReload({ resetPage: true, delayMs: 0 });
     }
 
     onMounted(() => {
@@ -133,8 +148,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
     });
 
     const reloadListFilters = () => {
-        pageNum.value = 1;
-        loadCards();
+        scheduleCardsReload({ resetPage: true, delayMs: 150 });
     };
     watch(() => filterValues.value.holderType, reloadListFilters);
     watch(() => filterValues.value.searchIn, reloadListFilters, { deep: true });
@@ -145,13 +159,14 @@ export function useLibraryCardsAdminPage(props, options = {}) {
     watch(
         () => filterValues.value.searchKeyword,
         () => {
-            if (searchDebounce) clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(() => {
-                pageNum.value = 1;
-                loadCards();
-            }, 350);
+            scheduleCardsReload({ resetPage: true, delayMs: 350 });
         }
     );
+
+    onBeforeUnmount(() => {
+        if (cardsReloadDebounce) clearTimeout(cardsReloadDebounce);
+        cardsRequestSerial++;
+    });
 
     const selectedIds = ref([]);
     const hasSelection = computed(() => selectedIds.value.length > 0);
@@ -276,9 +291,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 await libraryCardsApi.remove(cardToDelete.value.id);
                 toast.success('Đã xóa mềm thẻ.', { title: 'Thành công' });
             } else {
-                for (const id of selectedIds.value) {
-                    await libraryCardsApi.remove(id);
-                }
+                await Promise.all(selectedIds.value.map((id) => libraryCardsApi.remove(id)));
                 toast.success(`Đã xóa ${selectedIds.value.length} thẻ.`, { title: 'Thành công' });
             }
             showDeleteModal.value = false;

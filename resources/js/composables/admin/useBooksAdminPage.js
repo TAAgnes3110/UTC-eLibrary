@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import apiClient from '@/api/axios';
 import { booksApi } from '@/api/books';
@@ -65,7 +65,7 @@ export const PRINT_TYPE_OPTIONS = [
 const RESOURCE_TYPE_OPTIONS = [
     { value: 'textbook', label: 'Sách giáo trình' },
     { value: 'reference', label: 'Sách tham khảo' },
-    { value: 'digital', label: 'Tài liệu số' },
+    { value: 'digital', label: 'Đồ án, luận văn' },
 ];
 
 function normalizeResourceTypeInput(rawValue) {
@@ -77,7 +77,15 @@ function normalizeResourceTypeInput(rawValue) {
 
     if (raw.includes('giao trinh') || raw.includes('giáo trình') || raw === 'textbook') return 'textbook';
     if (raw.includes('tham khao') || raw.includes('tham khảo') || raw === 'reference') return 'reference';
-    if (raw.includes('tai lieu so') || raw.includes('tài liệu số') || raw.includes('digital')) return 'digital';
+    if (
+        raw.includes('tai lieu so')
+        || raw.includes('tài liệu số')
+        || raw.includes('do an')
+        || raw.includes('đồ án')
+        || raw.includes('luan van')
+        || raw.includes('luận văn')
+        || raw.includes('digital')
+    ) return 'digital';
 
     return '';
 }
@@ -88,7 +96,7 @@ export function useBooksAdminPage() {
     const resourceTypeFilter = computed(() => page.props.resourceTypeFilter ?? '');
     const pageLabel = computed(() => {
         if (pageKind.value === 'printed') return 'Sách in';
-        if (pageKind.value === 'digital') return 'Tài liệu số';
+        if (pageKind.value === 'digital') return 'Đồ án, luận văn';
         return 'Sách in';
     });
 
@@ -104,9 +112,10 @@ export function useBooksAdminPage() {
     const saveBookLoading = ref(false);
 
     const classifications = ref([]);
-    let booksSearchDebounce = null;
+    let booksReloadDebounce = null;
     let identifiersPreviewDebounce = null;
     let storageSuggestionDebounce = null;
+    let loadBooksAbortController = null;
     let identifiersRequestSerial = 0;
     let storageSuggestionRequestSerial = 0;
     const selectedClassificationId = ref('');
@@ -161,6 +170,16 @@ export function useBooksAdminPage() {
     const searchBooks = () => {
         booksPageNum.value = 1;
         loadBooks();
+    };
+
+    const scheduleLoadBooks = ({ resetPage = false, delayMs = 220 } = {}) => {
+        if (resetPage) {
+            booksPageNum.value = 1;
+        }
+        if (booksReloadDebounce) clearTimeout(booksReloadDebounce);
+        booksReloadDebounce = setTimeout(() => {
+            loadBooks();
+        }, delayMs);
     };
 
     function setMatrixFilter({ classificationId }) {
@@ -362,6 +381,10 @@ export function useBooksAdminPage() {
     };
 
     const loadBooks = async () => {
+        if (loadBooksAbortController) {
+            loadBooksAbortController.abort();
+        }
+        loadBooksAbortController = new AbortController();
         loading.value = true;
         try {
             const effectiveResourceType = (() => {
@@ -373,6 +396,7 @@ export function useBooksAdminPage() {
                 return resourceTypeFilter.value || undefined;
             })();
             const response = await apiClient.get('/books', {
+                signal: loadBooksAbortController.signal,
                 params: {
                     per_page: BOOKS_PER_PAGE,
                     page: booksPageNum.value,
@@ -393,6 +417,9 @@ export function useBooksAdminPage() {
             };
             booksPageNum.value = meta.current_page;
         } catch (e) {
+            if (e?.name === 'CanceledError' || e?.code === 'ERR_CANCELED') {
+                return;
+            }
             // eslint-disable-next-line no-console
             console.error('Failed to load books', e);
             books.value = [];
@@ -403,6 +430,9 @@ export function useBooksAdminPage() {
                 total: 0,
             };
         } finally {
+            if (loadBooksAbortController?.signal?.aborted !== true) {
+                loadBooksAbortController = null;
+            }
             loading.value = false;
         }
     };
@@ -423,11 +453,20 @@ export function useBooksAdminPage() {
         await loadClassifications();
     });
 
+    onBeforeUnmount(() => {
+        if (booksReloadDebounce) clearTimeout(booksReloadDebounce);
+        if (identifiersPreviewDebounce) clearTimeout(identifiersPreviewDebounce);
+        if (storageSuggestionDebounce) clearTimeout(storageSuggestionDebounce);
+        if (loadBooksAbortController) {
+            loadBooksAbortController.abort();
+            loadBooksAbortController = null;
+        }
+    });
+
     watch(
         () => page.props.resourceTypeFilter ?? '',
         () => {
-            booksPageNum.value = 1;
-            loadBooks();
+            scheduleLoadBooks({ resetPage: true, delayMs: 120 });
         },
         { immediate: true },
     );
@@ -435,33 +474,26 @@ export function useBooksAdminPage() {
     watch(
         () => filterValues.value.searchKeyword,
         () => {
-            if (booksSearchDebounce) clearTimeout(booksSearchDebounce);
-            booksSearchDebounce = setTimeout(() => {
-                booksPageNum.value = 1;
-                loadBooks();
-            }, 350);
+            scheduleLoadBooks({ resetPage: true, delayMs: 350 });
         },
     );
     watch(
         () => filterValues.value.priceSort,
         () => {
-            booksPageNum.value = 1;
-            loadBooks();
+            scheduleLoadBooks({ resetPage: true, delayMs: 120 });
         },
     );
     watch(
         () => filterValues.value.printType,
         () => {
             if (pageKind.value !== 'printed') return;
-            booksPageNum.value = 1;
-            loadBooks();
+            scheduleLoadBooks({ resetPage: true, delayMs: 120 });
         },
     );
     watch(
         () => filterValues.value.searchIn,
         () => {
-            booksPageNum.value = 1;
-            loadBooks();
+            scheduleLoadBooks({ resetPage: true, delayMs: 180 });
         },
         { deep: true }
     );
@@ -680,7 +712,7 @@ export function useBooksAdminPage() {
         clearCreateCoverFile();
         clearCreateDigitalFile();
         if (pageKind.value === 'digital') {
-            form.value.resource_type = 'Tài liệu số';
+            form.value.resource_type = 'Đồ án, luận văn';
             form.value.quantity = 0;
             form.value.book_code = '';
             form.value.registration_number = '';
@@ -754,7 +786,7 @@ export function useBooksAdminPage() {
             cabinetName
         } = client;
         if (!isEditing.value && pageKind.value === 'digital' && !(createDigitalFile.value instanceof File)) {
-            setBookClientErrors({ general: 'Vui lòng đính kèm file PDF cho tài liệu số.' });
+            setBookClientErrors({ general: 'Vui lòng đính kèm file PDF cho đồ án/luận văn.' });
             toast.error(toastShort.fail);
             return;
         }
@@ -910,7 +942,7 @@ export function useBooksAdminPage() {
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = pageKind.value === 'digital' ? 'Danh_sach_tai_lieu_so.xlsx' : 'Danh_sach_sach_in.xlsx';
+            link.download = pageKind.value === 'digital' ? 'Danh_sach_do_an_luan_van.xlsx' : 'Danh_sach_sach_in.xlsx';
             document.body.appendChild(link);
             link.click();
             link.remove();

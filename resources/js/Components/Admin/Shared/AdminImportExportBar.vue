@@ -30,15 +30,15 @@ defineEmits(['add', 'export-excel', 'import-excel', 'update-file', 'delete-selec
 
 <template>
     <div class="flex flex-wrap items-center gap-2">
-        <button v-if="showAdd" type="button" @click="$emit('add')" class="btn-admin-green">
+        <button v-if="showAdd" type="button" @click="$emit('add')" class="btn-admin-green min-h-[44px] w-full sm:w-auto justify-center">
             <Icon :icon="ADMIN_ICONS.plus" class="w-3.5 h-3.5" />
             {{ addLabel }}
         </button>
-        <button v-if="showImport" type="button" @click="$emit('import-excel')" class="btn-admin-green">
+        <button v-if="showImport" type="button" @click="$emit('import-excel')" class="btn-admin-green min-h-[44px] w-full sm:w-auto justify-center">
             <Icon :icon="ADMIN_ICONS.fileUp" class="w-3.5 h-3.5" />
             Nhập excel
         </button>
-        <button v-if="showExport" type="button" @click="$emit('export-excel')" class="btn-admin-green">
+        <button v-if="showExport" type="button" @click="$emit('export-excel')" class="btn-admin-green min-h-[44px] w-full sm:w-auto justify-center">
             <Icon :icon="ADMIN_ICONS.fileDown" class="w-3.5 h-3.5" />
             Xuất excel
         </button>
@@ -46,14 +46,14 @@ defineEmits(['add', 'export-excel', 'import-excel', 'update-file', 'delete-selec
             v-if="showReturnSelected"
             type="button"
             :disabled="selectedCount === 0"
-            class="btn-admin-green disabled:opacity-45 disabled:pointer-events-none"
+            class="btn-admin-green min-h-[44px] w-full sm:w-auto justify-center disabled:opacity-45 disabled:pointer-events-none"
             @click="$emit('return-selected')"
         >
             <Icon :icon="ADMIN_ICONS.bookCheck" class="w-3.5 h-3.5" />
             Trả đã chọn<span v-if="selectedCount > 0">&nbsp;({{ selectedCount }})</span>
         </button>
         <slot name="extra" />
-        <button v-if="showUpdateFile" type="button" @click="$emit('update-file')" class="btn-admin-green">
+        <button v-if="showUpdateFile" type="button" @click="$emit('update-file')" class="btn-admin-green min-h-[44px] w-full sm:w-auto justify-center">
             <Icon :icon="ADMIN_ICONS.imagePlus" class="w-3.5 h-3.5" />
             {{ updateFileLabel }}
         </button>
@@ -63,7 +63,7 @@ defineEmits(['add', 'export-excel', 'import-excel', 'update-file', 'delete-selec
                 v-if="showDeleteSelected"
                 type="button"
                 @click="$emit('delete-selected')"
-                class="btn-admin-green"
+                class="btn-admin-green min-h-[44px] w-full sm:w-auto justify-center"
             >
                 <Icon :icon="ADMIN_ICONS.trash" class="w-3.5 h-3.5" />
                 Xóa

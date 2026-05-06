@@ -2,6 +2,7 @@
 export const readerNavItems = [
     { key: 'home', label: 'Trang chủ', route: 'reader.home' },
     { key: 'about', label: 'Giới thiệu', route: 'reader.about' },
+    { key: 'news', label: 'Tin tức', route: 'reader.news.index' },
     {
         key: 'regulations',
         label: 'Quy định',
@@ -19,7 +20,7 @@ export const readerNavItems = [
         route: 'reader.services',
         children: [
             { key: 'services_card', label: 'Thẻ thư viện', route: 'reader.services.library-card' },
-            { key: 'services_digital_documents', label: 'Tài liệu số', route: 'reader.services.digital-documents' },
+            { key: 'services_digital_documents', label: 'Nộp đồ án, luận văn', route: 'reader.services.digital-documents' },
             { key: 'services_loan', label: 'Quản lý phiếu mượn', route: 'reader.services.loan-requests' },
         ],
     },

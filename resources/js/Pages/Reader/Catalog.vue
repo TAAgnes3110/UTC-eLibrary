@@ -67,14 +67,24 @@ function buildQuery(pageOverride) {
 }
 
 function submitSearch() {
-    router.get(route('reader.catalog'), buildQuery(1), { preserveState: false, preserveScroll: false })
+    router.get(route('reader.catalog'), buildQuery(1), {
+        preserveState: false,
+        preserveScroll: false,
+        replace: true,
+        only: ['books', 'filters'],
+    })
 }
 
 function goPage(p) {
     if (p < 1) {
         return
     }
-    router.get(route('reader.catalog'), buildQuery(p), { preserveState: false, preserveScroll: true })
+    router.get(route('reader.catalog'), buildQuery(p), {
+        preserveState: false,
+        preserveScroll: true,
+        replace: true,
+        only: ['books', 'filters'],
+    })
 }
 </script>
 
@@ -93,7 +103,7 @@ function goPage(p) {
                 @submit.prevent="submitSearch"
             >
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-2">
-                    <div class="min-w-[200px] lg:max-w-xs">
+                    <div class="min-w-0 sm:min-w-[200px] lg:max-w-xs">
                         <label class="sr-only" for="catalog-resource-type">{{ C.filterResourceType }}</label>
                         <select
                             id="catalog-resource-type"
@@ -119,7 +129,7 @@ function goPage(p) {
                     </div>
                     <button
                         type="submit"
-                        class="inline-flex h-12 min-w-[120px] shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-900 px-5 text-sm font-bold text-white hover:bg-blue-800"
+                        class="inline-flex h-12 w-full min-w-0 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-900 px-5 text-sm font-bold text-white hover:bg-blue-800 sm:w-auto sm:min-w-[120px]"
                     >
                         <Icon icon="lucide:search" class="h-5 w-5 shrink-0" aria-hidden="true" />
                         {{ C.searchBtn }}

@@ -20,6 +20,19 @@ class LoanBorrowRequest extends BaseModel
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    /**
+     * @return list<string>
+     */
+    public static function statuses(): array
+    {
+        return [
+            self::STATUS_PENDING,
+            self::STATUS_APPROVED,
+            self::STATUS_REJECTED,
+            self::STATUS_CANCELLED,
+        ];
+    }
+
     protected $fillable = [
         'request_code',
         'library_card_id',

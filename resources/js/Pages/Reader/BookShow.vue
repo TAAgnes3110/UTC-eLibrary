@@ -311,7 +311,7 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
             <article
                 class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg dark:border-slate-700/80 dark:bg-slate-900"
             >
-                <div class="grid gap-8 p-5 sm:p-8 lg:grid-cols-[240px_1fr] lg:gap-10">
+                <div class="grid gap-6 p-4 sm:p-8 lg:grid-cols-[240px_1fr] lg:gap-10">
                     <div class="relative mx-auto w-full max-w-[240px] shrink-0">
                         <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
                             <img
@@ -328,7 +328,7 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                     </div>
 
                     <div class="min-w-0">
-                        <h1 class="text-2xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
+                        <h1 class="text-xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
                             {{ book.title }}
                         </h1>
                         <p v-if="book.sub_title" class="mt-2 text-base text-slate-600 dark:text-slate-300">

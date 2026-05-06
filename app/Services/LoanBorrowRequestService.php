@@ -106,8 +106,8 @@ class LoanBorrowRequestService
         if (! empty($filters['status'])) {
             $query->where('status', (string) $filters['status']);
         }
-        if (! empty($filters['search'])) {
-            $kw = trim((string) $filters['search']);
+        $kw = trim((string) ($filters['search'] ?? ''));
+        if ($kw !== '') {
             $searchIn = array_values(array_filter((array) ($filters['search_in'] ?? []), static fn ($v): bool => is_string($v) && $v !== ''));
             if ($searchIn === []) {
                 $searchIn = ['request_code', 'card', 'reader', 'book'];

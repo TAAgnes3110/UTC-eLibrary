@@ -212,6 +212,82 @@ class LoanBorrowRequestFlowTest extends TestCase
         ]);
     }
 
+    public function test_reader_can_create_onsite_request_without_requested_due_date(): void
+    {
+        [$book] = $this->seedBookWithStorageAndCopies(2);
+        [$reader, $readerToken] = $this->createUserAndToken([
+            'user_type' => RoleType::STUDENT,
+            'email' => 'reader-onsite@test.com',
+        ]);
+
+        LibraryCard::query()->create([
+            'card_number' => 'SV-BR-ONSITE',
+            'code' => 'SV-BR-ONSITE',
+            'holder_type' => LibraryCard::HOLDER_TYPE_STUDENT,
+            'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+            'status' => LibraryCardStatus::ACTIVE,
+            'full_name' => 'Ban doc onsite',
+            'user_id' => $reader->id,
+        ]);
+
+        $create = $this->postJson('/api/v1/me/loan-borrow-requests', [
+            'loan_type' => 'onsite',
+            'book_ids' => [$book->id],
+            'quantity' => [1],
+            'requested_loan_date' => now()->toDateString(),
+        ], $this->apiTokenHeaders($readerToken));
+
+        $create->assertStatus(201)->assertJsonPath('status', 'success');
+        $this->assertDatabaseHas('loan_borrow_requests', [
+            'id' => (int) $create->json('data.id'),
+            'loan_type' => 'onsite',
+            'status' => LoanBorrowRequest::STATUS_PENDING,
+        ]);
+    }
+
+    public function test_reader_index_filters_by_status_and_respects_per_page(): void
+    {
+        [$book] = $this->seedBookWithStorageAndCopies(3);
+        [$reader, $readerToken] = $this->createUserAndToken([
+            'user_type' => RoleType::STUDENT,
+            'email' => 'reader-index-filter@test.com',
+        ]);
+
+        $card = LibraryCard::query()->create([
+            'card_number' => 'SV-BR-IDX',
+            'code' => 'SV-BR-IDX',
+            'holder_type' => LibraryCard::HOLDER_TYPE_STUDENT,
+            'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+            'status' => LibraryCardStatus::ACTIVE,
+            'full_name' => 'Ban doc index',
+            'user_id' => $reader->id,
+        ]);
+
+        $first = $this->postJson('/api/v1/me/loan-borrow-requests', [
+            'loan_type' => 'home',
+            'book_ids' => [$book->id],
+            'quantity' => [1],
+            'requested_loan_date' => now()->toDateString(),
+            'requested_due_date' => now()->addDays(7)->toDateString(),
+        ], $this->apiTokenHeaders($readerToken));
+        $first->assertStatus(201);
+
+        LoanBorrowRequest::query()->create([
+            'request_code' => 'BRTESTIDX001',
+            'library_card_id' => $card->id,
+            'requested_by' => $reader->id,
+            'loan_type' => 'home',
+            'status' => LoanBorrowRequest::STATUS_REJECTED,
+        ]);
+
+        $response = $this->getJson('/api/v1/me/loan-borrow-requests?status=pending&per_page=1', $this->apiTokenHeaders($readerToken));
+        $response->assertStatus(200)->assertJsonPath('status', 'success');
+
+        $items = (array) $response->json('data.data');
+        $this->assertCount(1, $items);
+        $this->assertSame(LoanBorrowRequest::STATUS_PENDING, (string) ($items[0]['status'] ?? ''));
+    }
+
     /**
      * @return array{0:Book,1:StorageCabinet}
      */

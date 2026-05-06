@@ -124,7 +124,7 @@ const isNavItemActive = (item) => {
 const navLinkClass = (item) => {
     const active = isNavItemActive(item)
     return [
-        'min-h-[44px] inline-flex items-center rounded-lg px-3 text-sm font-semibold transition-colors',
+        'min-h-[44px] inline-flex items-center whitespace-nowrap rounded-lg px-2 text-sm font-semibold transition-colors xl:px-3',
         active
             ? 'bg-blue-900 text-white dark:bg-blue-800'
             : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
@@ -148,10 +148,10 @@ const navChildLinkClass = (childRoute) => {
         class="sticky top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur-md pt-[env(safe-area-inset-top)] dark:border-slate-800 dark:bg-slate-900/95"
     >
         <div
-            class="mx-auto flex min-w-0 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6"
+            class="mx-auto flex min-w-0 max-w-[1400px] items-center justify-between gap-2 px-3 py-3 sm:px-4 lg:px-5"
         >
             <!-- Nhóm trái: thương hiệu + menu (lg); nhóm phải: đăng nhập / avatar — tách rõ hai đầu -->
-            <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 lg:gap-4">
+            <div class="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5 lg:gap-3">
                 <button
                     type="button"
                     class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-700 lg:hidden dark:border-slate-700 dark:text-slate-200"
@@ -160,12 +160,9 @@ const navChildLinkClass = (childRoute) => {
                 >
                     <Icon :icon="mobileOpen ? 'lucide:x' : 'lucide:menu'" class="h-6 w-6" />
                 </button>
-                <Link
-                    :href="route('reader.home')"
-                    class="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3"
-                >
+                <Link prefetch :href="route('reader.home')" class="flex min-w-0 shrink-0 items-center gap-2 sm:gap-2.5">
                     <img src="/Image/logoUTC.png" alt="UTC" class="h-9 w-9 shrink-0 object-contain sm:h-10 sm:w-10" />
-                    <div class="min-w-0 leading-tight">
+                    <div class="hidden min-w-0 leading-tight lg:block">
                         <p class="truncate text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                             {{ S.digitalLibrary }}
                         </p>
@@ -176,12 +173,13 @@ const navChildLinkClass = (childRoute) => {
                 </Link>
 
                 <nav
-                    class="ml-2 hidden min-w-0 flex-wrap items-center gap-1 lg:flex lg:gap-1.5"
+                    class="ml-1 hidden min-w-0 flex-1 flex-nowrap items-center gap-0.5 overflow-visible whitespace-nowrap pr-0.5 lg:flex lg:gap-1"
                     :aria-label="S.mainNav"
                 >
                     <template v-for="item in readerNavItems" :key="item.key">
                         <div v-if="item.children" class="group relative shrink-0">
                             <Link
+                                prefetch
                                 :href="route(item.route)"
                                 :class="[...navLinkClass(item), 'gap-1']"
                             >
@@ -198,6 +196,7 @@ const navChildLinkClass = (childRoute) => {
                                     <Link
                                         v-for="c in item.children"
                                         :key="c.key"
+                                        prefetch
                                         :href="route(c.route)"
                                         class="flex min-h-[44px] items-center px-4 text-sm font-medium text-slate-800 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                                         role="menuitem"
@@ -209,6 +208,7 @@ const navChildLinkClass = (childRoute) => {
                         </div>
                         <Link
                             v-else
+                            prefetch
                             :href="route(item.route)"
                             :class="[...navLinkClass(item), 'shrink-0']"
                         >
@@ -218,16 +218,18 @@ const navChildLinkClass = (childRoute) => {
                 </nav>
             </div>
 
-            <div class="flex shrink-0 items-center gap-2">
+            <div class="flex shrink-0 items-center gap-1.5 lg:gap-2">
                 <ThemeToggle />
                 <template v-if="!user">
                     <Link
+                        prefetch
                         :href="route('login')"
                         class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl px-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800 sm:min-w-0"
                     >
                         {{ S.login }}
                     </Link>
                     <Link
+                        prefetch
                         :href="route('register')"
                         class="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-gradient-to-r from-blue-700 to-blue-900 px-4 text-sm font-semibold text-white shadow-md shadow-blue-900/20 hover:brightness-110"
                     >
@@ -236,6 +238,7 @@ const navChildLinkClass = (childRoute) => {
                 </template>
                 <template v-else>
                     <Link
+                        prefetch
                         :href="route('reader.services.borrow-cart')"
                         class="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                         aria-label="Giỏ mượn"
@@ -342,6 +345,7 @@ const navChildLinkClass = (childRoute) => {
                             </div>
                             <div class="border-t border-slate-100 bg-slate-50/80 px-4 py-2 text-center dark:border-slate-800 dark:bg-slate-800/40">
                                 <Link
+                                    prefetch
                                     :href="route('reader.services.loan-requests')"
                                     class="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-400"
                                 >
@@ -387,6 +391,7 @@ const navChildLinkClass = (childRoute) => {
                 <template v-for="item in readerNavItems" :key="item.key">
                     <div v-if="item.children" class="flex flex-col gap-1">
                         <Link
+                            prefetch
                             :href="route(item.route)"
                             :class="[...navLinkClass(item), 'w-full justify-start']"
                             @click="mobileOpen = false"
@@ -396,6 +401,7 @@ const navChildLinkClass = (childRoute) => {
                         <Link
                             v-for="c in item.children"
                             :key="c.key"
+                            prefetch
                             :href="route(c.route)"
                             :class="navChildLinkClass(c.route)"
                             @click="mobileOpen = false"
@@ -405,6 +411,7 @@ const navChildLinkClass = (childRoute) => {
                     </div>
                     <Link
                         v-else
+                        prefetch
                         :href="route(item.route)"
                         :class="[...navLinkClass(item), 'w-full justify-start']"
                         @click="mobileOpen = false"
@@ -429,6 +436,7 @@ const navChildLinkClass = (childRoute) => {
                         </div>
                     </div>
                     <Link
+                        prefetch
                         :href="route('reader.home')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
                         @click="mobileOpen = false"
@@ -436,6 +444,7 @@ const navChildLinkClass = (childRoute) => {
                         {{ S.goToReader }}
                     </Link>
                     <Link
+                        prefetch
                         :href="route('reader.catalog')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
                         @click="mobileOpen = false"
@@ -444,6 +453,7 @@ const navChildLinkClass = (childRoute) => {
                     </Link>
                     <Link
                         v-if="isStaff"
+                        prefetch
                         :href="route('admin.dashboard')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white dark:bg-blue-800"
                         @click="mobileOpen = false"
@@ -452,6 +462,7 @@ const navChildLinkClass = (childRoute) => {
                     </Link>
                     <Link
                         v-if="hasRoute('reader.profile')"
+                        prefetch
                         :href="route('reader.profile')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
                         @click="mobileOpen = false"
@@ -460,6 +471,7 @@ const navChildLinkClass = (childRoute) => {
                     </Link>
                     <Link
                         v-if="(isStaff && hasRoute('admin.change-password')) || (!isStaff && hasRoute('reader.change-password'))"
+                        prefetch
                         :href="route(isStaff ? 'admin.change-password' : 'reader.change-password')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
                         @click="mobileOpen = false"
@@ -476,6 +488,7 @@ const navChildLinkClass = (childRoute) => {
                 </div>
                 <div v-else class="mt-2 flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
                     <Link
+                        prefetch
                         :href="route('login')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
                         @click="mobileOpen = false"
@@ -483,6 +496,7 @@ const navChildLinkClass = (childRoute) => {
                         {{ S.login }}
                     </Link>
                     <Link
+                        prefetch
                         :href="route('register')"
                         class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-blue-900 text-sm font-semibold text-white"
                         @click="mobileOpen = false"

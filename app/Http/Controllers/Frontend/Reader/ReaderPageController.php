@@ -14,11 +14,14 @@ use App\Models\Classification;
 use App\Models\Faculty;
 use App\Models\LibraryCard;
 use App\Models\LoanPolicy;
+use App\Models\NewsPost;
 use App\Models\Period;
 use App\Services\BookService;
 use App\Services\LoanPoliciesService;
+use App\Services\NewsPostService;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,10 +29,35 @@ use Inertia\Response;
 /** Trang công khai cho độc giả (không yêu cầu đăng nhập). */
 class ReaderPageController extends Controller
 {
+    private const PUBLIC_NEWS_CACHE_TTL_SECONDS = 60;
+
     public function __construct(
         private BookService $bookService,
-        private LoanPoliciesService $loanPoliciesService
+        private LoanPoliciesService $loanPoliciesService,
+        private NewsPostService $newsPostService
     ) {}
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function mapReaderNewsPost(NewsPost $post): array
+    {
+        $plainText = trim((string) preg_replace('/\s+/u', ' ', (string) strip_tags((string) $post->content)));
+
+        return [
+            'id' => $post->id,
+            'slug' => $post->slug,
+            'title' => $post->title,
+            'content' => $post->content,
+            'excerpt' => mb_substr($plainText, 0, 240),
+            'type' => $post->type,
+            'thumbnail_url' => $post->thumbnail_path ? Storage::url($post->thumbnail_path) : null,
+            'published_at' => $post->published_at?->toIso8601String(),
+            'posted_by' => $post->createdBy ? [
+                'name' => $post->createdBy->name,
+            ] : null,
+        ];
+    }
 
     /**
      * @return array{allow_home: bool, allow_onsite: bool, holder_type: string}|null
@@ -71,7 +99,119 @@ class ReaderPageController extends Controller
 
     public function home(): Response
     {
-        return Inertia::render('Reader/Home');
+        $cacheVersion = (int) Cache::get(NewsPostService::READER_NEWS_CACHE_VERSION_KEY, 1);
+
+        $latestNews = Cache::remember(
+            sprintf('reader:home:latest-news:v%d', $cacheVersion),
+            self::PUBLIC_NEWS_CACHE_TTL_SECONDS,
+            fn (): array => array_values(array_map(
+                fn (NewsPost $post): array => $this->mapReaderNewsPost($post),
+                $this->newsPostService->paginatePublicPublished(['type' => NewsPost::TYPE_NEWS], 5, false)->items()
+            ))
+        );
+
+        $latestNotices = Cache::remember(
+            sprintf('reader:home:latest-notices:v%d', $cacheVersion),
+            self::PUBLIC_NEWS_CACHE_TTL_SECONDS,
+            fn (): array => array_values(array_map(
+                fn (NewsPost $post): array => $this->mapReaderNewsPost($post),
+                $this->newsPostService->paginatePublicPublished(['type' => NewsPost::TYPE_NOTICE], 5, false)->items()
+            ))
+        );
+
+        $latestBooks = Cache::remember(
+            sprintf('reader:home:latest-books:v%d', $cacheVersion),
+            self::PUBLIC_NEWS_CACHE_TTL_SECONDS,
+            fn (): array => ReaderBookCardResource::collection(
+                Book::query()
+                    ->with(['authors:id,name'])
+                    ->orderByDesc('id')
+                    ->limit(10)
+                    ->get()
+            )->resolve()
+        );
+
+        return Inertia::render('Reader/Home', [
+            'latestNews' => $latestNews,
+            'latestNotices' => $latestNotices,
+            'latestBooks' => $latestBooks,
+        ]);
+    }
+
+    public function newsIndex(Request $request): Response
+    {
+        $request->validate([
+            'keyword' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'type' => ['sometimes', 'nullable', 'string', 'in:news,notice'],
+            'sort' => ['sometimes', 'nullable', 'string', 'in:newest,oldest'],
+            'search_in' => ['sometimes', 'nullable', 'array'],
+            'search_in.*' => ['string', 'in:title,content'],
+            'per_page' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:30'],
+        ]);
+
+        $perPage = min(max((int) $request->input('per_page', 12), 1), 30);
+        $keyword = trim((string) $request->input('keyword', ''));
+
+        $news = $this->newsPostService->paginatePublicPublished([
+            'keyword' => $keyword !== '' ? $keyword : null,
+            'type' => $request->input('type'),
+            'sort' => $request->input('sort', 'newest'),
+            'search_in' => $request->input('search_in', []),
+        ], $perPage, false);
+
+        return Inertia::render('Reader/News/Index', [
+            'news' => $news->through(fn (NewsPost $post): array => $this->mapReaderNewsPost($post)),
+            'filters' => [
+                'keyword' => $keyword,
+                'type' => $request->input('type', ''),
+                'sort' => $request->input('sort', 'newest'),
+                'search_in' => $request->input('search_in', []),
+                'per_page' => $perPage,
+            ],
+        ]);
+    }
+
+    public function newsShow(string $slug): Response
+    {
+        $post = $this->newsPostService->findPublishedBySlug($slug);
+        abort_if(! $post instanceof NewsPost, 404);
+        $cacheVersion = (int) Cache::get(NewsPostService::READER_NEWS_CACHE_VERSION_KEY, 1);
+
+        $relatedNews = Cache::remember(
+            sprintf('reader:news:related:%s:%d:v%d', (string) $post->type, (int) $post->id, $cacheVersion),
+            self::PUBLIC_NEWS_CACHE_TTL_SECONDS,
+            function () use ($post): array {
+                $items = NewsPost::query()
+                    ->select([
+                        'id',
+                        'slug',
+                        'title',
+                        'content',
+                        'thumbnail_path',
+                        'type',
+                        'status',
+                        'published_at',
+                        'created_by',
+                    ])
+                    ->where('status', NewsPost::STATUS_ACTIVE)
+                    ->where('type', $post->type)
+                    ->whereKeyNot($post->id)
+                    ->orderByDesc('published_at')
+                    ->orderByDesc('id')
+                    ->limit(6)
+                    ->get();
+
+                return array_values(array_map(
+                    fn (NewsPost $item): array => $this->mapReaderNewsPost($item),
+                    $items->all()
+                ));
+            }
+        );
+
+        return Inertia::render('Reader/News/Show', [
+            'post' => $this->mapReaderNewsPost($post),
+            'relatedNews' => $relatedNews,
+        ]);
     }
 
     public function about(): Response
@@ -118,40 +258,44 @@ class ReaderPageController extends Controller
         $keyword = is_string($keyword) ? trim($keyword) : '';
         $searchColumns = $this->parseReaderSearchIn($request);
 
-        $books = $this->bookService->readerCatalog(
-            $keyword !== '' ? $keyword : null,
-            $request->input('resource_type') ?: null,
-            $perPage,
-            $searchColumns,
-            $request->filled('classification_id') ? (int) $request->input('classification_id') : null,
-            $request->input('stock') ?: null,
-            $request->input('sort') ?: 'newest',
-        );
-
-        $resourceTypeOptions = array_merge(
-            [['value' => '', 'label' => 'Tất cả loại sách']],
-            array_map(
-                static fn (ResourceType $e) => [
-                    'value' => $e->value,
-                    'label' => ReaderBookCardResource::resourceTypeLabel($e->value),
-                ],
-                ResourceType::cases()
-            )
-        );
+        $resourceType = $request->input('resource_type') ?: null;
+        $classificationId = $request->filled('classification_id') ? (int) $request->input('classification_id') : null;
+        $stock = $request->input('stock') ?: null;
+        $sort = $request->input('sort') ?: 'newest';
 
         return Inertia::render('Reader/Catalog', [
-            'books' => $books->through(fn (Book $book) => (new ReaderBookCardResource($book))->resolve()),
+            'books' => fn () => $this->bookService->readerCatalog(
+                $keyword !== '' ? $keyword : null,
+                $resourceType,
+                $perPage,
+                $searchColumns,
+                $classificationId,
+                $stock,
+                $sort,
+            )->through(fn (Book $book) => (new ReaderBookCardResource($book))->resolve()),
             'filters' => [
                 'keyword' => $keyword,
-                'resource_type' => $request->input('resource_type'),
-                'classification_id' => $request->input('classification_id'),
-                'stock' => $request->input('stock'),
+                'resource_type' => $resourceType,
+                'classification_id' => $classificationId,
+                'stock' => $stock,
                 'per_page' => $perPage,
-                'sort' => $request->input('sort') ?: 'newest',
+                'sort' => $sort,
                 'search_in' => $request->input('search_in'),
             ],
-            'classifications' => Classification::query()->roots()->orderBy('code')->get(['id', 'code', 'name']),
-            'resourceTypeOptions' => $resourceTypeOptions,
+            'classifications' => fn () => Classification::query()
+                ->where('parent_id', null)
+                ->orderBy('code', 'asc')
+                ->get(['id', 'code', 'name']),
+            'resourceTypeOptions' => fn () => array_merge(
+                [['value' => '', 'label' => 'Tất cả loại sách']],
+                array_map(
+                    static fn (ResourceType $e) => [
+                        'value' => $e->value,
+                        'label' => ReaderBookCardResource::resourceTypeLabel($e->value),
+                    ],
+                    ResourceType::cases()
+                )
+            ),
         ]);
     }
 
@@ -241,10 +385,10 @@ class ReaderPageController extends Controller
                 'class_code' => $user->class_code,
                 'user_type' => $user->user_type instanceof \BackedEnum ? $user->user_type->value : $user->user_type,
             ],
-            'faculties' => Faculty::query()
-                ->orderBy('code')
+            'faculties' => fn () => Faculty::query()
+                ->orderBy('code', 'asc')
                 ->get(['id', 'code', 'name']),
-            'periods' => Period::query()
+            'periods' => fn () => Period::query()
                 ->orderByDesc('start_year')
                 ->get(['id', 'code', 'name', 'start_year', 'end_year']),
         ]);

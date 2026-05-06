@@ -37,8 +37,9 @@ class MeLoanBorrowRequestController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $statuses = implode(',', LoanBorrowRequest::statuses());
         $validated = $request->validate([
-            'status' => ['nullable', 'string', 'in:pending,approved,rejected,cancelled'],
+            'status' => ['nullable', 'string', "in:{$statuses}"],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
         $perPage = min(max((int) ($validated['per_page'] ?? 20), 1), 100);
@@ -50,9 +51,10 @@ class MeLoanBorrowRequestController extends Controller
     public function store(Request $request): JsonResponse
     {
         $maxRequestedDueDate = Carbon::today()->addYear()->toDateString();
+        $loanTypes = implode(',', ['home', 'onsite']);
 
         $validated = $request->validate([
-            'loan_type' => ['required', 'string', 'in:home,onsite'],
+            'loan_type' => ['required', 'string', "in:{$loanTypes}"],
             'book_ids' => ['required', 'array', 'min:1', 'max:50'],
             'book_ids.*' => ['required', 'integer', 'exists:books,id'],
             'quantity' => ['required', 'array', 'min:1'],

@@ -59,19 +59,11 @@ function fileAttachmentName(book) {
     return name || 'Mở file đính kèm';
 }
 
-const createdAtFmt = new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-});
-
-/** Ngày tạo đầu mục (`books.created_at` từ API). */
-function formatNgayTao(book) {
-    const iso = book?.created_at;
-    if (!iso) return '—';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '—';
-    return createdAtFmt.format(d);
+function circulationStatusLabel(book) {
+    const label = String(book?.circulation_status_label || '').trim();
+    if (label) return label;
+    const available = Number(book?.real_quantity ?? book?.available_quantity ?? book?.quantity ?? 0);
+    return available > 0 ? 'Còn lưu hành' : 'Không lưu hành';
 }
 </script>
 
@@ -100,13 +92,15 @@ function formatNgayTao(book) {
                         <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tác giả</th>
                         <template v-if="isDigitalPage">
                             <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Mô tả</th>
-                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ngày tạo</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Nhà xuất bản</th>
                             <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">File đính kèm</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trạng thái</th>
                         </template>
                         <template v-else>
-                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ngày tạo</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Nhà xuất bản</th>
                             <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Kho</th>
                             <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tủ lưu trữ</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trạng thái</th>
                         </template>
                         <th class="px-2 py-3.5 align-middle whitespace-nowrap text-center text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Thao tác</th>
                     </tr>
@@ -168,9 +162,9 @@ function formatNgayTao(book) {
                                     {{ book.summary || '—' }}
                                 </p>
                             </td>
-                            <td class="px-3 py-3 align-middle whitespace-nowrap">
-                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200" :title="book.created_at || ''">
-                                    {{ formatNgayTao(book) }}
+                            <td class="px-3 py-3 align-middle">
+                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words" :title="book.publishers_label || '—'">
+                                    {{ book.publishers_label || '—' }}
                                 </p>
                             </td>
                             <td class="px-3 py-3 align-middle">
@@ -185,10 +179,22 @@ function formatNgayTao(book) {
                                 </a>
                                 <span v-else class="text-[12px] text-slate-500 dark:text-slate-400">—</span>
                             </td>
+                            <td class="px-3 py-3 align-middle whitespace-nowrap">
+                                <span
+                                    class="inline-flex min-h-[28px] items-center rounded-md px-3 py-1 text-[12px] font-semibold leading-none"
+                                    :class="circulationStatusLabel(book) === 'Còn lưu hành'
+                                        ? 'bg-emerald-950/60 text-emerald-300 ring-1 ring-emerald-700/40'
+                                        : 'bg-rose-950/60 text-rose-300 ring-1 ring-rose-700/40'"
+                                >
+                                    {{ circulationStatusLabel(book) }}
+                                </span>
+                            </td>
                         </template>
                         <template v-else>
-                            <td class="px-3 py-3 align-middle whitespace-nowrap text-[12px] text-slate-600 dark:text-slate-300">
-                                <p class="font-medium" :title="book.created_at || ''">{{ formatNgayTao(book) }}</p>
+                            <td class="px-3 py-3 align-middle text-[12px] text-slate-600 dark:text-slate-300">
+                                <p class="font-medium leading-snug line-clamp-2 break-words" :title="book.publishers_label || '—'">
+                                    {{ book.publishers_label || '—' }}
+                                </p>
                             </td>
                             <td class="px-3 py-3 align-middle text-[12px] text-slate-600 dark:text-slate-300">
                                 <p
@@ -205,6 +211,16 @@ function formatNgayTao(book) {
                                 >
                                     {{ book.cabinet || '—' }}
                                 </p>
+                            </td>
+                            <td class="px-3 py-3 align-middle whitespace-nowrap text-[12px]">
+                                <span
+                                    class="inline-flex min-h-[28px] items-center rounded-md px-3 py-1 text-[12px] font-semibold leading-none"
+                                    :class="circulationStatusLabel(book) === 'Còn lưu hành'
+                                        ? 'bg-emerald-950/60 text-emerald-300 ring-1 ring-emerald-700/40'
+                                        : 'bg-rose-950/60 text-rose-300 ring-1 ring-rose-700/40'"
+                                >
+                                    {{ circulationStatusLabel(book) }}
+                                </span>
                             </td>
                         </template>
                         <td class="px-2 py-3 align-middle whitespace-nowrap text-center">

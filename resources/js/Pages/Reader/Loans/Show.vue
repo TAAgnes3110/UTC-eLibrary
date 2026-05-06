@@ -90,7 +90,7 @@ onMounted(loadDetail)
             <template v-else-if="loan">
                 <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 p-4">
                     <h2 class="text-base font-bold mb-3">Thông tin chính</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs sm:text-sm">
                         <div><b>Mã phiếu:</b> {{ loan.loan_code || `#${loan.id}` }}</div>
                         <div><b>Mã thẻ:</b> {{ loan.library_card_number || '—' }}</div>
                         <div><b>Tên độc giả:</b> {{ loan.library_card_name || '—' }}</div>
@@ -150,7 +150,7 @@ onMounted(loadDetail)
 
                 <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 overflow-x-auto">
                     <div class="p-4 font-bold">Danh sách sách mượn</div>
-                    <table class="min-w-full text-sm">
+                    <table class="min-w-[760px] text-sm">
                         <thead class="bg-slate-50 dark:bg-slate-800/60">
                             <tr>
                                 <th class="px-4 py-2 text-left">Tên sách</th>

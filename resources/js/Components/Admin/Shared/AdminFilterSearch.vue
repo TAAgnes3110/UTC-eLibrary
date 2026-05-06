@@ -14,6 +14,13 @@ const props = defineProps({
     modelValue: { type: String, default: '' },
     autoSearchOnInput: { type: Boolean, default: true },
     autoSearchDebounceMs: { type: Number, default: 300 },
+    /**
+     * Cho phép hàng #filters giãn ngang tới sát ô tìm kiếm (để dùng ml-auto căn phần tử trong slot).
+     * Mặc định false để giữ thanh lọc gọn như các màn khác.
+     */
+    expandFiltersSlot: { type: Boolean, default: false },
+    /** Ô tìm kiếm luôn xuống hàng riêng (tránh chật với lọc ngày khi flex-wrap). */
+    stackSearchBelow: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['search', 'update:modelValue']);
@@ -56,7 +63,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="admin-filter-bar">
+    <div class="admin-filter-bar" :class="{ 'admin-filter-bar--stack': stackSearchBelow }">
         <button
             v-if="showFilterButton"
             type="button"
@@ -66,7 +73,11 @@ onBeforeUnmount(() => {
             <Icon icon="lucide:filter" class="w-4 h-4" />
             Bộ lọc
         </button>
-        <div v-if="$slots.filters" class="admin-filter-slot-wrap">
+        <div
+            v-if="$slots.filters"
+            class="admin-filter-slot-wrap"
+            :class="{ 'admin-filter-slot-wrap--grow': expandFiltersSlot }"
+        >
             <slot name="filters" />
         </div>
         <div class="admin-search-group">

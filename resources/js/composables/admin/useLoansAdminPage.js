@@ -1,4 +1,4 @@
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { router } from '@inertiajs/vue3';
 import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
 import { loansApi } from '@/api/loans';
@@ -42,6 +42,15 @@ export function useLoansAdminPage() {
     });
 
     const showFilterPanel = ref(false);
+    let loansReloadDebounce = null;
+    let loansRequestSerial = 0;
+
+    const scheduleLoansReload = ({ resetPage = false, delayMs = 150 } = {}) => {
+        if (loansReloadDebounce) clearTimeout(loansReloadDebounce);
+        loansReloadDebounce = setTimeout(() => {
+            loadLoans(resetPage);
+        }, delayMs);
+    };
 
     const showBulkDeleteModal = ref(false);
     const bulkDeleteLoading = ref(false);
@@ -78,6 +87,7 @@ export function useLoansAdminPage() {
     }));
 
     async function loadLoans(resetPage = false) {
+        const requestSerial = ++loansRequestSerial;
         if (resetPage) {
             loansPageNum.value = 1;
             selectedIds.value = [];
@@ -95,6 +105,7 @@ export function useLoansAdminPage() {
                 per_page: LOANS_PER_PAGE,
             });
             const { items, meta } = extractApiPaginator(res, LOANS_PER_PAGE);
+            if (requestSerial !== loansRequestSerial) return;
             rows.value = items;
             syncLoanStatusForSelectedRows();
             loansListMeta.value = {
@@ -105,6 +116,7 @@ export function useLoansAdminPage() {
             };
             loansPageNum.value = meta.current_page;
         } catch (e) {
+            if (requestSerial !== loansRequestSerial) return;
             rows.value = [];
             loansListMeta.value = {
                 current_page: 1,
@@ -114,7 +126,9 @@ export function useLoansAdminPage() {
             };
             toast.error(e?.response?.data?.messages || 'Không tải được danh sách phiếu mượn.', { title: 'Lỗi' });
         } finally {
-            loading.value = false;
+            if (requestSerial === loansRequestSerial) {
+                loading.value = false;
+            }
         }
     }
 
@@ -149,9 +163,27 @@ export function useLoansAdminPage() {
     watch(
         () => filterValues.value.searchIn,
         () => {
-            loadLoans(true);
+            scheduleLoansReload({ resetPage: true, delayMs: 180 });
         },
         { deep: true }
+    );
+    watch(
+        () => filterValues.value.status,
+        () => {
+            scheduleLoansReload({ resetPage: true, delayMs: 120 });
+        }
+    );
+    watch(
+        () => filterValues.value.sort,
+        () => {
+            scheduleLoansReload({ resetPage: true, delayMs: 120 });
+        }
+    );
+    watch(
+        () => filterValues.value.searchKeyword,
+        () => {
+            scheduleLoansReload({ resetPage: true, delayMs: 350 });
+        }
     );
 
     const hasSelection = computed(() => selectedIds.value.length > 0);
@@ -349,6 +381,10 @@ export function useLoansAdminPage() {
     }
 
     onMounted(() => loadLoans(false));
+    onBeforeUnmount(() => {
+        if (loansReloadDebounce) clearTimeout(loansReloadDebounce);
+        loansRequestSerial++;
+    });
 
     return {
         loading,

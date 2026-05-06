@@ -6,7 +6,7 @@
  */
 const LABEL = Object.freeze({
     textbook: 'Sách giáo trình',
-    digital: 'Tài liệu số',
+    digital: 'Đồ án, luận văn',
 });
 
 /** reference + legacy thesis/journal → một nhãn (đồng bộ PHP). */

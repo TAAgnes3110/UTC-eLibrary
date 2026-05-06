@@ -146,7 +146,7 @@ const badgeYesNo = (v) =>
                         v-else
                         class="overflow-x-auto rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-900/5 dark:border-slate-700 dark:bg-slate-900/50 dark:ring-white/5"
                     >
-                        <table class="w-full min-w-[1040px] table-fixed border-collapse text-sm">
+                        <table class="w-full min-w-[980px] table-fixed border-collapse text-sm">
                             <thead>
                                 <tr
                                     class="border-b border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100/90 dark:border-slate-700 dark:from-slate-800 dark:to-slate-800/70"

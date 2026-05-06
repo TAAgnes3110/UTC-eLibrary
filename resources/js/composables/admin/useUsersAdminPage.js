@@ -1,4 +1,4 @@
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
 import { fetchMasterDataPayload } from '@/api/masterData';
@@ -119,12 +119,24 @@ export function useUsersAdminPage(props) {
         router.get(route('admin.users.index'), { page: p }, { preserveState: true, preserveScroll: true });
     };
 
+    let usersReloadDebounce = null;
+    let usersRequestSerial = 0;
+    const scheduleUsersReload = ({ resetPage = false, delayMs = 220 } = {}) => {
+        if (resetPage) {
+            usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
+        }
+        if (usersReloadDebounce) clearTimeout(usersReloadDebounce);
+        usersReloadDebounce = setTimeout(() => {
+            fetchUsers();
+        }, delayMs);
+    };
+
     const searchUsers = () => {
-        usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
-        fetchUsers();
+        scheduleUsersReload({ resetPage: true, delayMs: 0 });
     };
 
     const fetchUsers = async () => {
+        const requestSerial = ++usersRequestSerial;
         loadingFallback.value = true;
         try {
             const src = usersData.value ?? props.users ?? {};
@@ -137,6 +149,7 @@ export function useUsersAdminPage(props) {
                 search_in: buildSearchInParam(),
             });
             const { items, meta } = extractApiPaginator(payload, 20);
+            if (requestSerial !== usersRequestSerial) return;
             usersData.value = {
                 data: items,
                 current_page: meta.current_page,
@@ -147,9 +160,12 @@ export function useUsersAdminPage(props) {
                 to: meta.to,
             };
         } catch (e) {
+            if (requestSerial !== usersRequestSerial) return;
             console.error('Lỗi khi tải lại danh sách tài khoản:', e);
         } finally {
-            loadingFallback.value = false;
+            if (requestSerial === usersRequestSerial) {
+                loadingFallback.value = false;
+            }
         }
     };
 
@@ -202,8 +218,6 @@ export function useUsersAdminPage(props) {
         roleFilter: {},
     });
     const showFilterPanel = ref(false);
-    let usersSearchDebounce = null;
-
     function buildSearchInParam() {
         const sin = filterValues.value.searchIn || {};
         const keys = USERS_SEARCH_IN_OPTIONS.map((o) => o.key);
@@ -266,22 +280,22 @@ export function useUsersAdminPage(props) {
     watch(
         () => filterValues.value.searchKeyword,
         () => {
-            if (usersSearchDebounce) clearTimeout(usersSearchDebounce);
-            usersSearchDebounce = setTimeout(() => {
-                usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
-                fetchUsers();
-            }, 350);
+            scheduleUsersReload({ resetPage: true, delayMs: 350 });
         },
     );
 
     watch(
         () => filterValues.value.searchIn,
         () => {
-            usersData.value = { ...(usersData.value ?? {}), current_page: 1 };
-            fetchUsers();
+            scheduleUsersReload({ resetPage: true, delayMs: 180 });
         },
         { deep: true },
     );
+
+    onBeforeUnmount(() => {
+        if (usersReloadDebounce) clearTimeout(usersReloadDebounce);
+        usersRequestSerial++;
+    });
 
     const formatDateTime = (value) => {
         if (!value) return '—';
@@ -439,9 +453,7 @@ export function useUsersAdminPage(props) {
             if (selectedUser.value) {
                 await usersApi.remove(selectedUser.value.id);
             } else if (selectedIds.value.length > 0) {
-                for (const id of selectedIds.value) {
-                    await usersApi.remove(id);
-                }
+                await Promise.all(selectedIds.value.map((id) => usersApi.remove(id)));
             }
             await fetchUsers();
             if (showTrashDrawer.value) {

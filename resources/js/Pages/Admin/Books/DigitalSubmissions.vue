@@ -9,7 +9,7 @@ import DigitalDocumentSubmissionsPanel from '@/Components/Admin/Approvals/Digita
     <AdminLayout
         title="Duyệt tài liệu số"
         :breadcrumbs="[
-            { label: 'Tài liệu số', href: 'admin.books.digital' },
+            { label: 'Đồ án, luận văn', href: 'admin.books.digital' },
             { label: 'Duyệt tài liệu số' },
         ]"
     >

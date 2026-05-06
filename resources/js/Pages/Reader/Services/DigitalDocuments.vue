@@ -452,7 +452,7 @@ function detailTimeLabel(item) {
         <Head title="Quản lý tài liệu số" />
 
         <div class="space-y-4 animate-in fade-in-50 duration-500">
-            <AdminPageHeading title="Tài liệu số theo danh mục">
+            <AdminPageHeading title="Nộp đồ án, luận văn theo danh mục">
                 <template #description>
                     Gửi PDF kèm ảnh bìa (tuỳ chọn); sau duyệt, đầu mục xuất hiện trong danh mục tài liệu số của thư viện.
                 </template>
@@ -489,7 +489,7 @@ function detailTimeLabel(item) {
                 <template #filters>
                     <div class="flex flex-wrap items-center gap-2">
                         <div class="relative">
-                            <select v-model="statusFilter" class="admin-filter-select !h-9 !py-0 leading-9 w-[118px] max-w-full pr-9">
+                            <select v-model="statusFilter" class="admin-filter-select !h-9 !py-0 leading-9 w-full sm:w-[118px] max-w-full pr-9">
                                 <option value="">Tất cả</option>
                                 <option value="pending">Chờ duyệt</option>
                                 <option value="approved">Đã duyệt</option>
@@ -501,7 +501,7 @@ function detailTimeLabel(item) {
                             />
                         </div>
                         <div class="relative">
-                            <select v-model="sortBy" class="admin-filter-select !h-9 !py-0 leading-9 w-[112px] max-w-full pr-9">
+                            <select v-model="sortBy" class="admin-filter-select !h-9 !py-0 leading-9 w-full sm:w-[112px] max-w-full pr-9">
                                 <option value="newest">Mới nhất</option>
                                 <option value="oldest">Cũ nhất</option>
                             </select>

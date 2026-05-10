@@ -71,8 +71,12 @@
             "@php artisan storage:sync-quantities"
         ],
         "deploy:shared-hosting": [
-            "composer install --no-dev --prefer-dist --optimize-autoloader",
-            "@php artisan optimize:clear --ansi"
+            "composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction",
+            "@php artisan migrate --force --ansi",
+            "@php artisan optimize:clear --ansi",
+            "@php artisan config:cache --ansi",
+            "@php artisan route:cache --ansi",
+            "@php artisan view:cache --ansi"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

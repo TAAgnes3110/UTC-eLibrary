@@ -7,6 +7,7 @@ import { libraryCardsApi } from '@/api/libraryCards'
 import { profileApi } from '@/api/profile'
 import { extractLaravelValidationErrors } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const props = defineProps({
     auth_required: { type: Boolean, default: false },
@@ -28,6 +29,7 @@ const state = reactive({
 })
 const avatarInput = ref(null)
 const showAvatarPreviewModal = ref(false)
+const { withFallback } = useImageFallback()
 
 const role = computed(() => String(props.profile?.user_type || '').trim().toUpperCase())
 const isStudent = computed(() => role.value === 'STUDENT')
@@ -265,7 +267,7 @@ async function submitApply() {
                                     </div>
                                 </div>
                                 <div class="h-24 w-20 shrink-0 overflow-hidden rounded-lg border border-white/40 bg-white/10 sm:h-28 sm:w-24">
-                                    <img v-if="cardPhotoUrl" :src="cardPhotoUrl" alt="Ảnh thẻ" class="h-full w-full object-cover">
+                                    <img v-if="cardPhotoUrl" :src="cardPhotoUrl" alt="Ảnh thẻ" class="h-full w-full object-cover" @error="withFallback('/images/default-avatar.png')($event)">
                                     <div v-else class="flex h-full w-full items-center justify-center text-[10px] text-blue-100/80">No photo</div>
                                 </div>
                             </div>
@@ -351,6 +353,7 @@ async function submitApply() {
                                         :src="state.avatarPreview"
                                         alt="Ảnh đại diện"
                                         class="h-full w-full object-cover"
+                                        @error="withFallback('/images/default-avatar.png')($event)"
                                     >
                                     <div v-else class="flex h-full w-full items-center justify-center text-[11px] text-slate-400">
                                         Chưa có ảnh
@@ -426,7 +429,7 @@ async function submitApply() {
                     </button>
                 </div>
                 <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                    <img :src="state.avatarPreview" alt="Ảnh đại diện 3x4" class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800" />
+                    <img :src="state.avatarPreview" alt="Ảnh đại diện 3x4" class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800" @error="withFallback('/images/default-avatar.png')($event)" />
                 </div>
                 <div class="mt-3 flex justify-end">
                     <button

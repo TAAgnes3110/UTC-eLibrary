@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\FileHelpers;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
@@ -10,11 +11,14 @@ class UserResource extends JsonResource
     public function toArray($request)
     {
         $avatar = $this->avatar;
+        $mediaDisk = (string) config('filesystems.media_disk', 'public');
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        $mediaStorage = Storage::disk($mediaDisk);
         if (! empty($avatar) && ! str_starts_with($avatar, 'http')) {
             // Backward-compatible with legacy avatar paths saved under public/avatars.
-            $avatar = str_starts_with($avatar, 'avatars/')
+            $avatar = $mediaDisk === 'public' && str_starts_with($avatar, 'avatars/')
                 ? asset(ltrim($avatar, '/'))
-                : Storage::url($avatar);
+                : $mediaStorage->url($avatar);
         }
         $userType = $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type;
         $status = 'active';
@@ -43,7 +47,7 @@ class UserResource extends JsonResource
             'gender' => $this->gender,
             'address' => $this->address,
             'is_active' => $this->is_active,
-            'avatar' => $avatar ?: null,
+            'avatar' => $avatar ?: FileHelpers::mediaDefaultUrl('avatar'),
             'created_by' => $this->whenLoaded('createdBy', fn () => $this->createdBy ? [
                 'id' => $this->createdBy->id,
                 'name' => $this->createdBy->name,

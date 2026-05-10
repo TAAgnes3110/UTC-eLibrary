@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue'
 import { readerCatalogPageStrings as C, readerLayoutStrings as L } from '@/config/readerStrings'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
@@ -38,6 +39,7 @@ watch(
 const classifications = computed(() => page.props.classifications ?? [])
 const resourceTypeOptions = computed(() => page.props.resourceTypeOptions ?? [{ value: '', label: C.filterResourceType }])
 const books = computed(() => page.props.books)
+const { withFallback } = useImageFallback()
 
 function onClassificationChange() {
     submitSearch()
@@ -208,6 +210,7 @@ function goPage(p) {
                                 :src="b.cover_image"
                                 :alt="b.title"
                                 class="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                                @error="withFallback('/images/default-book-cover.png')($event)"
                             />
                             <div v-else class="flex h-full w-full items-center justify-center text-slate-400">
                                 <Icon icon="lucide:book-open" class="h-16 w-16 opacity-50" aria-hidden="true" />

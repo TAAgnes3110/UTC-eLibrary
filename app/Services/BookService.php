@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
 use App\Enums\ResourceType;
+use App\Enums\UploadDirectory;
 use App\Exports\BooksWorkbookExport;
 use App\Helpers\FileHelpers;
 use App\Imports\BookImport;
@@ -23,6 +24,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -34,9 +36,11 @@ class BookService
 
     private const DIGITAL_BOOK_CODE_PREFIX = 'TLS';
 
+    public const ADMIN_BOOKS_CACHE_VERSION_KEY = 'admin:books:list-cache-version';
+
     public function create(array $data): Book
     {
-        return DB::transaction(function () use ($data) {
+        $created = DB::transaction(function () use ($data) {
             $bookData = $data;
             $authorsInput = $bookData['authors'] ?? null;
             $publisherInput = $bookData['publisher'] ?? null;
@@ -76,11 +80,15 @@ class BookService
                 'thesisMetadata',
             ]);
         });
+
+        $this->bumpAdminBooksCacheVersion();
+
+        return $created;
     }
 
     public function update(Book $book, array $data): Book
     {
-        return DB::transaction(function () use ($book, $data) {
+        $updated = DB::transaction(function () use ($book, $data) {
             $authorsInput = $data['authors'] ?? null;
             $publisherInput = $data['publisher'] ?? null;
             unset(
@@ -119,6 +127,10 @@ class BookService
                 'thesisMetadata',
             ]);
         });
+
+        $this->bumpAdminBooksCacheVersion();
+
+        return $updated;
     }
 
     /**
@@ -162,11 +174,14 @@ class BookService
         ?string $sort = null
     ): LengthAwarePaginator {
         $query = $this->baseBookListQuery();
+        $hasKeyword = trim((string) $keyword) !== '';
         $this->applyResourceTypeFilter($query, $resourceType);
         if ($this->isDigitalOnlyFilter($resourceType)) {
             $query->with(['digitalAssets' => fn ($q) => $q->orderByDesc('is_primary')->orderByDesc('id')]);
         }
-        $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
+        if ($hasKeyword) {
+            $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
+        }
         $this->applySortToBookQuery($query, $sort);
 
         return $query->paginate($perPage)->withQueryString();
@@ -345,17 +360,18 @@ class BookService
     /**
      * @return Builder<Book>
      */
-    private function baseBookListQuery(): Builder
+    private function baseBookListQuery(bool $withInventoryCounts = false): Builder
     {
-        return Book::query()
+        $query = Book::query()
             ->with([
                 'classification:id,code,name',
                 'warehouse:id,code,name',
                 'authors:id,name',
                 'publishers:id,name',
-                'representativeStoredCopy',
-            ])
-            ->withCount([
+            ]);
+
+        if ($withInventoryCounts) {
+            $query->withCount([
                 'availableCopies as available_copies_count',
                 'copies as copies_count',
                 'copies as borrowed_copies_count' => fn (Builder $q) => $q
@@ -364,21 +380,23 @@ class BookService
                     ->where('status', BookStatus::LOST),
                 'copies as warehouse_copies_count' => fn (Builder $q) => $q
                     ->where('status', BookStatus::AVAILABLE),
-            ])
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+            ]);
+        }
+
+        return $query;
     }
 
     private function applySortToBookQuery(Builder $query, ?string $sort): void
     {
         $sort = strtolower(trim((string) $sort));
+        $query->reorder();
         if ($sort === '') {
+            $query->orderByDesc('id');
+
             return;
         }
-
-        $query->reorder();
         if ($sort === 'oldest') {
-            $query->orderBy('created_at')->orderBy('id');
+            $query->orderBy('id');
 
             return;
         }
@@ -393,7 +411,7 @@ class BookService
             return;
         }
 
-        $query->orderByDesc('created_at')->orderByDesc('id');
+        $query->orderByDesc('id');
     }
 
     /**
@@ -587,6 +605,7 @@ class BookService
     public function destroy(Book $book): void
     {
         $book->delete();
+        $this->bumpAdminBooksCacheVersion();
     }
 
     public function trash(int $perPage = self::PER_PAGE): LengthAwarePaginator
@@ -611,6 +630,7 @@ class BookService
             return null;
         }
         $book->restore();
+        $this->bumpAdminBooksCacheVersion();
 
         return $book;
     }
@@ -623,7 +643,12 @@ class BookService
             return 0;
         }
 
-        return (int) Book::onlyTrashed()->whereIn('id', $ids)->restore();
+        $restored = (int) Book::onlyTrashed()->whereIn('id', $ids)->restore();
+        if ($restored > 0) {
+            $this->bumpAdminBooksCacheVersion();
+        }
+
+        return $restored;
     }
 
     public function forceDelete(int $id): bool
@@ -633,6 +658,7 @@ class BookService
             return false;
         }
         $book->forceDelete();
+        $this->bumpAdminBooksCacheVersion();
 
         return true;
     }
@@ -645,7 +671,12 @@ class BookService
             return 0;
         }
 
-        return Book::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+        $deleted = Book::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+        if ($deleted > 0) {
+            $this->bumpAdminBooksCacheVersion();
+        }
+
+        return $deleted;
     }
 
     /**
@@ -654,7 +685,17 @@ class BookService
     public function updateCoverImage(Book $book, UploadedFile $file): array
     {
         $baseName = $book->book_code ?: (string) $book->id;
-        $path = FileHelpers::updateModelImage($book, $file, 'books', 'cover_image', $baseName);
+        $directory = UploadDirectory::bookCovers((string) ($book->resource_type instanceof \BackedEnum ? $book->resource_type->value : $book->resource_type));
+        $path = FileHelpers::updateModelImage(
+            $book,
+            $file,
+            'books',
+            'cover_image',
+            $baseName,
+            (string) config('filesystems.media_disk', 'public'),
+            $directory
+        );
+        $this->bumpAdminBooksCacheVersion();
 
         return ['cover_image' => $path];
     }
@@ -682,7 +723,10 @@ class BookService
 
     public function importBooks(UploadedFile $file): array
     {
-        return BookImport::import($file);
+        $summary = BookImport::import($file);
+        $this->bumpAdminBooksCacheVersion();
+
+        return $summary;
     }
 
     /**
@@ -954,7 +998,16 @@ class BookService
                 );
                 try {
                     $baseName = $book->book_code ?: (string) $book->id;
-                    FileHelpers::updateModelImage($book, $uploaded, 'books', 'cover_image', $baseName);
+                    $directory = UploadDirectory::bookCovers((string) ($book->resource_type instanceof \BackedEnum ? $book->resource_type->value : $book->resource_type));
+                    FileHelpers::updateModelImage(
+                        $book,
+                        $uploaded,
+                        'books',
+                        'cover_image',
+                        $baseName,
+                        (string) config('filesystems.media_disk', 'public'),
+                        $directory
+                    );
                     $updated++;
                     $updatedBookIds[] = (int) $book->id;
                 } catch (\Throwable) {
@@ -965,6 +1018,9 @@ class BookService
             FileHelpers::removeDirectory($tmpDir);
         }
 
+        if ($updated > 0) {
+            $this->bumpAdminBooksCacheVersion();
+        }
         $out = ['updated' => $updated, 'skipped' => $skipped];
         if ($onlyBookIds !== null && $onlyBookIds !== []) {
             $uniqueUpdated = array_values(array_unique($updatedBookIds));
@@ -973,5 +1029,27 @@ class BookService
         }
 
         return $out;
+    }
+
+    public function adminListCacheVersion(): int
+    {
+        if (! Cache::has(self::ADMIN_BOOKS_CACHE_VERSION_KEY)) {
+            Cache::forever(self::ADMIN_BOOKS_CACHE_VERSION_KEY, 1);
+
+            return 1;
+        }
+
+        return (int) Cache::get(self::ADMIN_BOOKS_CACHE_VERSION_KEY, 1);
+    }
+
+    private function bumpAdminBooksCacheVersion(): void
+    {
+        if (! Cache::has(self::ADMIN_BOOKS_CACHE_VERSION_KEY)) {
+            Cache::forever(self::ADMIN_BOOKS_CACHE_VERSION_KEY, 1);
+
+            return;
+        }
+
+        Cache::increment(self::ADMIN_BOOKS_CACHE_VERSION_KEY);
     }
 }

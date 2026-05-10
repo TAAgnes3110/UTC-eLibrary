@@ -13,16 +13,17 @@ class DigitalDocumentSubmissionResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $disk = Storage::disk('public');
-        $url = $this->file_path ? $disk->url($this->file_path) : null;
-        $submissionCoverUrl = $this->cover_image_path ? $disk->url($this->cover_image_path) : null;
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+        $url = $this->file_path ? $mediaStorage->url($this->file_path) : null;
+        $submissionCoverUrl = $this->cover_image_path ? $mediaStorage->url($this->cover_image_path) : null;
 
         $approvedBook = $this->resource->relationLoaded('approvedBook') ? $this->approvedBook : null;
         $approvedBookData = null;
         if ($approvedBook) {
             $coverImage = $approvedBook->cover_image;
             if (! empty($coverImage) && ! str_starts_with((string) $coverImage, 'http')) {
-                $coverImage = $disk->url((string) $coverImage);
+                $coverImage = $mediaStorage->url((string) $coverImage);
             }
             $approvedBookData = [
                 'id' => $approvedBook->id,

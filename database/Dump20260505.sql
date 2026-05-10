@@ -2020,6 +2020,103 @@ INSERT INTO `news_posts` (
   (9,'huong-dan-xu-ly-phieu-muon-qua-han','Hướng dẫn xử lý phiếu mượn quá hạn','<p>Khi phiếu chuyển trạng thái quá hạn, bạn đọc cần liên hệ quầy thủ thư để xử lý.</p><ul><li>Thanh toán phí trễ hạn theo quy định.</li><li>Kiểm tra hiện trạng sách trước khi hoàn trả.</li></ul>',NULL,'active','2026-05-05 11:00:00',3,3,NULL,'2026-05-05 11:00:00','2026-05-05 11:00:00'),
   (10,'thong-bao-mo-rong-khung-gio-phuc-vu-cuoi-tuan','Thông báo mở rộng khung giờ phục vụ cuối tuần','<p>Từ tháng 5, thư viện mở cửa thêm sáng thứ Bảy để hỗ trợ ôn tập.</p><p>Khung giờ: 07:30 - 11:30.</p>',NULL,'active','2026-05-05 14:20:00',3,3,NULL,'2026-05-05 14:20:00','2026-05-05 14:20:00');
 
+-- Seed bổ sung đợt 4: chuẩn hóa dữ liệu sách đầy đủ + ảnh bìa + avatar người dùng
+INSERT INTO `authors` (`id`,`name`,`slug`,`params`,`created_by`,`updated_by`,`deleted_by`,`created_at`,`updated_at`) VALUES
+  (1001,'Robert C. Martin','a-robert-c-martin','[]',3,3,NULL,'2026-05-06 08:00:00','2026-05-06 08:00:00'),
+  (1002,'Martin Kleppmann','a-martin-kleppmann','[]',3,3,NULL,'2026-05-06 08:00:00','2026-05-06 08:00:00'),
+  (1003,'Kathy Sierra','a-kathy-sierra','[]',3,3,NULL,'2026-05-06 08:00:00','2026-05-06 08:00:00'),
+  (1004,'Bert Bates','a-bert-bates','[]',3,3,NULL,'2026-05-06 08:00:00','2026-05-06 08:00:00'),
+  (1005,'Andrew S. Tanenbaum','a-andrew-s-tanenbaum','[]',3,3,NULL,'2026-05-06 08:00:00','2026-05-06 08:00:00'),
+  (1006,'Herbert Bos','a-herbert-bos','[]',3,3,NULL,'2026-05-06 08:00:00','2026-05-06 08:00:00');
+
+INSERT INTO `publishers` (`id`,`name`,`slug`,`params`,`created_by`,`updated_by`,`deleted_by`,`created_at`,`updated_at`) VALUES
+  (1001,'Prentice Hall','p-prentice-hall','[]',3,3,NULL,'2026-05-06 08:05:00','2026-05-06 08:05:00'),
+  (1002,'O''Reilly Media','p-oreilly-media','[]',3,3,NULL,'2026-05-06 08:05:00','2026-05-06 08:05:00'),
+  (1003,'Addison-Wesley Professional','p-addison-wesley-professional','[]',3,3,NULL,'2026-05-06 08:05:00','2026-05-06 08:05:00');
+
+INSERT INTO `books` (
+  `id`,`registration_number`,`book_code`,`title`,`sub_title`,`language`,`edition`,`published_year`,`pages`,
+  `illustration_pages`,`book_size`,`price`,`quantity`,`summary`,`notes`,`publisher_place`,`cabinet`,`cover_image`,
+  `classification_id`,`warehouse_id`,`resource_type`,`access_mode`,`params`,`created_by`,`updated_by`,`deleted_by`,
+  `created_at`,`updated_at`,`deleted_at`
+) VALUES
+  (401,'REG-UTC-2026-0401','GT-ISBN9780132350884','Clean Code','A Handbook of Agile Software Craftsmanship','Tiếng Anh','1',2008,464,NULL,'24 cm',285000,12,'Sách tập trung vào nguyên tắc viết mã sạch, dễ bảo trì, phù hợp cho học phần kỹ thuật phần mềm và thực hành lập trình.','Bản in bìa mềm, phục vụ mượn về nhà theo chính sách hiện hành.','Boston','TU-600-C1','utc-elibrary/book-covers/isbn/9780132350884.jpg',4,1,'textbook','circulation_only','{"source":"manual-curation-v1","isbn":"9780132350884"}',3,3,NULL,'2026-05-06 08:10:00','2026-05-06 08:10:00',NULL),
+  (402,'REG-UTC-2026-0402','GT-ISBN9781449373320','Designing Data-Intensive Applications','The Big Ideas Behind Reliable, Scalable, and Maintainable Systems','Tiếng Anh','1',2017,616,NULL,'24 cm',420000,8,'Tài liệu nền tảng về hệ thống dữ liệu hiện đại: lưu trữ, xử lý luồng, độ tin cậy và khả năng mở rộng.','Ưu tiên phục vụ nhóm môn CSDL phân tán và kiến trúc hệ thống.','Sebastopol','TU-600-D2','utc-elibrary/book-covers/isbn/9781449373320.jpg',4,2,'reference','circulation_only','{"source":"manual-curation-v1","isbn":"9781449373320"}',3,3,NULL,'2026-05-06 08:10:00','2026-05-06 08:10:00',NULL),
+  (403,'REG-UTC-2026-0403','GT-ISBN9780596009205','Head First Java','Second Edition','Tiếng Anh','2',2005,720,NULL,'24 cm',315000,10,'Giáo trình Java theo phong cách trực quan, phù hợp cho người mới học lập trình hướng đối tượng.','Sách tham khảo bổ trợ cho học phần Java cơ bản và nâng cao.','Beijing','TU-500-B1','utc-elibrary/book-covers/isbn/9780596009205.jpg',3,1,'textbook','circulation_only','{"source":"manual-curation-v1","isbn":"9780596009205"}',3,3,NULL,'2026-05-06 08:10:00','2026-05-06 08:10:00',NULL),
+  (404,'REG-UTC-2026-0404','GT-ISBN9780133591620','Modern Operating Systems',NULL,'Tiếng Anh','4',2014,1136,NULL,'24 cm',455000,6,'Giáo trình chuyên sâu về nguyên lý hệ điều hành, bao gồm quản lý tiến trình, bộ nhớ, hệ tệp và bảo mật.','Dùng chính cho học phần Hệ điều hành và kiến trúc máy tính.','Boston','TU-600-C1','utc-elibrary/book-covers/isbn/9780133591620.jpg',4,2,'reference','circulation_only','{"source":"manual-curation-v1","isbn":"9780133591620"}',3,3,NULL,'2026-05-06 08:10:00','2026-05-06 08:10:00',NULL);
+
+INSERT INTO `book_authors` (`id`,`book_id`,`author_id`,`order`,`created_by`,`updated_by`,`deleted_by`,`created_at`,`updated_at`) VALUES
+  (707,401,1001,0,3,3,NULL,'2026-05-06 08:20:00','2026-05-06 08:20:00'),
+  (708,402,1002,0,3,3,NULL,'2026-05-06 08:20:00','2026-05-06 08:20:00'),
+  (709,403,1003,0,3,3,NULL,'2026-05-06 08:20:00','2026-05-06 08:20:00'),
+  (710,403,1004,1,3,3,NULL,'2026-05-06 08:20:00','2026-05-06 08:20:00'),
+  (711,404,1005,0,3,3,NULL,'2026-05-06 08:20:00','2026-05-06 08:20:00'),
+  (712,404,1006,1,3,3,NULL,'2026-05-06 08:20:00','2026-05-06 08:20:00');
+
+INSERT INTO `book_publishers` (`id`,`book_id`,`publisher_id`,`order`,`created_by`,`updated_by`,`deleted_by`,`created_at`,`updated_at`) VALUES
+  (401,401,1003,0,3,3,NULL,'2026-05-06 08:21:00','2026-05-06 08:21:00'),
+  (402,402,1002,0,3,3,NULL,'2026-05-06 08:21:00','2026-05-06 08:21:00'),
+  (403,403,1001,0,3,3,NULL,'2026-05-06 08:21:00','2026-05-06 08:21:00'),
+  (404,404,1001,0,3,3,NULL,'2026-05-06 08:21:00','2026-05-06 08:21:00');
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/students/nguyen-van-an.jpg', `updated_at` = '2026-05-06 08:30:00'
+WHERE `id` = 8;
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/students/tran-thi-binh.jpg', `updated_at` = '2026-05-06 08:30:00'
+WHERE `id` = 9;
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/teachers/pham-minh-giang.jpg', `updated_at` = '2026-05-06 08:30:00'
+WHERE `id` = 10;
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/students/le-thu-cuc.jpg', `updated_at` = '2026-05-06 08:30:00'
+WHERE `id` = 11;
+
+-- Chuẩn hóa ảnh bìa sách trên toàn bộ dump:
+-- 1) Nếu sách chưa có cover và book_code dạng GT-ISBNxxxxxxxxxxxxx -> dùng OpenLibrary theo ISBN
+-- 2) Nếu vẫn chưa có cover -> gán ảnh mặc định để tránh vỡ ảnh trên FE
+UPDATE `books`
+SET `cover_image` = CONCAT('utc-elibrary/book-covers/isbn/', SUBSTRING(`book_code`, 8), '.jpg'),
+`updated_at` = '2026-05-06 09:00:00'
+WHERE (`cover_image` IS NULL OR `cover_image` = '')
+  AND `book_code` LIKE 'GT-ISBN%'
+  AND LENGTH(`book_code`) >= 17;
+
+UPDATE `books`
+SET `cover_image` = 'utc-elibrary/book-covers/defaults/default-book-cover.jpg',
+`updated_at` = '2026-05-06 09:01:00'
+WHERE `cover_image` IS NULL OR `cover_image` = '';
+
+-- Bổ sung avatar cho thêm một số tài khoản demo để dữ liệu trực quan hơn khi test UI
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/students/do-anh-quan.jpg', `updated_at` = '2026-05-06 09:05:00'
+WHERE `id` = 12;
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/teachers/bui-khanh-linh.jpg', `updated_at` = '2026-05-06 09:05:00'
+WHERE `id` = 13;
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/students/ngo-hai-nam.jpg', `updated_at` = '2026-05-06 09:05:00'
+WHERE `id` = 14;
+
+UPDATE `users`
+SET `avatar` = 'utc-elibrary/user-avatars/students/vu-mai-huong.jpg', `updated_at` = '2026-05-06 09:05:00'
+WHERE `id` = 15;
+
+-- Chuẩn hóa avatar còn lại theo user_type để tránh dùng path cũ `avatars/...`
+UPDATE `users`
+SET `avatar` = CASE
+    WHEN `user_type` = 'TEACHER' THEN 'utc-elibrary/user-avatars/defaults/default-teacher.jpg'
+    WHEN `user_type` = 'STUDENT' THEN 'utc-elibrary/user-avatars/defaults/default-student.jpg'
+    ELSE 'utc-elibrary/user-avatars/defaults/default-user.jpg'
+END,
+`updated_at` = '2026-05-06 09:06:00'
+WHERE `avatar` IS NULL OR `avatar` = '' OR `avatar` LIKE 'avatars/%';
+
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

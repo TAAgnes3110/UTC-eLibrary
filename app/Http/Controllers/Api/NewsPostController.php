@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Helpers\ApiResponse;
+use App\Helpers\BulkZipRequestHelper;
+use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\NewsPostRequest;
+use App\Http\Resources\NewsPostListResource;
 use App\Models\NewsPost;
 use App\Services\NewsPostService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class NewsPostController extends Controller
@@ -29,19 +33,29 @@ class NewsPostController extends Controller
         ]);
 
         $perPage = min(max((int) ($validated['per_page'] ?? 15), 1), 100);
-        $items = $this->newsPostService->paginate($validated, $perPage);
+        $cacheable = ! $request->filled('keyword')
+            && (int) $request->input('page', 1) <= 3
+            && in_array($perPage, [10, 15, 20], true);
+        if (! $cacheable) {
+            $items = $this->newsPostService->paginate($validated, $perPage);
 
-        return ApiResponse::success([
-            'data' => array_map(fn (NewsPost $post): array => $this->mapPost($post, false), $items->items()),
-            'meta' => [
-                'current_page' => $items->currentPage(),
-                'last_page' => $items->lastPage(),
-                'per_page' => $items->perPage(),
-                'total' => $items->total(),
-                'from' => $items->firstItem(),
-                'to' => $items->lastItem(),
-            ],
-        ]);
+            return ApiResponse::success($this->listPayload($items));
+        }
+        $cacheKey = 'api:news-posts:index:'.md5(json_encode([
+            'v' => $this->newsPostService->adminListCacheVersion(),
+            'page' => (int) $request->input('page', 1),
+            'per_page' => $perPage,
+            'type' => (string) ($validated['type'] ?? ''),
+            'sort' => (string) ($validated['sort'] ?? 'newest'),
+            'search_in' => (array) ($validated['search_in'] ?? []),
+        ], JSON_UNESCAPED_UNICODE));
+        $payload = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($validated, $perPage): array {
+            $items = $this->newsPostService->paginate($validated, $perPage);
+
+            return $this->listPayload($items);
+        });
+
+        return ApiResponse::success($payload);
     }
 
     public function publicIndex(Request $request): JsonResponse
@@ -58,17 +72,7 @@ class NewsPostController extends Controller
         $perPage = min(max((int) ($validated['per_page'] ?? 15), 1), 100);
         $items = $this->newsPostService->paginatePublicPublished($validated, $perPage);
 
-        return ApiResponse::success([
-            'data' => array_map(fn (NewsPost $post): array => $this->mapPost($post, false), $items->items()),
-            'meta' => [
-                'current_page' => $items->currentPage(),
-                'last_page' => $items->lastPage(),
-                'per_page' => $items->perPage(),
-                'total' => $items->total(),
-                'from' => $items->firstItem(),
-                'to' => $items->lastItem(),
-            ],
-        ]);
+        return ApiResponse::success($this->listPayload($items));
     }
 
     public function publicShow(string $slug): JsonResponse
@@ -131,10 +135,51 @@ class NewsPostController extends Controller
 
         $path = $this->newsPostService->uploadContentImage($validated['image']);
 
+        $disk = (string) config('filesystems.media_disk', 'public');
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+        $storage = Storage::disk($disk);
+
         return ApiResponse::success([
             'path' => $path,
-            'url' => Storage::url($path),
+            'url' => $storage->url($path),
         ]);
+    }
+
+    public function updateThumbnail(Request $request, NewsPost $newsPost): JsonResponse
+    {
+        $file = $request->file('thumbnail');
+        if (! $file) {
+            return ApiResponse::error(__('Vui lòng chọn file ảnh hợp lệ.'), 422);
+        }
+        try {
+            $updated = $this->newsPostService->updateThumbnailImage($newsPost, $file);
+
+            return ApiResponse::success($this->mapPost($updated), __('Cập nhật ảnh bìa thành công.'));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+    }
+
+    public function bulkUpdateThumbnail(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:zip'],
+        ]);
+        $file = $request->file('file');
+        if (! $file) {
+            return ApiResponse::error(__('Vui lòng chọn một file .zip hợp lệ.'), 422);
+        }
+
+        $onlyPostIds = BulkZipRequestHelper::parseFilterIds($request);
+        try {
+            $summary = $this->newsPostService->bulkUpdateThumbnailFromZip($file, $onlyPostIds);
+
+            return ApiResponse::success($summary, __('Cập nhật ảnh bìa thành công.'));
+        } catch (\InvalidArgumentException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        } catch (\Throwable) {
+            return ApiResponse::error(__('Không thể xử lý file zip.'), 422);
+        }
     }
 
     private function mapPost(NewsPost $post, bool $includeAttachments = true): array
@@ -150,6 +195,10 @@ class NewsPostController extends Controller
             ])->values()->all();
         }
 
+        $mediaDisk = (string) config('filesystems.media_disk', 'public');
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        $mediaStorage = Storage::disk($mediaDisk);
+
         return [
             'id' => $post->id,
             'slug' => $post->slug,
@@ -158,7 +207,9 @@ class NewsPostController extends Controller
             'status' => $post->status,
             'type' => $post->type,
             'thumbnail_path' => $post->thumbnail_path,
-            'thumbnail_url' => $post->thumbnail_path ? Storage::url($post->thumbnail_path) : null,
+            'thumbnail_url' => $post->thumbnail_path
+                ? $mediaStorage->url($post->thumbnail_path)
+                : FileHelpers::mediaDefaultUrl('news_thumbnail'),
             'published_at' => $post->published_at?->toIso8601String(),
             'created_at' => $post->created_at?->toIso8601String(),
             'updated_at' => $post->updated_at?->toIso8601String(),
@@ -168,6 +219,21 @@ class NewsPostController extends Controller
                 'email' => $post->createdBy->email,
             ] : null,
             'attachments' => $attachments,
+        ];
+    }
+
+    private function listPayload(\Illuminate\Contracts\Pagination\LengthAwarePaginator $items): array
+    {
+        return [
+            'data' => NewsPostListResource::collection($items->items())->resolve(),
+            'meta' => [
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'per_page' => $items->perPage(),
+                'total' => $items->total(),
+                'from' => $items->firstItem(),
+                'to' => $items->lastItem(),
+            ],
         ];
     }
 }

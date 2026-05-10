@@ -6,6 +6,7 @@ import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { readerBookShowStrings as S } from '@/config/readerStrings'
 import { toast } from '@/store/toast'
 import { meBorrowRequestsApi } from '@/api/meBorrowRequests'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
@@ -17,6 +18,7 @@ const requestedDueDate = ref('')
 const borrowSubmitError = ref('')
 const CART_KEY = 'reader_borrow_cart_v1'
 const todayIso = computed(() => new Date().toISOString().slice(0, 10))
+const { withFallback } = useImageFallback()
 
 const maxDueIso = computed(() => {
     const d = new Date()
@@ -319,6 +321,7 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                                 :src="book.cover_image"
                                 :alt="book.title"
                                 class="aspect-[3/4] w-full object-cover"
+                                @error="withFallback('/images/default-book-cover.png')($event)"
                             />
                             <div v-else class="flex aspect-[3/4] w-full items-center justify-center text-slate-400">
                                 <Icon icon="lucide:book-open" class="h-20 w-20 opacity-40" aria-hidden="true" />

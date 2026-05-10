@@ -40,7 +40,7 @@ class ImageUploadHelper
         $name = $prefix
             ? $prefix.'.'.$ext
             : Str::uuid()->toString().'.'.$ext;
-        $path = $file->storeAs($directory, $name, 'public');
+        $path = $file->storeAs($directory, $name, (string) config('filesystems.media_disk', 'public'));
 
         return $path;
     }
@@ -51,18 +51,36 @@ class ImageUploadHelper
      */
     public static function deleteIfExists(?string $path): void
     {
-        if (empty($path) || str_starts_with($path, 'http')) {
+        if (empty($path)) {
             return;
         }
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
+        $disk = (string) config('filesystems.media_disk', 'public');
+        $relativePath = ltrim((string) $path, '/');
+        if (str_starts_with((string) $path, 'http')) {
+            $diskUrl = rtrim((string) config("filesystems.disks.{$disk}.url", ''), '/');
+            if ($diskUrl !== '' && str_starts_with((string) $path, $diskUrl)) {
+                $relativePath = ltrim(substr((string) $path, strlen($diskUrl)), '/');
+            } else {
+                $urlPath = parse_url((string) $path, PHP_URL_PATH);
+                if (! is_string($urlPath) || $urlPath === '') {
+                    return;
+                }
+                $relativePath = ltrim($urlPath, '/');
+                if (str_starts_with($relativePath, 'storage/')) {
+                    $relativePath = ltrim(substr($relativePath, 8), '/');
+                }
+            }
+        }
+
+        if ($relativePath !== '' && Storage::disk($disk)->exists($relativePath)) {
+            Storage::disk($disk)->delete($relativePath);
         }
     }
 
     /**
      * Cập nhật một trường ảnh cho model:
      * - Xóa file cũ nếu có
-     * - Lưu file mới vào thư mục: upload/{table}
+     * - Lưu file mới vào thư mục chuẩn trên media disk (utc-elibrary/... theo UploadDirectory)
      * - Gán path mới vào $attribute và save model
      *
      * @param  Model  $model  Model Eloquent cần cập nhật

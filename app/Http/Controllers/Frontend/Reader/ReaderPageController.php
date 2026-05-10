@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Frontend\Reader;
 
 use App\Enums\LibraryCardStatus;
 use App\Enums\ResourceType;
+use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LibraryCardResource;
 use App\Http\Resources\LoanPolicyResource;
@@ -43,6 +44,8 @@ class ReaderPageController extends Controller
     private function mapReaderNewsPost(NewsPost $post): array
     {
         $plainText = trim((string) preg_replace('/\s+/u', ' ', (string) strip_tags((string) $post->content)));
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
 
         return [
             'id' => $post->id,
@@ -51,7 +54,9 @@ class ReaderPageController extends Controller
             'content' => $post->content,
             'excerpt' => mb_substr($plainText, 0, 240),
             'type' => $post->type,
-            'thumbnail_url' => $post->thumbnail_path ? Storage::url($post->thumbnail_path) : null,
+            'thumbnail_url' => $post->thumbnail_path
+                ? $mediaStorage->url($post->thumbnail_path)
+                : FileHelpers::mediaDefaultUrl('news_thumbnail'),
             'published_at' => $post->published_at?->toIso8601String(),
             'posted_by' => $post->createdBy ? [
                 'name' => $post->createdBy->name,
@@ -364,9 +369,9 @@ class ReaderPageController extends Controller
 
         $avatar = $user->avatar;
         if (! empty($avatar) && ! str_starts_with((string) $avatar, 'http')) {
-            $avatar = Storage::disk('public')->exists((string) $avatar)
-                ? Storage::url((string) $avatar)
-                : null;
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+            $avatar = $mediaStorage->url((string) $avatar);
         }
 
         return Inertia::render('Reader/Services/LibraryCard', [

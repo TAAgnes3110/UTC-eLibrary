@@ -21,4 +21,10 @@ export const newsPostsApi = {
     remove(id) {
         return client.delete(`/news-posts/${id}`).then((r) => r.data);
     },
+    updateThumbnail(id, formData) {
+        return client.post(`/news-posts/${id}/thumbnail`, formData).then((r) => r.data);
+    },
+    bulkUpdateThumbnail(formData) {
+        return client.post('/news-posts/thumbnail-bulk', formData).then((r) => r.data);
+    },
 };

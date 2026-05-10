@@ -216,7 +216,10 @@ class LibraryCardController extends Controller
         $isStaffCounterIssue = !empty($data['user_id']);
         if ($request->hasFile('photo')) {
             $dir = trim(UploadDirectory::forTable('library_cards'), '/');
-            $data['photo_path'] = $request->file('photo')->store($dir, 'public');
+            $data['photo_path'] = $request->file('photo')->store(
+                $dir,
+                (string) config('filesystems.media_disk', 'public')
+            );
         }
         unset($data['photo']);
         $card = $this->libraryCardService->create($data);

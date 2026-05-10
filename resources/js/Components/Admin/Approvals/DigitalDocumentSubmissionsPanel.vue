@@ -18,6 +18,7 @@ import {
     submissionStatusBadgeClass,
 } from '@/config/digitalSubmissionUi';
 import { toast } from '@/store/toast';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -35,6 +36,7 @@ const rejectNote = ref('');
 const rejectSubmitting = ref(false);
 const rejectBulk = ref(false);
 const actionSubmissionId = ref(null);
+const { withFallback } = useImageFallback();
 
 const dateFmt = new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
@@ -589,6 +591,7 @@ function submitterLabel(row) {
                                     class="h-full w-full object-cover"
                                     loading="lazy"
                                     decoding="async"
+                                    @error="withFallback('/images/default-book-cover.png')($event)"
                                 />
                             </div>
                             <div class="min-w-0 space-y-2 text-slate-700 dark:text-slate-300">

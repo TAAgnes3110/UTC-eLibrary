@@ -24,10 +24,9 @@ class ReaderBookDetailResource extends JsonResource
             if (str_starts_with($normalizedPath, 'storage/')) {
                 $normalizedPath = substr($normalizedPath, 8);
             }
-
-            $coverImage = Storage::disk('public')->exists($normalizedPath)
-                ? Storage::url($normalizedPath)
-                : $defaultCover;
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+            $coverImage = $mediaStorage->url($normalizedPath);
         }
 
         $rt = $this->resource_type instanceof \BackedEnum
@@ -43,9 +42,7 @@ class ReaderBookDetailResource extends JsonResource
             'publishers_label' => $this->publishers_label,
             'resource_type' => $rt,
             'resource_type_label' => ReaderBookCardResource::resourceTypeLabel($rt),
-            'access_mode' => $this->access_mode instanceof \BackedEnum
-                ? $this->access_mode->value
-                : ($this->access_mode ?? 'circulation_only'),
+            'access_mode' => $this->resolveAccessMode(),
             'registration_number' => $this->registration_number,
             'book_code' => $this->book_code,
             'language' => $this->language,
@@ -86,5 +83,19 @@ class ReaderBookDetailResource extends JsonResource
                 'abstract_text' => $this->thesisMetadata->abstract_text,
             ] : null),
         ];
+    }
+
+    private function resolveAccessMode(): string
+    {
+        $raw = (string) ($this->resource->getRawOriginal('access_mode') ?? '');
+        $normalized = trim($raw);
+        if ($normalized === 'onsite') {
+            return 'circulation_only';
+        }
+        if ($normalized === '') {
+            return 'circulation_only';
+        }
+
+        return $normalized;
     }
 }

@@ -8,6 +8,7 @@ use App\Helpers\ApiResponse;
 use App\Helpers\BulkZipRequestHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BookRequest;
+use App\Http\Resources\BookListResource;
 use App\Http\Resources\BookResource;
 use App\Models\Book;
 use App\Models\Loan;
@@ -16,6 +17,7 @@ use App\Services\BookService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BookController extends Controller
@@ -41,9 +43,29 @@ class BookController extends Controller
         $searchColumns = $this->parseSearchInFilter($request);
         $sort = $request->input('sort');
 
-        $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns, $sort);
+        $cacheable = ! $request->filled('keyword')
+            && (int) $request->input('page', 1) <= 3
+            && in_array($perPage, [15, 20, 30], true);
+        if (! $cacheable) {
+            $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns, $sort);
 
-        return ApiResponse::success($this->paginatorPayload($items));
+            return ApiResponse::success($this->paginatorPayload($items, true));
+        }
+        $cacheKey = 'api:books:index:'.md5(json_encode([
+            'v' => $this->bookService->adminListCacheVersion(),
+            'page' => (int) $request->input('page', 1),
+            'per_page' => $perPage,
+            'resource_type' => (string) $resourceType,
+            'search_in' => $searchColumns ?? [],
+            'sort' => (string) ($sort ?? ''),
+        ], JSON_UNESCAPED_UNICODE));
+        $payload = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($keyword, $resourceType, $perPage, $searchColumns, $sort): array {
+            $items = $this->bookService->index($keyword, $resourceType, $perPage, $searchColumns, $sort);
+
+            return $this->paginatorPayload($items, true);
+        });
+
+        return ApiResponse::success($payload);
     }
 
     /**
@@ -293,10 +315,14 @@ class BookController extends Controller
         return BookImportTemplateExport::stream();
     }
 
-    private function paginatorPayload(LengthAwarePaginator $items): array
+    private function paginatorPayload(LengthAwarePaginator $items, bool $lightweight = false): array
     {
+        $data = $lightweight
+            ? BookListResource::collection($items->items())->resolve()
+            : BookResource::collection($items->items())->resolve();
+
         return [
-            'data' => BookResource::collection($items->items())->resolve(),
+            'data' => $data,
             'meta' => [
                 'current_page' => $items->currentPage(),
                 'last_page' => $items->lastPage(),

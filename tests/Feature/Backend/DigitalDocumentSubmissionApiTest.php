@@ -13,6 +13,11 @@ class DigitalDocumentSubmissionApiTest extends TestCase
     use ActsAsApiUser;
     use RefreshDatabase;
 
+    private function mediaDisk(): string
+    {
+        return (string) config('filesystems.media_disk', 'public');
+    }
+
     public function test_reader_lists_own_submissions_then_hide_removes_from_list_but_row_remains(): void
     {
         [$reader, $token] = $this->createUserAndToken([
@@ -80,7 +85,7 @@ class DigitalDocumentSubmissionApiTest extends TestCase
 
     public function test_reader_can_submit_pdf_with_optional_cover_image(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
 
         [$reader, $token] = $this->createUserAndToken(['email' => 'reader-submit@test.com']);
 
@@ -107,13 +112,13 @@ class DigitalDocumentSubmissionApiTest extends TestCase
         $row = DigitalDocumentSubmission::query()->where('submitted_by', $reader->id)->latest('id')->first();
         $this->assertNotNull($row);
         $this->assertNotNull($row->cover_image_path);
-        Storage::disk('public')->assertExists($row->file_path);
-        Storage::disk('public')->assertExists($row->cover_image_path);
+        Storage::disk($this->mediaDisk())->assertExists($row->file_path);
+        Storage::disk($this->mediaDisk())->assertExists($row->cover_image_path);
     }
 
     public function test_reader_can_submit_pdf_when_browser_sends_octet_stream_mime(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
 
         [$reader, $token] = $this->createUserAndToken(['email' => 'octet-pdf@test.com']);
 
@@ -137,7 +142,7 @@ class DigitalDocumentSubmissionApiTest extends TestCase
 
     public function test_staff_cannot_submit_via_reader_endpoint_must_use_admin_catalog(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [, $librarianToken] = $this->createLibrarianUserAndToken();
         $pdf = UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf');
 

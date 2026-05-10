@@ -5,6 +5,7 @@ import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue'
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue'
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const SEARCH_IN_OPTIONS = [
     { key: 'title', label: 'Tiêu đề' },
@@ -54,6 +55,8 @@ watch(() => props.filters?.search_in, (v) => {
 const items = computed(() => Array.isArray(props.news?.data) ? props.news.data : [])
 const currentPage = computed(() => Number(props.news?.current_page || 1))
 const lastPage = computed(() => Number(props.news?.last_page || 1))
+const DEFAULT_NEWS_COVER = '/images/default-news-cover.jpg'
+const { withFallback } = useImageFallback()
 
 function buildParams(page = 1) {
     const params = {
@@ -151,8 +154,9 @@ function goToPage(page) {
                 >
                     <Link prefetch :href="route('reader.news.show', item.slug)" class="block shrink-0">
                         <img
-                            :src="item.thumbnail_url || '/images/default-news-cover.jpg'"
+                            :src="item.thumbnail_url || DEFAULT_NEWS_COVER"
                             alt="Ảnh bài viết"
+                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
                             loading="lazy"
                             decoding="async"
                             class="h-28 w-full rounded-md border border-blue-200 object-cover sm:w-44"

@@ -8,6 +8,7 @@ import { ADMIN_ICONS } from '@/config/adminIcons';
 import { usersApi } from '@/api/users';
 import { extractApiPaginator } from '@/utils/adminPagination';
 import { toast } from '@/store/toast';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -28,6 +29,7 @@ const rejectDialogSubmitting = ref(false);
 const approvingIds = ref([]);
 const approveBulkSubmitting = ref(false);
 const hidingIds = ref([]);
+const { withFallback } = useImageFallback();
 
 function statusLabel(s) {
     if (s === 'approved') return 'Đã duyệt';
@@ -536,6 +538,7 @@ onMounted(() => {
                                             :src="item.proof_image_url"
                                             alt="Minh chứng"
                                             class="h-full w-full object-cover"
+                                            @error="withFallback('/images/default-news-cover.jpg')($event)"
                                         />
                                     </a>
                                     <span v-else class="text-[12px] text-slate-500">—</span>
@@ -687,6 +690,7 @@ onMounted(() => {
                                         :src="detailDialogItem.proof_image_url"
                                         alt="Minh chứng"
                                         class="h-[260px] w-full object-contain bg-slate-100 dark:bg-slate-800"
+                                        @error="withFallback('/images/default-news-cover.jpg')($event)"
                                     />
                                 </button>
                                 <p v-else class="text-sm text-slate-500 dark:text-slate-400">Không có ảnh minh chứng.</p>
@@ -721,7 +725,7 @@ onMounted(() => {
                     >
                         Đóng
                     </button>
-                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng chi tiết" class="max-h-[85vh] w-full rounded-xl object-contain" />
+                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng chi tiết" class="max-h-[85vh] w-full rounded-xl object-contain" @error="withFallback('/images/default-news-cover.jpg')($event)" />
                 </div>
             </div>
 

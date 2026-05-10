@@ -8,14 +8,20 @@ use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 
 class UserService
 {
     private const PER_PAGE = 50;
 
+    public const ADMIN_USERS_CACHE_VERSION_KEY = 'admin:users:list-cache-version';
+
     public function create(array $data): User
     {
-        return User::create($data);
+        $user = User::create($data);
+        $this->bumpAdminUsersCacheVersion();
+
+        return $user;
     }
 
     public function update(User $user, array $data): User
@@ -31,6 +37,7 @@ class UserService
             unset($data['password']);
         }
         $user->update($data);
+        $this->bumpAdminUsersCacheVersion();
 
         return $user;
     }
@@ -115,6 +122,7 @@ class UserService
     public function destroy(User $user): void
     {
         $user->delete();
+        $this->bumpAdminUsersCacheVersion();
     }
 
     public function trash(int $perPage = self::PER_PAGE): LengthAwarePaginator
@@ -132,6 +140,7 @@ class UserService
             return null;
         }
         $user->restore();
+        $this->bumpAdminUsersCacheVersion();
 
         return $user;
     }
@@ -144,7 +153,12 @@ class UserService
             return 0;
         }
 
-        return (int) User::onlyTrashed()->whereIn('id', $ids)->restore();
+        $restored = (int) User::onlyTrashed()->whereIn('id', $ids)->restore();
+        if ($restored > 0) {
+            $this->bumpAdminUsersCacheVersion();
+        }
+
+        return $restored;
     }
 
     public function forceDelete(int $id): bool
@@ -154,6 +168,7 @@ class UserService
             return false;
         }
         $user->forceDelete();
+        $this->bumpAdminUsersCacheVersion();
 
         return true;
     }
@@ -166,12 +181,18 @@ class UserService
             return 0;
         }
 
-        return User::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+        $deleted = User::onlyTrashed()->whereIn('id', $ids)->forceDelete();
+        if ($deleted > 0) {
+            $this->bumpAdminUsersCacheVersion();
+        }
+
+        return $deleted;
     }
 
     public function updateStatus(array $ids, bool $isActive): void
     {
         User::query()->whereIn('id', $ids)->update(['is_active' => $isActive]);
+        $this->bumpAdminUsersCacheVersion();
     }
 
     /** @return array{is_active: bool}|null null nếu không tìm thấy */
@@ -183,6 +204,7 @@ class UserService
         }
         $user->is_active = ! $user->is_active;
         $user->save();
+        $this->bumpAdminUsersCacheVersion();
 
         return ['is_active' => $user->is_active];
     }
@@ -212,7 +234,15 @@ class UserService
      */
     public function updateAvatar(User $user, UploadedFile $file): array
     {
-        $path = FileHelpers::updateModelImage($user, $file, 'users', 'avatar', $user->code ?: (string) $user->id);
+        $path = FileHelpers::updateModelImage(
+            $user,
+            $file,
+            'users',
+            'avatar',
+            $user->code ?: (string) $user->id,
+            (string) config('filesystems.media_disk', 'public')
+        );
+        $this->bumpAdminUsersCacheVersion();
 
         return ['avatar' => $path];
     }
@@ -275,7 +305,14 @@ class UserService
                     true
                 );
                 try {
-                    FileHelpers::updateModelImage($user, $uploaded, 'users', 'avatar', $user->code ?: (string) $user->id);
+                    FileHelpers::updateModelImage(
+                        $user,
+                        $uploaded,
+                        'users',
+                        'avatar',
+                        $user->code ?: (string) $user->id,
+                        (string) config('filesystems.media_disk', 'public')
+                    );
                     $updated++;
                     $updatedUserIds[] = (int) $user->id;
                 } catch (\Throwable) {
@@ -286,6 +323,9 @@ class UserService
             FileHelpers::removeDirectory($tmpDir);
         }
 
+        if ($updated > 0) {
+            $this->bumpAdminUsersCacheVersion();
+        }
         $out = ['updated' => $updated, 'skipped' => $skipped];
         if ($onlyUserIds !== null && $onlyUserIds !== []) {
             $uniqueUpdated = array_values(array_unique($updatedUserIds));
@@ -294,5 +334,27 @@ class UserService
         }
 
         return $out;
+    }
+
+    public function adminListCacheVersion(): int
+    {
+        if (! Cache::has(self::ADMIN_USERS_CACHE_VERSION_KEY)) {
+            Cache::forever(self::ADMIN_USERS_CACHE_VERSION_KEY, 1);
+
+            return 1;
+        }
+
+        return (int) Cache::get(self::ADMIN_USERS_CACHE_VERSION_KEY, 1);
+    }
+
+    private function bumpAdminUsersCacheVersion(): void
+    {
+        if (! Cache::has(self::ADMIN_USERS_CACHE_VERSION_KEY)) {
+            Cache::forever(self::ADMIN_USERS_CACHE_VERSION_KEY, 1);
+
+            return;
+        }
+
+        Cache::increment(self::ADMIN_USERS_CACHE_VERSION_KEY);
     }
 }

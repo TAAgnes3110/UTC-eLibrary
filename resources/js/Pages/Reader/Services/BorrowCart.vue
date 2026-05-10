@@ -5,12 +5,14 @@ import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { meBorrowRequestsApi } from '@/api/meBorrowRequests'
 import { toast } from '@/store/toast'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const CART_KEY = 'reader_borrow_cart_v1'
 const loading = ref(false)
 const submitting = ref(false)
 const rows = ref([])
 const selectedIds = ref([])
+const { withFallback } = useImageFallback()
 const loanType = ref('home')
 const requestedDueDate = ref('')
 const todayIso = computed(() => new Date().toISOString().slice(0, 10))
@@ -373,6 +375,7 @@ onMounted(refreshPreview)
                                             :alt="row.title"
                                             loading="lazy"
                                             class="h-full w-full object-cover"
+                                            @error="withFallback('/images/default-book-cover.png')($event)"
                                         />
                                         <div v-else class="flex h-full w-full items-center justify-center text-slate-400">
                                             <Icon icon="lucide:book-open" class="h-4 w-4" />

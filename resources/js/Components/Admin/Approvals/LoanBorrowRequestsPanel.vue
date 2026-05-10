@@ -11,6 +11,7 @@ import { loansApi } from '@/api/loans';
 import { extractApiPaginator } from '@/utils/adminPagination';
 import { toast } from '@/store/toast';
 import { bookResourceTypeLabel } from '@/utils/bookResourceTypeLabel';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -183,6 +184,7 @@ function closeDetails() {
 const detailProofUrl = computed(() => detailRow.value?.proof_file_url || detailRow.value?.proof_url || detailRow.value?.proof_image_url || '');
 const detailProofIsImage = computed(() => /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(detailProofUrl.value));
 const detailProofIsPdf = computed(() => /\.pdf($|\?)/i.test(detailProofUrl.value));
+const { withFallback } = useImageFallback();
 
 function formatDateTime(v) {
     if (!v) return '—';
@@ -644,7 +646,7 @@ async function confirmReject() {
                     <div v-if="detailProofUrl" class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">
                         <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Minh chứng</p>
                         <div class="mt-2">
-                            <img v-if="detailProofIsImage" :src="detailProofUrl" alt="Minh chứng yêu cầu mượn" class="max-h-[60vh] w-auto rounded-lg border border-slate-200 dark:border-slate-700" />
+                            <img v-if="detailProofIsImage" :src="detailProofUrl" alt="Minh chứng yêu cầu mượn" class="max-h-[60vh] w-auto rounded-lg border border-slate-200 dark:border-slate-700" @error="withFallback('/images/default-news-cover.jpg')($event)" />
                             <iframe v-else-if="detailProofIsPdf" :src="detailProofUrl" class="h-[60vh] w-full rounded-lg border border-slate-200 dark:border-slate-700" />
                             <a v-else :href="detailProofUrl" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-300 underline">Mở tệp minh chứng</a>
                         </div>

@@ -2,11 +2,13 @@
 import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const emit = defineEmits(['toggle-select-all', 'toggle-select', 'view', 'edit', 'delete', 'cover']);
 
 const previewBook = ref(null);
 const showPreviewModal = ref(false);
+const { withFallback } = useImageFallback();
 
 function openCoverPreview(book) {
     previewBook.value = book;
@@ -65,6 +67,7 @@ function circulationStatusLabel(book) {
     const available = Number(book?.real_quantity ?? book?.available_quantity ?? book?.quantity ?? 0);
     return available > 0 ? 'Còn lưu hành' : 'Không lưu hành';
 }
+
 </script>
 
 <template>
@@ -136,6 +139,7 @@ function circulationStatusLabel(book) {
                                     <img
                                         :src="book.cover_image || '/images/default-book-cover.png'"
                                         :alt="book.title"
+                                        @error="withFallback('/images/default-book-cover.png')($event)"
                                         class="h-full w-full object-cover"
                                     />
                                 </button>
@@ -269,6 +273,7 @@ function circulationStatusLabel(book) {
                 <img
                     :src="previewBook.cover_image || '/images/default-book-cover.png'"
                     :alt="previewBook.title"
+                    @error="withFallback('/images/default-book-cover.png')($event)"
                     class="h-[360px] w-full object-contain bg-slate-50 dark:bg-slate-800"
                 />
             </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\FileHelpers;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -14,14 +15,20 @@ class LibraryCardResource extends JsonResource
     public function toArray(Request $request): array
     {
         $payment = $this->payment;
+        $mediaDisk = (string) config('filesystems.media_disk', 'public');
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        $mediaStorage = Storage::disk($mediaDisk);
 
         $photoPath = $this->photo_path;
         $photoUrl = null;
         if (! empty($photoPath) && ! str_starts_with((string) $photoPath, 'http')) {
             // Avoid per-row filesystem exists() checks in list APIs.
-            $photoUrl = Storage::url((string) $photoPath);
+            $photoUrl = $mediaStorage->url((string) $photoPath);
         } elseif (! empty($photoPath) && str_starts_with((string) $photoPath, 'http')) {
             $photoUrl = $photoPath;
+        }
+        if ($photoUrl === null) {
+            $photoUrl = FileHelpers::mediaDefaultUrl('library_card_photo');
         }
 
         return [

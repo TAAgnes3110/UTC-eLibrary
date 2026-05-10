@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\Faculty;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class UserUpdateTest extends TestCase
@@ -42,7 +43,7 @@ class UserUpdateTest extends TestCase
             ->json('PUT', "/api/v1/users/{$this->user->id}", $payload);
     }
 
-    /** @test */
+    #[Test]
     public function can_update_only_name()
     {
         $response = $this->putAsAdmin(['name' => 'Tên mới']);
@@ -53,7 +54,7 @@ class UserUpdateTest extends TestCase
         $this->assertEquals('user1@utc.edu.vn', $this->user->fresh()->email);
     }
 
-    /** @test */
+    #[Test]
     public function can_update_email_only_and_must_be_unique()
     {
         User::factory()->create(['email' => 'existing@utc.edu.vn']);
@@ -66,7 +67,7 @@ class UserUpdateTest extends TestCase
         $this->assertEquals('new@utc.edu.vn', $this->user->fresh()->email);
     }
 
-    /** @test */
+    #[Test]
     public function can_update_multiple_fields_without_sending_all_required_fields()
     {
         $response = $this->putAsAdmin([
@@ -82,7 +83,7 @@ class UserUpdateTest extends TestCase
         $this->assertEquals('K66', $user->cohort);
     }
 
-    /** @test */
+    #[Test]
     public function empty_password_is_ignored_on_update()
     {
         $oldPasswordHash = $this->user->password;
@@ -93,7 +94,7 @@ class UserUpdateTest extends TestCase
         $this->assertEquals($oldPasswordHash, $this->user->fresh()->password);
     }
 
-    /** @test */
+    #[Test]
     public function cannot_change_code_via_update_endpoint()
     {
         $response = $this->putAsAdmin(['code' => '009998887776']);
@@ -102,7 +103,7 @@ class UserUpdateTest extends TestCase
         $this->assertEquals('001122334455', $this->user->fresh()->code);
     }
 
-    /** @test */
+    #[Test]
     public function empty_body_does_not_fail_and_changes_nothing()
     {
         $original = $this->user->toArray();
@@ -116,7 +117,7 @@ class UserUpdateTest extends TestCase
         $this->assertEquals($original['code'], $fresh->code);
     }
 
-    /** @test */
+    #[Test]
     public function invalid_faculty_id_is_rejected()
     {
         $response = $this->putAsAdmin(['faculty_id' => -1]);
@@ -124,7 +125,7 @@ class UserUpdateTest extends TestCase
         $response->assertStatus(422)->assertJsonValidationErrors(['faculty_id']);
     }
 
-    /** @test */
+    #[Test]
     public function can_update_faculty_department_and_status()
     {
         $faculty = Faculty::create([
@@ -153,7 +154,7 @@ class UserUpdateTest extends TestCase
         $this->assertFalse((bool) $user->is_active);
     }
 
-    /** @test */
+    #[Test]
     public function can_update_user_type_when_allowed()
     {
         $response = $this->putAsAdmin([

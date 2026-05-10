@@ -7,6 +7,7 @@ import { fetchMasterDataPayload } from '@/api/masterData'
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors'
 import { getLaravelErrorMessage } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -234,6 +235,7 @@ const proofFileName = ref('')
 const proofPreviewUrl = ref('')
 const showProofPreviewModal = ref(false)
 const proofImageInput = ref(null)
+const { withFallback } = useImageFallback()
 
 const profileUpdateRequestForm = useForm({
     requested_code: '',
@@ -764,7 +766,7 @@ onBeforeUnmount(() => {
                     </button>
                 </div>
                 <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng" class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800" />
+                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng" class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800" @error="withFallback('/images/default-news-cover.jpg')($event)" />
                 </div>
                 <div class="mt-3 flex justify-end">
                     <button

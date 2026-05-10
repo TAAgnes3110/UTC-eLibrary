@@ -10,8 +10,10 @@ class UserProfileUpdateRequestResource extends JsonResource
     public function toArray($request): array
     {
         $proofUrl = null;
-        if (! empty($this->proof_image_path) && Storage::disk('public')->exists($this->proof_image_path)) {
-            $proofUrl = Storage::url($this->proof_image_path);
+        if (! empty($this->proof_image_path)) {
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+            $proofUrl = $mediaStorage->url($this->proof_image_path);
         }
 
         return [

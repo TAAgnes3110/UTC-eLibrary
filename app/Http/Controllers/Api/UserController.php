@@ -7,11 +7,13 @@ use App\Helpers\ApiResponse;
 use App\Helpers\BulkZipRequestHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UserRequest;
+use App\Http\Resources\UserListResource;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class UserController extends Controller
@@ -42,9 +44,30 @@ class UserController extends Controller
         $searchColumns = $this->parseSearchInFilter($request);
         $status = $request->input('status');
         $roleFilter = $this->parseRoleFilter($request);
-        $items = $this->userService->index($keyword, $typeReader, $perPage, $searchColumns, $status, $roleFilter);
+        $cacheable = ! $request->filled('keyword')
+            && (int) $request->input('page', 1) <= 3
+            && in_array($perPage, [15, 20, 30], true);
+        if (! $cacheable) {
+            $items = $this->userService->index($keyword, $typeReader, $perPage, $searchColumns, $status, $roleFilter);
 
-        return ApiResponse::success(UserResource::collection($items));
+            return ApiResponse::success(UserListResource::collection($items));
+        }
+        $cacheKey = 'api:users:index:'.md5(json_encode([
+            'v' => $this->userService->adminListCacheVersion(),
+            'page' => (int) $request->input('page', 1),
+            'per_page' => $perPage,
+            'type_reader' => $typeReader,
+            'status' => (string) ($status ?? ''),
+            'role_filter' => $roleFilter ?? [],
+            'search_in' => $searchColumns ?? [],
+        ], JSON_UNESCAPED_UNICODE));
+        $payload = Cache::remember($cacheKey, now()->addSeconds(45), function () use ($keyword, $typeReader, $perPage, $searchColumns, $status, $roleFilter): array {
+            $items = $this->userService->index($keyword, $typeReader, $perPage, $searchColumns, $status, $roleFilter);
+
+            return UserListResource::collection($items)->response()->getData(true);
+        });
+
+        return ApiResponse::success($payload);
     }
 
     /**

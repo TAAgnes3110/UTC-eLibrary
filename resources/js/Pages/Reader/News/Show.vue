@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const props = defineProps({
     post: { type: Object, required: true },
@@ -19,6 +20,8 @@ const typePillClasses = computed(() =>
         : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/40 dark:bg-blue-950/30 dark:text-blue-200',
 )
 const relatedItems = computed(() => (Array.isArray(props.relatedNews) ? props.relatedNews : []))
+const DEFAULT_NEWS_COVER = '/images/default-news-cover.jpg'
+const { withFallback } = useImageFallback()
 
 function backLink() {
     return route('reader.news.index', { type: type.value === 'notice' ? 'notice' : 'news' })
@@ -28,6 +31,7 @@ function toDate(value) {
     if (!value) return '—'
     return new Date(value).toLocaleDateString('vi-VN')
 }
+
 </script>
 
 <template>
@@ -76,8 +80,9 @@ function toDate(value) {
                         class="group overflow-hidden rounded-md border border-slate-200 bg-white hover:border-blue-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-blue-700"
                     >
                         <img
-                            :src="item.thumbnail_url || '/images/default-news-cover.jpg'"
+                            :src="item.thumbnail_url || DEFAULT_NEWS_COVER"
                             alt="Ảnh liên quan"
+                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
                             loading="lazy"
                             decoding="async"
                             class="h-36 w-full object-cover"

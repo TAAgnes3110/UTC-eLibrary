@@ -44,16 +44,18 @@ final class BooksWorkbookExport
                 $assetUrl = null;
                 if (! empty($assetPath)) {
                     $disk = $asset?->storage_disk ?: 'public';
-                    $assetUrl = Storage::disk($disk)->exists($assetPath)
-                        ? Storage::disk($disk)->url($assetPath)
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $assetStorage */
+                    $assetStorage = Storage::disk($disk);
+                    $assetUrl = $assetStorage->exists($assetPath)
+                        ? $assetStorage->url($assetPath)
                         : null;
                 }
 
                 $coverUrl = null;
                 if (! empty($book->cover_image) && ! str_starts_with((string) $book->cover_image, 'http')) {
-                    $coverUrl = Storage::disk('public')->exists((string) $book->cover_image)
-                        ? asset(ltrim((string) $book->cover_image, '/'))
-                        : null;
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+                    $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+                    $coverUrl = $mediaStorage->url((string) $book->cover_image);
                 } else {
                     $coverUrl = $book->cover_image;
                 }

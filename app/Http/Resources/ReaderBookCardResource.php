@@ -26,8 +26,9 @@ class ReaderBookCardResource extends JsonResource
             if (str_starts_with($normalizedPath, 'storage/')) {
                 $normalizedPath = substr($normalizedPath, 8);
             }
-            // Không gọi Storage::exists từng bản ghi (catalog lớn ⇒ N lần I/O đĩa / request).
-            $coverImage = Storage::disk('public')->url($normalizedPath);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+            $coverImage = $mediaStorage->url($normalizedPath);
         }
 
         $rt = $this->resource_type instanceof \BackedEnum

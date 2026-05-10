@@ -5,14 +5,19 @@ import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { Icon } from '@iconify/vue'
 import { readerLayoutStrings as S } from '@/config/readerStrings'
 import ReaderPageHeading from '@/Components/Reader/ReaderPageHeading.vue'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
 const latestNews = computed(() => Array.isArray(page.props.latestNews) ? page.props.latestNews : [])
 const latestNotices = computed(() => Array.isArray(page.props.latestNotices) ? page.props.latestNotices : [])
 const latestBooks = computed(() => Array.isArray(page.props.latestBooks) ? page.props.latestBooks : [])
+const DEFAULT_NEWS_COVER = '/images/default-news-cover.jpg'
+const DEFAULT_BOOK_COVER = '/images/default-book-cover.png'
+const { withFallback } = useImageFallback()
 
 const servicesUrl = (hash) => `${route('reader.services')}${hash}`
+
 </script>
 
 <template>
@@ -72,8 +77,9 @@ const servicesUrl = (hash) => `${route('reader.services')}${hash}`
                         class="group flex flex-col gap-3 border-b border-slate-200 pb-4 last:border-b-0 last:pb-0 sm:flex-row dark:border-slate-700"
                     >
                         <img
-                            :src="item.thumbnail_url || '/images/default-news-cover.jpg'"
+                            :src="item.thumbnail_url || DEFAULT_NEWS_COVER"
                             alt="Ảnh thông báo"
+                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
                             loading="lazy"
                             decoding="async"
                             class="h-24 w-full shrink-0 rounded-md border border-amber-200 object-cover dark:border-amber-800/50 sm:w-44"
@@ -118,8 +124,9 @@ const servicesUrl = (hash) => `${route('reader.services')}${hash}`
                         class="group flex flex-col gap-3 border-b border-slate-200 pb-4 last:border-b-0 last:pb-0 sm:flex-row"
                     >
                         <img
-                            :src="item.thumbnail_url || '/images/default-news-cover.jpg'"
+                            :src="item.thumbnail_url || DEFAULT_NEWS_COVER"
                             alt="Ảnh bài viết"
+                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
                             loading="lazy"
                             decoding="async"
                             class="h-24 w-full shrink-0 rounded-md border border-blue-200 object-cover sm:w-44"
@@ -164,8 +171,9 @@ const servicesUrl = (hash) => `${route('reader.services')}${hash}`
                         class="group rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
                     >
                         <img
-                            :src="book.cover_image || '/images/default-book-cover.png'"
+                            :src="book.cover_image || DEFAULT_BOOK_COVER"
                             alt="Bìa sách"
+                            @error="withFallback(DEFAULT_BOOK_COVER)($event)"
                             loading="lazy"
                             decoding="async"
                             class="h-40 w-full rounded-md object-cover"

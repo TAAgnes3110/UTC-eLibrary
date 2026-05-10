@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\RoleType;
+use App\Enums\UploadDirectory;
 use App\Helpers\FileHelpers;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
@@ -120,7 +121,11 @@ class UserProfileUpdateRequestService
             throw new RuntimeException('Xác nhận Giáo viên cần có thông tin Khoa.');
         }
 
-        $proofPath = FileHelpers::storeUploadedFile($proofImage, 'public', 'upload/user-profile-update-requests');
+        $proofPath = FileHelpers::storeUploadedFile(
+            $proofImage,
+            (string) config('filesystems.media_disk', 'public'),
+            UploadDirectory::BASE.'/users/profile-update-requests'
+        );
 
         $createPayload = [
             'user_id' => $user->id,

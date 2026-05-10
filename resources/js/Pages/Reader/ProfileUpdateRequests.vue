@@ -9,6 +9,7 @@ import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue
 import { ADMIN_ICONS } from '@/config/adminIcons'
 import { profileApi } from '@/api/profile'
 import { toast } from '@/store/toast'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const PER_PAGE = 10
 
@@ -26,6 +27,7 @@ const detailDialogItem = ref(null)
 const proofPreviewOpen = ref(false)
 const proofPreviewUrl = ref('')
 const pageNum = ref(1)
+const { withFallback } = useImageFallback()
 
 const statusOptions = [
     { key: '', label: 'Trạng thái: Tất cả' },
@@ -489,6 +491,7 @@ onMounted(() => {
                                                     :src="item.proof_image_url"
                                                     alt="Minh chứng"
                                                     class="h-11 w-11 object-cover"
+                                                    @error="withFallback('/images/default-news-cover.jpg')($event)"
                                                 />
                                             </span>
                                             <span class="text-[10px] font-semibold leading-none">Nhấn để xem</span>
@@ -605,7 +608,7 @@ onMounted(() => {
                                 class="mt-2 block w-full overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
                                 @click="openProofPreview(detailDialogItem.proof_image_url)"
                             >
-                                <img :src="detailDialogItem.proof_image_url" alt="Minh chứng" class="h-[260px] w-full object-contain bg-slate-100 dark:bg-slate-800" />
+                                <img :src="detailDialogItem.proof_image_url" alt="Minh chứng" class="h-[260px] w-full object-contain bg-slate-100 dark:bg-slate-800" @error="withFallback('/images/default-news-cover.jpg')($event)" />
                             </button>
                             <p v-else class="mt-2 text-sm text-slate-500 dark:text-slate-400">Không có ảnh minh chứng.</p>
                             <div class="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-900">
@@ -633,7 +636,7 @@ onMounted(() => {
                     >
                         Đóng
                     </button>
-                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng chi tiết" class="max-h-[85vh] w-full rounded-xl object-contain" />
+                    <img :src="proofPreviewUrl" alt="Ảnh minh chứng chi tiết" class="max-h-[85vh] w-full rounded-xl object-contain" @error="withFallback('/images/default-news-cover.jpg')($event)" />
                 </div>
             </div>
         </div>

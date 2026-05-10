@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AccessMode;
 use App\Enums\ResourceType;
 use App\Enums\RoleType;
+use App\Enums\UploadDirectory;
 use App\Helpers\FileHelpers;
 use App\Models\Author;
 use App\Models\Book;
@@ -21,6 +22,11 @@ use Illuminate\Validation\ValidationException;
 
 class DigitalDocumentSubmissionService
 {
+    private function mediaDisk(): string
+    {
+        return (string) config('filesystems.media_disk', 'public');
+    }
+
     public function __construct(
         private DigitalAssetService $digitalAssetService
     ) {}
@@ -50,14 +56,14 @@ class DigitalDocumentSubmissionService
 
     private function submitPendingUpload(User $user, array $attrs, UploadedFile $file, ?UploadedFile $coverImage = null): DigitalDocumentSubmission
     {
-        $path = FileHelpers::storeUploadedFile($file, 'public', 'upload/digital-document-submissions');
+        $path = FileHelpers::storeUploadedFile($file, $this->mediaDisk(), UploadDirectory::digitalSubmissionFiles());
 
         $coverPath = null;
         if ($coverImage !== null) {
             $coverPath = FileHelpers::storeUploadedFile(
                 $coverImage,
-                'public',
-                'upload/digital-document-submissions/covers'
+                $this->mediaDisk(),
+                UploadDirectory::digitalSubmissionCovers()
             );
         }
 
@@ -148,23 +154,24 @@ class DigitalDocumentSubmissionService
             ]);
             $this->syncSubmissionAuthorsToBook($book, $submission->author_names);
 
-            $absolutePath = Storage::disk('public')->path($submission->file_path);
+            $mediaDisk = $this->mediaDisk();
+            $absolutePath = Storage::disk($mediaDisk)->path($submission->file_path);
             if (! is_readable($absolutePath)) {
                 throw ValidationException::withMessages([
                     'file' => __('Không tìm thấy file PDF để duyệt.'),
                 ]);
             }
 
-            $targetPath = 'upload/digital-assets/'.$book->id.'/'.basename($submission->file_path);
-            Storage::disk('public')->copy($submission->file_path, $targetPath);
-            $copiedAbsPath = Storage::disk('public')->path($targetPath);
+            $targetPath = UploadDirectory::digitalAssetsByBookId((int) $book->id).'/'.basename($submission->file_path);
+            Storage::disk($mediaDisk)->copy($submission->file_path, $targetPath);
+            $copiedAbsPath = Storage::disk($mediaDisk)->path($targetPath);
             $checksum = is_readable($copiedAbsPath) ? hash_file('sha256', $copiedAbsPath) : null;
 
             DigitalAsset::query()->create([
                 'book_id' => $book->id,
                 'version' => 1,
                 'is_primary' => true,
-                'storage_disk' => 'public',
+                'storage_disk' => $mediaDisk,
                 'path' => $targetPath,
                 'original_name' => $submission->original_name,
                 'mime' => $submission->mime ?: 'application/pdf',
@@ -173,18 +180,18 @@ class DigitalDocumentSubmissionService
                 'visibility' => 'public',
             ]);
 
-            if (! empty($submission->cover_image_path) && Storage::disk('public')->exists($submission->cover_image_path)) {
+            if (! empty($submission->cover_image_path) && Storage::disk($mediaDisk)->exists($submission->cover_image_path)) {
                 $ext = strtolower(pathinfo($submission->cover_image_path, PATHINFO_EXTENSION) ?: 'jpg');
                 $ext = preg_match('/^(jpe?g|png|webp)$/i', $ext) ? $ext : 'jpg';
-                $coverDest = 'upload/books/submission-covers/'.$book->id.'.'.$ext;
-                Storage::disk('public')->copy($submission->cover_image_path, $coverDest);
+                $coverDest = UploadDirectory::bookCovers(ResourceType::DIGITAL->value).'/submission-'.$book->id.'.'.$ext;
+                Storage::disk($mediaDisk)->copy($submission->cover_image_path, $coverDest);
                 $book->cover_image = $coverDest;
                 $book->save();
             }
 
             $this->digitalAssetService->trySetBookCoverFromPdf(
                 $book,
-                'public',
+                $mediaDisk,
                 $targetPath,
                 $submission->mime ?: 'application/pdf'
             );

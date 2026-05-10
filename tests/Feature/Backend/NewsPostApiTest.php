@@ -13,9 +13,14 @@ class NewsPostApiTest extends TestCase
     use ActsAsApiUser;
     use RefreshDatabase;
 
+    private function mediaDisk(): string
+    {
+        return (string) config('filesystems.media_disk', 'public');
+    }
+
     public function test_admin_can_create_news_post_with_attachments(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [$admin, $adminToken] = $this->createAdminUserAndToken();
 
         $thumbnail = UploadedFile::fake()->image('thumb.webp', 400, 220);
@@ -40,16 +45,16 @@ class NewsPostApiTest extends TestCase
         $post = NewsPost::query()->latest('id')->firstOrFail();
         $this->assertNotNull($post->published_at);
         $this->assertNotNull($post->thumbnail_path);
-        $this->assertTrue(Storage::disk('public')->exists((string) $post->thumbnail_path));
+        $this->assertTrue(Storage::disk($this->mediaDisk())->exists((string) $post->thumbnail_path));
         $this->assertCount(2, $post->attachments);
         foreach ($post->attachments as $attachment) {
-            $this->assertTrue(Storage::disk('public')->exists($attachment->file_path));
+            $this->assertTrue(Storage::disk($this->mediaDisk())->exists($attachment->file_path));
         }
     }
 
     public function test_admin_can_update_news_post_and_remove_attachment(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [, $adminToken] = $this->createAdminUserAndToken();
 
         $create = $this->post('/api/v1/news-posts', [
@@ -72,13 +77,13 @@ class NewsPostApiTest extends TestCase
         ], $this->apiTokenHeaders($adminToken));
 
         $update->assertOk()->assertJsonPath('data.title', 'Bản công bố');
-        $this->assertFalse(Storage::disk('public')->exists($oldPath));
+        $this->assertFalse(Storage::disk($this->mediaDisk())->exists($oldPath));
         $this->assertCount(1, (array) $update->json('data.attachments'));
     }
 
     public function test_public_endpoint_only_returns_active_news(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [, $adminToken] = $this->createAdminUserAndToken();
 
         $this->post('/api/v1/news-posts', [
@@ -107,7 +112,7 @@ class NewsPostApiTest extends TestCase
 
     public function test_public_can_get_active_news_by_slug(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [, $adminToken] = $this->createAdminUserAndToken();
 
         $published = $this->post('/api/v1/news-posts', [
@@ -137,7 +142,7 @@ class NewsPostApiTest extends TestCase
 
     public function test_admin_delete_marks_post_inactive_and_hides_from_admin_list(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [, $adminToken] = $this->createAdminUserAndToken();
 
         $create = $this->post('/api/v1/news-posts', [
@@ -162,7 +167,7 @@ class NewsPostApiTest extends TestCase
 
     public function test_admin_cannot_upload_more_than_ten_attachments(): void
     {
-        Storage::fake('public');
+        Storage::fake($this->mediaDisk());
         [, $adminToken] = $this->createAdminUserAndToken();
 
         $attachments = [];

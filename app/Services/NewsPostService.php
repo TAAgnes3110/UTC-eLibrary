@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\UploadDirectory;
 use App\Helpers\FileHelpers;
 use App\Models\NewsAttachment;
 use App\Models\NewsPost;
@@ -14,7 +15,14 @@ use Illuminate\Support\Str;
 
 class NewsPostService
 {
+    private function mediaDisk(): string
+    {
+        return (string) config('filesystems.media_disk', 'public');
+    }
+
     public const READER_NEWS_CACHE_VERSION_KEY = 'reader:news:cache-version';
+
+    public const ADMIN_NEWS_LIST_CACHE_VERSION_KEY = 'admin:news:list-cache-version';
 
     private const ATTACHMENTS_SECTION_START = '<!-- news-attachments:start -->';
 
@@ -31,7 +39,6 @@ class NewsPostService
                 'id',
                 'slug',
                 'title',
-                'content',
                 'thumbnail_path',
                 'type',
                 'status',
@@ -88,7 +95,6 @@ class NewsPostService
                 'id',
                 'slug',
                 'title',
-                'content',
                 'thumbnail_path',
                 'type',
                 'status',
@@ -155,6 +161,7 @@ class NewsPostService
         });
 
         $this->bumpReaderNewsCacheVersion();
+        $this->bumpAdminNewsListCacheVersion();
 
         return $created;
     }
@@ -168,9 +175,9 @@ class NewsPostService
         $updated = DB::transaction(function () use ($post, $data, $newAttachments, $thumbnail): NewsPost {
             $thumbnailPath = $post->thumbnail_path;
             if ($thumbnail instanceof UploadedFile) {
-                $thumbnailPath = FileHelpers::replaceUploadedFile($post->thumbnail_path, $thumbnail, 'public', 'upload/news/thumbnails');
+                $thumbnailPath = FileHelpers::replaceUploadedFile($post->thumbnail_path, $thumbnail, $this->mediaDisk(), UploadDirectory::newsThumbnails());
             } elseif ((bool) ($data['remove_thumbnail'] ?? false) && $thumbnailPath !== null) {
-                FileHelpers::deleteIfExists($thumbnailPath, 'public');
+                FileHelpers::deleteIfExists($thumbnailPath, $this->mediaDisk());
                 $thumbnailPath = null;
             }
 
@@ -192,6 +199,7 @@ class NewsPostService
         });
 
         $this->bumpReaderNewsCacheVersion();
+        $this->bumpAdminNewsListCacheVersion();
 
         return $updated;
     }
@@ -203,11 +211,115 @@ class NewsPostService
         ]);
 
         $this->bumpReaderNewsCacheVersion();
+        $this->bumpAdminNewsListCacheVersion();
     }
 
     public function uploadContentImage(UploadedFile $image): string
     {
-        return FileHelpers::storeUploadedFile($image, 'public', 'upload/news/content');
+        return FileHelpers::storeUploadedFile($image, $this->mediaDisk(), UploadDirectory::newsContentImages());
+    }
+
+    public function updateThumbnailImage(NewsPost $post, UploadedFile $file): NewsPost
+    {
+        FileHelpers::updateModelImage(
+            $post,
+            $file,
+            'news_posts',
+            'thumbnail_path',
+            'news-'.$post->id,
+            $this->mediaDisk(),
+            UploadDirectory::newsThumbnails()
+        );
+
+        $this->bumpReaderNewsCacheVersion();
+        $this->bumpAdminNewsListCacheVersion();
+
+        return $post->fresh(['attachments', 'createdBy:id,name,email']);
+    }
+
+    /**
+     * @param  list<int>|null  $onlyPostIds
+     * @return array{updated:int, skipped:int, selected_count?: int, selected_missing?: int}
+     */
+    public function bulkUpdateThumbnailFromZip(UploadedFile $zipFile, ?array $onlyPostIds = null): array
+    {
+        $tmpDir = FileHelpers::extractZipToTemp($zipFile, 'news-thumbnails');
+        $updated = 0;
+        $skipped = 0;
+        $updatedPostIds = [];
+
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($tmpDir, \FilesystemIterator::SKIP_DOTS)
+            );
+
+            foreach ($iterator as $fileInfo) {
+                if (! $fileInfo->isFile()) {
+                    continue;
+                }
+                if (FileHelpers::shouldSkipZipExtractedFile($fileInfo)) {
+                    $skipped++;
+
+                    continue;
+                }
+                $ext = strtolower($fileInfo->getExtension() ?: '');
+                if (! in_array($ext, FileHelpers::IMAGE_EXTENSIONS, true)) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $code = trim($fileInfo->getBasename('.'.$ext));
+                if ($code === '') {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $post = $this->resolvePostByZipCode($code);
+                if (! $post) {
+                    $skipped++;
+
+                    continue;
+                }
+                if ($onlyPostIds !== null && $onlyPostIds !== [] && ! in_array((int) $post->id, $onlyPostIds, true)) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $uploaded = new UploadedFile(
+                    $fileInfo->getPathname(),
+                    $fileInfo->getBasename(),
+                    FileHelpers::mimeForImageExtension($ext),
+                    null,
+                    true
+                );
+
+                try {
+                    $this->updateThumbnailImage($post, $uploaded);
+                    $updated++;
+                    $updatedPostIds[] = (int) $post->id;
+                } catch (\Throwable) {
+                    $skipped++;
+                }
+            }
+        } finally {
+            FileHelpers::removeDirectory($tmpDir);
+        }
+
+        if ($updated > 0) {
+            $this->bumpReaderNewsCacheVersion();
+            $this->bumpAdminNewsListCacheVersion();
+        }
+        $out = ['updated' => $updated, 'skipped' => $skipped];
+        if ($onlyPostIds !== null && $onlyPostIds !== []) {
+            $uniqueUpdated = array_values(array_unique($updatedPostIds));
+            $out['selected_count'] = count($onlyPostIds);
+            $out['selected_missing'] = count(array_diff($onlyPostIds, $uniqueUpdated));
+        }
+
+        return $out;
     }
 
     private function storeThumbnail(?UploadedFile $thumbnail): ?string
@@ -216,7 +328,26 @@ class NewsPostService
             return null;
         }
 
-        return FileHelpers::storeUploadedFile($thumbnail, 'public', 'upload/news/thumbnails');
+        return FileHelpers::storeUploadedFile($thumbnail, $this->mediaDisk(), UploadDirectory::newsThumbnails());
+    }
+
+    private function resolvePostByZipCode(string $rawCode): ?NewsPost
+    {
+        $normalized = trim($rawCode);
+        $normalized = ltrim($normalized, '#');
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (ctype_digit($normalized)) {
+            return NewsPost::query()->find((int) $normalized);
+        }
+
+        if (preg_match('/(\d+)/', $normalized, $m) === 1) {
+            return NewsPost::query()->find((int) $m[1]);
+        }
+
+        return null;
     }
 
     private function generateUniqueSlug(string $title, ?int $ignorePostId = null): string
@@ -269,10 +400,11 @@ class NewsPostService
             if (! $file instanceof UploadedFile) {
                 continue;
             }
-            $path = FileHelpers::storeUploadedFile($file, 'public', 'upload/news/attachments');
+            $disk = $this->mediaDisk();
+            $path = FileHelpers::storeUploadedFile($file, $disk, UploadDirectory::newsAttachments());
             NewsAttachment::query()->create([
                 'news_post_id' => $post->id,
-                'storage_disk' => 'public',
+                'storage_disk' => $disk,
                 'file_path' => $path,
                 'original_name' => (string) $file->getClientOriginalName(),
                 'mime' => $file->getMimeType(),
@@ -310,7 +442,10 @@ class NewsPostService
 
         $itemsHtml = '';
         foreach ($post->attachments as $attachment) {
-            $url = Storage::url((string) $attachment->file_path);
+            $disk = (string) ($attachment->storage_disk ?: $this->mediaDisk());
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+            $storage = Storage::disk($disk);
+            $url = $storage->url((string) $attachment->file_path);
             $name = e((string) $attachment->original_name);
             $itemsHtml .= "<li><a href=\"{$url}\" target=\"_blank\" rel=\"noopener noreferrer\">{$name}</a></li>";
         }
@@ -344,5 +479,27 @@ class NewsPostService
         }
 
         Cache::increment(self::READER_NEWS_CACHE_VERSION_KEY);
+    }
+
+    public function adminListCacheVersion(): int
+    {
+        if (! Cache::has(self::ADMIN_NEWS_LIST_CACHE_VERSION_KEY)) {
+            Cache::forever(self::ADMIN_NEWS_LIST_CACHE_VERSION_KEY, 1);
+
+            return 1;
+        }
+
+        return (int) Cache::get(self::ADMIN_NEWS_LIST_CACHE_VERSION_KEY, 1);
+    }
+
+    private function bumpAdminNewsListCacheVersion(): void
+    {
+        if (! Cache::has(self::ADMIN_NEWS_LIST_CACHE_VERSION_KEY)) {
+            Cache::forever(self::ADMIN_NEWS_LIST_CACHE_VERSION_KEY, 1);
+
+            return;
+        }
+
+        Cache::increment(self::ADMIN_NEWS_LIST_CACHE_VERSION_KEY);
     }
 }

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Backend;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
@@ -17,7 +19,8 @@ class ApiRoutesTest extends TestCase
     /**
      * GET /api/health trả 200 với status, checks, timestamp.
      */
-    public function test_health_returns_ok(): void
+    #[Test]
+    public function health_returns_ok(): void
     {
         $response = $this->getJson('/api/health');
 
@@ -29,7 +32,8 @@ class ApiRoutesTest extends TestCase
     /**
      * POST /api/v1/auth/refresh không có token trả 401.
      */
-    public function test_refresh_without_token_returns_401(): void
+    #[Test]
+    public function refresh_without_token_returns_401(): void
     {
         $response = $this->postJson('/api/v1/auth/refresh', [], [
             'Accept' => 'application/json',
@@ -41,13 +45,13 @@ class ApiRoutesTest extends TestCase
     /**
      * Các route bảo vệ trả 401 khi không có token.
      *
-     * @dataProvider protectedRoutesProvider
-     *
      * @param  string  $method  GET, POST, PUT, PATCH, DELETE
      * @param  string  $uri  URL route
      * @param  array<string, mixed>  $data  Dữ liệu body (POST/PUT)
      */
-    public function test_protected_routes_return_401_without_auth(
+    #[Test]
+    #[DataProvider('protectedRoutesProvider')]
+    public function protected_routes_return_401_without_auth(
         string $method,
         string $uri,
         array $data = [],

@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { accountMenuStrings as M } from '@/config/accountMenuStrings'
 import { clearClientApiCredentials } from '@/utils/apiAuthStorage'
 import { clearStaffWorkQueueSessionHint } from '@/utils/staffWorkQueueHint'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const props = defineProps({
     /** Dữ liệu user từ Inertia `auth.user` */
@@ -73,6 +74,7 @@ const triggerClass = computed(() =>
         props.triggerSize === 'touch' ? 'h-11 w-11' : 'h-9 w-9',
     ),
 )
+const { withFallback } = useImageFallback()
 </script>
 
 <template>
@@ -82,6 +84,7 @@ const triggerClass = computed(() =>
                 <img
                     :src="user?.avatar || '/images/default-avatar.png'"
                     :alt="user?.name || 'Avatar'"
+                    @error="withFallback('/images/default-avatar.png')($event)"
                     class="h-full w-full object-cover"
                 />
             </Button>

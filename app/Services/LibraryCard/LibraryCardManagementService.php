@@ -174,7 +174,8 @@ class LibraryCardManagementService
             $file,
             'library_cards',
             'photo_path',
-            $card->code ?: (string) $card->id
+            $card->code ?: (string) $card->id,
+            (string) config('filesystems.media_disk', 'public')
         );
 
         return $card->fresh();

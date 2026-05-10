@@ -81,10 +81,10 @@ class ProfileService
             return $avatar;
         }
 
-        if (! Storage::disk('public')->exists($avatar)) {
-            return null;
-        }
+        $disk = (string) config('filesystems.media_disk', 'public');
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+        $storage = Storage::disk($disk);
 
-        return Storage::url($avatar);
+        return $storage->url($avatar);
     }
 }

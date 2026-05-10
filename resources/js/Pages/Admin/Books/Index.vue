@@ -17,6 +17,7 @@ import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
 import { useBooksAdminPage, SEARCH_IN_OPTIONS, BOOK_SORT_OPTIONS, PRINT_TYPE_OPTIONS } from '@/composables/admin/useBooksAdminPage';
 import { ref, computed } from 'vue';
 import { booksApi } from '@/api/books';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const {
     pageKind,
@@ -84,6 +85,7 @@ const {
 const showDetailModal = ref(false);
 const detailBook = ref(null);
 const detailLoading = ref(false);
+const { withFallback } = useImageFallback();
 
 function formatDate(value) {
     if (!value) return '—';
@@ -392,6 +394,7 @@ const searchPlaceholder = computed(() => (
                                 :src="detailBook.cover_image || '/images/default-book-cover.png'"
                                 :alt="detailBook.title || 'Ảnh bìa'"
                                 class="h-full w-full object-cover"
+                                @error="withFallback('/images/default-book-cover.png')($event)"
                             />
                         </div>
                         <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
@@ -455,6 +458,7 @@ const searchPlaceholder = computed(() => (
                             :src="detailBook.cover_image || '/images/default-book-cover.png'"
                             :alt="detailBook.title"
                             class="h-full w-full object-cover"
+                            @error="withFallback('/images/default-book-cover.png')($event)"
                         />
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">

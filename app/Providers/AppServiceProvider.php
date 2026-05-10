@@ -53,9 +53,9 @@ class AppServiceProvider extends ServiceProvider
             $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
             $avatar = $user->avatar ?? '';
             if ($avatar && ! str_starts_with($avatar, 'http')) {
-                $avatar = Storage::disk('public')->exists($avatar)
-                    ? Storage::url($avatar)
-                    : null;
+                /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+                $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+                $avatar = $mediaStorage->url($avatar);
             }
             if (empty($avatar)) {
                 $avatar = null;

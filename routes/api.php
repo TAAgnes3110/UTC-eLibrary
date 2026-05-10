@@ -247,6 +247,8 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('news-posts', NewsPostController::class)->except(['show']);
             Route::get('news-posts/id/{newsPost}', [NewsPostController::class, 'show']);
             Route::post('news-posts/upload-content-image', [NewsPostController::class, 'uploadContentImage']);
+            Route::post('news-posts/{newsPost}/thumbnail', [NewsPostController::class, 'updateThumbnail']);
+            Route::post('news-posts/thumbnail-bulk', [NewsPostController::class, 'bulkUpdateThumbnail']);
 
             Route::group(['prefix' => 'library-cards'], function () {
                 Route::get('export', [LibraryCardController::class, 'export']);

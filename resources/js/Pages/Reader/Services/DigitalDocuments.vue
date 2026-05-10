@@ -17,6 +17,7 @@ import {
     submissionStatusBadgeClass,
 } from '@/config/digitalSubmissionUi'
 import { toast } from '@/store/toast'
+import { useImageFallback } from '@/composables/useImageFallback'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
@@ -33,6 +34,7 @@ const detailItem = ref(null)
 const showUploadModal = ref(false)
 const showCoverPreviewModal = ref(false)
 const coverPreviewItem = ref(null)
+const { withFallback } = useImageFallback()
 
 const filterKeyword = ref('')
 /** Lọc theo trạng thái bản ghi: '' = tất cả */
@@ -625,6 +627,7 @@ function detailTimeLabel(item) {
                                                 class="h-full w-full object-cover"
                                                 loading="lazy"
                                                 decoding="async"
+                                                @error="withFallback('/images/default-book-cover.png')($event)"
                                             />
                                         </span>
                                     </button>
@@ -789,6 +792,7 @@ function detailTimeLabel(item) {
                                         :src="coverPreviewUrl"
                                         alt="Ảnh bìa xem trước"
                                         class="h-16 w-12 rounded object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+                                        @error="withFallback('/images/default-book-cover.png')($event)"
                                     />
                                     <Button type="button" variant="outline" size="sm" class="min-h-[36px]" @click="removeCreateCover">Bỏ ảnh</Button>
                                 </div>
@@ -880,6 +884,7 @@ function detailTimeLabel(item) {
                         :src="itemCover(coverPreviewItem)"
                         :alt="coverPreviewItem.title || 'Ảnh bìa'"
                         class="h-[360px] w-full object-contain bg-slate-50 dark:bg-slate-800"
+                        @error="withFallback('/images/default-book-cover.png')($event)"
                     />
                 </div>
                 <div class="mt-3 flex justify-end">
@@ -918,6 +923,7 @@ function detailTimeLabel(item) {
                             class="h-full w-full object-cover"
                             loading="lazy"
                             decoding="async"
+                            @error="withFallback('/images/default-book-cover.png')($event)"
                         />
                     </div>
                     <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">

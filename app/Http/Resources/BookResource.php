@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
+use App\Helpers\FileHelpers;
 
 class BookResource extends JsonResource
 {
@@ -15,8 +16,12 @@ class BookResource extends JsonResource
     {
         $coverImage = $this->cover_image;
         if (! empty($coverImage) && ! str_starts_with((string) $coverImage, 'http')) {
-            // Tránh exists() trên từng sách khi list lớn — trình duyệt chịu ảnh lỗi nếu file thiếu.
-            $coverImage = asset(ltrim((string) $coverImage, '/'));
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
+            $coverImage = $mediaStorage->url((string) $coverImage);
+        }
+        if (empty($coverImage)) {
+            $coverImage = FileHelpers::mediaDefaultUrl('book_cover');
         }
 
         return [
@@ -33,9 +38,7 @@ class BookResource extends JsonResource
             'resource_type' => $this->resource_type instanceof \BackedEnum
                 ? $this->resource_type->value
                 : ($this->resource_type ?? 'reference'),
-            'access_mode' => $this->access_mode instanceof \BackedEnum
-                ? $this->access_mode->value
-                : ($this->access_mode ?? 'circulation_only'),
+            'access_mode' => $this->resolveAccessMode(),
             'registration_number' => $this->registration_number,
             'book_code' => $this->book_code,
             'quantity' => $this->quantity,
@@ -233,6 +236,24 @@ class BookResource extends JsonResource
             return null;
         }
 
-        return Storage::disk($disk)->url($asset->path);
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $assetStorage */
+        $assetStorage = Storage::disk($disk);
+
+        return $assetStorage->url($asset->path);
+    }
+
+    private function resolveAccessMode(): string
+    {
+        $raw = (string) ($this->resource->getRawOriginal('access_mode') ?? '');
+        $normalized = trim($raw);
+        if ($normalized === 'onsite') {
+            // Legacy DB value, map to current enum-compatible value.
+            return 'circulation_only';
+        }
+        if ($normalized === '') {
+            return 'circulation_only';
+        }
+
+        return $normalized;
     }
 }

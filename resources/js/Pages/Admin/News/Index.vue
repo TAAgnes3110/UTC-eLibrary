@@ -11,11 +11,13 @@ import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import AdminDeleteConfirmModal from '@/Components/Admin/Shared/AdminDeleteConfirmModal.vue';
+import AdminFileModal from '@/Components/Admin/Shared/AdminFileModal.vue';
 import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
 import { Button } from '@/Components/ui/button';
 import { toast } from '@/store/toast';
 import { newsPostsApi } from '@/api/newsPosts';
 import { extractApiPaginator } from '@/utils/adminPagination';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -24,6 +26,12 @@ const deleting = ref(false);
 const showFormModal = ref(false);
 const showDeleteModal = ref(false);
 const showDetailModal = ref(false);
+const showCoverModal = ref(false);
+const coverBulkMode = ref(false);
+const coverUploadLoading = ref(false);
+const coverTargetPostId = ref(null);
+const showRowThumbnailPreviewModal = ref(false);
+const rowThumbnailPreview = ref(null);
 const rowToDelete = ref(null);
 const detailRow = ref(null);
 const selectedIds = ref([]);
@@ -61,8 +69,12 @@ const thumbnailPreviewUrl = ref('');
 const uploadingInlineImage = ref(false);
 const quill = ref(null);
 const showThumbnailPreviewModal = ref(false);
+const DEFAULT_NEWS_COVER = '/images/default-news-cover.jpg';
+const updateFileLabel = 'Cập nhật ảnh bìa';
+const { withFallback } = useImageFallback();
 let rowsReloadDebounce = null;
 let rowsRequestSerial = 0;
+
 
 const hasSelection = computed(() => selectedIds.value.length > 0);
 const isAllSelected = computed(() => rows.value.length > 0 && selectedIds.value.length === rows.value.length);
@@ -185,9 +197,111 @@ function openDeleteSelected() {
     showDeleteModal.value = true;
 }
 
-function openDetail(item) {
+async function openDetail(item) {
     detailRow.value = item;
     showDetailModal.value = true;
+    try {
+        const payload = await newsPostsApi.get(item.id);
+        const full = payload?.data ?? payload;
+        if (showDetailModal.value && full?.id === item.id) {
+            detailRow.value = full;
+        }
+    } catch (_e) {
+        // giữ dữ liệu list nếu fetch chi tiết lỗi
+    }
+}
+
+function openRowThumbnailPreview(item) {
+    rowThumbnailPreview.value = item;
+    showRowThumbnailPreviewModal.value = true;
+}
+
+function closeRowThumbnailPreview() {
+    showRowThumbnailPreviewModal.value = false;
+    rowThumbnailPreview.value = null;
+}
+
+function openCoverModal(item = null) {
+    if (item?.id) {
+        coverBulkMode.value = false;
+        coverTargetPostId.value = item.id;
+    } else {
+        const ids = [...selectedIds.value];
+        coverBulkMode.value = ids.length !== 1;
+        coverTargetPostId.value = ids.length === 1 ? ids[0] : null;
+    }
+    showCoverModal.value = true;
+}
+
+function closeCoverModal() {
+    showCoverModal.value = false;
+    coverBulkMode.value = false;
+    coverTargetPostId.value = null;
+}
+
+async function uploadCover(file) {
+    if (!file) return;
+    coverUploadLoading.value = true;
+    try {
+        const fd = new FormData();
+        if (coverBulkMode.value) {
+            fd.append('file', file);
+            if (selectedIds.value.length > 0) {
+                fd.append('ids', JSON.stringify(selectedIds.value));
+            }
+            const payload = await newsPostsApi.bulkUpdateThumbnail(fd);
+            const summary = payload?.data ?? {};
+            const updated = Number(summary.updated ?? 0);
+            const skipped = Number(summary.skipped ?? 0);
+            const selectedCount = summary.selected_count != null ? Number(summary.selected_count) : 0;
+            const selectedMissing = summary.selected_missing != null ? Number(summary.selected_missing) : 0;
+            const hadSelectionFilter = summary.selected_count != null;
+            await loadRows();
+            if (updated > 0) {
+                if (hadSelectionFilter && selectedMissing > 0) {
+                    toast.warn(
+                        `Cập nhật ${updated}/${selectedCount} — thiếu ${selectedMissing} ảnh trong zip.` +
+                            (skipped > 0 ? ` (+${skipped} file bỏ qua)` : ''),
+                        { title: 'Ảnh bìa bài viết' },
+                    );
+                } else if (hadSelectionFilter && selectedMissing === 0 && selectedCount > 0) {
+                    toast.success(`Đủ ${updated}/${selectedCount} bài viết đã chọn.`, { title: 'Ảnh bìa bài viết' });
+                } else if (skipped > 0) {
+                    toast.success(`${updated} ảnh · ${skipped} file bỏ qua`, { title: 'Ảnh bìa bài viết' });
+                } else {
+                    toast.success(`${updated} ảnh bìa`, { title: 'Ảnh bìa bài viết' });
+                }
+            } else {
+                const picked = selectedIds.value.length > 0;
+                toast.warn(
+                    skipped > 0
+                        ? picked
+                            ? `0 ảnh — không khớp mã bài viết với ${skipped} file.`
+                            : `0 ảnh — ${skipped} file không khớp mã bài viết.`
+                        : 'Zip trống hoặc không đọc được.',
+                    { title: 'Ảnh bìa bài viết' },
+                );
+            }
+        } else {
+            const postId = coverTargetPostId.value ?? selectedIds.value[0];
+            if (!postId) {
+                toast.info('Vui lòng chọn đúng 1 bài viết để cập nhật ảnh bìa.', { title: 'Ảnh bìa bài viết' });
+                coverUploadLoading.value = false;
+                return;
+            }
+            fd.append('thumbnail', file);
+            await newsPostsApi.updateThumbnail(postId, fd);
+            await loadRows();
+            toast.success('Cập nhật ảnh bìa bài viết thành công.', { title: 'Ảnh bìa bài viết' });
+        }
+        closeCoverModal();
+    } catch (e) {
+        const data = e?.response?.data || {};
+        const message = data?.messages || data?.message || 'Cập nhật ảnh bìa không thành công. Vui lòng kiểm tra lại file.';
+        toast.error(message, { title: 'Ảnh bìa bài viết' });
+    } finally {
+        coverUploadLoading.value = false;
+    }
 }
 
 async function savePost() {
@@ -546,10 +660,12 @@ async function onInlineImageSelected(event) {
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.length"
                 add-label="Tạo bài viết"
+                :update-file-label="updateFileLabel"
                 :show-import="false"
                 :show-export="false"
-                :show-update-file="false"
+                :show-update-file="true"
                 @add="openCreateWithEditorReady"
+                @update-file="() => openCoverModal()"
                 @delete-selected="openDeleteSelected"
                 @deselect-all="selectedIds = []"
             />
@@ -625,11 +741,19 @@ async function onInlineImageSelected(event) {
                                     <span class="inline-flex rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">#{{ item.id }}</span>
                                 </td>
                                 <td class="px-3 py-3 align-middle">
-                                    <img
-                                        :src="item.thumbnail_url || '/images/default-news-cover.jpg'"
-                                        alt="Ảnh đại diện bài viết"
-                                        class="h-12 w-16 rounded-md object-cover border border-slate-200 dark:border-slate-700"
-                                    />
+                                    <button
+                                        type="button"
+                                        class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md p-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                                        :title="`Xem ảnh bìa: ${item.title || 'Bài viết'}`"
+                                        @click="openRowThumbnailPreview(item)"
+                                    >
+                                        <img
+                                            :src="item.thumbnail_url || DEFAULT_NEWS_COVER"
+                                            alt="Ảnh đại diện bài viết"
+                                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
+                                            class="h-12 w-16 rounded-md object-cover border border-slate-200 dark:border-slate-700"
+                                        />
+                                    </button>
                                 </td>
                                 <td class="px-3 py-3 align-middle">
                                     <div class="min-w-0">
@@ -655,6 +779,7 @@ async function onInlineImageSelected(event) {
                                 <td class="px-3 py-3 align-middle text-center whitespace-nowrap">
                                     <div class="inline-flex items-center gap-0.5">
                                         <AdminTableActionIcon icon="lucide:eye" tone="slate" title="Xem chi tiết" icon-class="w-4 h-4" @click="openDetail(item)" />
+                                        <AdminTableActionIcon icon="lucide:image-plus" tone="slate" title="Cập nhật ảnh bìa" icon-class="w-4 h-4" @click="openCoverModal(item)" />
                                         <AdminTableActionIcon icon="lucide:pen-square" tone="slate" title="Sửa" icon-class="w-4 h-4" @click="openEditForm(item)" />
                                         <AdminTableActionIcon icon="lucide:trash-2" tone="rose" title="Xóa" icon-class="w-4 h-4" @click="openDeleteOne(item)" />
                                     </div>
@@ -688,6 +813,56 @@ async function onInlineImageSelected(event) {
             @confirm="confirmDelete"
         />
 
+        <AdminFileModal
+            :show="showCoverModal"
+            :title="coverBulkMode ? 'Cập nhật ảnh bìa hàng loạt' : 'Cập nhật ảnh bìa bài viết'"
+            :description="
+                coverBulkMode
+                    ? selectedIds.length > 0
+                        ? `Đã chọn ${selectedIds.length} bài viết — chỉ cập nhật ảnh cho các bản ghi đã chọn (tên file trong .zip = mã bài viết/ID).`
+                        : 'File .zip: mỗi ảnh đặt tên đúng mã bài viết (ID) + đuôi (jpg, png...). Cập nhật mọi bài viết có mã khớp trong zip.'
+                    : 'Kéo thả ảnh vào đây hoặc chọn file. Tên file không quan trọng, hệ thống tự đặt tên.'
+            "
+            :accept="coverBulkMode ? '.zip' : '.jpg,.jpeg,.png,.gif,.webp'"
+            :max-size-mb="coverBulkMode ? 50 : 10"
+            submit-label="Lưu"
+            :loading="coverUploadLoading"
+            @close="closeCoverModal"
+            @submit="(file) => uploadCover(file)"
+        />
+
+        <Teleport to="body">
+            <div v-if="showRowThumbnailPreviewModal && rowThumbnailPreview" class="fixed inset-0 z-[112] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-slate-900/60" @click="closeRowThumbnailPreview" />
+                <div class="relative w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+                    <div class="mb-3 flex items-center justify-between">
+                        <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Ảnh bìa bài viết</h4>
+                        <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeRowThumbnailPreview">
+                            <Icon icon="lucide:x" class="h-4 w-4" />
+                        </button>
+                    </div>
+                    <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                        <img
+                            :src="rowThumbnailPreview.thumbnail_url || DEFAULT_NEWS_COVER"
+                            :alt="rowThumbnailPreview.title || 'Ảnh bìa'"
+                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
+                            class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800"
+                        />
+                    </div>
+                    <div class="mt-3 flex justify-end">
+                        <button
+                            type="button"
+                            class="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-900/35 dark:text-blue-300 dark:hover:bg-blue-900/50"
+                            @click="closeRowThumbnailPreview(); openCoverModal(rowThumbnailPreview)"
+                        >
+                            <Icon icon="lucide:camera" class="h-3.5 w-3.5" />
+                            Đổi ảnh
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
         <Teleport to="body">
             <div v-if="showDetailModal && detailRow" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-slate-900/60" @click="showDetailModal = false" />
@@ -700,8 +875,9 @@ async function onInlineImageSelected(event) {
                     </div>
                     <div class="max-h-[70vh] overflow-y-auto p-5 space-y-4">
                         <img
-                            :src="detailRow.thumbnail_url || '/images/default-news-cover.jpg'"
+                            :src="detailRow.thumbnail_url || DEFAULT_NEWS_COVER"
                             alt="Ảnh bài viết"
+                            @error="withFallback(DEFAULT_NEWS_COVER)($event)"
                             class="h-40 w-full rounded-lg object-cover border border-slate-200 dark:border-slate-700"
                         />
                         <div>
@@ -775,6 +951,7 @@ async function onInlineImageSelected(event) {
                                         :src="thumbnailPreviewUrl"
                                         alt="Xem trước ảnh đại diện"
                                         class="h-28 w-full cursor-zoom-in rounded-md object-cover"
+                                        @error="withFallback(DEFAULT_NEWS_COVER)($event)"
                                         @click="openThumbnailPreview"
                                     />
                                     <div v-else class="flex h-28 items-center justify-center rounded-md bg-slate-100 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -844,7 +1021,7 @@ async function onInlineImageSelected(event) {
                     >
                         <Icon icon="lucide:x" class="h-4 w-4" />
                     </button>
-                    <img :src="thumbnailPreviewUrl" alt="Ảnh đại diện hiện tại" class="mx-auto max-h-[70vh] w-auto rounded-lg object-contain" />
+                    <img :src="thumbnailPreviewUrl" alt="Ảnh đại diện hiện tại" class="mx-auto max-h-[70vh] w-auto rounded-lg object-contain" @error="withFallback(DEFAULT_NEWS_COVER)($event)" />
                 </div>
             </div>
         </Teleport>

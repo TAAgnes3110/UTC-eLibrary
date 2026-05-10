@@ -4,6 +4,7 @@ namespace App\Services\LibraryCard;
 
 use App\Enums\LibraryCardStatus;
 use App\Enums\RoleType;
+use App\Enums\UploadDirectory;
 use App\Helpers\FileHelpers;
 use App\Helpers\StudentTeacherRegistrationHelper;
 use App\Models\LibraryCard;
@@ -115,7 +116,11 @@ class LibraryCardAccountService
     private function resolvePhotoPathForRegistration(User $user, array $data, ?UploadedFile $photoFile = null): string
     {
         if ($photoFile !== null) {
-            return FileHelpers::storeUploadedFile($photoFile, 'public', 'upload/library-cards/photos');
+            return FileHelpers::storeUploadedFile(
+                $photoFile,
+                (string) config('filesystems.media_disk', 'public'),
+                UploadDirectory::libraryCardPhotos()
+            );
         }
 
         $photoPath = trim((string) ($data['photo_path'] ?? ''));

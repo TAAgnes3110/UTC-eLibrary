@@ -17,8 +17,8 @@ class DigitalAssetService
      */
     public function store(Book $book, UploadedFile $file, array $attrs = []): DigitalAsset
     {
-        $disk = $attrs['storage_disk'] ?? 'public';
-        $dir = UploadDirectory::forTable('digital-assets').'/'.$book->id;
+        $disk = $attrs['storage_disk'] ?? (string) config('filesystems.media_disk', 'public');
+        $dir = UploadDirectory::digitalAssetsByBookId((int) $book->id);
 
         return DB::transaction(function () use ($book, $file, $attrs, $disk, $dir) {
             $path = FileHelpers::storeUploadedFile($file, $disk, $dir);
@@ -82,7 +82,7 @@ class DigitalAssetService
             $imagick->setImageFormat('png');
             $imagick->thumbnailImage(600, 0, true, true);
 
-            $coverDir = 'upload/books/pdf-covers';
+            $coverDir = UploadDirectory::bookPdfCovers();
             $coverPath = $coverDir.'/'.($book->book_code ?: (string) $book->id).'.png';
             Storage::disk($disk)->put($coverPath, $imagick->getImageBlob());
 

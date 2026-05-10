@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { LIBRARY_CARD_STATUS, workflowQuyTrinhAdminLabel, holderLabel, statusLabel } from '@/config/libraryCardUi';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const props = defineProps({
     rows: { type: Array, required: true },
@@ -52,6 +53,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lo
 
 const previewCard = ref(null);
 const showPreviewModal = ref(false);
+const { withFallback } = useImageFallback();
 
 function openPhotoPreview(card) {
     previewCard.value = card;
@@ -81,6 +83,7 @@ function formatDateTime(value) {
         minute: '2-digit',
     }).format(d);
 }
+
 </script>
 
 <template>
@@ -167,6 +170,7 @@ function formatDateTime(value) {
                                 <img
                                     :src="row.photo_url || '/images/default-avatar.png'"
                                     :alt="row.full_name || 'Ảnh thẻ'"
+                                    @error="withFallback('/images/default-avatar.png')($event)"
                                     class="h-full w-full object-cover"
                                 />
                             </button>
@@ -293,6 +297,7 @@ function formatDateTime(value) {
                 <img
                     :src="previewCard.photo_url || '/images/default-avatar.png'"
                     :alt="previewCard.full_name || 'Ảnh thẻ'"
+                    @error="withFallback('/images/default-avatar.png')($event)"
                     class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800"
                 />
             </div>

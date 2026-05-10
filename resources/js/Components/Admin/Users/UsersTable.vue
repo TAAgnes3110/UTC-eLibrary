@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { getRoleInfo, getStatusInfo } from '@/config/enums';
 import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 defineProps({
     rows: { type: Array, required: true },
@@ -17,6 +18,7 @@ const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'toggle-status', 'dele
 
 const previewUser = ref(null);
 const showPreviewModal = ref(false);
+const { withFallback } = useImageFallback();
 
 function openAvatarPreview(user) {
     previewUser.value = user;
@@ -33,6 +35,7 @@ function triggerAvatarChange() {
     emit('avatar', previewUser.value);
     closeAvatarPreview();
 }
+
 </script>
 
 <template>
@@ -95,6 +98,7 @@ function triggerAvatarChange() {
                                     <img
                                         :src="user.avatar || '/images/default-avatar.png'"
                                         :alt="user.name || 'Avatar'"
+                                        @error="withFallback('/images/default-avatar.png')($event)"
                                         class="h-full w-full object-cover"
                                     />
                                 </button>
@@ -182,6 +186,7 @@ function triggerAvatarChange() {
                 <img
                     :src="previewUser.avatar || '/images/default-avatar.png'"
                     :alt="previewUser.name || 'Avatar'"
+                    @error="withFallback('/images/default-avatar.png')($event)"
                     class="h-[320px] w-full object-contain bg-slate-50 dark:bg-slate-800"
                 />
             </div>

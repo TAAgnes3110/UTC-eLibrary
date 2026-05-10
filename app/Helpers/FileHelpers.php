@@ -81,12 +81,99 @@ final class FileHelpers
 
     public static function deleteIfExists(?string $path, string $disk = 'public'): void
     {
-        if (empty($path) || str_starts_with($path, 'http')) {
+        if (empty($path)) {
             return;
         }
-        if (Storage::disk($disk)->exists($path)) {
-            Storage::disk($disk)->delete($path);
+
+        $relativePath = self::normalizeStoragePath((string) $path, $disk);
+        if ($relativePath === null || $relativePath === '') {
+            return;
         }
+
+        if (Storage::disk($disk)->exists($relativePath)) {
+            Storage::disk($disk)->delete($relativePath);
+        }
+    }
+
+    public static function mediaDisk(): string
+    {
+        return (string) config('filesystems.media_disk', 'public');
+    }
+
+    public static function mediaUrl(?string $path): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+        if (str_starts_with((string) $path, 'http')) {
+            return (string) $path;
+        }
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+        $storage = Storage::disk(self::mediaDisk());
+
+        return $storage->url((string) $path);
+    }
+
+    public static function mediaDefaultUrl(string $key): ?string
+    {
+        $value = config("media.defaults.{$key}");
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+        $value = trim($value);
+        if (str_starts_with($value, 'http')) {
+            return $value;
+        }
+
+        return asset(ltrim($value, '/'));
+    }
+
+    private static function normalizeStoragePath(string $path, string $disk): ?string
+    {
+        $raw = trim($path);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (! str_starts_with($raw, 'http')) {
+            $normalized = ltrim($raw, '/');
+
+            return str_starts_with($normalized, 'storage/')
+                ? ltrim(substr($normalized, 8), '/')
+                : $normalized;
+        }
+
+        $configuredUrl = trim((string) config("filesystems.disks.{$disk}.url", ''));
+        if ($configuredUrl === '') {
+            $urlPath = parse_url($raw, PHP_URL_PATH);
+            if (! is_string($urlPath) || $urlPath === '') {
+                return null;
+            }
+            $normalized = ltrim($urlPath, '/');
+
+            return str_starts_with($normalized, 'storage/')
+                ? ltrim(substr($normalized, 8), '/')
+                : $normalized;
+        }
+
+        $normalizedConfigured = rtrim($configuredUrl, '/');
+        if (! str_starts_with($raw, $normalizedConfigured)) {
+            $urlPath = parse_url($raw, PHP_URL_PATH);
+            if (! is_string($urlPath) || $urlPath === '') {
+                return null;
+            }
+            $normalized = ltrim($urlPath, '/');
+
+            return str_starts_with($normalized, 'storage/')
+                ? ltrim(substr($normalized, 8), '/')
+                : $normalized;
+        }
+
+        $suffix = substr($raw, strlen($normalizedConfigured));
+        $suffix = ltrim((string) $suffix, '/');
+
+        return $suffix !== '' ? $suffix : null;
     }
 
     /**
@@ -120,7 +207,7 @@ final class FileHelpers
      * Update ảnh cho model:
      * - validate extension
      * - xóa ảnh cũ
-     * - lưu ảnh mới vào upload/{table}
+     * - lưu ảnh mới vào thư mục chuẩn trên media disk (utc-elibrary/... theo UploadDirectory)
      * - gán path vào field và save
      *
      * @throws \InvalidArgumentException
@@ -131,7 +218,8 @@ final class FileHelpers
         string $table,
         string $attribute,
         ?string $baseName = null,
-        string $disk = 'public'
+        string $disk = 'public',
+        ?string $directory = null
     ): string {
         if (! $file->isValid()) {
             throw new \InvalidArgumentException(__('File không hợp lệ.'));
@@ -144,7 +232,7 @@ final class FileHelpers
         self::deleteIfExists((string) ($model->{$attribute} ?? null), $disk);
 
         $baseName ??= $model->code ?? (string) $model->id;
-        $directory = UploadDirectory::forTable($table);
+        $directory ??= UploadDirectory::forTable($table);
         $path = $file->storeAs(trim($directory, '/'), $baseName.'.'.$ext, $disk);
 
         $model->{$attribute} = $path;

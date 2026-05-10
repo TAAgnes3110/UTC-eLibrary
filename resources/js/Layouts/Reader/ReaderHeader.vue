@@ -14,6 +14,7 @@ import { accountMenuStrings } from '@/config/accountMenuStrings'
 import { readerNavItems } from '@/config/readerNavigation'
 import { readerLayoutStrings as S } from '@/config/readerStrings'
 import { useNotifications } from '@/composables/useNotifications'
+import { useImageFallback } from '@/composables/useImageFallback'
 import { clearClientApiCredentials } from '@/utils/apiAuthStorage'
 import { clearStaffWorkQueueSessionHint } from '@/utils/staffWorkQueueHint'
 
@@ -120,6 +121,7 @@ const isNavItemActive = (item) => {
     }
     return item.children.some((c) => isRouteActive(c.route))
 }
+const { withFallback } = useImageFallback()
 
 const navLinkClass = (item) => {
     const active = isNavItemActive(item)
@@ -141,6 +143,7 @@ const navChildLinkClass = (childRoute) => {
             : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
     ]
 }
+
 </script>
 
 <template>
@@ -424,6 +427,7 @@ const navChildLinkClass = (childRoute) => {
                         <img
                             :src="user?.avatar || '/images/default-avatar.png'"
                             :alt="user?.name || 'Avatar'"
+                            @error="withFallback('/images/default-avatar.png')($event)"
                             class="h-11 w-11 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-600"
                         />
                         <div class="min-w-0 flex-1">

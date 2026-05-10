@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
+import { useImageFallback } from '@/composables/useImageFallback';
 
 const props = defineProps({
     show: { type: Boolean, required: true },
@@ -27,6 +28,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save', 'book-code-touched', 'registration-touched']);
 const currentYear = new Date().getFullYear();
 const isDigitalPage = computed(() => props.pageKind === 'digital');
+const { withFallback } = useImageFallback();
 
 function errClass(key) {
     return props.fieldErrors[key] ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700';
@@ -374,7 +376,7 @@ function removeCreateDigitalFile() {
                                 </span>
                             </div>
                             <div v-if="createCoverPreviewUrl" class="mt-3 flex items-center gap-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-2">
-                                <img :src="createCoverPreviewUrl" alt="Ảnh bìa xem trước" class="h-16 w-12 rounded object-cover ring-1 ring-slate-200 dark:ring-slate-700" />
+                                <img :src="createCoverPreviewUrl" alt="Ảnh bìa xem trước" class="h-16 w-12 rounded object-cover ring-1 ring-slate-200 dark:ring-slate-700" @error="withFallback('/images/default-book-cover.png')($event)" />
                                 <Button type="button" variant="outline" size="sm" @click="removeCreateCover">Bỏ ảnh</Button>
                             </div>
                         </div>

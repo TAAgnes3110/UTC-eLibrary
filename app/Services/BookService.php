@@ -413,11 +413,12 @@ class BookService
             $query->select($query->getModel()->getTable().'.*');
         }
 
-        $subquery = DigitalAsset::query()
-            ->selectRaw('COALESCE(SUM(view_count), 0)')
-            ->whereColumn('digital_assets.book_id', 'books.id');
+        $viewCountSub = DB::table('digital_assets')
+            ->groupBy('book_id')
+            ->selectRaw('book_id, COALESCE(SUM(view_count), 0) as digital_view_count');
 
-        $query->selectSub($subquery, 'digital_view_count');
+        $query->leftJoinSub($viewCountSub, 'digital_view_totals', 'digital_view_totals.book_id', '=', 'books.id');
+        $query->addSelect(DB::raw('COALESCE(digital_view_totals.digital_view_count, 0) as digital_view_count'));
     }
 
     /**

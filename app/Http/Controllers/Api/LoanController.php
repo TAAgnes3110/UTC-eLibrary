@@ -97,12 +97,27 @@ class LoanController extends Controller
         $validated = $request->validate([
             'granularity' => ['nullable', Rule::in(['day', 'month', 'year'])],
             'digital_granularity' => ['nullable', Rule::in(['day', 'month', 'year'])],
+            'parts' => ['nullable', 'string', 'max:120'],
         ]);
 
-        $payload = $this->statisticsService->dashboardStatistics(
-            (string) ($validated['granularity'] ?? 'month'),
-            isset($validated['digital_granularity']) ? (string) $validated['digital_granularity'] : null,
-        );
+        $loanGranularity = (string) ($validated['granularity'] ?? 'month');
+        $digitalGranularity = isset($validated['digital_granularity'])
+            ? (string) $validated['digital_granularity']
+            : null;
+
+        $partsRaw = trim((string) ($validated['parts'] ?? ''));
+        if ($partsRaw !== '') {
+            $parts = array_values(array_filter(array_map('trim', explode(',', $partsRaw))));
+            $allowed = ['summary', 'series', 'digital_series', 'forecast'];
+            $parts = array_values(array_intersect($parts, $allowed));
+            $payload = $this->statisticsService->dashboardStatisticsParts(
+                $loanGranularity,
+                $digitalGranularity,
+                $parts !== [] ? $parts : $allowed,
+            );
+        } else {
+            $payload = $this->statisticsService->dashboardStatistics($loanGranularity, $digitalGranularity);
+        }
 
         return ApiResponse::success($payload);
     }

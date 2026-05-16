@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Nạp Dump20260505.sql + migrate + dữ liệu tài liệu số mẫu vào DB (.env).
+# Nạp Dump20260505.sql (đã gộp post_import) + migrate nếu cần (.env).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,18 +46,14 @@ if [[ -n "${DB_PASSWORD}" ]]; then
 fi
 
 DUMP="${ROOT_DIR}/database/Dump20260505.sql"
-POST="${ROOT_DIR}/database/Dump20260505_post_import.sql"
 
 echo "==> Tạo lại database ${DB_DATABASE}"
 "${MYSQL}" "${MYSQL_OPTS[@]}" -e "DROP DATABASE IF EXISTS \`${DB_DATABASE}\`; CREATE DATABASE \`${DB_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-echo "==> Import dump gốc (sách in, users, OTL…)"
+echo "==> Import ${DUMP}"
 "${MYSQL}" "${MYSQL_OPTS[@]}" "${DB_DATABASE}" < "${DUMP}"
 
-echo "==> Migrate schema còn thiếu (paywall, library_settings…)"
+echo "==> Migrate schema còn thiếu (nếu có)"
 php artisan migrate --force
-
-echo "==> Import dữ liệu mẫu tài liệu số + cấu hình giá"
-"${MYSQL}" "${MYSQL_OPTS[@]}" "${DB_DATABASE}" < "${POST}"
 
 echo "==> Xong. Chạy: php artisan digital-assets:regenerate-previews (khi đã có file PDF trên disk)."

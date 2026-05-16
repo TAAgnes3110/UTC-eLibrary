@@ -267,13 +267,6 @@ export function useUsersAdminPage(props) {
     const filteredUsers = computed(() => usersList.value);
 
     watch(
-        () => filterValues.value.searchKeyword,
-        () => {
-            scheduleUsersReload({ resetPage: true, delayMs: 350 });
-        },
-    );
-
-    watch(
         () => filterValues.value.searchIn,
         () => {
             scheduleUsersReload({ resetPage: true, delayMs: 180 });

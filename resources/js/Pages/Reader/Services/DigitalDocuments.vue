@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Head, Link, usePage } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
@@ -19,9 +19,11 @@ import {
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
 import { resetFileInput } from '@/utils/resetFileInput'
-import RichTextEditor from '@/Components/Shared/RichTextEditor.vue'
 import RichHtmlContent from '@/Components/Shared/RichHtmlContent.vue'
 import { stripHtmlToPlainText } from '@/utils/quillEditor'
+import { extractApiPaginator } from '@/utils/adminPagination'
+
+const RichTextEditor = defineAsyncComponent(() => import('@/Components/Shared/RichTextEditor.vue'))
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
@@ -44,8 +46,7 @@ const filterKeyword = ref('')
 /** Lọc theo trạng thái bản ghi: '' = tất cả */
 const statusFilter = ref('')
 const sortBy = ref('newest')
-const currentPage = ref(1)
-const perPage = 10
+const pagination = ref({ current_page: 1, last_page: 1, per_page: 10, total: 0 })
 
 const form = ref({
     title: '',
@@ -131,53 +132,14 @@ function readerApiErrorMessage(error, fallback) {
     return fallback
 }
 
-const filteredRows = computed(() => {
-    let list = rows.value
-    const keyword = String(filterKeyword.value || '').trim().toLowerCase()
-    if (keyword) {
-        list = list.filter((item) => {
-            const st = String(item?.status || '')
-            const stLabel = String(statusLabel[item.status] || '').toLowerCase()
-            const fields = [
-                item?.approved_book?.book_code,
-                item?.title,
-                item?.author_names,
-                item?.approved_book?.authors_label,
-                item?.description,
-                item?.original_name,
-                item?.submitted_at,
-                formatDetailDate(item?.submitted_at),
-                st,
-                stLabel,
-            ]
-            return fields.some((v) => String(v || '').toLowerCase().includes(keyword))
-        })
-    }
-    if (statusFilter.value !== '') {
-        list = list.filter((item) => item.status === statusFilter.value)
-    }
-    const sorted = [...list].sort((a, b) => (sortBy.value === 'oldest' ? a.id - b.id : b.id - a.id))
-    return sorted
-})
-
-const lastPage = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / perPage)))
-const paginatedRows = computed(() => {
-    const start = (currentPage.value - 1) * perPage
-    return filteredRows.value.slice(start, start + perPage)
-})
-
 const hasSelection = computed(() => selectedIds.value.size > 0)
-const isAllSelected = computed(() => paginatedRows.value.length > 0 && paginatedRows.value.every((row) => selectedIds.value.has(row.id)))
-
-watch(lastPage, (lp) => {
-    if (currentPage.value > lp) currentPage.value = lp
-})
+const isAllSelected = computed(() => rows.value.length > 0 && rows.value.every((row) => selectedIds.value.has(row.id)))
 
 watch([statusFilter, sortBy], () => {
-    currentPage.value = 1
+    loadRows(1)
 })
 
-watch(paginatedRows, (list) => {
+watch(rows, (list) => {
     const valid = new Set(list.map((item) => item.id))
     let changed = false
     const next = new Set()
@@ -188,19 +150,33 @@ watch(paginatedRows, (list) => {
     if (changed) selectedIds.value = next
 })
 
-async function loadRows() {
+async function loadRows(page = 1) {
     if (!isAuthed.value) {
         rows.value = []
+        pagination.value = { current_page: 1, last_page: 1, per_page: 10, total: 0 }
         return
     }
     loading.value = true
     loadError.value = ''
     try {
-        const payload = await digitalDocumentsApi.list()
-        const raw = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : []
-        rows.value = raw.map((row) => normalizeSubmissionRow(row))
+        const payload = await digitalDocumentsApi.list({
+            page,
+            per_page: pagination.value.per_page || 10,
+            keyword: String(filterKeyword.value || '').trim() || undefined,
+            status: statusFilter.value || undefined,
+            sort: sortBy.value || 'newest',
+        })
+        const { items, meta } = extractApiPaginator(payload, 10)
+        rows.value = items.map((row) => normalizeSubmissionRow(row))
+        pagination.value = {
+            current_page: Number(meta.current_page || 1),
+            last_page: Number(meta.last_page || 1),
+            per_page: Number(meta.per_page || 10),
+            total: Number(meta.total || items.length),
+        }
     } catch (error) {
         rows.value = []
+        pagination.value = { current_page: 1, last_page: 1, per_page: 10, total: 0 }
         loadError.value = readerApiErrorMessage(error, 'Không tải được danh sách đồ án, luận văn.')
     } finally {
         loading.value = false
@@ -233,7 +209,7 @@ watch(showUploadModal, (visible) => {
 })
 
 function searchRows() {
-    currentPage.value = 1
+    loadRows(1)
 }
 
 function onDigitalFileChange(event) {
@@ -319,13 +295,8 @@ async function submitUpload() {
 
     submitting.value = true
     try {
-        const res = await digitalDocumentsApi.submit(fd)
-        const created = res?.data
-        if (created && typeof created === 'object' && created.id != null) {
-            rows.value = [normalizeSubmissionRow(created), ...rows.value]
-        } else {
-            await loadRows()
-        }
+        await digitalDocumentsApi.submit(fd)
+        await loadRows(1)
         toast.success('Đã gửi đồ án, luận văn, vui lòng chờ duyệt.')
         closeUploadModal()
     } catch (error) {
@@ -336,7 +307,7 @@ async function submitUpload() {
 }
 
 function goPage(pageNumber) {
-    currentPage.value = pageNumber
+    loadRows(pageNumber)
 }
 
 function toggleSelectAll() {
@@ -344,7 +315,7 @@ function toggleSelectAll() {
         selectedIds.value = new Set()
         return
     }
-    selectedIds.value = new Set(paginatedRows.value.map((item) => item.id))
+    selectedIds.value = new Set(rows.value.map((item) => item.id))
 }
 
 function toggleSelect(id) {
@@ -569,7 +540,7 @@ function detailTimeLabel(item) {
                                             :checked="isAllSelected"
                                             :indeterminate="hasSelection && !isAllSelected"
                                             class="admin-table-checkbox"
-                                            :disabled="loading || !paginatedRows.length"
+                                            :disabled="loading || !rows.length"
                                             @change="toggleSelectAll"
                                         />
                                     </span>
@@ -608,7 +579,7 @@ function detailTimeLabel(item) {
                                 <td colspan="10" class="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải...</td>
                             </tr>
                             <template v-else>
-                            <tr v-for="item in paginatedRows" :key="item.id" class="admin-table-row hover:bg-gray-50/80 dark:hover:bg-slate-800/40">
+                            <tr v-for="item in rows" :key="item.id" class="admin-table-row hover:bg-gray-50/80 dark:hover:bg-slate-800/40">
                                 <td class="px-3 py-3.5 align-middle">
                                     <span class="admin-table-checkbox-wrap">
                                         <input
@@ -716,7 +687,7 @@ function detailTimeLabel(item) {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="!paginatedRows.length">
+                            <tr v-if="!rows.length">
                                 <td colspan="10" class="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                                     Chưa có đồ án, luận văn trong danh sách.
                                 </td>
@@ -730,8 +701,8 @@ function detailTimeLabel(item) {
             <AdminPaginationBar
                 v-if="isAuthed"
                 always-show
-                :current-page="currentPage"
-                :last-page="lastPage"
+                :current-page="pagination.current_page"
+                :last-page="pagination.last_page"
                 :disabled="loading"
                 @go-page="goPage"
             />
@@ -851,6 +822,7 @@ function detailTimeLabel(item) {
                         <div class="sm:col-span-2 space-y-1.5">
                             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mô tả</label>
                             <RichTextEditor
+                                v-if="showUploadModal"
                                 v-model="form.description"
                                 :active="showUploadModal"
                                 placeholder="Nhập mô tả về đồ án/luận văn…"

@@ -157,13 +157,6 @@ export function useLibraryCardsAdminPage(props, options = {}) {
     if (screen === 'manage') {
         watch(() => filterValues.value.status, reloadListFilters);
     }
-    watch(
-        () => filterValues.value.searchKeyword,
-        () => {
-            scheduleCardsReload({ resetPage: true, delayMs: 350 });
-        }
-    );
-
     onBeforeUnmount(() => {
         if (cardsReloadDebounce) clearTimeout(cardsReloadDebounce);
         cardsRequestSerial++;

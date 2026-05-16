@@ -7,6 +7,7 @@ use App\Helpers\DeployHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DigitalDocumentSubmissionResource;
 use App\Services\DigitalDocumentSubmissionService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -23,20 +24,33 @@ class DigitalDocumentSubmissionController extends Controller
             return ApiResponse::error(__('Vui lòng đăng nhập để tiếp tục.'), 401);
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'status' => ['sometimes', 'nullable', 'string', 'in:pending,approved,rejected'],
+            'keyword' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'sort' => ['sometimes', 'nullable', 'string', 'in:newest,oldest'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
         ]);
 
-        $items = $this->service->list($request->user(), $request->input('status'));
+        $perPage = (int) ($validated['per_page'] ?? 15);
+        $paginator = $this->service->paginateForUser($request->user(), $validated, $perPage);
 
-        return ApiResponse::success(DigitalDocumentSubmissionResource::collection($items));
+        return ApiResponse::success($this->paginatorPayload($paginator));
     }
 
-    public function publicIndex(): JsonResponse
+    public function publicIndex(Request $request): JsonResponse
     {
-        $items = $this->service->listPublicApproved();
+        $validated = $request->validate([
+            'keyword' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'sort' => ['sometimes', 'nullable', 'string', 'in:newest,oldest'],
+            'page' => ['sometimes', 'integer', 'min:1'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:50'],
+        ]);
 
-        return ApiResponse::success(DigitalDocumentSubmissionResource::collection($items));
+        $perPage = (int) ($validated['per_page'] ?? 15);
+        $paginator = $this->service->paginatePublicApproved($validated, $perPage);
+
+        return ApiResponse::success($this->paginatorPayload($paginator));
     }
 
     public function store(Request $request): JsonResponse
@@ -139,5 +153,23 @@ class DigitalDocumentSubmissionController extends Controller
             null,
             __('Đã ẩn khỏi danh sách của bạn. Thủ thư vẫn xử lý trên hệ thống.')
         );
+    }
+
+    /**
+     * @return array{data:list<array<string, mixed>>, meta:array<string, int|null>}
+     */
+    private function paginatorPayload(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'data' => DigitalDocumentSubmissionResource::collection($paginator->items())->resolve(),
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+                'from' => $paginator->firstItem(),
+                'to' => $paginator->lastItem(),
+            ],
+        ];
     }
 }

@@ -1,3 +1,6 @@
+-- UTC-eLibrary | dump mẫu đầy đủ (một file duy nhất)
+-- Import: mysql -u USER -p DATABASE < database/Dump20260505.sql
+
 -- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: utc_elibrary_dump_rebuild
@@ -18,8 +21,6 @@
 --
 -- Current Database: `utc_elibrary`
 --
-
-
 
 --
 -- Table structure for table `authors`
@@ -1886,6 +1887,198 @@ UNLOCK TABLES;
 --
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
+
+--
+-- Bổ sung: paywall / library_settings / tài liệu số mẫu (501, 502)
+--
+
+DROP TABLE IF EXISTS `digital_asset_pdf_download_entitlements`;
+DROP TABLE IF EXISTS `payment_transactions`;
+DROP TABLE IF EXISTS `order_items`;
+DROP TABLE IF EXISTS `orders`;
+DROP TABLE IF EXISTS `cart_items`;
+DROP TABLE IF EXISTS `carts`;
+DROP TABLE IF EXISTS `digital_asset_paywall_settings`;
+DROP TABLE IF EXISTS `library_settings`;
+
+CREATE TABLE `library_settings` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'string',
+  `value` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `json_value` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `created_by` int unsigned DEFAULT NULL,
+  `updated_by` int unsigned DEFAULT NULL,
+  `deleted_by` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `library_settings_key_unique` (`key`),
+  KEY `library_settings_created_by_foreign` (`created_by`),
+  KEY `library_settings_updated_by_foreign` (`updated_by`),
+  KEY `library_settings_deleted_by_foreign` (`deleted_by`),
+  CONSTRAINT `library_settings_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `library_settings_deleted_by_foreign` FOREIGN KEY (`deleted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `library_settings_updated_by_foreign` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `digital_asset_paywall_settings` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `digital_asset_id` bigint unsigned NOT NULL,
+  `is_paywall_enabled` tinyint(1) NOT NULL DEFAULT '1',
+  `pdf_download_price_vnd` bigint unsigned NOT NULL,
+  `currency` char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'VND',
+  `internal_note` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  `created_by` int unsigned DEFAULT NULL,
+  `updated_by` int unsigned DEFAULT NULL,
+  `deleted_by` int unsigned DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `digital_asset_paywall_settings_digital_asset_id_unique` (`digital_asset_id`),
+  KEY `digital_asset_paywall_settings_created_by_foreign` (`created_by`),
+  KEY `digital_asset_paywall_settings_updated_by_foreign` (`updated_by`),
+  KEY `digital_asset_paywall_settings_deleted_by_foreign` (`deleted_by`),
+  CONSTRAINT `digital_asset_paywall_settings_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `digital_asset_paywall_settings_deleted_by_foreign` FOREIGN KEY (`deleted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `digital_asset_paywall_settings_digital_asset_id_foreign` FOREIGN KEY (`digital_asset_id`) REFERENCES `digital_assets` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `digital_asset_paywall_settings_updated_by_foreign` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `carts` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `price_locked_until` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `carts_user_id_type_unique` (`user_id`,`type`),
+  KEY `carts_type_updated_at_index` (`type`,`updated_at`),
+  KEY `carts_price_locked_until_index` (`price_locked_until`),
+  CONSTRAINT `carts_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `cart_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `cart_id` bigint unsigned NOT NULL,
+  `item_type` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `digital_asset_id` bigint unsigned DEFAULT NULL,
+  `book_copy_id` bigint unsigned DEFAULT NULL,
+  `quantity` int unsigned NOT NULL DEFAULT '1',
+  `unit_price_vnd_snapshot` bigint unsigned DEFAULT NULL,
+  `line_total_vnd_snapshot` bigint unsigned DEFAULT NULL,
+  `meta` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `cart_items_cart_digital_asset_unique` (`cart_id`,`digital_asset_id`),
+  KEY `cart_items_cart_id_item_type_index` (`cart_id`,`item_type`),
+  KEY `cart_items_digital_asset_id_index` (`digital_asset_id`),
+  KEY `cart_items_book_copy_id_index` (`book_copy_id`),
+  CONSTRAINT `cart_items_cart_id_foreign` FOREIGN KEY (`cart_id`) REFERENCES `carts` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `cart_items_digital_asset_id_foreign` FOREIGN KEY (`digital_asset_id`) REFERENCES `digital_assets` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `orders` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `public_id` char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `user_id` int unsigned NOT NULL,
+  `type` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `status` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `subtotal_vnd_snapshot` bigint unsigned NOT NULL,
+  `total_vnd_snapshot` bigint unsigned NOT NULL,
+  `currency` char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'VND',
+  `price_locked_until` timestamp NULL DEFAULT NULL,
+  `paid_at` timestamp NULL DEFAULT NULL,
+  `gateway` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'sepay',
+  `merchant_reference` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `gateway_init_payload` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `orders_public_id_unique` (`public_id`),
+  UNIQUE KEY `orders_merchant_reference_unique` (`merchant_reference`),
+  KEY `orders_user_id_status_created_at_index` (`user_id`,`status`,`created_at`),
+  KEY `orders_type_status_created_at_index` (`type`,`status`,`created_at`),
+  KEY `orders_price_locked_until_index` (`price_locked_until`),
+  KEY `orders_paid_at_index` (`paid_at`),
+  CONSTRAINT `orders_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `order_items` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint unsigned NOT NULL,
+  `item_type` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `digital_asset_id` bigint unsigned NOT NULL,
+  `quantity` int unsigned NOT NULL DEFAULT '1',
+  `unit_price_vnd_snapshot` bigint unsigned NOT NULL,
+  `line_total_vnd_snapshot` bigint unsigned NOT NULL,
+  `meta` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `order_items_order_id_item_type_index` (`order_id`,`item_type`),
+  KEY `order_items_digital_asset_id_index` (`digital_asset_id`),
+  CONSTRAINT `order_items_digital_asset_id_foreign` FOREIGN KEY (`digital_asset_id`) REFERENCES `digital_assets` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `order_items_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `payment_transactions` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `order_id` bigint unsigned NOT NULL,
+  `gateway` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'sepay',
+  `status` varchar(24) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'pending',
+  `amount_vnd` bigint unsigned NOT NULL,
+  `currency` char(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'VND',
+  `gateway_transaction_id` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `idempotency_key` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `verified_at` timestamp NULL DEFAULT NULL,
+  `callback_meta` json DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `payment_transactions_idempotency_key_unique` (`idempotency_key`),
+  KEY `payment_transactions_order_id_foreign` (`order_id`),
+  KEY `payment_transactions_gateway_transaction_id_index` (`gateway_transaction_id`),
+  KEY `payment_transactions_verified_at_index` (`verified_at`),
+  KEY `payment_transactions_gateway_status_created_at_index` (`gateway`,`status`,`created_at`),
+  CONSTRAINT `payment_transactions_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `digital_asset_pdf_download_entitlements` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `digital_asset_id` bigint unsigned NOT NULL,
+  `order_id` bigint unsigned DEFAULT NULL,
+  `granted_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `revoked_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `digital_asset_entitlement_user_asset_unique` (`user_id`,`digital_asset_id`),
+  KEY `digital_asset_pdf_download_entitlements_digital_asset_id_foreign` (`digital_asset_id`),
+  KEY `digital_asset_pdf_download_entitlements_order_id_foreign` (`order_id`),
+  KEY `digital_asset_pdf_download_entitlements_expires_at_index` (`expires_at`),
+  KEY `digital_asset_pdf_download_entitlements_revoked_at_index` (`revoked_at`),
+  KEY `da_entitlement_asset_revoked_idx` (`digital_asset_id`,`revoked_at`),
+  CONSTRAINT `digital_asset_pdf_download_entitlements_digital_asset_id_foreign` FOREIGN KEY (`digital_asset_id`) REFERENCES `digital_assets` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `digital_asset_pdf_download_entitlements_order_id_foreign` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `digital_asset_pdf_download_entitlements_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `library_settings` (`key`, `type`, `value`, `json_value`, `created_at`, `updated_at`, `created_by`, `updated_by`, `deleted_by`) VALUES ('digital.default_pdf_download_price_vnd', 'int', '50000', NULL, '2026-05-16 12:00:00', '2026-05-16 12:00:00', 3, 3, NULL), ('loan.late_return_fine_mode', 'string', 'fixed_per_day', NULL, '2026-05-16 12:00:00', '2026-05-16 12:00:00', 3, 3, NULL), ('loan.late_return_fine_percent_of_book', 'int', '20', NULL, '2026-05-16 12:00:00', '2026-05-16 12:00:00', 3, 3, NULL), ('loan.external_borrow_fee_vnd', 'int', '0', NULL, '2026-05-16 12:00:00', '2026-05-16 12:00:00', 3, 3, NULL) ON DUPLICATE KEY UPDATE `value` = VALUES(`value`), `updated_at` = VALUES(`updated_at`);
+
+INSERT INTO `books` (`id`,`registration_number`,`book_code`,`title`,`sub_title`,`language`,`edition`,`published_year`,`pages`,`illustration_pages`,`book_size`,`price`,`quantity`,`view_count`,`summary`,`notes`,`publisher_place`,`cabinet`,`cover_image`,`classification_id`,`warehouse_id`,`resource_type`,`access_mode`,`params`,`created_by`,`updated_by`,`deleted_by`,`created_at`,`updated_at`,`deleted_at`) VALUES (501,'REG-UTC-2026-0501','LV-UTC-2026-501','Đồ án: Hệ thống quản lý thư viện số UTC','','Tiếng Việt',NULL,2026,120,NULL,NULL,0,0,0,'Đồ án tốt nghiệp mẫu — tài liệu số có paywall, xem trước 5 trang, tải PDF sau thanh toán.','Mẫu demo tài liệu số.','Hà Nội',NULL,'utc-elibrary/book-covers/digital/submission-501.jpg',4,1,'digital','online_only','{"source":"sample-dump-v1"}',3,3,NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00',NULL), (502,'REG-UTC-2026-0502','LV-UTC-2026-502','Luận văn: Tối ưu truy vấn CSDL cho thư viện','','Tiếng Việt',NULL,2025,95,NULL,NULL,0,0,0,'Luận văn thạc sĩ mẫu — miễn phí tải (paywall tắt).','Mẫu demo miễn phí.','Hà Nội',NULL,'utc-elibrary/book-covers/digital/submission-502.jpg',4,2,'digital','online_only','{"source":"sample-dump-v1"}',3,3,NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00',NULL) ON DUPLICATE KEY UPDATE `title` = VALUES(`title`), `updated_at` = VALUES(`updated_at`);
+
+INSERT INTO `book_authors` (`book_id`,`author_id`,`order`,`created_by`,`updated_by`,`deleted_by`,`created_at`,`updated_at`) VALUES (501,1001,0,3,3,NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00'), (502,1002,0,3,3,NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00') ON DUPLICATE KEY UPDATE `updated_at` = VALUES(`updated_at`);
+
+INSERT INTO `thesis_metadata` (`book_id`,`work_type`,`degree_program`,`supervisor_name`,`supervisor_user_id`,`defense_year`,`keywords`,`abstract_text`,`params`,`created_at`,`updated_at`,`created_by`,`updated_by`,`deleted_by`) VALUES (501,'graduation_project','Công nghệ thông tin',NULL,NULL,2026,'thư viện số; Laravel; Vue','Tóm tắt đồ án mẫu về xây dựng hệ thống quản lý thư viện điện tử cho UTC.',NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00',3,3,NULL), (502,'master_thesis','Công nghệ thông tin',NULL,NULL,2025,'CSDL; truy vấn; thư viện','Tóm tắt luận văn mẫu về tối ưu truy vấn cơ sở dữ liệu.',NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00',3,3,NULL) ON DUPLICATE KEY UPDATE `abstract_text` = VALUES(`abstract_text`), `updated_at` = VALUES(`updated_at`);
+
+INSERT INTO `digital_assets` (`id`,`book_id`,`version`,`is_primary`,`storage_disk`,`path`,`preview_path`,`preview_page_count`,`preview_generated_at`,`original_name`,`mime`,`byte_size`,`view_count`,`download_count`,`preview_display`,`checksum_sha256`,`visibility`,`embargo_until`,`params`,`created_at`,`updated_at`,`deleted_at`,`created_by`,`updated_by`,`deleted_by`) VALUES (1,501,1,1,'local','utc-elibrary/books/digital-assets/501/sample-do-an.pdf',NULL,NULL,NULL,'do-an-quan-ly-thu-vien-so.pdf','application/pdf',245760,0,0,NULL,NULL,'internal',NULL,NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00',NULL,3,3,NULL), (2,502,1,1,'local','utc-elibrary/books/digital-assets/502/sample-luan-van.pdf',NULL,NULL,NULL,'luan-van-csdl.pdf','application/pdf',189440,0,0,NULL,NULL,'internal',NULL,NULL,'2026-05-16 12:00:00','2026-05-16 12:00:00',NULL,3,3,NULL) ON DUPLICATE KEY UPDATE `path` = VALUES(`path`), `updated_at` = VALUES(`updated_at`);
+
+INSERT INTO `digital_asset_paywall_settings` (`digital_asset_id`,`is_paywall_enabled`,`pdf_download_price_vnd`,`currency`,`internal_note`,`created_at`,`updated_at`,`created_by`,`updated_by`,`deleted_by`) VALUES (1,1,50000,'VND','Mẫu có thu phí tải PDF','2026-05-16 12:00:00','2026-05-16 12:00:00',3,3,NULL), (2,0,0,'VND','Mẫu miễn phí tải PDF','2026-05-16 12:00:00','2026-05-16 12:00:00',3,3,NULL) ON DUPLICATE KEY UPDATE `pdf_download_price_vnd` = VALUES(`pdf_download_price_vnd`), `updated_at` = VALUES(`updated_at`);
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;

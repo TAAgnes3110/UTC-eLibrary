@@ -12,8 +12,8 @@ use App\Models\Book;
 use App\Models\DigitalAsset;
 use App\Models\DigitalDocumentSubmission;
 use App\Models\User;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -82,52 +82,99 @@ class DigitalDocumentSubmissionService
     }
 
     /**
-     * @return Collection<int, DigitalDocumentSubmission>
+     * @param  array{status?:string|null,keyword?:string|null,sort?:string|null}  $filters
      */
-    public function list(User $user, ?string $status = null): Collection
+    public function paginateForUser(User $user, array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->baseListQuery($user);
+        $this->applyListFilters($query, $filters);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * @param  array{keyword?:string|null,sort?:string|null}  $filters
+     */
+    public function paginatePublicApproved(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = DigitalDocumentSubmission::query()
-            ->with([
-                'submitter:id,name,email',
-                'reviewer:id,name',
-                'approvedBook:id,book_code,title,summary,cover_image',
-                'approvedBook.authors:id,name',
-            ])
-            ->latest('id');
+            ->with($this->listRelations())
+            ->where('status', DigitalDocumentSubmission::STATUS_APPROVED)
+            ->whereHas('approvedBook', fn (Builder $q) => $q->where('resource_type', ResourceType::DIGITAL->value));
+
+        $this->applyListFilters($query, $filters, applyStatusFilter: false);
+
+        return $query->paginate($perPage);
+    }
+
+    /**
+     * @return Builder<DigitalDocumentSubmission>
+     */
+    private function baseListQuery(User $user): Builder
+    {
+        $query = DigitalDocumentSubmission::query()->with($this->listRelations());
 
         if (! $this->isStaff($user)) {
             $query->where('submitted_by', $user->id)
                 ->whereNull('user_hidden_at');
         }
 
-        if ($status !== null && in_array($status, [
-            DigitalDocumentSubmission::STATUS_PENDING,
-            DigitalDocumentSubmission::STATUS_APPROVED,
-            DigitalDocumentSubmission::STATUS_REJECTED,
-        ], true)) {
-            $query->where('status', $status);
-        }
-
-        return $query->limit(200)->get();
+        return $query;
     }
 
     /**
-     * @return Collection<int, DigitalDocumentSubmission>
+     * @return list<string>
      */
-    public function listPublicApproved(): Collection
+    private function listRelations(): array
     {
-        return DigitalDocumentSubmission::query()
-            ->with([
-                'submitter:id,name,email',
-                'reviewer:id,name',
-                'approvedBook:id,book_code,title,summary,cover_image',
-                'approvedBook.authors:id,name',
-            ])
-            ->where('status', DigitalDocumentSubmission::STATUS_APPROVED)
-            ->whereHas('approvedBook', fn (Builder $q) => $q->where('resource_type', ResourceType::DIGITAL->value))
-            ->latest('id')
-            ->limit(200)
-            ->get();
+        return [
+            'submitter:id,name,email',
+            'reviewer:id,name',
+            'approvedBook:id,book_code,title,summary,cover_image',
+            'approvedBook.authors:id,name',
+        ];
+    }
+
+    /**
+     * @param  Builder<DigitalDocumentSubmission>  $query
+     * @param  array{status?:string|null,keyword?:string|null,sort?:string|null}  $filters
+     */
+    private function applyListFilters(Builder $query, array $filters, bool $applyStatusFilter = true): void
+    {
+        if ($applyStatusFilter) {
+            $status = $filters['status'] ?? null;
+            if ($status !== null && $status !== '' && in_array($status, [
+                DigitalDocumentSubmission::STATUS_PENDING,
+                DigitalDocumentSubmission::STATUS_APPROVED,
+                DigitalDocumentSubmission::STATUS_REJECTED,
+            ], true)) {
+                $query->where('status', $status);
+            }
+        }
+
+        $keyword = trim((string) ($filters['keyword'] ?? ''));
+        if ($keyword !== '') {
+            $like = '%'.$keyword.'%';
+            $query->where(function (Builder $sub) use ($like): void {
+                $sub->where('title', 'like', $like)
+                    ->orWhere('author_names', 'like', $like)
+                    ->orWhere('description', 'like', $like)
+                    ->orWhere('original_name', 'like', $like)
+                    ->orWhereHas('submitter', fn (Builder $q) => $q
+                        ->where('name', 'like', $like)
+                        ->orWhere('email', 'like', $like))
+                    ->orWhereHas('approvedBook', fn (Builder $q) => $q
+                        ->where('book_code', 'like', $like)
+                        ->orWhere('title', 'like', $like));
+            });
+        }
+
+        $sort = (string) ($filters['sort'] ?? 'newest');
+        if ($sort === 'oldest') {
+            $query->orderBy('id');
+        } else {
+            $query->latest('id');
+        }
     }
 
     public function approve(User $reviewer, int $id, ?string $note = null): DigitalDocumentSubmission

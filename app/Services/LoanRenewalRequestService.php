@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Notifications\LoanRenewalNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -36,6 +37,59 @@ class LoanRenewalRequestService
     {
         $loan->loadMissing('libraryCard:id,user_id,holder_type');
 
+        return $this->buildRenewalEligibility(
+            $loan,
+            $user,
+            $this->hasPendingRenewalRequest($loan->id),
+            $this->countApprovedRenewalRequests($loan->id),
+        );
+    }
+
+    /**
+     * @param  Collection<int, Loan>  $loans
+     * @return array<int, array<string, mixed>>
+     */
+    public function renewalEligibilityForReaderLoans(Collection $loans, User $user): array
+    {
+        if ($loans->isEmpty()) {
+            return [];
+        }
+
+        $loans->loadMissing('libraryCard:id,user_id,holder_type');
+
+        $loanIds = $loans->pluck('id')->all();
+
+        $pendingLoanIds = LoanRenewalRequest::query()
+            ->whereIn('loan_id', $loanIds)
+            ->where('status', LoanRenewalRequest::STATUS_PENDING)
+            ->pluck('loan_id')
+            ->flip();
+
+        $approvedCounts = LoanRenewalRequest::query()
+            ->whereIn('loan_id', $loanIds)
+            ->where('status', LoanRenewalRequest::STATUS_APPROVED)
+            ->groupBy('loan_id')
+            ->selectRaw('loan_id, COUNT(*) as approved_count')
+            ->pluck('approved_count', 'loan_id');
+
+        $result = [];
+        foreach ($loans as $loan) {
+            $result[$loan->id] = $this->buildRenewalEligibility(
+                $loan,
+                $user,
+                $pendingLoanIds->has($loan->id),
+                (int) ($approvedCounts[$loan->id] ?? 0),
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildRenewalEligibility(Loan $loan, User $user, bool $hasPending, int $approvedCount): array
+    {
         if ((int) ($loan->libraryCard?->user_id ?? 0) !== (int) $user->id) {
             return [
                 'eligible' => false,
@@ -60,10 +114,6 @@ class LoanRenewalRequestService
             ];
         }
 
-        $hasPending = LoanRenewalRequest::query()
-            ->where('loan_id', $loan->id)
-            ->where('status', LoanRenewalRequest::STATUS_PENDING)
-            ->exists();
         if ($hasPending) {
             return [
                 'eligible' => false,
@@ -82,10 +132,6 @@ class LoanRenewalRequestService
         }
 
         $limits = $this->loanPoliciesService->getRenewalLimitsForCard($card);
-        $approvedCount = LoanRenewalRequest::query()
-            ->where('loan_id', $loan->id)
-            ->where('status', LoanRenewalRequest::STATUS_APPROVED)
-            ->count();
 
         if ($limits['max_days'] <= 0) {
             return [
@@ -122,6 +168,22 @@ class LoanRenewalRequestService
             'extension_days' => $limits['max_days'],
             'proposed_due_date' => $proposed->toDateString(),
         ];
+    }
+
+    private function hasPendingRenewalRequest(int $loanId): bool
+    {
+        return LoanRenewalRequest::query()
+            ->where('loan_id', $loanId)
+            ->where('status', LoanRenewalRequest::STATUS_PENDING)
+            ->exists();
+    }
+
+    private function countApprovedRenewalRequests(int $loanId): int
+    {
+        return (int) LoanRenewalRequest::query()
+            ->where('loan_id', $loanId)
+            ->where('status', LoanRenewalRequest::STATUS_APPROVED)
+            ->count();
     }
 
     public function createForReader(Loan $loan, User $user, ?string $requestNote = null): LoanRenewalRequest

@@ -112,10 +112,11 @@ function applySummary(payload) {
     };
 }
 
-async function fetchStatisticsPayload() {
+async function fetchStatisticsPayload(params = {}) {
     const response = await loansApi.statistics({
         granularity: loanGranularity.value,
         digital_granularity: digitalGranularity.value,
+        ...params,
     });
     return response?.data || {};
 }
@@ -123,7 +124,9 @@ async function fetchStatisticsPayload() {
 async function loadLoanChartStats() {
     loadingLoanStats.value = true;
     try {
-        const payload = await fetchStatisticsPayload();
+        const payload = await fetchStatisticsPayload({
+            parts: 'series,forecast',
+        });
         chartSeries.value = Array.isArray(payload.series) ? payload.series : [];
         forecast.value = payload.forecast || { next_label: '-', expected_borrowed: 0 };
     } catch (e) {
@@ -137,7 +140,9 @@ async function loadLoanChartStats() {
 async function loadDigitalChartStats() {
     loadingDigitalStats.value = true;
     try {
-        const payload = await fetchStatisticsPayload();
+        const payload = await fetchStatisticsPayload({
+            parts: 'summary,digital_series',
+        });
         applySummary(payload);
         digitalChartSeries.value = Array.isArray(payload.digital_series) ? payload.digital_series : [];
     } catch (e) {

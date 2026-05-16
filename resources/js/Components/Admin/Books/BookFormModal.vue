@@ -1,11 +1,11 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { useImageFallback } from '@/composables/useImageFallback';
 import { resetFileInput } from '@/utils/resetFileInput';
-import RichTextEditor from '@/Components/Shared/RichTextEditor.vue';
+const RichTextEditor = defineAsyncComponent(() => import('@/Components/Shared/RichTextEditor.vue'));
 
 const props = defineProps({
     show: { type: Boolean, required: true },
@@ -478,6 +478,7 @@ function removeCreateDigitalFile() {
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mô tả</label>
                         <div :class="fieldErrors.description ? 'rounded-xl ring-2 ring-red-500' : ''">
                             <RichTextEditor
+                                v-if="show"
                                 v-model="form.description"
                                 :active="show"
                                 :placeholder="isDigitalPage ? 'Nhập mô tả về đồ án/luận văn…' : 'Nhập mô tả về nội dung sách…'"

@@ -158,4 +158,4 @@ mv "${OUT}.new" "${OUT}"
 
 echo "==> Xong: ${OUT}"
 echo "    Backup: ${BACKUP}"
-echo "    Tiếp: cập nhật post_import.sql nếu cần, rồi chạy scripts/import-sample-database.sh để kiểm tra."
+echo "    Tiếp: scripts/import-sample-database.sh"

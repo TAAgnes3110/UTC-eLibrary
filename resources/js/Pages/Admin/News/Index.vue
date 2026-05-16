@@ -389,9 +389,6 @@ onMounted(async () => {
     await loadRows(1);
 });
 
-watch(() => filters.value.keyword, () => {
-    scheduleRowsReload({ resetPage: true, delayMs: 350 });
-});
 watch(() => filters.value.type, () => {
     scheduleRowsReload({ resetPage: true, delayMs: 120 });
 });

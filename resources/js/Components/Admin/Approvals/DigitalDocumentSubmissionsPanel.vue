@@ -2,6 +2,7 @@
 import { Icon } from '@iconify/vue';
 import { router } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
+import { extractApiPaginator } from '@/utils/adminPagination';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue';
 import { ADMIN_ICONS } from '@/config/adminIcons';
@@ -28,8 +29,7 @@ const searchKeyword = ref('');
 /** Trạng thái lọc từ API: '', pending, approved, rejected */
 const statusFilter = ref('pending');
 const sortBy = ref('newest');
-const currentPage = ref(1);
-const perPage = 15;
+const pagination = ref({ current_page: 1, last_page: 1, per_page: 15, total: 0 });
 
 const selectedIds = ref([]);
 const detailRow = ref(null);
@@ -67,21 +67,33 @@ function formatDt(v) {
     return dateFmt.format(d);
 }
 
-async function loadRows() {
+async function loadRows(page = 1) {
     loading.value = true;
     try {
-        const params = {};
+        const params = {
+            page,
+            per_page: pagination.value.per_page || 15,
+            keyword: searchKeyword.value.trim() || undefined,
+            sort: sortBy.value || 'newest',
+        };
         if (statusFilter.value !== '' && statusFilter.value !== 'all') {
             params.status = statusFilter.value;
         }
         const payload = await digitalDocumentsApi.list(params);
-        const list = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
-        rows.value = list;
-        const allowed = new Set(list.map((r) => r.id));
+        const { items, meta } = extractApiPaginator(payload, 15);
+        rows.value = items;
+        pagination.value = {
+            current_page: Number(meta.current_page || 1),
+            last_page: Number(meta.last_page || 1),
+            per_page: Number(meta.per_page || 15),
+            total: Number(meta.total || items.length),
+        };
+        const allowed = new Set(items.map((r) => r.id));
         selectedIds.value = selectedIds.value.filter((id) => allowed.has(id));
     } catch (e) {
         rows.value = [];
         selectedIds.value = [];
+        pagination.value = { current_page: 1, last_page: 1, per_page: 15, total: 0 };
         toast.error(e?.response?.data?.messages || 'Không tải được danh sách yêu cầu.', { title: 'Đồ án, luận văn' });
     } finally {
         loading.value = false;
@@ -89,55 +101,18 @@ async function loadRows() {
 }
 
 function runSearch() {
-    currentPage.value = 1;
+    loadRows(1);
 }
 
 watch(statusFilter, () => {
-    currentPage.value = 1;
-    loadRows();
+    loadRows(1);
 });
 
 watch(sortBy, () => {
-    currentPage.value = 1;
+    loadRows(1);
 });
 
-const filteredRows = computed(() => {
-    const q = searchKeyword.value.trim().toLowerCase();
-    const list = rows.value;
-    if (!q) return list;
-    return list.filter((item) => {
-        const ref = item?.id != null ? `TLS-${String(item.id).padStart(6, '0')}`.toLowerCase() : '';
-        const blob = [
-            ref,
-            String(item?.id ?? ''),
-            item?.title,
-            item?.author_names,
-            item?.description,
-            item?.original_name,
-            item?.submitter?.name,
-            item?.submitter?.email,
-            item?.approved_book?.book_code,
-        ]
-            .map((x) => String(x || '').toLowerCase())
-            .join(' ');
-        return blob.includes(q);
-    });
-});
-
-const sortedRows = computed(() => {
-    const list = filteredRows.value.slice();
-    list.sort((a, b) => (sortBy.value === 'oldest' ? a.id - b.id : b.id - a.id));
-    return list;
-});
-
-const lastPage = computed(() => Math.max(1, Math.ceil(sortedRows.value.length / perPage)));
-
-const paginatedRows = computed(() => {
-    const start = (currentPage.value - 1) * perPage;
-    return sortedRows.value.slice(start, start + perPage);
-});
-
-const pendingOnPageIds = computed(() => paginatedRows.value.filter((r) => r.status === 'pending').map((r) => r.id));
+const pendingOnPageIds = computed(() => rows.value.filter((r) => r.status === 'pending').map((r) => r.id));
 
 const hasSelection = computed(() => selectedIds.value.length > 0);
 
@@ -146,18 +121,14 @@ const isAllSelected = computed(
         pendingOnPageIds.value.length > 0 && pendingOnPageIds.value.every((id) => selectedIds.value.includes(id))
 );
 
-watch(lastPage, (lp) => {
-    if (currentPage.value > lp) currentPage.value = lp;
-});
-
-watch(sortedRows, () => {
-    if (detailRow.value && !sortedRows.value.some((r) => r.id === detailRow.value.id)) {
+watch(rows, () => {
+    if (detailRow.value && !rows.value.some((r) => r.id === detailRow.value.id)) {
         detailRow.value = null;
     }
 });
 
 function goPage(p) {
-    currentPage.value = p;
+    loadRows(p);
 }
 
 function toggleSelectAll() {
@@ -241,7 +212,7 @@ async function confirmReject() {
             else if (fail) toast.error('Không từ chối được yêu cầu nào.', { title: 'Đồ án, luận văn' });
             clearSelection();
             closeReject();
-            await loadRows();
+            await loadRows(pagination.value.current_page);
             return;
         }
 
@@ -249,7 +220,7 @@ async function confirmReject() {
         await digitalDocumentsApi.reject(rejectRow.value.id, { review_note: note });
         toast.success('Đã từ chối yêu cầu.', { title: 'Đồ án, luận văn' });
         closeReject();
-        await loadRows();
+        await loadRows(pagination.value.current_page);
     } catch (e) {
         toast.error(e?.response?.data?.messages || 'Không từ chối được yêu cầu.', { title: 'Đồ án, luận văn' });
     } finally {
@@ -266,7 +237,7 @@ async function approveRow(row) {
         toast.success('Đã duyệt và tạo bản ghi đồ án, luận văn.', { title: 'Đồ án, luận văn' });
         detailRow.value = null;
         selectedIds.value = selectedIds.value.filter((x) => x !== row.id);
-        await loadRows();
+        await loadRows(pagination.value.current_page);
     } catch (e) {
         toast.error(e?.response?.data?.messages || 'Không duyệt được yêu cầu.', { title: 'Đồ án, luận văn' });
     } finally {
@@ -297,7 +268,7 @@ async function approveSelected() {
     else toast.error('Không duyệt được yêu cầu nào.', { title: 'Đồ án, luận văn' });
     clearSelection();
     detailRow.value = null;
-    await loadRows();
+    await loadRows(pagination.value.current_page);
 }
 
 function coverSrc(row) {
@@ -429,7 +400,7 @@ function submitterLabel(row) {
                             <td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500">Đang tải...</td>
                         </tr>
                         <template v-else>
-                            <tr v-for="row in paginatedRows" :key="row.id" class="admin-table-row hover:bg-gray-50/80 dark:hover:bg-slate-800/40">
+                            <tr v-for="row in rows" :key="row.id" class="admin-table-row hover:bg-gray-50/80 dark:hover:bg-slate-800/40">
                                 <td class="p-3 align-middle sm:p-4">
                                     <span class="admin-table-checkbox-wrap">
                                         <input
@@ -513,7 +484,7 @@ function submitterLabel(row) {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="!loading && !paginatedRows.length">
+                            <tr v-if="!loading && !rows.length">
                                 <td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
                                     Không có yêu cầu phù hợp.
                                 </td>
@@ -526,8 +497,8 @@ function submitterLabel(row) {
 
         <AdminPaginationBar
             always-show
-            :current-page="currentPage"
-            :last-page="lastPage"
+            :current-page="pagination.current_page"
+            :last-page="pagination.last_page"
             :disabled="loading"
             @go-page="goPage"
         />

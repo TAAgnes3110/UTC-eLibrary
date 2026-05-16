@@ -478,12 +478,6 @@ export function useBooksAdminPage() {
     );
 
     watch(
-        () => filterValues.value.searchKeyword,
-        () => {
-            scheduleLoadBooks({ resetPage: true, delayMs: 350 });
-        },
-    );
-    watch(
         () => filterValues.value.priceSort,
         () => {
             scheduleLoadBooks({ resetPage: true, delayMs: 120 });

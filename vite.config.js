@@ -40,6 +40,9 @@ export default defineConfig({
                     if (id.includes('@iconify')) {
                         return 'iconify';
                     }
+                    if (id.includes('quill')) {
+                        return 'quill';
+                    }
                     if (
                         id.includes('radix-vue')
                         || id.includes('reka-ui')

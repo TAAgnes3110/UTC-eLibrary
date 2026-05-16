@@ -79,10 +79,14 @@ class MeLoanController extends Controller
         $this->applyLoanSortToQuery($query, $validated);
 
         $items = $query->paginate($perPage)->withQueryString();
+        $eligibilityByLoanId = $this->loanRenewalRequestService->renewalEligibilityForReaderLoans(
+            $items->getCollection(),
+            $user,
+        );
 
-        return ApiResponse::success($items->through(function (Loan $loan) use ($user) {
+        return ApiResponse::success($items->through(function (Loan $loan) use ($eligibilityByLoanId) {
             $latestRequest = $loan->renewalRequests->first();
-            $renewalEligibility = $this->loanRenewalRequestService->renewalEligibilityForReaderLoan($loan, $user);
+            $renewalEligibility = $eligibilityByLoanId[$loan->id] ?? ['eligible' => false];
 
             return array_merge((new LoanResource($loan))->resolve(), [
                 'latest_renewal_request' => $latestRequest ? [

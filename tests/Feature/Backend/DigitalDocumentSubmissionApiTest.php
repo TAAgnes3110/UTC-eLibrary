@@ -38,7 +38,7 @@ class DigitalDocumentSubmissionApiTest extends TestCase
 
         $list = $this->getJson('/api/v1/me/digital-document-submissions', $this->apiTokenHeaders($token));
         $list->assertOk()->assertJsonPath('status', 'success');
-        $this->assertCount(1, $list->json('data'));
+        $this->assertCount(1, $list->json('data.data'));
 
         $hide = $this->postJson(
             "/api/v1/me/digital-document-submissions/{$submission->id}/hide",
@@ -48,7 +48,7 @@ class DigitalDocumentSubmissionApiTest extends TestCase
         $hide->assertOk()->assertJsonPath('status', 'success');
 
         $list2 = $this->getJson('/api/v1/me/digital-document-submissions', $this->apiTokenHeaders($token));
-        $this->assertCount(0, $list2->json('data'));
+        $this->assertCount(0, $list2->json('data.data'));
 
         $this->assertDatabaseHas('digital_document_submissions', [
             'id' => $submission->id,
@@ -79,7 +79,7 @@ class DigitalDocumentSubmissionApiTest extends TestCase
 
         $list = $this->getJson('/api/v1/me/digital-document-submissions', $this->apiTokenHeaders($librarianToken));
         $list->assertOk();
-        $ids = collect($list->json('data'))->pluck('id')->all();
+        $ids = collect($list->json('data.data'))->pluck('id')->all();
         $this->assertContains($submission->id, $ids);
     }
 

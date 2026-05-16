@@ -112,17 +112,6 @@ export function useWarehousesAdminPage() {
         loading.value = false;
     };
 
-    let warehousesSearchDebounce = null;
-    watch(
-        () => filterValues.value.searchKeyword,
-        () => {
-            if (warehousesSearchDebounce) clearTimeout(warehousesSearchDebounce);
-            warehousesSearchDebounce = setTimeout(() => {
-                warehousesPageNum.value = 1;
-                fetchWarehouses();
-            }, 350);
-        },
-    );
     watch(
         () => filterValues.value.searchIn,
         () => {

@@ -13,9 +13,9 @@ import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue
 import AdminPageHeading from '@/Components/Admin/Shared/AdminPageHeading.vue';
 import BooksTable from '@/Components/Admin/Books/BooksTable.vue';
 import { ADMIN_ICONS } from '@/config/adminIcons';
-import BookFormModal from '@/Components/Admin/Books/BookFormModal.vue';
+const BookFormModal = defineAsyncComponent(() => import('@/Components/Admin/Books/BookFormModal.vue'));
 import { useBooksAdminPage, SEARCH_IN_OPTIONS, BOOK_SORT_OPTIONS, PRINT_TYPE_OPTIONS } from '@/composables/admin/useBooksAdminPage';
-import { ref, computed } from 'vue';
+import { ref, computed, defineAsyncComponent } from 'vue';
 import { booksApi } from '@/api/books';
 import { useImageFallback } from '@/composables/useImageFallback';
 import {
@@ -287,6 +287,7 @@ const searchPlaceholder = computed(() => (
         </div>
 
         <BookFormModal
+            v-if="showModal"
             :show="showModal"
             :is-editing="isEditing"
             :page-kind="pageKind"

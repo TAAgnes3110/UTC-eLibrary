@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\LoanStatus;
+
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
 use App\Enums\ResourceType;
@@ -12,6 +14,7 @@ use App\Imports\BookImport;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\Classification;
+use App\Models\DigitalAsset;
 use App\Models\Loan;
 use App\Models\LoanBorrowRequest;
 use App\Models\LoanBorrowRequestItem;
@@ -143,6 +146,7 @@ class BookService
             'warehouse:id,code,name',
             'authors:id,name',
             'publishers:id,name',
+            'createdBy:id,name,email',
             'representativeStoredCopy',
             'digitalAssets',
             'thesisMetadata',
@@ -156,8 +160,40 @@ class BookService
                 ->limit(20),
         ]);
 
-        if ($book->resource_type === ResourceType::DIGITAL) {
-            $book->load(['digitalDocumentSubmission.submitter:id,name,email']);
+        if ($book->resource_type === ResourceType::DIGITAL || $book->digitalAssets->isNotEmpty()) {
+            $book->loadMissing(['digitalDocumentSubmission.submitter:id,name,email']);
+        }
+
+        return $book;
+    }
+
+    /**
+     * Chi tiết tra cứu độc giả — không tải loanItems / audit nặng.
+     */
+    public function getForReaderDetail(Book $book): Book
+    {
+        $rt = $book->resource_type instanceof ResourceType
+            ? $book->resource_type
+            : ResourceType::tryFrom((string) ($book->resource_type ?? ''));
+
+        $relations = [
+            'classification:id,code,name',
+            'warehouse:id,code,name',
+            'authors:id,name',
+            'publishers:id,name',
+            'digitalAssets.paywallSetting',
+        ];
+
+        if ($rt === ResourceType::DIGITAL) {
+            $relations['thesisMetadata'] = fn ($q) => $q;
+        }
+
+        $book->load($relations);
+
+        if ($rt === ResourceType::DIGITAL || $book->digitalAssets->isNotEmpty()) {
+            $book->loadMissing(['digitalDocumentSubmission' => fn ($q) => $q->select([
+                'id', 'approved_book_id', 'submitted_by', 'status',
+            ])]);
         }
 
         return $book;
@@ -177,7 +213,11 @@ class BookService
         $hasKeyword = trim((string) $keyword) !== '';
         $this->applyResourceTypeFilter($query, $resourceType);
         if ($this->isDigitalOnlyFilter($resourceType)) {
-            $query->with(['digitalAssets' => fn ($q) => $q->orderByDesc('is_primary')->orderByDesc('id')]);
+            $query->with([
+                'digitalAssets' => fn ($q) => $q->orderByDesc('is_primary')->orderByDesc('id'),
+                'createdBy:id,name,email',
+                'digitalDocumentSubmission.submitter:id,name,email',
+            ]);
         }
         if ($hasKeyword) {
             $this->applyKeywordFilterToBookQuery($query, $keyword, $keywordColumns);
@@ -210,9 +250,9 @@ class BookService
             $query->where('classification_id', $classificationId);
         }
         if ($stock === 'in_stock') {
-            $query->whereRaw('(COALESCE(books.quantity, 0) - COALESCE(on_loan_total_count, 0) - COALESCE(reserved_pending_count, 0)) > 0');
+            $query->whereRaw('(COALESCE(books.quantity, 0) - COALESCE(borrow_on_loan.on_loan_total_count, 0) - COALESCE(borrow_reserved.reserved_pending_count, 0)) > 0');
         } elseif ($stock === 'out_of_stock') {
-            $query->whereRaw('(COALESCE(books.quantity, 0) - COALESCE(on_loan_total_count, 0) - COALESCE(reserved_pending_count, 0)) <= 0');
+            $query->whereRaw('(COALESCE(books.quantity, 0) - COALESCE(borrow_on_loan.on_loan_total_count, 0) - COALESCE(borrow_reserved.reserved_pending_count, 0)) <= 0');
         }
 
         if ($sort === 'oldest') {
@@ -221,7 +261,22 @@ class BookService
             $query->orderByDesc('id');
         }
 
+        $this->applyDigitalViewCountProjection($query);
+
         return $query->paginate($perPage)->withQueryString();
+    }
+
+    /** Tăng lượt xem trang chi tiết (sách in). Tài liệu số: digital_assets.view_count. */
+    public function incrementReaderCatalogView(Book $book): void
+    {
+        $rt = $book->resource_type instanceof ResourceType
+            ? $book->resource_type
+            : ResourceType::tryFrom((string) ($book->resource_type ?? ''));
+        if ($rt === ResourceType::DIGITAL) {
+            return;
+        }
+
+        Book::query()->whereKey((int) $book->id)->increment('view_count');
     }
 
     /**
@@ -249,8 +304,6 @@ class BookService
             ])
             ->with([
                 'warehouse:id,code,name',
-                'authors:id,name',
-                'publishers:id,name',
             ]);
         $this->applyBorrowableAvailabilityProjection($query);
 
@@ -281,7 +334,7 @@ class BookService
                 ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
                 ->where('loan_items.book_id', (int) $book->id)
                 ->where('loans.deleted', false)
-                ->whereIn('loans.status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+                ->whereIn('loans.status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
                 ->sum('loan_items.quantity');
             $available = max(0, $q - $borrowed - $reservedPending);
 
@@ -318,43 +371,53 @@ class BookService
      */
     private function applyBorrowableAvailabilityProjection(Builder $query): void
     {
-        $query->selectRaw(
-            '(SELECT COALESCE(SUM(li.quantity), 0)
-                FROM loan_items li
-                INNER JOIN loans l ON l.id = li.loan_id
-                WHERE li.book_id = books.id
-                  AND l.deleted = 0
-                  AND l.status IN (?, ?)
-            ) AS on_loan_total_count',
-            [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE]
-        );
+        // selectRaw thêm cột: nếu chưa có select(*) Laravel chỉ SELECT các biểu thức raw → thiếu id/title…
+        $base = $query->getQuery();
+        if ($base->columns === null) {
+            $query->select($query->getModel()->getTable().'.*');
+        }
 
-        $query->selectRaw(
-            '(SELECT COALESCE(SUM(bri.quantity), 0)
-                FROM loan_borrow_request_items bri
-                INNER JOIN loan_borrow_requests br ON br.id = bri.borrow_request_id
-                WHERE bri.book_id = books.id
-                  AND br.status = ?
-            ) AS reserved_pending_count',
-            [LoanBorrowRequest::STATUS_PENDING]
-        );
+        /** Gom theo book_id một lần — tránh 3 correlated subquery / mỗi dòng (chậm khi loan_items lớn). */
+        $onLoanSub = DB::table('loan_items as li')
+            ->join('loans as l', 'l.id', '=', 'li.loan_id')
+            ->where('l.deleted', '=', false)
+            ->whereIn('l.status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
+            ->groupBy('li.book_id')
+            ->selectRaw('li.book_id, COALESCE(SUM(li.quantity), 0) as on_loan_total_count');
 
-        $query->selectRaw(
-            '(COALESCE(books.quantity, 0)
-                - (SELECT COALESCE(SUM(li2.quantity), 0)
-                    FROM loan_items li2
-                    INNER JOIN loans l2 ON l2.id = li2.loan_id
-                    WHERE li2.book_id = books.id
-                      AND l2.deleted = 0
-                      AND l2.status IN (?, ?))
-                - (SELECT COALESCE(SUM(bri2.quantity), 0)
-                    FROM loan_borrow_request_items bri2
-                    INNER JOIN loan_borrow_requests br2 ON br2.id = bri2.borrow_request_id
-                    WHERE bri2.book_id = books.id
-                      AND br2.status = ?)
-            ) AS available_for_borrow',
-            [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE, LoanBorrowRequest::STATUS_PENDING]
-        );
+        $reservedSub = DB::table('loan_borrow_request_items as bri')
+            ->join('loan_borrow_requests as br', 'br.id', '=', 'bri.borrow_request_id')
+            ->where('br.status', LoanBorrowRequest::STATUS_PENDING)
+            ->groupBy('bri.book_id')
+            ->selectRaw('bri.book_id, COALESCE(SUM(bri.quantity), 0) as reserved_pending_count');
+
+        $query->leftJoinSub($onLoanSub, 'borrow_on_loan', 'borrow_on_loan.book_id', '=', 'books.id');
+        $query->leftJoinSub($reservedSub, 'borrow_reserved', 'borrow_reserved.book_id', '=', 'books.id');
+
+        $query->addSelect([
+            DB::raw('COALESCE(borrow_on_loan.on_loan_total_count, 0) as on_loan_total_count'),
+            DB::raw('COALESCE(borrow_reserved.reserved_pending_count, 0) as reserved_pending_count'),
+            DB::raw('(COALESCE(books.quantity, 0) - COALESCE(borrow_on_loan.on_loan_total_count, 0) - COALESCE(borrow_reserved.reserved_pending_count, 0)) as available_for_borrow'),
+        ]);
+    }
+
+    /**
+     * Tổng lượt xem tài liệu số (sum digital_assets.view_count) — hiển thị danh mục tra cứu.
+     *
+     * @param  Builder<Book>  $query
+     */
+    private function applyDigitalViewCountProjection(Builder $query): void
+    {
+        $base = $query->getQuery();
+        if ($base->columns === null) {
+            $query->select($query->getModel()->getTable().'.*');
+        }
+
+        $subquery = DigitalAsset::query()
+            ->selectRaw('COALESCE(SUM(view_count), 0)')
+            ->whereColumn('digital_assets.book_id', 'books.id');
+
+        $query->selectSub($subquery, 'digital_view_count');
     }
 
     /**

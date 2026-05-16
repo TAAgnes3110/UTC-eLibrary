@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\LibraryCard\LibraryCardGuestController;
 use App\Http\Controllers\Api\LibraryCard\LibraryCardStaffController;
 use App\Http\Controllers\Api\LibraryCard\MeLibraryCardController;
 use App\Http\Controllers\Api\LibraryCardController;
+use App\Http\Controllers\Api\LibrarySettingsController;
 use App\Http\Controllers\Api\Loan\LoanBorrowRequestController;
 use App\Http\Controllers\Api\Loan\LoanRenewalRequestController;
 use App\Http\Controllers\Api\Loan\MeLoanBorrowRequestController;
@@ -20,6 +21,10 @@ use App\Http\Controllers\Api\Loan\MeLoanController;
 use App\Http\Controllers\Api\LoanController;
 use App\Http\Controllers\Api\LoanPoliciesController;
 use App\Http\Controllers\Api\MasterDataController;
+use App\Http\Controllers\Api\Me\DigitalPaymentOrderController;
+use App\Http\Controllers\Api\Me\DigitalPurchaseCartController;
+use App\Http\Controllers\Api\Me\MeDigitalOrderController;
+use App\Http\Controllers\Api\Me\OrderStatusController;
 use App\Http\Controllers\Api\NewsPostController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PermissionController;
@@ -30,6 +35,7 @@ use App\Http\Controllers\Api\StorageCabinetController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\UserProfileUpdateRequestController;
 use App\Http\Controllers\Api\WarehouseController;
+use App\Http\Controllers\Webhooks\SepayWebhookController;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -60,7 +66,11 @@ Route::get('health', function () {
             $checks['redis'] = false;
         }
     }
-    $ok = $checks['database'] && $checks['cache'] && ($checks['redis'] !== false);
+
+    $ok = $checks['database'] && $checks['cache'];
+    if ($driver === 'redis') {
+        $ok = $ok && $checks['redis'] === true;
+    }
 
     return response()->json([
         'status' => $ok ? 'ok' : 'degraded',
@@ -73,6 +83,7 @@ Route::prefix('v1')->group(function () {
     Route::get('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'publicIndex']);
     Route::get('news-posts/public', [NewsPostController::class, 'publicIndex']);
     Route::get('news-posts/{slug}', [NewsPostController::class, 'publicShow'])->where('slug', '^[a-z0-9]+(?:-[a-z0-9]+)*$');
+    Route::post('sepay/webhook', [SepayWebhookController::class, 'handle']);
 
     Route::middleware(['throttle:auth'])->group(function () {
         Route::group(['prefix' => 'auth'], function () {
@@ -87,6 +98,7 @@ Route::prefix('v1')->group(function () {
     Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
 
     Route::group(['prefix' => 'auth', 'middleware' => ['init']], function () {
+        Route::post('session-token', [AuthController::class, 'sessionToken'])->middleware('throttle:refresh');
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('user', [AuthController::class, 'user']);
     });
@@ -100,6 +112,8 @@ Route::prefix('v1')->group(function () {
         Route::post('profile-update-requests', [UserProfileUpdateRequestController::class, 'store']);
         Route::post('profile-update-requests/hide', [UserProfileUpdateRequestController::class, 'hideMyRequests']);
         Route::post('library-card', [MeLibraryCardController::class, 'store']);
+        Route::post('library-card/replace', [MeLibraryCardController::class, 'replace']);
+        Route::delete('library-card', [MeLibraryCardController::class, 'destroy']);
         Route::get('loans', [MeLoanController::class, 'index']);
         Route::get('loans/summary', [MeLoanController::class, 'summary']);
         Route::get('loans/export', [MeLoanController::class, 'export']);
@@ -117,6 +131,16 @@ Route::prefix('v1')->group(function () {
         Route::get('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'index']);
         Route::post('digital-document-submissions', [DigitalDocumentSubmissionController::class, 'store']);
         Route::post('digital-document-submissions/{id}/hide', [DigitalDocumentSubmissionController::class, 'hideMine']);
+        Route::get('digital-purchase-cart', [DigitalPurchaseCartController::class, 'index']);
+        Route::get('digital-purchase-cart/count', [DigitalPurchaseCartController::class, 'count']);
+        Route::post('digital-purchase-cart/items', [DigitalPurchaseCartController::class, 'store']);
+        Route::post('digital-purchase-cart/items/bulk-delete', [DigitalPurchaseCartController::class, 'bulkDestroy']);
+        Route::delete('digital-purchase-cart/items/{digital_asset}', [DigitalPurchaseCartController::class, 'destroy']);
+        Route::post('digital-payment-orders', [DigitalPaymentOrderController::class, 'store']);
+        Route::get('digital-orders', [MeDigitalOrderController::class, 'index']);
+        Route::get('digital-orders/summary', [MeDigitalOrderController::class, 'summary']);
+        Route::get('orders/{publicId}', [OrderStatusController::class, 'show']);
+        Route::post('orders/{publicId}/cancel', [OrderStatusController::class, 'cancel']);
     });
 
     Route::middleware(['throttle:auth'])->group(function () {
@@ -210,6 +234,12 @@ Route::prefix('v1')->group(function () {
                 Route::put('/{loan_policy}', [LoanPoliciesController::class, 'update']);
             });
 
+            Route::group(['prefix' => 'library-settings'], function () {
+                Route::get('/', [LibrarySettingsController::class, 'index']);
+                Route::put('/', [LibrarySettingsController::class, 'update']);
+                Route::put('/pricing', [LibrarySettingsController::class, 'updatePricing']);
+            });
+
             Route::group(['prefix' => 'loans'], function () {
                 Route::get('/', [LoanController::class, 'index']);
                 Route::get('/statistics', [LoanController::class, 'statistics']);
@@ -280,6 +310,8 @@ Route::prefix('v1')->group(function () {
                 Route::post('/import', [BookController::class, 'import']);
                 Route::post('/', [BookController::class, 'store']);
                 Route::post('/{book}/digital-assets', [DigitalAssetController::class, 'store']);
+                Route::get('/{book}/digital-assets/{digital_asset}/download', [DigitalAssetController::class, 'download'])
+                    ->name('api.v1.books.digital-assets.download');
                 Route::delete('/{book}/digital-assets/{digital_asset}', [DigitalAssetController::class, 'destroy']);
                 Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}', [BookController::class, 'update']);

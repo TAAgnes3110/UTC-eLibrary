@@ -28,7 +28,7 @@ class DigitalDocumentSubmissionService
     }
 
     public function __construct(
-        private DigitalAssetService $digitalAssetService
+        private DigitalAssetService $digitalAssetService,
     ) {}
 
     /**
@@ -154,44 +154,45 @@ class DigitalDocumentSubmissionService
             ]);
             $this->syncSubmissionAuthorsToBook($book, $submission->author_names);
 
-            $mediaDisk = $this->mediaDisk();
-            $absolutePath = Storage::disk($mediaDisk)->path($submission->file_path);
-            if (! is_readable($absolutePath)) {
+            $submissionDisk = $this->mediaDisk();
+            $digitalDisk = FileHelpers::digitalAssetsDisk();
+            if (! Storage::disk($submissionDisk)->exists($submission->file_path)) {
                 throw ValidationException::withMessages([
                     'file' => __('Không tìm thấy file PDF để duyệt.'),
                 ]);
             }
 
             $targetPath = UploadDirectory::digitalAssetsByBookId((int) $book->id).'/'.basename($submission->file_path);
-            Storage::disk($mediaDisk)->copy($submission->file_path, $targetPath);
-            $copiedAbsPath = Storage::disk($mediaDisk)->path($targetPath);
-            $checksum = is_readable($copiedAbsPath) ? hash_file('sha256', $copiedAbsPath) : null;
+            FileHelpers::copyStorageObject($submissionDisk, $submission->file_path, $digitalDisk, $targetPath);
+            $checksum = FileHelpers::hashSha256FromStorage($digitalDisk, $targetPath);
 
-            DigitalAsset::query()->create([
+            $asset = DigitalAsset::query()->create([
                 'book_id' => $book->id,
                 'version' => 1,
                 'is_primary' => true,
-                'storage_disk' => $mediaDisk,
+                'storage_disk' => $digitalDisk,
                 'path' => $targetPath,
                 'original_name' => $submission->original_name,
                 'mime' => $submission->mime ?: 'application/pdf',
                 'byte_size' => $submission->byte_size,
                 'checksum_sha256' => $checksum,
-                'visibility' => 'public',
+                'visibility' => 'internal',
             ]);
 
-            if (! empty($submission->cover_image_path) && Storage::disk($mediaDisk)->exists($submission->cover_image_path)) {
+            $mediaDisk = $this->mediaDisk();
+            if (! empty($submission->cover_image_path) && Storage::disk($submissionDisk)->exists($submission->cover_image_path)) {
                 $ext = strtolower(pathinfo($submission->cover_image_path, PATHINFO_EXTENSION) ?: 'jpg');
                 $ext = preg_match('/^(jpe?g|png|webp)$/i', $ext) ? $ext : 'jpg';
                 $coverDest = UploadDirectory::bookCovers(ResourceType::DIGITAL->value).'/submission-'.$book->id.'.'.$ext;
-                Storage::disk($mediaDisk)->copy($submission->cover_image_path, $coverDest);
+                FileHelpers::copyStorageObject($submissionDisk, $submission->cover_image_path, $mediaDisk, $coverDest);
                 $book->cover_image = $coverDest;
                 $book->save();
             }
 
-            $this->digitalAssetService->trySetBookCoverFromPdf(
+            $this->digitalAssetService->schedulePostUploadProcessing(
+                $asset,
                 $book,
-                $mediaDisk,
+                $digitalDisk,
                 $targetPath,
                 $submission->mime ?: 'application/pdf'
             );

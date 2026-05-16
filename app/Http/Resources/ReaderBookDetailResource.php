@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -24,7 +25,7 @@ class ReaderBookDetailResource extends JsonResource
             if (str_starts_with($normalizedPath, 'storage/')) {
                 $normalizedPath = substr($normalizedPath, 8);
             }
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            /** @var FilesystemAdapter $mediaStorage */
             $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
             $coverImage = $mediaStorage->url($normalizedPath);
         }
@@ -77,7 +78,18 @@ class ReaderBookDetailResource extends JsonResource
                 'id' => $p->id,
                 'name' => $p->name,
             ])),
-            'digital_assets' => $this->whenLoaded('digitalAssets', fn () => DigitalAssetResource::collection($this->digitalAssets)),
+            // Luôn resolve sẵn thành mảng (tránh object JsonResource lồng nhau khi Inertia encode).
+            'digital_assets' => $this->whenLoaded('digitalAssets', function () {
+                return ReaderDigitalAssetResource::collection($this->digitalAssets)->resolve(request());
+            }),
+            'has_digital_attachment' => $this->whenLoaded('digitalAssets', function () {
+                return $this->digitalAssets->contains(fn ($asset) => filled($asset->path));
+            }),
+            'primary_digital_asset_id' => $this->whenLoaded('digitalAssets', function () {
+                $a = $this->digitalAssets->sortByDesc(fn ($it) => (int) ($it->is_primary ?? false))->first();
+
+                return $a ? (int) $a->id : null;
+            }),
             'thesis_metadata' => $this->whenLoaded('thesisMetadata', fn () => $this->thesisMetadata ? [
                 'keywords' => $this->thesisMetadata->keywords,
                 'abstract_text' => $this->thesisMetadata->abstract_text,

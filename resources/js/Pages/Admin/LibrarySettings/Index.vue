@@ -32,18 +32,15 @@ const {
 </script>
 
 <template>
-    <Head title="Cấu hình thư viện - Admin" />
+    <Head title="Chính sách mượn - Admin" />
     <AdminLayout
-        title="Cấu hình thư viện"
-        :breadcrumbs="[{ label: 'Trang chủ' }, { label: 'Cấu hình thư viện' }]"
+        title="Chính sách mượn"
+        :breadcrumbs="[{ label: 'Trang chủ' }, { label: 'Chính sách mượn' }]"
     >
         <div class="space-y-4 animate-in fade-in-50 duration-500 pb-28 sm:pb-8">
             <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                 <div>
-                    <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Cấu hình chính sách mượn</h2>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1 max-w-3xl">
-                        Chỉnh sửa theo từng nhóm: học sinh, giáo viên, bạn đọc ngoài. Nhấn Lưu để áp dụng thay đổi.
-                    </p>
+                    <h2 class="text-base font-bold text-gray-800 dark:text-white leading-8">Chính sách mượn</h2>
                 </div>
                 <Button variant="outline" size="sm" class="min-h-11 gap-1.5 shrink-0 self-start" @click="fetchPolicies">
                     <Icon icon="lucide:refresh-cw" class="w-4 h-4" />

@@ -1,12 +1,27 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { clearClientApiCredentials } from '@/utils/apiAuthStorage';
+import { syncApiTokenFromSession } from '@/utils/syncApiTokenFromSession';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+
+function syncApiAuthFromInertiaPage(page) {
+    const user = page?.props?.auth?.user ?? null;
+    if (user?.id) {
+        void syncApiTokenFromSession(user);
+    } else {
+        clearClientApiCredentials();
+    }
+}
+
+router.on('success', (event) => {
+    syncApiAuthFromInertiaPage(event.detail.page);
+});
 
 createInertiaApp({
     title: title => `${title} - ${appName}`,
@@ -16,6 +31,7 @@ createInertiaApp({
             import.meta.glob('./Pages/**/*.vue')
         ),
     setup({ el, App, props, plugin }) {
+        syncApiAuthFromInertiaPage(props.initialPage);
         createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)

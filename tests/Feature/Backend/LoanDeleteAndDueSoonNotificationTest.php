@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Backend;
 
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
+
 use App\Enums\BookStatus;
 use App\Enums\LibraryCardStatus;
 use App\Enums\NotificationType;
@@ -117,11 +120,11 @@ class LoanDeleteAndDueSoonNotificationTest extends TestCase
         Loan::query()->create([
             'loan_code' => 'LDUESOON1',
             'library_card_id' => $card->id,
-            'loan_type' => Loan::TYPE_HOME,
+            'loan_type' => LoanType::HOME,
             'loan_date' => '2026-04-20',
             'due_date' => '2026-04-28',
             'return_date' => null,
-            'status' => Loan::STATUS_BORROWED,
+            'status' => LoanStatus::BORROWED,
             'deleted' => false,
         ]);
 

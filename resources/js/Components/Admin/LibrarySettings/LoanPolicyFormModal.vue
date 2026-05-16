@@ -121,16 +121,23 @@ function errClass(key) {
                         />
                         <p v-if="fieldErrors.max_renewals" class="text-xs text-red-500 font-medium">{{ fieldErrors.max_renewals }}</p>
                     </div>
-                    <div class="space-y-1.5">
-                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Phạt / ngày trễ (VNĐ)</label>
+                    <div class="space-y-1.5 sm:col-span-2">
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Phạt trễ hạn (đồng / ngày / cuốn)
+                        </label>
                         <Input
                             v-model="form.overdue_fine_per_day"
                             type="text"
                             inputmode="decimal"
-                            class="h-11 rounded-lg dark:bg-slate-800"
+                            class="h-11 rounded-lg max-w-xs dark:bg-slate-800"
                             :class="errClass('overdue_fine_per_day')"
                             @update:model-value="clearFieldError('overdue_fine_per_day')"
                         />
+                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-prose">
+                            Số tiền cho <span class="font-semibold text-slate-600 dark:text-slate-300">mỗi cuốn</span> mượn, tính theo
+                            <span class="font-semibold text-slate-600 dark:text-slate-300">mỗi ngày</span> quá hạn, khi thư viện áp dụng phạt «theo đồng/ngày» (không áp dụng nếu hệ thống dùng cách tính theo % giá bìa). Ví dụ thường gặp: khoảng
+                            <span class="font-semibold text-slate-700 dark:text-slate-200">1.000 đ</span>/ngày/cuốn; có thể đặt cao hơn (vd. 5.000 đ) tùy nhóm thẻ.
+                        </p>
                         <p v-if="fieldErrors.overdue_fine_per_day" class="text-xs text-red-500 font-medium">
                             {{ fieldErrors.overdue_fine_per_day }}
                         </p>

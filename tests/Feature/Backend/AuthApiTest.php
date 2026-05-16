@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Backend;
 
-use App\Enums\RoleType;
 use App\Enums\LibraryCardStatus;
+use App\Enums\RoleType;
 use App\Models\Customer;
 use App\Models\EmailOtp;
 use App\Models\LibraryCard;
@@ -305,6 +305,54 @@ class AuthApiTest extends TestCase
         $response = $this->postJson('/api/v1/auth/refresh', [], [
             'Authorization' => 'Bearer '.$token,
         ]);
+
+        $response->assertStatus(200)->assertJsonStructure([
+            'status', 'messages', 'token', 'expires_in',
+        ]);
+    }
+
+    /**
+     * SPA Inertia: session web (không Bearer) vẫn gọi được API sau statefulApi.
+     */
+    public function test_api_accepts_web_session_without_bearer(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'session-api@example.com',
+            'user_type' => RoleType::LIBRARIAN,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeader('Origin', config('app.url'))
+            ->getJson('/api/v1/auth/user');
+
+        $response->assertStatus(200)->assertJsonStructure(['id', 'name', 'email']);
+    }
+
+    public function test_api_invalid_bearer_still_authenticates_via_web_session(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'session-bad-jwt@example.com',
+            'user_type' => RoleType::LIBRARIAN,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeader('Origin', config('app.url'))
+            ->withHeader('Authorization', 'Bearer invalid.token.value')
+            ->getJson('/api/v1/auth/user');
+
+        $response->assertStatus(200)->assertJsonPath('email', 'session-bad-jwt@example.com');
+    }
+
+    public function test_session_token_returns_jwt_for_web_session(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'session-token@example.com',
+            'user_type' => RoleType::LIBRARIAN,
+        ]);
+
+        $response = $this->actingAs($user)
+            ->withHeader('Origin', config('app.url'))
+            ->postJson('/api/v1/auth/session-token');
 
         $response->assertStatus(200)->assertJsonStructure([
             'status', 'messages', 'token', 'expires_in',

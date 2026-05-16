@@ -131,6 +131,20 @@ class LoanPoliciesService
         return $this->getMaxReferenceForHolderType((string) $card->holder_type);
     }
 
+    /** Thời hạn mượn (ngày) theo chính sách loại thẻ — dùng gợi ý ngày hẹn trả khi duyệt yêu cầu. */
+    public function getLoanTermDaysForHolderType(string $holderType): int
+    {
+        $holderType = $this->normalizeHolderType($holderType);
+        $policy = LoanPolicy::forLibraryHolderType($holderType);
+        if ($policy === null) {
+            return 7;
+        }
+
+        $days = (int) $policy->max_days;
+
+        return $days > 0 ? $days : 7;
+    }
+
     /**
      * Hạn mức gia hạn theo chính sách mượn gắn với loại thẻ.
      *

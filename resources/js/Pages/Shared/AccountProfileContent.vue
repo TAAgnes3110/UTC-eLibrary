@@ -8,6 +8,7 @@ import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors'
 import { getLaravelErrorMessage } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
+import { resetFileInput } from '@/utils/resetFileInput'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -408,6 +409,7 @@ const submitProfileUpdateRequest = async () => {
             URL.revokeObjectURL(proofPreviewUrl.value)
             proofPreviewUrl.value = ''
         }
+        resetFileInput(proofImageInput.value)
         profileUpdateRequestSubmitted.value = true
         toast.success('Đã gửi phiếu cập nhật thông tin. Vui lòng chờ duyệt.', { title: 'Cập nhật hồ sơ' })
         setTimeout(() => (profileUpdateRequestSubmitted.value = false), 3000)

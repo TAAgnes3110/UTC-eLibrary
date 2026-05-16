@@ -11,12 +11,17 @@ use App\Models\UserProfileUpdateRequest;
 class UserProfileUpdateNotificationService
 {
     public function __construct(
-        private readonly NotificationService $notificationService
+        private readonly NotificationService $notificationService,
+        private readonly StaffWorkQueueNotificationService $staffWorkQueueNotificationService
     ) {}
 
     public function notifyAdminsProfileReviewNeeded(UserProfileUpdateRequest $record, User $requester): void
     {
-        // Chỉ dùng thông báo tổng hợp theo số lượng cho staff (sync tại StaffWorkQueueNotificationService (được AuthController gọi)).
+        try {
+            $this->staffWorkQueueNotificationService->syncForAllActiveStaff();
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     public function notifyUserProfileRequestReviewed(UserProfileUpdateRequest $record, bool $approved): void

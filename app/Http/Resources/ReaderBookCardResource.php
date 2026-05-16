@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -26,7 +27,7 @@ class ReaderBookCardResource extends JsonResource
             if (str_starts_with($normalizedPath, 'storage/')) {
                 $normalizedPath = substr($normalizedPath, 8);
             }
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            /** @var FilesystemAdapter $mediaStorage */
             $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
             $coverImage = $mediaStorage->url($normalizedPath);
         }
@@ -35,15 +36,28 @@ class ReaderBookCardResource extends JsonResource
             ? $this->resource_type->value
             : ($this->resource_type ?? 'reference');
 
+        $isDigital = $rt === 'digital';
+        $classificationName = $this->relationLoaded('classification')
+            ? ($this->classification?->name)
+            : null;
+        $categoryLabel = $isDigital
+            ? self::resourceTypeLabel($rt)
+            : (trim((string) $classificationName) !== '' ? $classificationName : self::resourceTypeLabel($rt));
+        $digitalViews = (int) ($this->digital_view_count ?? 0);
+        $viewCount = $isDigital ? $digitalViews : (int) ($this->view_count ?? 0);
+
         return [
             'id' => $this->id,
             'book_code' => $this->book_code,
             'title' => $this->title,
             'cover_image' => $coverImage,
             'authors_label' => $this->authors_label,
-            'publishers_label' => $this->publishers_label,
+            'publishers_label' => $this->when(! $isDigital, $this->publishers_label),
             'resource_type' => $rt,
             'resource_type_label' => self::resourceTypeLabel($rt),
+            'is_digital' => $isDigital,
+            'category_label' => $categoryLabel,
+            'view_count' => $viewCount,
             'classification_name' => $this->whenLoaded('classification', fn () => $this->classification?->name),
             'warehouse_name' => $this->whenLoaded('warehouse', fn () => $this->warehouse?->name),
             'warehouse_code' => $this->whenLoaded('warehouse', fn () => $this->warehouse?->code),
@@ -64,7 +78,7 @@ class ReaderBookCardResource extends JsonResource
             'reference' => 'Sách tham khảo',
             // Legacy data: vẫn hiển thị theo nhóm tham khảo.
             'thesis', 'journal' => 'Sách tham khảo',
-            'digital' => 'Tài liệu số',
+            'digital' => 'Đồ án, luận văn',
             default => $value,
         };
     }

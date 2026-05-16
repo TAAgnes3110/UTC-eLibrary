@@ -24,7 +24,13 @@ export function remove(id) {
     if (idx >= 0) toastState.items.splice(idx, 1);
 }
 
+export function clearAll() {
+    toastState.items.splice(0);
+}
+
 export const toast = {
+    clearAll,
+    remove,
     success(message, opts = {}) {
         return add('success', message, opts);
     },

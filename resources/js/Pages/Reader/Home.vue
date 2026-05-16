@@ -12,6 +12,8 @@ const isAuthed = computed(() => !!page.props.auth?.user)
 const latestNews = computed(() => Array.isArray(page.props.latestNews) ? page.props.latestNews : [])
 const latestNotices = computed(() => Array.isArray(page.props.latestNotices) ? page.props.latestNotices : [])
 const latestBooks = computed(() => Array.isArray(page.props.latestBooks) ? page.props.latestBooks : [])
+/** Đã có bản ghi thẻ (mọi trạng thái) — ẩn CTA «Cấp thẻ» kiểu đăng ký mới trên trang chủ. */
+const readerHasLibraryCardRecord = computed(() => Boolean(page.props.reader_has_library_card_record))
 const DEFAULT_NEWS_COVER = '/images/default-news-cover.jpg'
 const DEFAULT_BOOK_COVER = '/images/default-book-cover.png'
 const { withFallback } = useImageFallback()
@@ -166,8 +168,7 @@ const servicesUrl = (hash) => `${route('reader.services')}${hash}`
                     <Link
                         v-for="book in latestBooks"
                         :key="book.id"
-                        prefetch
-                        :href="route('reader.catalog.show', book.id)"
+                        :href="route('reader.catalog.show', { book: book.id })"
                         class="group rounded-xl border border-slate-200 bg-slate-50 p-3 transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
                     >
                         <img
@@ -227,14 +228,22 @@ const servicesUrl = (hash) => `${route('reader.services')}${hash}`
                     </Link>
                     <Link
                         prefetch
-                        :href="servicesUrl('#cap-the')"
+                        :href="readerHasLibraryCardRecord ? route('reader.services.library-card') : servicesUrl('#cap-the')"
                         class="group flex min-h-[120px] flex-col rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
                     >
                         <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                             <Icon icon="lucide:id-card" class="h-6 w-6" />
                         </div>
-                        <h3 class="mt-3 font-bold text-slate-900 dark:text-white">Cấp thẻ thư viện</h3>
-                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Đăng ký tài khoản và thủ tục thẻ đọc theo quy trình thư viện.</p>
+                        <h3 class="mt-3 font-bold text-slate-900 dark:text-white">
+                            {{ readerHasLibraryCardRecord ? 'Thẻ thư viện' : 'Cấp thẻ thư viện' }}
+                        </h3>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                            {{
+                                readerHasLibraryCardRecord
+                                    ? 'Xem thông tin thẻ, trạng thái và các thao tác liên quan.'
+                                    : 'Đăng ký tài khoản và thủ tục thẻ đọc theo quy trình thư viện.'
+                            }}
+                        </p>
                     </Link>
                     <Link
                         prefetch

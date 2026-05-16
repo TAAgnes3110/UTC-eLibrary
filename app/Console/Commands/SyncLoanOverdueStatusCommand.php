@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\LoanStatus;
+
 use App\Models\Loan;
 use App\Services\Notifications\LoanOverdueNotificationService;
 use Illuminate\Console\Command;
@@ -16,7 +18,7 @@ class SyncLoanOverdueStatusCommand extends Command
     public function handle(LoanOverdueNotificationService $notifier): int
     {
         $ids = Loan::query()
-            ->where('status', Loan::STATUS_BORROWED)
+            ->where('status', LoanStatus::BORROWED)
             ->whereNull('return_date')
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<', now()->toDateString())
@@ -29,14 +31,14 @@ class SyncLoanOverdueStatusCommand extends Command
                 if (! $loan instanceof Loan) {
                     return;
                 }
-                if ($loan->status !== Loan::STATUS_BORROWED || $loan->return_date !== null) {
+                if ($loan->status !== LoanStatus::BORROWED || $loan->return_date !== null) {
                     return;
                 }
                 if ($loan->due_date === null || $loan->due_date->toDateString() >= now()->toDateString()) {
                     return;
                 }
 
-                $loan->status = Loan::STATUS_OVERDUE;
+                $loan->status = LoanStatus::OVERDUE;
                 $loan->save();
                 $notifier->notifyReaderForLoan($loan->fresh(['libraryCard']));
                 $count++;
@@ -44,7 +46,7 @@ class SyncLoanOverdueStatusCommand extends Command
         }
 
         $openOverdue = (int) Loan::query()
-            ->where('status', Loan::STATUS_OVERDUE)
+            ->where('status', LoanStatus::OVERDUE)
             ->whereNull('return_date')
             ->count();
         $notifier->notifyAdminsOverdueSummary($openOverdue);

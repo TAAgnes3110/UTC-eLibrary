@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Helpers\FileHelpers;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ class LibraryCardResource extends JsonResource
     {
         $payment = $this->payment;
         $mediaDisk = (string) config('filesystems.media_disk', 'public');
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        /** @var FilesystemAdapter $mediaStorage */
         $mediaStorage = Storage::disk($mediaDisk);
 
         $photoPath = $this->photo_path;
@@ -33,6 +34,8 @@ class LibraryCardResource extends JsonResource
 
         return [
             'id' => $this->id,
+            /** Thời điểm tạo bản ghi (gửi yêu cầu cấp thẻ / tạo hồ sơ) */
+            'created_at' => $this->created_at?->toIso8601String(),
             'card_number' => $this->card_number,
             'holder_type' => $this->holder_type,
             'workflow_status' => $this->workflow_status,

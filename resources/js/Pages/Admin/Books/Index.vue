@@ -18,6 +18,14 @@ import { useBooksAdminPage, SEARCH_IN_OPTIONS, BOOK_SORT_OPTIONS, PRINT_TYPE_OPT
 import { ref, computed } from 'vue';
 import { booksApi } from '@/api/books';
 import { useImageFallback } from '@/composables/useImageFallback';
+import {
+    downloadAdminDigitalAsset,
+    hasAdminDigitalAttachment,
+    digitalAttachmentFileName,
+    digitalPosterLabel,
+} from '@/utils/adminDigitalAsset';
+import { toast } from '@/store/toast';
+import RichHtmlContent from '@/Components/Shared/RichHtmlContent.vue';
 
 const {
     pageKind,
@@ -35,6 +43,11 @@ const {
     createCoverPreviewUrl,
     setCreateCoverFile,
     clearCreateCoverFile,
+    editExistingCoverUrl,
+    editExistingDigitalFileName,
+    clearEditExistingMedia,
+    clearEditExistingCover,
+    clearEditExistingDigitalFileName,
     setCreateDigitalFile,
     clearCreateDigitalFile,
     filterValues,
@@ -94,14 +107,9 @@ function formatDate(value) {
     return new Intl.DateTimeFormat('vi-VN').format(d);
 }
 
-/** Modal chi tiết tài liệu số: người gửi bản đăng ký (nếu có). */
 function digitalDetailSubmitterLabel(book) {
-    const sub = book?.digital_submission?.submitter;
-    if (!sub) return '—';
-    const name = sub.name?.trim();
-    const email = sub.email?.trim();
-    if (name && email) return `${name} · ${email}`;
-    return name || email || '—';
+    const label = digitalPosterLabel(book);
+    return label || '—';
 }
 
 /** Ưu tiên thời điểm gửi bản đăng ký; không có thì thời điểm tạo đầu mục trên hệ thống. */
@@ -129,27 +137,28 @@ async function openDetailModal(book) {
     }
 }
 
-/** Chi tiết modal: tách hẳn tài liệu số khỏi bố cục sách in. */
+/** Chi tiết modal: tách hẳn đồ án, luận văn khỏi bố cục sách in. */
 const isDigitalDetailBook = computed(() => String(detailBook.value?.resource_type || '') === 'digital');
 
-function detailDigitalPrimaryUrl(b) {
-    if (!b) return null;
-    if (b.primary_digital_asset_url) return b.primary_digital_asset_url;
-    const arr = b.digital_assets;
-    if (!Array.isArray(arr) || arr.length === 0) return null;
-    const primary = arr.find((a) => a?.is_primary) || arr[0];
-    return primary?.url || null;
+function detailDigitalPrimaryName(b) {
+    return digitalAttachmentFileName(b);
 }
 
-function detailDigitalPrimaryName(b) {
-    if (!b) return 'Mở file PDF';
-    const arr = b.digital_assets;
-    if (Array.isArray(arr) && arr.length > 0) {
-        const primary = arr.find((a) => a?.is_primary) || arr[0];
-        const name = String(primary?.original_name || '').trim();
-        if (name) return name;
+const detailDownloading = ref(false);
+
+function onDetailDownloadPdf() {
+    if (!detailBook.value || detailDownloading.value) return;
+    if (!hasAdminDigitalAttachment(detailBook.value)) return;
+    detailDownloading.value = true;
+    try {
+        downloadAdminDigitalAsset(detailBook.value);
+    } catch {
+        toast.error('Không có file đính kèm để tải.', { title: 'Tải file' });
+    } finally {
+        window.setTimeout(() => {
+            detailDownloading.value = false;
+        }, 1500);
     }
-    return 'Mở file PDF';
 }
 
 const importTitleByPageKind = {
@@ -290,6 +299,10 @@ const searchPlaceholder = computed(() => (
             :create-cover-preview-url="createCoverPreviewUrl"
             :set-create-cover-file="setCreateCoverFile"
             :clear-create-cover-file="clearCreateCoverFile"
+            :edit-existing-cover-url="editExistingCoverUrl"
+            :edit-existing-digital-file-name="editExistingDigitalFileName"
+            :clear-edit-existing-cover="clearEditExistingCover"
+            :clear-edit-existing-digital-file-name="clearEditExistingDigitalFileName"
             :set-create-digital-file="setCreateDigitalFile"
             :clear-create-digital-file="clearCreateDigitalFile"
             :save-loading="saveBookLoading"
@@ -369,7 +382,7 @@ const searchPlaceholder = computed(() => (
                 <div class="flex items-start justify-between gap-3 mb-4">
                     <div>
                         <template v-if="isDigitalDetailBook">
-                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết tài liệu số</h3>
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết đồ án, luận văn</h3>
                         </template>
                         <template v-else>
                             <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết sách</h3>
@@ -426,26 +439,20 @@ const searchPlaceholder = computed(() => (
                                 <p class="font-medium text-slate-800 dark:text-slate-200">{{ digitalDetailTimeLabel(detailBook) }}</p>
                             </div>
                             <div class="sm:col-span-2">
-                                <p class="text-slate-500 dark:text-slate-400">Phân loại</p>
-                                <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.classification?.name || '—' }}</p>
-                            </div>
-                            <div class="sm:col-span-2">
-                                <p class="text-slate-500 dark:text-slate-400">Tóm tắt</p>
-                                <p class="font-medium whitespace-pre-line text-slate-800 dark:text-slate-200">
-                                    {{ detailBook.summary || '—' }}
-                                </p>
+                                <p class="text-slate-500 dark:text-slate-400 mb-1">Tóm tắt</p>
+                                <RichHtmlContent :html="detailBook.summary" empty-text="Chưa có mô tả." />
                             </div>
                             <div class="sm:col-span-2">
                                 <p class="text-slate-500 dark:text-slate-400">File đính kèm (PDF)</p>
-                                <a
-                                    v-if="detailDigitalPrimaryUrl(detailBook)"
-                                    :href="detailDigitalPrimaryUrl(detailBook)"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="font-semibold text-blue-700 hover:underline dark:text-blue-300"
+                                <button
+                                    v-if="hasAdminDigitalAttachment(detailBook)"
+                                    type="button"
+                                    class="font-semibold text-blue-700 hover:underline disabled:opacity-50 dark:text-blue-300"
+                                    :disabled="detailDownloading"
+                                    @click="onDetailDownloadPdf"
                                 >
-                                    {{ detailDigitalPrimaryName(detailBook) }}
-                                </a>
+                                    {{ detailDownloading ? 'Đang tải…' : detailDigitalPrimaryName(detailBook) }}
+                                </button>
                                 <p v-else class="font-medium text-slate-500 dark:text-slate-400">—</p>
                             </div>
                         </div>
@@ -540,10 +547,8 @@ const searchPlaceholder = computed(() => (
                             <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailBook.price ?? '—' }}</p>
                         </div>
                         <div class="sm:col-span-2 lg:col-span-3">
-                            <p class="text-slate-500 dark:text-slate-400">Tóm tắt nội dung</p>
-                            <p class="font-medium text-slate-800 dark:text-slate-200 whitespace-pre-line">
-                                {{ detailBook.summary || '—' }}
-                            </p>
+                            <p class="text-slate-500 dark:text-slate-400 mb-1">Tóm tắt nội dung</p>
+                            <RichHtmlContent :html="detailBook.summary" empty-text="Chưa có mô tả." />
                         </div>
                         <div class="sm:col-span-2 lg:col-span-3">
                             <p class="text-slate-500 dark:text-slate-400 mb-1">Lịch sử mượn sách (20 lượt gần nhất)</p>

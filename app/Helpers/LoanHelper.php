@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
+
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
 use App\Enums\LoanItemCondition;
@@ -11,9 +14,11 @@ use App\Enums\ResourceType;
 use App\Models\Book;
 use App\Models\BookCopy;
 use App\Models\LibraryCard;
+use App\Models\LibrarySetting;
 use App\Models\Loan;
 use App\Models\LoanItem;
 use App\Models\LoanPolicy;
+use App\Services\LibrarySettingsService;
 use App\Services\LoanPoliciesService;
 use App\Services\StorageQuantitySyncService;
 use RuntimeException;
@@ -22,7 +27,8 @@ class LoanHelper
 {
     public function __construct(
         private LoanPoliciesService $loanPoliciesService,
-        private StorageQuantitySyncService $storageQuantitySyncService
+        private StorageQuantitySyncService $storageQuantitySyncService,
+        private LibrarySettingsService $librarySettings
     ) {}
 
     /**
@@ -102,8 +108,8 @@ class LoanHelper
             ->join('books', 'loan_items.book_id', '=', 'books.id')
             ->where('loans.library_card_id', $card->id)
             ->where('loans.deleted', false)
-            ->whereIn('loans.loan_type', [Loan::TYPE_HOME, Loan::TYPE_ONSITE])
-            ->whereIn('loans.status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+            ->whereIn('loans.loan_type', [LoanType::HOME, LoanType::ONSITE])
+            ->whereIn('loans.status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
             ->selectRaw('books.resource_type as resource_type, COALESCE(SUM(loan_items.quantity), 0) as total_quantity')
             ->groupBy('books.resource_type')
             ->pluck('total_quantity', 'resource_type');
@@ -340,9 +346,15 @@ class LoanHelper
             $overdueDays = (int) $loan->due_date->diffInDays($loan->return_date);
         }
 
-        $overdueFine = $overdueDays * $overdueFinePerDay * (int) $item->quantity;
-
         $bookPrice = max(0, (float) ($item->book?->price ?? 0));
+        $lateMode = $this->librarySettings->getLateReturnFineMode();
+        if ($lateMode === LibrarySetting::LOAN_LATE_RETURN_FINE_MODE_PERCENT_BOOK_PRICE_DAILY) {
+            $pct = $this->librarySettings->getLateReturnFinePercentOfBook() / 100.0;
+            $overdueFine = $overdueDays * ($bookPrice * $pct) * (int) $item->quantity;
+        } else {
+            $overdueFine = $overdueDays * $overdueFinePerDay * (int) $item->quantity;
+        }
+
         $params = is_array($policy->params) ? $policy->params : [];
         $damagePercent = max(0, (float) ($params['damage_fine_percent'] ?? 0.3));
         $lossMultiplier = max(1, (float) ($params['loss_fine_multiplier'] ?? 2));

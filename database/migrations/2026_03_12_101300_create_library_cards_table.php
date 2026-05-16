@@ -60,6 +60,14 @@ return new class extends Migration
             $table->foreign('reviewed_by')->references('id')->on('users')->nullOnDelete();
 
             $table->index(['holder_type', 'status'], 'library_cards_type_status_index');
+            $table->index(['workflow_status', 'created_at', 'id'], 'library_cards_workflow_created_id_idx');
+            $table->index(['holder_type', 'created_at', 'id'], 'library_cards_holder_created_id_idx');
+            $table->index(['status', 'created_at', 'id'], 'library_cards_status_created_id_idx');
+            $table->index(
+                ['workflow_status', 'holder_type', 'status', 'created_at', 'id'],
+                'library_cards_wf_holder_status_created_id_idx'
+            );
+            $table->index(['full_name', 'id'], 'library_cards_full_name_id_idx');
         });
 
         Schema::create('library_card_payments', function (Blueprint $table) {

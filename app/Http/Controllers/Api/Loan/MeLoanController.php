@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\Loan;
 
+use App\Enums\LoanStatus;
+
 use App\Exports\LoanExport;
 use App\Enums\ResourceType;
 use App\Helpers\ApiResponse;
@@ -100,7 +102,7 @@ class MeLoanController extends Controller
     {
         $userId = (int) ($request->user()?->id ?? 0);
         $base = $this->baseReaderLoanQuery($userId)
-            ->whereIn('status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+            ->whereIn('status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
             ->select('id');
 
         $totals = LoanItem::query()

@@ -46,6 +46,11 @@ export const adminNavigation = [
         active: ['admin.library-settings.*'],
         children: [
             { name: 'Chính sách mượn', href: 'admin.library-settings.index', active: 'admin.library-settings.index' },
+            {
+                name: 'Phí & tài liệu số',
+                href: 'admin.library-settings.pricing',
+                active: 'admin.library-settings.pricing',
+            },
         ],
     },
     {

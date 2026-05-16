@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 
 class ProfileService
@@ -82,9 +83,13 @@ class ProfileService
         }
 
         $disk = (string) config('filesystems.media_disk', 'public');
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-        $storage = Storage::disk($disk);
+        try {
+            /** @var FilesystemAdapter $storage */
+            $storage = Storage::disk($disk);
 
-        return $storage->url($avatar);
+            return $storage->url($avatar);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

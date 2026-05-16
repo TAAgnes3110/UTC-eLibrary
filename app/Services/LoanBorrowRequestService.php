@@ -4,14 +4,16 @@ namespace App\Services;
 
 use App\Enums\LibraryCardStatus;
 use App\Enums\LoanItemCondition;
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
 use App\Helpers\LoanHelper;
 use App\Models\Book;
 use App\Models\LibraryCard;
-use App\Models\Loan;
 use App\Models\LoanBorrowRequest;
 use App\Models\LoanBorrowRequestItem;
 use App\Models\LoanItem;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,7 +32,9 @@ class LoanBorrowRequestService
     {
         return DB::transaction(function () use ($user, $data): LoanBorrowRequest {
             $card = $this->loadActiveCardByUser($user);
-            $loanType = (string) ($data['loan_type'] ?? Loan::TYPE_HOME);
+            $loanType = $data['loan_type'] instanceof LoanType
+                ? $data['loan_type']
+                : (LoanType::tryFrom((string) ($data['loan_type'] ?? '')) ?? LoanType::HOME);
             $this->assertLoanTypeAllowedForCard($card, $loanType);
             $requestEntries = $this->buildRequestEntries($data, $loanType);
 
@@ -145,6 +149,20 @@ class LoanBorrowRequestService
         return $query->paginate($perPage)->withQueryString();
     }
 
+    /** Ngày hẹn trả gợi ý khi duyệt (ưu tiên ngày bạn đọc chọn, không thì loan_date + max_days chính sách). */
+    public function suggestedDueDateForRequest(LoanBorrowRequest $request): string
+    {
+        if ($request->requested_due_date !== null) {
+            return $request->requested_due_date->toDateString();
+        }
+
+        $loanDate = $request->requested_loan_date?->toDateString() ?? now()->toDateString();
+        $holderType = (string) ($request->libraryCard?->holder_type ?? '');
+        $days = $this->loanPoliciesService->getLoanTermDaysForHolderType($holderType);
+
+        return Carbon::parse($loanDate)->addDays($days)->toDateString();
+    }
+
     public function approve(LoanBorrowRequest $borrowRequest, User $reviewer, array $payload): LoanBorrowRequest
     {
         return DB::transaction(function () use ($borrowRequest, $reviewer, $payload): LoanBorrowRequest {
@@ -169,7 +187,7 @@ class LoanBorrowRequestService
                 'loan_type' => (string) ($payload['loan_type'] ?? $locked->loan_type),
                 'loan_date' => $loanDate,
                 'due_date' => $dueDate,
-                'status' => Loan::STATUS_BORROWED,
+                'status' => LoanStatus::BORROWED,
                 'book_ids' => $bookIds,
                 'quantity' => $quantities,
                 'condition_on_loan' => $conditions,
@@ -314,15 +332,15 @@ class LoanBorrowRequestService
         });
     }
 
-    private function assertLoanTypeAllowedForCard(LibraryCard $card, string $loanType): void
+    private function assertLoanTypeAllowedForCard(LibraryCard $card, LoanType $loanType): void
     {
         $permissions = $this->loanPoliciesService->getBorrowPermissionsForHolderType((string) $card->holder_type);
-        if ($loanType === Loan::TYPE_HOME && ! $permissions['allow_home']) {
+        if ($loanType === LoanType::HOME && ! $permissions['allow_home']) {
             throw new RuntimeException(
                 'Theo quy định thư viện UTC, loại thẻ của bạn chỉ được đăng ký đọc tại chỗ, không mượn về nhà.'
             );
         }
-        if ($loanType === Loan::TYPE_ONSITE && ! $permissions['allow_onsite']) {
+        if ($loanType === LoanType::ONSITE && ! $permissions['allow_onsite']) {
             throw new RuntimeException(
                 'Theo quy định thư viện, loại thẻ này không áp dụng hình thức đọc tại chỗ qua yêu cầu trực tuyến. Vui lòng liên hệ thủ thư.'
             );
@@ -346,7 +364,7 @@ class LoanBorrowRequestService
     }
 
     /** @return list<array{book_id:int,quantity:int,notes:?string,resource_type:string}> */
-    private function buildRequestEntries(array $data, string $loanType): array
+    private function buildRequestEntries(array $data, LoanType $loanType): array
     {
         $rawBookIds = array_map(static fn ($v): int => (int) $v, (array) ($data['book_ids'] ?? []));
         $bookIds = array_values(array_unique($rawBookIds));
@@ -370,7 +388,7 @@ class LoanBorrowRequestService
                 throw new RuntimeException('Số lượng mượn phải lớn hơn 0.');
             }
             $resourceType = (string) $book->resource_type->value;
-            if ($loanType === Loan::TYPE_HOME && ! in_array($resourceType, ['textbook', 'reference'], true)) {
+            if ($loanType === LoanType::HOME && ! in_array($resourceType, ['textbook', 'reference'], true)) {
                 throw new RuntimeException(sprintf('Tài liệu "%s" không hỗ trợ mượn về nhà.', (string) $book->title));
             }
             $entries[] = [
@@ -444,7 +462,7 @@ class LoanBorrowRequestService
                 ->join('loans', 'loan_items.loan_id', '=', 'loans.id')
                 ->where('loan_items.book_id', $bookId)
                 ->where('loans.deleted', false)
-                ->whereIn('loans.status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+                ->whereIn('loans.status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
                 ->sum('loan_items.quantity');
 
             $reserved = (int) LoanBorrowRequestItem::query()

@@ -3,6 +3,7 @@ import { libraryCardsApi } from '@/api/libraryCards';
 import { usersApi } from '@/api/users';
 import { toast } from '@/store/toast';
 import { LibraryCard } from '@/config/libraryCardConstants';
+import { resetFileInput } from '@/utils/resetFileInput';
 
 /** Mặc định phí cấp thẻ tại quầy (VNĐ) */
 const DEFAULT_COUNTER_PAYMENT_AMOUNT = 40000;
@@ -120,16 +121,18 @@ export function useLibraryCardCounterPage(props) {
 
     const submitLoading = ref(false);
 
+    function resetCounterPhotoInput() {
+        const el = typeof document !== 'undefined' ? document.getElementById('counter-card-photo-input') : null;
+        resetFileInput(el);
+    }
+
     function setFlowMode(mode) {
         flowMode.value = mode;
         selectedUser.value = null;
         userSearch.value = '';
         userHits.value = [];
         form.value = emptyForm();
-        const el = typeof document !== 'undefined' ? document.getElementById('counter-card-photo-input') : null;
-        if (el) {
-            el.value = '';
-        }
+        resetCounterPhotoInput();
     }
 
     let searchTimer = null;
@@ -180,6 +183,7 @@ export function useLibraryCardCounterPage(props) {
     function clearPickedUser() {
         selectedUser.value = null;
         form.value = emptyForm();
+        resetCounterPhotoInput();
     }
 
     async function submit() {

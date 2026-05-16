@@ -12,7 +12,6 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('name')->index();
-            $table->foreignId('parent_id')->nullable()->constrained('classifications')->nullOnDelete();
             $table->json('params')->nullable();
 
             $table->userAuditColumns();

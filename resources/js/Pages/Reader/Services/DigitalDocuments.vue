@@ -18,6 +18,10 @@ import {
 } from '@/config/digitalSubmissionUi'
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
+import { resetFileInput } from '@/utils/resetFileInput'
+import RichTextEditor from '@/Components/Shared/RichTextEditor.vue'
+import RichHtmlContent from '@/Components/Shared/RichHtmlContent.vue'
+import { stripHtmlToPlainText } from '@/utils/quillEditor'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
@@ -197,7 +201,7 @@ async function loadRows() {
         rows.value = raw.map((row) => normalizeSubmissionRow(row))
     } catch (error) {
         rows.value = []
-        loadError.value = readerApiErrorMessage(error, 'Không tải được danh sách tài liệu số.')
+        loadError.value = readerApiErrorMessage(error, 'Không tải được danh sách đồ án, luận văn.')
     } finally {
         loading.value = false
     }
@@ -211,11 +215,22 @@ onUnmounted(() => {
     if (coverPreviewUrl.value) URL.revokeObjectURL(coverPreviewUrl.value)
 })
 
+function closeUploadModal() {
+    showUploadModal.value = false
+    resetUploadForm()
+}
+
 function openUploadModal() {
     if (!isAuthed.value) return
     resetUploadForm()
     showUploadModal.value = true
 }
+
+watch(showUploadModal, (visible) => {
+    if (!visible) {
+        resetUploadForm()
+    }
+})
 
 function searchRows() {
     currentPage.value = 1
@@ -255,13 +270,13 @@ function removeCreateCover() {
     form.value.coverFile = null
     if (coverPreviewUrl.value) URL.revokeObjectURL(coverPreviewUrl.value)
     coverPreviewUrl.value = ''
-    if (coverFileRef.value) coverFileRef.value.value = ''
+    resetFileInput(coverFileRef.value)
 }
 
 function removeCreateDigitalFile() {
     createDigitalFileName.value = ''
     form.value.file = null
-    if (pdfFileRef.value) pdfFileRef.value.value = ''
+    resetFileInput(pdfFileRef.value)
 }
 
 function resetUploadForm() {
@@ -270,13 +285,13 @@ function resetUploadForm() {
     createCoverFileName.value = ''
     createDigitalFileName.value = ''
     form.value = { title: '', authorNames: '', description: '', file: null, coverFile: null }
-    if (pdfFileRef.value) pdfFileRef.value.value = ''
-    if (coverFileRef.value) coverFileRef.value.value = ''
+    resetFileInput(pdfFileRef.value)
+    resetFileInput(coverFileRef.value)
 }
 
 async function submitUpload() {
     if (!isAuthed.value) {
-        toast.warn('Vui lòng đăng nhập để tải tài liệu số.')
+        toast.warn('Vui lòng đăng nhập để tải đồ án, luận văn.')
         return
     }
     if (submitting.value) return
@@ -285,7 +300,7 @@ async function submitUpload() {
         return
     }
     if (!form.value.authorNames.trim()) {
-        toast.error('Vui lòng nhập tác giả tài liệu.')
+        toast.error('Vui lòng nhập tác giả đồ án, luận văn.')
         return
     }
     if (!form.value.file) {
@@ -311,11 +326,10 @@ async function submitUpload() {
         } else {
             await loadRows()
         }
-        toast.success('Đã gửi tài liệu số, vui lòng chờ duyệt.')
-        showUploadModal.value = false
-        resetUploadForm()
+        toast.success('Đã gửi đồ án, luận văn, vui lòng chờ duyệt.')
+        closeUploadModal()
     } catch (error) {
-        toast.error(readerApiErrorMessage(error, 'Gửi tài liệu số thất bại.'))
+        toast.error(readerApiErrorMessage(error, 'Gửi đồ án, luận văn thất bại.'))
     } finally {
         submitting.value = false
     }
@@ -352,7 +366,7 @@ function canRemoveSubmission(item) {
 
 function removeConfirmMessage(item) {
     if (item?.status === 'pending') {
-        return 'Thu hồi yêu cầu duyệt tài liệu này? Hệ thống vẫn lưu để thủ thư quản lý; chỉ ẩn trên trang của bạn.'
+        return 'Thu hồi yêu cầu duyệt đồ án, luận văn này? Hệ thống vẫn lưu để thủ thư quản lý; chỉ ẩn trên trang của bạn.'
     }
     if (item?.status === 'rejected') {
         return 'Xóa bản ghi đã từ chối khỏi danh sách của bạn? Hệ thống vẫn lưu phía thủ thư; chỉ ẩn trên trang của bạn.'
@@ -426,7 +440,7 @@ function itemAuthors(item) {
     return fromBook || fromRow || '—'
 }
 
-/** Giống modal chi tiết tài liệu số trên admin (`Index.vue`). */
+/** Giống modal chi tiết đồ án, luận văn trên admin (`Index.vue`). */
 function formatDetailDate(iso) {
     if (!iso) return '—'
     const d = new Date(iso)
@@ -451,19 +465,19 @@ function detailTimeLabel(item) {
 
 <template>
     <ReaderLayout>
-        <Head title="Quản lý tài liệu số" />
+        <Head title="Quản lý đồ án, luận văn" />
 
         <div class="space-y-4 animate-in fade-in-50 duration-500">
             <AdminPageHeading title="Nộp đồ án, luận văn theo danh mục">
                 <template #description>
-                    Gửi PDF kèm ảnh bìa (tuỳ chọn); sau duyệt, đầu mục xuất hiện trong danh mục tài liệu số của thư viện.
+                    Gửi PDF kèm ảnh bìa (tuỳ chọn); sau duyệt, đầu mục xuất hiện trong danh mục đồ án, luận văn của thư viện.
                 </template>
             </AdminPageHeading>
 
             <AdminImportExportBar
                 :has-selection="hasSelection"
                 :selected-count="selectedIds.size"
-                add-label="Thêm tài liệu số"
+                add-label="Thêm đồ án, luận văn"
                 :show-export="false"
                 :show-import="false"
                 :show-update-file="false"
@@ -524,7 +538,7 @@ function detailTimeLabel(item) {
             </p>
 
             <div v-if="!isAuthed" class="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-                Vui lòng đăng nhập để xem và quản lý tài liệu số đã tải lên.
+                Vui lòng đăng nhập để xem và quản lý đồ án, luận văn đã tải lên.
             </div>
 
             <div
@@ -644,7 +658,7 @@ function detailTimeLabel(item) {
                                 </td>
                                 <td class="px-3 py-3.5 align-middle">
                                     <p class="text-sm font-normal leading-snug text-slate-600 dark:text-slate-300 line-clamp-2 break-words text-left">
-                                        {{ item.description || '—' }}
+                                        {{ stripHtmlToPlainText(item.description) || '—' }}
                                     </p>
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-3.5 align-middle tabular-nums text-slate-600 dark:text-slate-300">
@@ -673,7 +687,7 @@ function detailTimeLabel(item) {
                                     <div
                                         class="flex flex-wrap items-center justify-start gap-2"
                                         role="group"
-                                        :aria-label="'Thao tác với tài liệu: ' + (item.title || '')"
+                                        :aria-label="'Thao tác với đồ án, luận văn: ' + (item.title || '')"
                                     >
                                         <button
                                             type="button"
@@ -704,7 +718,7 @@ function detailTimeLabel(item) {
                             </tr>
                             <tr v-if="!paginatedRows.length">
                                 <td colspan="10" class="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
-                                    Chưa có tài liệu số trong danh sách.
+                                    Chưa có đồ án, luận văn trong danh sách.
                                 </td>
                             </tr>
                             </template>
@@ -725,18 +739,18 @@ function detailTimeLabel(item) {
 
         <Teleport to="body">
             <div v-if="showUploadModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-slate-900/50" @click="showUploadModal = false" />
+                <div class="absolute inset-0 bg-slate-900/50" @click="closeUploadModal" />
                 <div
                     class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200 dark:border-slate-800"
                 >
                     <div
                         class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50"
                     >
-                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Thêm tài liệu số mới</h3>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Thêm đồ án, luận văn mới</h3>
                         <button
                             type="button"
                             class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
-                            @click="showUploadModal = false"
+                            @click="closeUploadModal"
                         >
                             <Icon icon="lucide:x" class="w-5 h-5" />
                         </button>
@@ -790,7 +804,7 @@ function detailTimeLabel(item) {
                                 >
                                     <img
                                         :src="coverPreviewUrl"
-                                        alt="Ảnh bìa xem trước"
+                                        alt="Ảnh bìa tải lên"
                                         class="h-16 w-12 rounded object-cover ring-1 ring-slate-200 dark:ring-slate-700"
                                         @error="withFallback('/images/default-book-cover.png')($event)"
                                     />
@@ -836,22 +850,22 @@ function detailTimeLabel(item) {
                         </div>
                         <div class="sm:col-span-2 space-y-1.5">
                             <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mô tả</label>
-                            <textarea
+                            <RichTextEditor
                                 v-model="form.description"
-                                rows="3"
-                                class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-white px-3 py-2 resize-y"
-                                placeholder="Nhập mô tả ngắn về nội dung sách"
+                                :active="showUploadModal"
+                                placeholder="Nhập mô tả về đồ án/luận văn…"
+                                min-height="220px"
                             />
                         </div>
                     </div>
                     <div
                         class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30"
                     >
-                        <Button variant="outline" class="min-h-[44px] px-4" :disabled="submitting" @click="showUploadModal = false">
+                        <Button variant="outline" class="min-h-[44px] px-4" :disabled="submitting" @click="closeUploadModal">
                             Hủy bỏ
                         </Button>
                         <Button class="min-h-[44px] bg-blue-600 hover:bg-blue-700 text-white px-4" :disabled="submitting" @click="submitUpload">
-                            {{ submitting ? 'Đang gửi…' : 'Gửi tài liệu số' }}
+                            {{ submitting ? 'Đang gửi…' : 'Gửi đồ án, luận văn' }}
                         </Button>
                     </div>
                 </div>
@@ -906,7 +920,7 @@ function detailTimeLabel(item) {
                 class="relative w-full max-w-4xl max-h-[88vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             >
                 <div class="mb-4 flex items-start justify-between gap-3">
-                    <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết tài liệu số</h3>
+                    <h3 class="text-base font-semibold text-slate-900 dark:text-white">Chi tiết đồ án, luận văn</h3>
                     <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeDetail">
                         <Icon icon="lucide:x" class="h-4 w-4" />
                     </button>
@@ -928,7 +942,7 @@ function detailTimeLabel(item) {
                     </div>
                     <div class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
                         <div class="sm:col-span-2">
-                            <p class="text-slate-500 dark:text-slate-400">Tên tài liệu</p>
+                            <p class="text-slate-500 dark:text-slate-400">Tên đồ án, luận văn</p>
                             <p class="font-semibold text-slate-900 dark:text-white">{{ detailItem.title || '—' }}</p>
                         </div>
                         <div>
@@ -961,10 +975,8 @@ function detailTimeLabel(item) {
                             <p class="font-medium text-slate-800 dark:text-slate-200">{{ detailTimeLabel(detailItem) }}</p>
                         </div>
                         <div class="sm:col-span-2">
-                            <p class="text-slate-500 dark:text-slate-400">Mô tả</p>
-                            <p class="font-medium whitespace-pre-line text-slate-800 dark:text-slate-200">
-                                {{ detailItem.description || '—' }}
-                            </p>
+                            <p class="text-slate-500 dark:text-slate-400 mb-1">Mô tả</p>
+                            <RichHtmlContent :html="detailItem.description" empty-text="Chưa có mô tả." />
                         </div>
                         <div class="sm:col-span-2">
                             <p class="text-slate-500 dark:text-slate-400">File đính kèm (PDF)</p>

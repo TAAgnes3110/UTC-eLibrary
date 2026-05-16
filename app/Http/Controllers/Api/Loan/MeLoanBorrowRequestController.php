@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\Loan;
 
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ReaderBookCardResource;
+use App\Http\Resources\ReaderBorrowCartPreviewResource;
 use App\Models\LoanBorrowRequest;
 use App\Services\BookService;
 use App\Services\LoanBorrowRequestService;
@@ -31,7 +31,7 @@ class MeLoanBorrowRequestController extends Controller
         $books = $this->bookService->readerBorrowPreview($validated['book_ids']);
 
         return ApiResponse::success([
-            'items' => ReaderBookCardResource::collection($books)->resolve(),
+            'items' => ReaderBorrowCartPreviewResource::collection($books)->resolve(),
         ]);
     }
 

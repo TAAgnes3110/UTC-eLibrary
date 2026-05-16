@@ -2,6 +2,8 @@
 
 namespace App\Services\Notifications;
 
+use App\Enums\LoanStatus;
+
 use App\Enums\NotificationSeverity;
 use App\Enums\NotificationType;
 use App\Enums\RoleType;
@@ -29,7 +31,7 @@ class LoanDueSoonNotificationService
         $dueOn = $dueOn->addDays(2)->toDateString();
 
         $loans = Loan::query()
-            ->where('status', Loan::STATUS_BORROWED)
+            ->where('status', LoanStatus::BORROWED)
             ->whereNull('return_date')
             ->whereDate('due_date', $dueOn)
             ->with(['libraryCard:id,user_id,card_number,full_name'])

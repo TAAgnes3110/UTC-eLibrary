@@ -93,7 +93,7 @@ function clampIntField(key) {
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="space-y-4">
                 <div class="space-y-1.5">
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Số lần gia hạn tối đa</label>
                     <Input
@@ -101,19 +101,27 @@ function clampIntField(key) {
                         type="number"
                         min="0"
                         step="1"
-                        class="h-11 rounded-lg"
+                        class="h-11 rounded-lg max-w-xs"
                         @blur="clampIntField('max_renewals')"
                     />
                 </div>
                 <div class="space-y-1.5">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Phạt mỗi ngày trễ hạn (đồng)</label>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Phạt trễ hạn (đồng / ngày / cuốn)
+                    </label>
                     <Input
                         v-model="form.overdue_fine_per_day"
                         type="text"
                         inputmode="decimal"
-                        class="h-11 rounded-lg"
+                        class="h-11 rounded-lg max-w-xs"
                         :class="errClass('overdue_fine_per_day')"
                     />
+                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-prose">
+                        Số tiền cho <span class="font-semibold text-slate-600 dark:text-slate-300">mỗi cuốn</span> mượn, tính theo
+                        <span class="font-semibold text-slate-600 dark:text-slate-300">mỗi ngày</span> quá hạn, khi thư viện áp dụng phạt «theo đồng/ngày» (không áp dụng nếu hệ thống dùng cách tính theo % giá bìa). Ví dụ thường gặp: khoảng
+                        <span class="font-semibold text-slate-700 dark:text-slate-200">1.000 đ</span>/ngày/cuốn; có thể đặt cao hơn (vd. 5.000 đ) tùy nhóm thẻ.
+                    </p>
+                    <p v-if="err('overdue_fine_per_day')" class="text-xs text-red-600 dark:text-red-400">{{ err('overdue_fine_per_day') }}</p>
                 </div>
             </div>
 

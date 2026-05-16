@@ -268,6 +268,43 @@ const badgeYesNo = (v) =>
                             </tbody>
                         </table>
                     </div>
+
+                    <section
+                        class="mx-auto mt-8 max-w-3xl rounded-2xl border border-slate-200/90 bg-slate-50/90 px-4 py-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/40 sm:mt-10 sm:px-6 sm:py-8"
+                        aria-labelledby="borrowing-fines-guide-heading"
+                    >
+                        <h2
+                            id="borrowing-fines-guide-heading"
+                            class="text-base font-bold text-slate-900 dark:text-white sm:text-lg"
+                        >
+                            {{ R.finesSectionTitle }}
+                        </h2>
+                        <div class="mt-4 space-y-5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white">{{ R.finesMoneyTitle }}</h3>
+                                <p class="mt-1.5">{{ R.finesMoneyBody }}</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white">{{ R.finesSuspendTitle }}</h3>
+                                <p class="mt-1.5">{{ R.finesSuspendBody }}</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white">{{ R.finesNoticeTitle }}</h3>
+                                <p class="mt-1.5">{{ R.finesNoticeBody }}</p>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900 dark:text-white">{{ R.finesDamageTitle }}</h3>
+                                <p class="mt-1.5">{{ R.finesDamageBody }}</p>
+                            </div>
+                            <div class="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3 py-3 dark:border-amber-900/40 dark:bg-amber-950/25">
+                                <p class="font-semibold text-amber-950 dark:text-amber-100">{{ R.finesNoteTitle }}</p>
+                                <ul class="mt-2 list-disc space-y-1.5 pl-5 text-amber-950/95 dark:text-amber-100/95">
+                                    <li>{{ R.finesNoteBody1 }}</li>
+                                    <li>{{ R.finesNoteBody2 }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </article>
         </div>

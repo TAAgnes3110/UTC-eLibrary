@@ -6,13 +6,16 @@ import { Button } from '@/Components/ui/button';
 import WelcomeBanner from '@/Components/Admin/Dashboard/WelcomeBanner.vue';
 import StatsCards from '@/Components/Admin/Dashboard/StatsCards.vue';
 import LoanChart from '@/Components/Admin/Dashboard/LoanChart.vue';
+import DigitalPurchaseChart from '@/Components/Admin/Dashboard/DigitalPurchaseChart.vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import { loansApi } from '@/api/loans';
 import { booksApi } from '@/api/books';
 import { toast } from '@/store/toast';
 
-const loadingStats = ref(false);
-const granularity = ref('month');
+const loadingLoanStats = ref(false);
+const loadingDigitalStats = ref(false);
+const loanGranularity = ref('month');
+const digitalGranularity = ref('month');
 const summary = ref({
     total_books: 0,
     total_registered_cards: 0,
@@ -21,8 +24,11 @@ const summary = ref({
     lost_books: 0,
     overdue_loans: 0,
     today_borrowed: 0,
+    digital_books_purchased: 0,
+    digital_revenue_vnd: 0,
 });
 const chartSeries = ref([]);
+const digitalChartSeries = ref([]);
 const forecast = ref({ next_label: '-', expected_borrowed: 0 });
 
 function formatNumber(value) {
@@ -98,22 +104,66 @@ async function exportLostBooks() {
     }
 }
 
-async function loadDashboardStats() {
-    loadingStats.value = true;
+function applySummary(payload) {
+    if (!payload?.summary) return;
+    summary.value = {
+        ...summary.value,
+        ...payload.summary,
+    };
+}
+
+async function fetchStatisticsPayload() {
+    const response = await loansApi.statistics({
+        granularity: loanGranularity.value,
+        digital_granularity: digitalGranularity.value,
+    });
+    return response?.data || {};
+}
+
+async function loadLoanChartStats() {
+    loadingLoanStats.value = true;
     try {
-        const response = await loansApi.statistics({ granularity: granularity.value });
-        const payload = response?.data || {};
-        summary.value = {
-            ...summary.value,
-            ...(payload.summary || {}),
-        };
+        const payload = await fetchStatisticsPayload();
         chartSeries.value = Array.isArray(payload.series) ? payload.series : [];
         forecast.value = payload.forecast || { next_label: '-', expected_borrowed: 0 };
     } catch (e) {
         chartSeries.value = [];
+        toast.error(e?.response?.data?.messages || 'Không tải được thống kê mượn/trả.', { title: 'Dashboard' });
+    } finally {
+        loadingLoanStats.value = false;
+    }
+}
+
+async function loadDigitalChartStats() {
+    loadingDigitalStats.value = true;
+    try {
+        const payload = await fetchStatisticsPayload();
+        applySummary(payload);
+        digitalChartSeries.value = Array.isArray(payload.digital_series) ? payload.digital_series : [];
+    } catch (e) {
+        digitalChartSeries.value = [];
+        toast.error(e?.response?.data?.messages || 'Không tải được thống kê mua tài liệu số.', { title: 'Dashboard' });
+    } finally {
+        loadingDigitalStats.value = false;
+    }
+}
+
+async function loadDashboardStats() {
+    loadingLoanStats.value = true;
+    loadingDigitalStats.value = true;
+    try {
+        const payload = await fetchStatisticsPayload();
+        applySummary(payload);
+        chartSeries.value = Array.isArray(payload.series) ? payload.series : [];
+        digitalChartSeries.value = Array.isArray(payload.digital_series) ? payload.digital_series : [];
+        forecast.value = payload.forecast || { next_label: '-', expected_borrowed: 0 };
+    } catch (e) {
+        chartSeries.value = [];
+        digitalChartSeries.value = [];
         toast.error(e?.response?.data?.messages || 'Không tải được thống kê dashboard.', { title: 'Dashboard' });
     } finally {
-        loadingStats.value = false;
+        loadingLoanStats.value = false;
+        loadingDigitalStats.value = false;
     }
 }
 
@@ -121,8 +171,12 @@ onMounted(() => {
     loadDashboardStats();
 });
 
-watch(granularity, () => {
-    loadDashboardStats();
+watch(loanGranularity, () => {
+    loadLoanChartStats();
+});
+
+watch(digitalGranularity, () => {
+    loadDigitalChartStats();
 });
 </script>
 
@@ -152,11 +206,19 @@ watch(granularity, () => {
             <StatsCards :stats="statsCards" />
 
             <LoanChart
-                v-model:granularity="granularity"
+                v-model:granularity="loanGranularity"
                 :series="chartSeries"
-                :loading="loadingStats"
+                :loading="loadingLoanStats"
                 :forecast="forecast"
-                @refresh="loadDashboardStats"
+                @refresh="loadLoanChartStats"
+            />
+
+            <DigitalPurchaseChart
+                v-model:granularity="digitalGranularity"
+                :series="digitalChartSeries"
+                :summary="summary"
+                :loading="loadingDigitalStats"
+                @refresh="loadDigitalChartStats"
             />
         </div>
     </AdminLayout>

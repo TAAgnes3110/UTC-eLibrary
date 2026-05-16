@@ -64,7 +64,11 @@ export const booksApi = {
         return client.post('/books/image-bulk', formData).then((r) => r.data);
     },
     uploadDigitalAsset(id, formData) {
-        return client.post(`/books/${id}/digital-assets`, formData).then((r) => r.data);
+        return client
+            .post(`/books/${id}/digital-assets`, formData, {
+                timeout: 300000,
+            })
+            .then((r) => r.data);
     },
 };
 

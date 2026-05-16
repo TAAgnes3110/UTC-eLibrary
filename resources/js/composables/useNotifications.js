@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import apiClient from '@/api/axios';
 import { toast } from '@/store/toast';
@@ -48,7 +48,13 @@ function normalizeNotification(item) {
     };
 }
 
-export function useNotifications() {
+/**
+ * @param {{ pollIntervalMs?: number, refetchOnVisibility?: boolean }} [options]
+ */
+export function useNotifications(options = {}) {
+    const pollIntervalMs = Number(options.pollIntervalMs ?? 0) || 0;
+    const refetchOnVisibility = Boolean(options.refetchOnVisibility ?? false);
+
     const page = usePage();
     const user = computed(() => page.props.auth?.user ?? null);
     const notifications = ref([]);
@@ -158,8 +164,35 @@ export function useNotifications() {
         }
     }
 
+    let pollTimer = null;
+    let onVisibility = null;
+
     onMounted(() => {
         fetchNotifications();
+        if (pollIntervalMs > 0) {
+            pollTimer = setInterval(() => {
+                fetchNotifications();
+            }, pollIntervalMs);
+        }
+        if (refetchOnVisibility) {
+            onVisibility = () => {
+                if (!document.hidden) {
+                    fetchNotifications();
+                }
+            };
+            document.addEventListener('visibilitychange', onVisibility);
+        }
+    });
+
+    onUnmounted(() => {
+        if (pollTimer !== null) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        }
+        if (onVisibility !== null) {
+            document.removeEventListener('visibilitychange', onVisibility);
+            onVisibility = null;
+        }
     });
 
     return {

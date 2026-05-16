@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Enums\AccessMode;
 use App\Enums\LibraryCardStatus;
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
 use App\Enums\ResourceType;
 use App\Helpers\LoanHelper;
 use App\Models\Book;
@@ -26,7 +28,7 @@ class LoanService
      */
     private function assertLoanOpenForOfficeOps(Loan $loan): void
     {
-        $ok = in_array($loan->status, [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE], true);
+        $ok = in_array($loan->status, [LoanStatus::BORROWED, LoanStatus::OVERDUE], true);
         if (! $ok) {
             throw new RuntimeException('Phiếu mượn không đang ở trạng thái mượn');
         }
@@ -39,10 +41,12 @@ class LoanService
      */
     public function create(array $data): Loan
     {
-        $loanType = (string) ($data['loan_type'] ?? Loan::TYPE_HOME);
+        $loanType = $data['loan_type'] instanceof LoanType
+            ? $data['loan_type']
+            : (LoanType::tryFrom((string) ($data['loan_type'] ?? '')) ?? LoanType::HOME);
 
         return match ($loanType) {
-            Loan::TYPE_ONSITE => $this->createOnsiteLoan($data),
+            LoanType::ONSITE => $this->createOnsiteLoan($data),
             default => $this->createHomeBorrow($data),
         };
     }
@@ -67,7 +71,7 @@ class LoanService
 
             [$entries, $sumQuantityTextBook, $sumQuantityReference, $sumQuantityAll] = $this->buildLoanEntries(
                 $data,
-                Loan::TYPE_HOME
+                LoanType::HOME
             );
 
             $this->loanHelper->assertBorrowWithinPolicyLimits(
@@ -77,7 +81,7 @@ class LoanService
                 $sumQuantityAll
             );
 
-            return $this->persistLoanAndItems($data, Loan::TYPE_HOME, $entries);
+            return $this->persistLoanAndItems($data, LoanType::HOME, $entries);
         });
     }
 
@@ -101,7 +105,7 @@ class LoanService
 
             [$entries, $sumQuantityTextBook, $sumQuantityReference, $sumQuantityAll] = $this->buildLoanEntries(
                 $data,
-                Loan::TYPE_ONSITE
+                LoanType::ONSITE
             );
 
             $this->loanHelper->assertBorrowWithinPolicyLimits(
@@ -111,7 +115,7 @@ class LoanService
                 $sumQuantityAll
             );
 
-            return $this->persistLoanAndItems($data, Loan::TYPE_ONSITE, $entries);
+            return $this->persistLoanAndItems($data, LoanType::ONSITE, $entries);
         });
     }
 
@@ -121,7 +125,7 @@ class LoanService
      * @param  array<string, mixed>  $data
      * @param  list<array{book:Book,book_id:int,quantity:int,condition_on_loan:?string}>  $entries
      */
-    private function persistLoanAndItems(array $data, string $loanType, array $entries): Loan
+    private function persistLoanAndItems(array $data, LoanType $loanType, array $entries): Loan
     {
         $loan = Loan::create([
             'loan_code' => $this->generateLoanCode(),
@@ -129,7 +133,7 @@ class LoanService
             'loan_type' => $loanType,
             'loan_date' => $data['loan_date'],
             'due_date' => $data['due_date'],
-            'status' => $data['status'] ?? Loan::STATUS_BORROWED,
+            'status' => $data['status'] ?? LoanStatus::BORROWED,
         ]);
 
         $deductionsByBook = [];
@@ -156,7 +160,7 @@ class LoanService
      * @param  array<string, mixed>  $data
      * @return array{0:list<array{book:Book,book_id:int,quantity:int,condition_on_loan:?string}>,1:int,2:int,3:int}
      */
-    private function buildLoanEntries(array $data, string $loanType): array
+    private function buildLoanEntries(array $data, LoanType $loanType): array
     {
         $rawBookIds = array_map(static fn ($v) => (int) $v, (array) ($data['book_ids'] ?? []));
         $bookIds = array_values(array_unique($rawBookIds));
@@ -213,7 +217,7 @@ class LoanService
                     (string) $book->title
                 ));
             }
-            if ($loanType === Loan::TYPE_HOME && ! in_array($resourceType, [ResourceType::TEXTBOOK, ResourceType::REFERENCE], true)) {
+            if ($loanType === LoanType::HOME && ! in_array($resourceType, [ResourceType::TEXTBOOK, ResourceType::REFERENCE], true)) {
                 throw new RuntimeException(sprintf(
                     'Tài liệu "%s" chỉ được đọc/mượn tại chỗ, không áp dụng mượn về nhà',
                     (string) $book->title
@@ -277,7 +281,7 @@ class LoanService
                 throw new RuntimeException('Phiếu đã được xóa.');
             }
 
-            if ($lockedLoan->status !== Loan::STATUS_RETURNED) {
+            if ($lockedLoan->status !== LoanStatus::RETURNED) {
                 throw new RuntimeException('Chỉ được xóa phiếu ở trạng thái đã trả.');
             }
 
@@ -307,7 +311,7 @@ class LoanService
             $this->assertLoanOpenForOfficeOps($lockedLoan);
 
             $lockedLoan->update([
-                'status' => Loan::STATUS_RETURNED,
+                'status' => LoanStatus::RETURNED,
                 'return_date' => $data['return_date'],
             ]);
 

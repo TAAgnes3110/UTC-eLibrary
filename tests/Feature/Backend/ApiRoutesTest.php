@@ -102,11 +102,18 @@ class ApiRoutesTest extends TestCase
             'me profile-update-requests store' => ['POST', "{$base}/me/profile-update-requests"],
             'me profile-update-requests hide' => ['POST', "{$base}/me/profile-update-requests/hide", ['ids' => [1]]],
             'me library-card post' => ['POST', "{$base}/me/library-card", []],
+            'me library-card replace post' => ['POST', "{$base}/me/library-card/replace", []],
+            'me library-card delete' => ['DELETE', "{$base}/me/library-card", []],
             'me notifications list' => ['GET', "{$base}/me/notifications"],
             'me notifications read-all' => ['POST', "{$base}/me/notifications/read-all", []],
             'me notifications delete-all' => ['POST', "{$base}/me/notifications/delete-all", []],
             'me notifications read one' => ['POST', "{$base}/me/notifications/1/read", []],
             'me notifications delete one' => ['POST', "{$base}/me/notifications/1/delete", []],
+            'me digital purchase cart get' => ['GET', "{$base}/me/digital-purchase-cart"],
+            'me digital purchase cart count' => ['GET', "{$base}/me/digital-purchase-cart/count"],
+            'me digital purchase cart items post' => ['POST', "{$base}/me/digital-purchase-cart/items", ['digital_asset_id' => 1]],
+            'me digital purchase cart bulk delete' => ['POST', "{$base}/me/digital-purchase-cart/items/bulk-delete", ['digital_asset_ids' => [1]]],
+            'me digital purchase cart item delete' => ['DELETE', "{$base}/me/digital-purchase-cart/items/1", [], [401, 404]],
             'users profile-update-requests list' => ['GET', "{$base}/users/profile-update-requests"],
             'users profile-update-requests approve' => ['POST', "{$base}/users/profile-update-requests/1/approve", []],
             'users profile-update-requests reject' => ['POST', "{$base}/users/profile-update-requests/1/reject", []],
@@ -206,6 +213,9 @@ class ApiRoutesTest extends TestCase
             'loan-policies index' => ['GET', "{$base}/loan-policies"],
             'loan-policies store' => ['POST', "{$base}/loan-policies", []],
             'loan-policies update' => ['PUT', "{$base}/loan-policies/1", ['name' => 'x'], [401, 404]],
+            'library-settings get' => ['GET', "{$base}/library-settings"],
+            'library-settings put' => ['PUT', "{$base}/library-settings", []],
+            'library-settings pricing put' => ['PUT', "{$base}/library-settings/pricing", []],
         ];
     }
 }

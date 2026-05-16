@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\LibraryCard;
 
+use App\Enums\LoanStatus;
+
 use App\Enums\LibraryCardStatus;
 use App\Models\LibraryCard;
 use App\Models\Loan;
@@ -30,7 +32,7 @@ class LibraryCardOverdueLockService
 
         return Loan::query()
             ->where('library_card_id', $card->id)
-            ->whereIn('status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+            ->whereIn('status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
             ->whereNotNull('due_date')
             ->where('due_date', '<', $before)
             ->orderBy('due_date')
@@ -50,7 +52,7 @@ class LibraryCardOverdueLockService
         $before = $this->severeOverdueDueDateBefore();
 
         $cardIdsToLock = Loan::query()
-            ->whereIn('status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+            ->whereIn('status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
             ->whereNotNull('due_date')
             ->where('due_date', '<', $before)
             ->distinct()
@@ -68,7 +70,7 @@ class LibraryCardOverdueLockService
 
                 $oldest = Loan::query()
                     ->where('library_card_id', $card->id)
-                    ->whereIn('status', [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE])
+                    ->whereIn('status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
                     ->whereNotNull('due_date')
                     ->where('due_date', '<', $before)
                     ->orderBy('due_date')

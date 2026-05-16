@@ -21,4 +21,3 @@ enum NotificationSeverity: string
         return self::INFO;
     }
 }
-

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
 use App\Models\Traits\HasAuditFields;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,16 +15,6 @@ class Loan extends BaseModel
     use HasAuditFields;
 
     protected static bool $persistParamsToDatabase = false;
-
-    public const TYPE_HOME = 'home';
-
-    public const TYPE_ONSITE = 'onsite';
-
-    public const STATUS_BORROWED = 'da_muon';
-
-    public const STATUS_RETURNED = 'da_tra';
-
-    public const STATUS_OVERDUE = 'qua_han';
 
     protected $fillable = [
         'loan_code',
@@ -39,6 +31,8 @@ class Loan extends BaseModel
         'loan_date' => 'date',
         'due_date' => 'date',
         'return_date' => 'date',
+        'loan_type' => LoanType::class,
+        'status' => LoanStatus::class,
         'deleted' => 'boolean',
     ];
 

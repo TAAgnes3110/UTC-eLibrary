@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Enums\LoanItemCondition;
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
 use App\Models\Loan;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -30,7 +32,7 @@ class LoanRequest extends FormRequest
             ],
             'loan_type' => [
                 $isUpdate ? 'sometimes' : 'required',
-                Rule::in([Loan::TYPE_HOME, Loan::TYPE_ONSITE]),
+                Rule::enum(LoanType::class),
             ],
             'loan_date' => [
                 $isUpdate ? 'sometimes' : 'required',
@@ -49,11 +51,7 @@ class LoanRequest extends FormRequest
             ],
             'status' => [
                 $isUpdate ? 'sometimes' : 'required',
-                Rule::in([
-                    Loan::STATUS_BORROWED,
-                    Loan::STATUS_RETURNED,
-                    Loan::STATUS_OVERDUE,
-                ]),
+                Rule::enum(LoanStatus::class),
             ],
             'book_ids' => [
                 $isUpdate ? 'sometimes' : 'required',

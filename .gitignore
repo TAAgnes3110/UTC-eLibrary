@@ -26,6 +26,10 @@ LPT1
 /.phpunit.cache
 /.vscode
 /.zed
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
 /auth.json
 /node_modules
 /public/build
@@ -49,6 +53,10 @@ Thumbs.db
 # Local env overrides
 .env.local
 .env.*.local
+
+# Deploy artifacts & local test PDFs
+/dist/
+/public/digital/
 
 # Build / cache
 npm-debug.log*

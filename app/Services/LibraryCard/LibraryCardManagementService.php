@@ -70,7 +70,7 @@ class LibraryCardManagementService
                 'params',
             ])
             ->with([
-                'payment:library_card_id,payment_status,payment_amount,payment_method,receipt_number,paid_at,collected_by',
+                'payment:id,library_card_id,payment_status,payment_amount,payment_method,receipt_number,paid_at,payment_collected_by',
                 'payment.collector:id,name',
                 'period:id,code,name,start_year,end_year',
                 'faculty:id,code,name',
@@ -223,7 +223,7 @@ class LibraryCardManagementService
                 'params',
             ])
             ->with([
-                'payment:library_card_id,payment_status,payment_amount,payment_method,receipt_number,paid_at,collected_by',
+                'payment:id,library_card_id,payment_status,payment_amount,payment_method,receipt_number,paid_at,payment_collected_by',
                 'payment.collector:id,name',
                 'period:id,code,name,start_year,end_year',
                 'faculty:id,code,name',
@@ -384,7 +384,7 @@ class LibraryCardManagementService
     public function approvePendingReviewAndActivate(LibraryCard $card, ?User $reviewer): LibraryCard
     {
         return DB::transaction(function () use ($card, $reviewer) {
-            $card = $card->fresh();
+            $card = LibraryCard::query()->whereKey($card->getKey())->lockForUpdate()->firstOrFail();
             if ($card->workflow_status !== LibraryCard::WORKFLOW_PENDING_REVIEW) {
                 throw ValidationException::withMessages([
                     'workflow_status' => [__('Chỉ duyệt được hồ sơ đang chờ xác nhận.')],
@@ -418,7 +418,7 @@ class LibraryCardManagementService
     public function rejectPendingReview(LibraryCard $card, ?string $notes, ?User $reviewer): LibraryCard
     {
         return DB::transaction(function () use ($card, $notes, $reviewer) {
-            $card = $card->fresh();
+            $card = LibraryCard::query()->whereKey($card->getKey())->lockForUpdate()->firstOrFail();
             if ($card->workflow_status !== LibraryCard::WORKFLOW_PENDING_REVIEW) {
                 throw ValidationException::withMessages([
                     'workflow_status' => [__('Chỉ từ chối được hồ sơ đang chờ xác nhận.')],

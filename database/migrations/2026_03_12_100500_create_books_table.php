@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('book_size', 50)->nullable();
             $table->unsignedBigInteger('price')->nullable();
             $table->unsignedInteger('quantity')->default(0)->required();
+            $table->unsignedBigInteger('view_count')->default(0)->comment('Lượt xem trang chi tiết (sách in)');
             $table->text('summary')->nullable();
             $table->text('notes')->nullable();
             $table->string('publisher_place')->nullable();
@@ -31,7 +32,7 @@ return new class extends Migration
             $table->foreignId('warehouse_id')->nullable()->constrained('warehouses')->nullOnDelete();
 
             $table->string('resource_type', 20)->default('reference')->comment('Loại tài liệu: textbook, reference, digital');
-            $table->string('access_mode', 20)->default('circulation_only')->comment('circulation_only|onsite|digital|…');
+            $table->string('access_mode', 20)->default('circulation_only')->comment('circulation_only|online_only|both');
 
             $table->json('params')->nullable();
 
@@ -43,6 +44,10 @@ return new class extends Migration
             $table->index(['classification_id']);
             $table->index(['warehouse_id']);
             $table->index(['resource_type', 'classification_id'], 'books_resource_type_classification_idx');
+            $table->index(
+                ['resource_type', 'deleted_at', 'created_at', 'id'],
+                'books_resource_deleted_created_id_idx'
+            );
         });
     }
 

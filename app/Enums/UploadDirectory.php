@@ -2,7 +2,10 @@
 
 namespace App\Enums;
 
-class UploadDirectory
+/**
+ * Đường dẫn lưu file trên disk media — không dùng backed enum vì cần factory theo id bảng.
+ */
+final class UploadDirectory
 {
     public const BASE = 'utc-elibrary';
 
@@ -52,6 +55,16 @@ class UploadDirectory
     public static function digitalAssetsByBookId(int $bookId): string
     {
         return self::BASE.'/books/digital-assets/'.max(0, $bookId);
+    }
+
+    public static function digitalAssetPreview(int $bookId, int $assetId): string
+    {
+        return self::digitalAssetsByBookId($bookId).'/'.max(0, $assetId).'/preview.pdf';
+    }
+
+    public static function digitalAssetPreviewPageImage(int $bookId, int $assetId, int $page): string
+    {
+        return self::digitalAssetsByBookId($bookId).'/'.max(0, $assetId).'/preview-pages/'.max(1, $page).'.png';
     }
 
     public static function bookPdfCovers(): string

@@ -16,12 +16,6 @@ class ClassificationResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'name' => $this->name,
-            'parent_id' => $this->parent_id,
-            'parent' => $this->whenLoaded('parent', fn () => $this->parent ? [
-                'id' => $this->parent->id,
-                'code' => $this->parent->code,
-                'name' => $this->parent->name,
-            ] : null),
             'created_by' => $this->whenLoaded('createdBy', fn () => $this->createdBy ? [
                 'id' => $this->createdBy->id,
                 'name' => $this->createdBy->name,

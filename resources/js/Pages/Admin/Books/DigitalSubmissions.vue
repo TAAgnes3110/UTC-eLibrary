@@ -5,12 +5,12 @@ import DigitalDocumentSubmissionsPanel from '@/Components/Admin/Approvals/Digita
 </script>
 
 <template>
-    <Head title="Duyệt tài liệu số — Admin" />
+    <Head title="Duyệt đồ án, luận văn — Admin" />
     <AdminLayout
-        title="Duyệt tài liệu số"
+        title="Duyệt đồ án, luận văn"
         :breadcrumbs="[
             { label: 'Đồ án, luận văn', href: 'admin.books.digital' },
-            { label: 'Duyệt tài liệu số' },
+            { label: 'Duyệt đồ án, luận văn' },
         ]"
     >
         <DigitalDocumentSubmissionsPanel />

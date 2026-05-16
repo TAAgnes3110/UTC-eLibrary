@@ -20,6 +20,73 @@ class LibraryCardAccountService
     ) {}
 
     /**
+     * Độc giả hủy hồ sơ đang chờ (chờ duyệt / chờ thanh toán) — gọi {@see LibraryCardManagementService::cancelLibraryCardApplication}.
+     */
+    public function cancelOwnPendingApplication(User $user): void
+    {
+        $card = LibraryCard::query()
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->first();
+
+        if ($card === null) {
+            throw ValidationException::withMessages([
+                'library_card' => [__('Không có yêu cầu cấp thẻ để hủy.')],
+            ]);
+        }
+
+        $ws = $card->workflow_status;
+        $ws = $ws instanceof \BackedEnum ? $ws->value : (string) $ws;
+
+        if (! in_array($ws, [LibraryCard::WORKFLOW_PENDING_REVIEW, LibraryCard::WORKFLOW_PENDING_PAYMENT], true)) {
+            throw ValidationException::withMessages([
+                'library_card' => [__('Chỉ có thể hủy khi hồ sơ đang chờ duyệt hoặc chờ thanh toán.')],
+            ]);
+        }
+
+        $this->management->cancelLibraryCardApplication(
+            $card,
+            __('Người dùng hủy yêu cầu cấp thẻ trên cổng độc giả.')
+        );
+    }
+
+    /**
+     * Độc giả gửi lại hồ sơ khi đang chờ duyệt: hủy bản chờ duyệt hiện tại rồi tạo bản mới (cùng transaction, khóa hàng tránh đua với duyệt thủ công).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function replaceOwnPendingReviewApplication(User $user, array $data, ?UploadedFile $photoFile = null): LibraryCard
+    {
+        return DB::transaction(function () use ($user, $data, $photoFile) {
+            $card = LibraryCard::query()
+                ->where('user_id', $user->id)
+                ->where('workflow_status', LibraryCard::WORKFLOW_PENDING_REVIEW)
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
+
+            if ($card === null) {
+                throw ValidationException::withMessages([
+                    'library_card' => [__('Không có hồ sơ đang chờ duyệt để cập nhật. Có thể hồ sơ đã được xử lý — vui lòng tải lại trang.')],
+                ]);
+            }
+
+            if ($card->workflow_status !== LibraryCard::WORKFLOW_PENDING_REVIEW) {
+                throw ValidationException::withMessages([
+                    'library_card' => [__('Hồ sơ không còn ở trạng thái chờ duyệt. Vui lòng tải lại trang.')],
+                ]);
+            }
+
+            $this->management->cancelLibraryCardApplication(
+                $card,
+                __('Độc giả gửi lại hồ sơ cấp thẻ; hủy bản đăng ký chờ duyệt trước đó.'),
+            );
+
+            return $this->createForUserHaveAccount($user, $data, $photoFile);
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $data
      */
     public function createForUserHaveAccount(User $user, array $data, ?UploadedFile $photoFile = null): LibraryCard

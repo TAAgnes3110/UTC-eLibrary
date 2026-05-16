@@ -28,6 +28,19 @@ class LibraryCardService
         return $this->account->createForUserHaveAccount($user, $data, $photoFile);
     }
 
+    public function cancelOwnPendingApplication(User $user): void
+    {
+        $this->account->cancelOwnPendingApplication($user);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function replaceOwnPendingReviewApplication(User $user, array $data, ?UploadedFile $photoFile = null): LibraryCard
+    {
+        return $this->account->replaceOwnPendingReviewApplication($user, $data, $photoFile);
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */

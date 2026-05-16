@@ -1,5 +1,5 @@
 /**
- * Giao diện thống nhất: duyệt tài liệu số (Reader + Admin).
+ * Giao diện thống nhất: duyệt đồ án, luận văn (Reader + Admin).
  * Badge trạng thái + nút neutral / danger / success cùng họ (viền + nền trong).
  */
 

@@ -13,8 +13,8 @@ use App\Services\AuthService;
 use App\Services\Notifications\StaffWorkQueueNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
@@ -147,6 +147,29 @@ class AuthController extends Controller
         }
 
         return ApiResponse::json($data);
+    }
+
+    /**
+     * Cấp JWT mới khi SPA đã có session web (Inertia) nhưng localStorage chưa có token.
+     */
+    public function sessionToken(Request $request): JsonResponse
+    {
+        global $currentPerson;
+
+        $user = $currentPerson ?? Auth::guard('web')->user();
+        if (! $user) {
+            return ApiResponse::error(__('Bạn cần đăng nhập để tiếp tục.'), 401);
+        }
+
+        $token = JWTAuth::fromUser($user);
+        $ttl = (int) config('jwt.ttl', 60);
+
+        return ApiResponse::json([
+            'status' => 'success',
+            'messages' => __('Cấp token thành công.'),
+            'token' => $token,
+            'expires_in' => $ttl * 60,
+        ], 200);
     }
 
     public function refresh(Request $request): JsonResponse

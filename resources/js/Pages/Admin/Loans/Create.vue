@@ -42,6 +42,17 @@ let cardSuggestTimer = null;
 let cardAutoLookupTimer = null;
 let cardSuggestRequestId = 0;
 
+function suggestDueDateFromLoanDate(loanDateIso, termDays = 7) {
+    const base = String(loanDateIso || '').trim() || new Date().toISOString().slice(0, 10);
+    const days = Math.max(1, Number(termDays) || 7);
+    const d = new Date(`${base}T12:00:00`);
+    if (Number.isNaN(d.getTime())) {
+        return '';
+    }
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+}
+
 function createEmptyLine() {
     return {
         request_item_id: null,
@@ -82,7 +93,10 @@ function loadBorrowRequestPrefillFromSession() {
         form.library_card_id = String(parsed.library_card_id || '');
         form.loan_type = parsed.loan_type || 'home';
         form.loan_date = parsed.requested_loan_date || new Date().toISOString().slice(0, 10);
-        form.due_date = parsed.requested_due_date || '';
+        form.due_date =
+            parsed.requested_due_date ||
+            parsed.suggested_due_date ||
+            suggestDueDateFromLoanDate(form.loan_date, 7);
         form.notes = parsed.request_note || '';
         resolvedCard.value = {
             id: parsed.library_card_id || null,

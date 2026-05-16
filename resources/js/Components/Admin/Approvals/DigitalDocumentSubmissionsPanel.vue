@@ -19,6 +19,8 @@ import {
 } from '@/config/digitalSubmissionUi';
 import { toast } from '@/store/toast';
 import { useImageFallback } from '@/composables/useImageFallback';
+import RichHtmlContent from '@/Components/Shared/RichHtmlContent.vue';
+import { stripHtmlToPlainText } from '@/utils/quillEditor';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -313,7 +315,7 @@ function submitterLabel(row) {
     <div class="space-y-4 animate-in fade-in-50 duration-500">
         <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
-                <h3 class="text-sm font-bold text-gray-800 dark:text-white">Duyệt tài liệu số</h3>
+                <h3 class="text-sm font-bold text-gray-800 dark:text-white">Duyệt đồ án, luận văn</h3>
                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-3xl">
                     Độc giả gửi PDF (có thể kèm ảnh bìa). Sau khi duyệt, hệ thống tạo đầu mục trong danh mục « Đồ án, luận văn ».
                 </p>
@@ -324,13 +326,13 @@ function submitterLabel(row) {
                 @click="router.visit(route('admin.books.digital'))"
             >
                 <Icon icon="lucide:library-big" class="h-4 w-4" />
-                Danh sách tài liệu số
+                Danh sách đồ án, luận văn
             </button>
         </div>
 
         <AdminFilterSearch
             v-model="searchKeyword"
-            search-placeholder="Mã TLS, họ tên, email, tên tài liệu, tác giả, mô tả..."
+            search-placeholder="Mã TLS, họ tên, email, tên đồ án/luận văn, tác giả, mô tả..."
             :show-filter-button="false"
             @search="runSearch"
         >
@@ -406,7 +408,7 @@ function submitterLabel(row) {
                                 Họ tên
                             </th>
                             <th class="min-w-0 px-2 py-2 align-middle whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
-                                Tên tài liệu
+                                Tên đồ án, luận văn
                             </th>
                             <th class="min-w-0 px-2 py-2 align-middle whitespace-nowrap text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
                                 Tác giả
@@ -454,8 +456,8 @@ function submitterLabel(row) {
                                     <span class="line-clamp-2 break-words">{{ row.author_names || '—' }}</span>
                                 </td>
                                 <td class="max-w-[9rem] min-w-0 px-2 py-2 align-middle text-[12px] text-slate-700 dark:text-slate-300">
-                                    <span class="line-clamp-2 break-words" :title="row.description || ''">{{
-                                        row.description || '—'
+                                    <span class="line-clamp-2 break-words" :title="stripHtmlToPlainText(row.description)">{{
+                                        stripHtmlToPlainText(row.description) || '—'
                                     }}</span>
                                 </td>
                                 <td class="max-w-[8rem] min-w-0 px-2 py-2 align-middle text-[11px]">
@@ -491,7 +493,7 @@ function submitterLabel(row) {
                                                 type="button"
                                                 :class="BTN_SUBMISSION_SUCCESS_INLINE"
                                                 :disabled="actionSubmissionId === row.id"
-                                                title="Duyệt và tạo đầu mục tài liệu số"
+                                                title="Duyệt và tạo đầu mục đồ án, luận văn"
                                                 @click="approveRow(row)"
                                             >
                                                 <Icon :icon="ADMIN_ICONS.checkCircle" class="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -532,7 +534,7 @@ function submitterLabel(row) {
 
         <p class="text-xs text-slate-500 dark:text-slate-400">
             <Icon icon="lucide:info" class="-mt-0.5 inline h-3.5 w-3.5" />
-            « Đồng ý » tạo đầu mục tài liệu số từ file độc giả gửi; « Từ chối » giữ bản ghi để tra cứu nhưng không xuất hiện cho độc giả ở trạng thái đã từ chối.
+            « Đồng ý » tạo đầu mục đồ án, luận văn từ file độc giả gửi; « Từ chối » giữ bản ghi để tra cứu nhưng không xuất hiện cho độc giả ở trạng thái đã từ chối.
         </p>
 
         <!-- Chi tiết -->
@@ -597,9 +599,10 @@ function submitterLabel(row) {
                             <div class="min-w-0 space-y-2 text-slate-700 dark:text-slate-300">
                                 <p><span class="text-slate-400">Tên sách:</span> {{ detailRow.title || '—' }}</p>
                                 <p><span class="text-slate-400">Tác giả:</span> {{ detailRow.author_names || '—' }}</p>
-                                <p class="whitespace-pre-wrap break-words">
-                                    <span class="text-slate-400">Mô tả:</span> {{ detailRow.description || '—' }}
-                                </p>
+                                <div>
+                                    <p class="text-slate-400 mb-1">Mô tả:</p>
+                                    <RichHtmlContent :html="detailRow.description" empty-text="—" />
+                                </div>
                                 <p>
                                     <span class="text-slate-400">File PDF:</span>
                                     <a

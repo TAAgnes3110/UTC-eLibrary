@@ -119,6 +119,7 @@ class LoanBorrowRequestController extends Controller
             'loan_type' => $r->loan_type,
             'requested_loan_date' => $r->requested_loan_date?->toDateString(),
             'requested_due_date' => $r->requested_due_date?->toDateString(),
+            'suggested_due_date' => $this->loanBorrowRequestService->suggestedDueDateForRequest($r),
             'request_note' => $r->request_note,
             'review_note' => $r->review_note,
             'reviewed_at' => $r->reviewed_at?->toIso8601String(),

@@ -96,9 +96,13 @@ class LoanController extends Controller
     {
         $validated = $request->validate([
             'granularity' => ['nullable', Rule::in(['day', 'month', 'year'])],
+            'digital_granularity' => ['nullable', Rule::in(['day', 'month', 'year'])],
         ]);
 
-        $payload = $this->statisticsService->dashboardStatistics((string) ($validated['granularity'] ?? 'month'));
+        $payload = $this->statisticsService->dashboardStatistics(
+            (string) ($validated['granularity'] ?? 'month'),
+            isset($validated['digital_granularity']) ? (string) $validated['digital_granularity'] : null,
+        );
 
         return ApiResponse::success($payload);
     }

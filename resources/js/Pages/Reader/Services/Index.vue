@@ -1,13 +1,19 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { Head, Link, usePage } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 
-const tiles = [
+const page = usePage()
+const readerHasLibraryCardRecord = computed(() => Boolean(page.props.reader_has_library_card_record))
+
+const tiles = computed(() => [
     {
         key: 'library-card',
         title: 'Thẻ thư viện',
-        description: 'Xem thông tin thẻ hiện có hoặc gửi yêu cầu cấp thẻ khi chưa có.',
+        description: readerHasLibraryCardRecord.value
+            ? 'Xem thông tin thẻ, trạng thái và thao tác liên quan.'
+            : 'Xem thông tin thẻ hiện có hoặc gửi yêu cầu cấp thẻ khi chưa có.',
         route: 'reader.services.library-card',
         icon: 'lucide:id-card',
         iconClass: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300',
@@ -15,7 +21,7 @@ const tiles = [
     {
         key: 'digital-documents',
         title: 'Nộp đồ án, luận văn',
-        description: 'Tải lên đồ án hoặc luận văn PDF, theo dõi trạng thái duyệt và xem trực tiếp trên web.',
+        description: 'Tải lên đồ án hoặc luận văn PDF và theo dõi trạng thái duyệt.',
         route: 'reader.services.digital-documents',
         icon: 'lucide:file-text',
         iconClass: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300',
@@ -28,7 +34,7 @@ const tiles = [
         icon: 'lucide:clipboard-list',
         iconClass: 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300',
     },
-]
+])
 </script>
 
 <template>

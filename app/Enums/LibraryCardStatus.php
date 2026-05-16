@@ -12,6 +12,16 @@ enum LibraryCardStatus: int
 
     case PENDING = 4;
 
+    public function label(): string
+    {
+        return match ($this) {
+            self::ACTIVE => 'Đang hiệu lực',
+            self::EXPIRED => 'Hết hạn',
+            self::LOCKED => 'Khóa',
+            self::PENDING => 'Chờ duyệt',
+        };
+    }
+
     /**
      * @return list<int>
      */

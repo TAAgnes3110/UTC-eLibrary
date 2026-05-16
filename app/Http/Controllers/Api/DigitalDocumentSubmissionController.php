@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Helpers\ApiResponse;
+use App\Helpers\DeployHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DigitalDocumentSubmissionResource;
 use App\Services\DigitalDocumentSubmissionService;
@@ -41,18 +42,18 @@ class DigitalDocumentSubmissionController extends Controller
     public function store(Request $request): JsonResponse
     {
         if (! $request->user()) {
-            return ApiResponse::error(__('Vui lòng đăng nhập để tải tài liệu số.'), 401);
+            return ApiResponse::error(__('Vui lòng đăng nhập để tải đồ án, luận văn.'), 401);
         }
 
         // PDF: chỉ tin phần mở rộng .pdf (+ kích thước). Trình duyệt thường gửi application/octet-stream; rule mimes/pdf hay File::types dễ từ chối oan.
         $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'author_names' => ['required', 'string', 'max:500'],
-            'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:65535'],
             'file' => [
                 'required',
                 'file',
-                'max:10240',
+                'max:'.DeployHelper::maxDigitalPdfUploadKilobytes(),
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     if (! $value instanceof UploadedFile) {
                         $fail(__('Vui lòng chọn file PDF.'));
@@ -67,8 +68,10 @@ class DigitalDocumentSubmissionController extends Controller
             ],
             'cover_image' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ], [
-            'author_names.required' => __('Vui lòng nhập tác giả tài liệu.'),
-            'file.max' => __('File PDF không được vượt quá 10MB.'),
+            'author_names.required' => __('Vui lòng nhập tác giả đồ án, luận văn.'),
+            'file.max' => __('File PDF không được vượt quá :max MB.', [
+                'max' => DeployHelper::maxDigitalPdfUploadMegabytesLabel(),
+            ]),
             'cover_image.image' => __('Ảnh bìa phải là file ảnh hợp lệ.'),
             'cover_image.mimes' => __('Ảnh bìa chỉ nhận JPEG, PNG hoặc WebP.'),
             'cover_image.max' => __('Ảnh bìa không được vượt quá 5MB.'),
@@ -83,7 +86,7 @@ class DigitalDocumentSubmissionController extends Controller
 
         return ApiResponse::success(
             new DigitalDocumentSubmissionResource($item->load(['submitter:id,name,email', 'reviewer:id,name'])),
-            __('Đã gửi tài liệu số, vui lòng chờ duyệt.'),
+            __('Đã gửi đồ án, luận văn, vui lòng chờ duyệt.'),
             201
         );
     }
@@ -102,7 +105,7 @@ class DigitalDocumentSubmissionController extends Controller
 
         return ApiResponse::success(
             new DigitalDocumentSubmissionResource($item),
-            __('Duyệt tài liệu số thành công.')
+            __('Duyệt đồ án, luận văn thành công.')
         );
     }
 
@@ -120,7 +123,7 @@ class DigitalDocumentSubmissionController extends Controller
 
         return ApiResponse::success(
             new DigitalDocumentSubmissionResource($item),
-            __('Đã từ chối tài liệu số.')
+            __('Đã từ chối đồ án, luận văn.')
         );
     }
 

@@ -32,5 +32,7 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="API_ALLOWED_DOMAINS" value=""/>
+        <env name="SEPAY_ACCOUNT_NUMBER" value="0000000000"/>
+        <env name="SEPAY_BANK_NAME" value="TESTBANK"/>
     </php>
 </phpunit>

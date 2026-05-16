@@ -86,12 +86,9 @@ const quickLinks = computed(() =>
                 </header>
 
                 <div class="border-t border-slate-100 px-5 py-8 dark:border-slate-800 sm:px-8 sm:py-10">
-                    <div class="max-w-none space-y-4 leading-relaxed">
-                        <p class="text-base font-medium text-slate-800 dark:text-slate-100 sm:text-lg">
+                    <div class="max-w-none leading-relaxed">
+                        <p class="text-base text-slate-700 dark:text-slate-200 sm:text-lg sm:leading-8">
                             {{ A.lead }}
-                        </p>
-                        <p class="text-sm text-slate-600 dark:text-slate-300 sm:text-base">
-                            {{ A.body }}
                         </p>
                     </div>
 

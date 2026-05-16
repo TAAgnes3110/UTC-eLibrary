@@ -16,6 +16,18 @@ enum BookStatus: int
 
     case DISCARDED = 6;
 
+    public function label(): string
+    {
+        return match ($this) {
+            self::AVAILABLE => 'Sẵn sàng',
+            self::BORROWED => 'Đang mượn',
+            self::PROCESSING => 'Đang xử lý',
+            self::LOST => 'Báo mất',
+            self::MAINTENANCE => 'Bảo trì',
+            self::DISCARDED => 'Thanh lý',
+        };
+    }
+
     /**
      * @return list<int>
      */

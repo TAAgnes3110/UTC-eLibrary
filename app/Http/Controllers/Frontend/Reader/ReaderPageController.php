@@ -6,21 +6,30 @@ use App\Enums\LibraryCardStatus;
 use App\Enums\ResourceType;
 use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DigitalPurchaseCartItemResource;
 use App\Http\Resources\LibraryCardResource;
 use App\Http\Resources\LoanPolicyResource;
 use App\Http\Resources\ReaderBookCardResource;
 use App\Http\Resources\ReaderBookDetailResource;
 use App\Models\Book;
 use App\Models\Classification;
+use App\Models\DigitalAsset;
 use App\Models\Faculty;
 use App\Models\LibraryCard;
 use App\Models\LoanPolicy;
 use App\Models\NewsPost;
 use App\Models\Period;
 use App\Services\BookService;
+use App\Services\DigitalAssetPreviewDisplayService;
+use App\Services\DigitalAssetPreviewService;
+use App\Services\DigitalAssetService;
+use App\Services\DigitalPaywallService;
+use App\Services\DigitalPurchaseCartService;
 use App\Services\LoanPoliciesService;
 use App\Services\NewsPostService;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -35,7 +44,12 @@ class ReaderPageController extends Controller
     public function __construct(
         private BookService $bookService,
         private LoanPoliciesService $loanPoliciesService,
-        private NewsPostService $newsPostService
+        private NewsPostService $newsPostService,
+        private DigitalPaywallService $digitalPaywallService,
+        private DigitalPurchaseCartService $digitalPurchaseCartService,
+        private DigitalAssetService $digitalAssetService,
+        private DigitalAssetPreviewService $digitalAssetPreviewService,
+        private DigitalAssetPreviewDisplayService $digitalAssetPreviewDisplayService,
     ) {}
 
     /**
@@ -44,7 +58,7 @@ class ReaderPageController extends Controller
     private function mapReaderNewsPost(NewsPost $post): array
     {
         $plainText = trim((string) preg_replace('/\s+/u', ' ', (string) strip_tags((string) $post->content)));
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        /** @var FilesystemAdapter $mediaStorage */
         $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
 
         return [
@@ -69,26 +83,60 @@ class ReaderPageController extends Controller
      */
     private function readerBorrowPermissions(?Authenticatable $user): ?array
     {
+        return $this->readerLibraryCardContext($user)['permissions'];
+    }
+
+    /**
+     * @return array{has_active_card: bool, permissions: array{allow_home: bool, allow_onsite: bool, holder_type: string}|null}
+     */
+    private function readerLibraryCardContext(?Authenticatable $user): array
+    {
         if ($user === null) {
-            return null;
+            return ['has_active_card' => false, 'permissions' => null];
         }
 
         $card = LibraryCard::query()
             ->where('user_id', $user->getAuthIdentifier())
             ->where('workflow_status', LibraryCard::WORKFLOW_ACTIVE)
             ->where('status', LibraryCardStatus::ACTIVE)
-            ->first();
+            ->first(['id', 'holder_type']);
 
         if ($card === null) {
-            return null;
+            return ['has_active_card' => false, 'permissions' => null];
         }
 
         $p = $this->loanPoliciesService->getBorrowPermissionsForHolderType((string) $card->holder_type);
 
         return [
-            'allow_home' => $p['allow_home'],
-            'allow_onsite' => $p['allow_onsite'],
-            'holder_type' => (string) $card->holder_type,
+            'has_active_card' => true,
+            'permissions' => [
+                'allow_home' => $p['allow_home'],
+                'allow_onsite' => $p['allow_onsite'],
+                'holder_type' => (string) $card->holder_type,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function buildReaderDigitalStats(Book $book, DigitalAsset $asset, ?Authenticatable $user): ?array
+    {
+        $aggregated = $this->digitalAssetService->aggregatedReaderStatsForBook($book);
+        $userHasFull = false;
+        $isOwnSubmission = false;
+        if ($user !== null) {
+            $userId = (int) $user->id;
+            $isOwnSubmission = $this->digitalPaywallService->userIsApprovedSubmitterOfAsset($userId, $asset);
+            $userHasFull = $this->digitalPaywallService->userCanDownloadPdf($userId, $asset);
+        }
+
+        return [
+            'digital_asset_id' => (int) $asset->id,
+            'access_sessions' => $aggregated['view_count'],
+            'downloads' => $aggregated['download_count'],
+            'user_can_download_pdf' => $userHasFull,
+            'is_own_approved_submission' => $isOwnSubmission,
         ];
     }
 
@@ -136,10 +184,19 @@ class ReaderPageController extends Controller
             )->resolve()
         );
 
+        $readerHasLibraryCardRecord = false;
+        $user = request()->user();
+        if ($user !== null) {
+            $readerHasLibraryCardRecord = LibraryCard::query()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
         return Inertia::render('Reader/Home', [
             'latestNews' => $latestNews,
             'latestNotices' => $latestNotices,
             'latestBooks' => $latestBooks,
+            'reader_has_library_card_record' => $readerHasLibraryCardRecord,
         ]);
     }
 
@@ -268,16 +325,19 @@ class ReaderPageController extends Controller
         $stock = $request->input('stock') ?: null;
         $sort = $request->input('sort') ?: 'newest';
 
+        $books = $this->bookService->readerCatalog(
+            $keyword !== '' ? $keyword : null,
+            $resourceType,
+            $perPage,
+            $searchColumns,
+            $classificationId,
+            $stock,
+            $sort,
+        );
+        $books->through(fn (Book $book) => (new ReaderBookCardResource($book))->resolve());
+
         return Inertia::render('Reader/Catalog', [
-            'books' => fn () => $this->bookService->readerCatalog(
-                $keyword !== '' ? $keyword : null,
-                $resourceType,
-                $perPage,
-                $searchColumns,
-                $classificationId,
-                $stock,
-                $sort,
-            )->through(fn (Book $book) => (new ReaderBookCardResource($book))->resolve()),
+            'books' => $books,
             'filters' => [
                 'keyword' => $keyword,
                 'resource_type' => $resourceType,
@@ -287,11 +347,10 @@ class ReaderPageController extends Controller
                 'sort' => $sort,
                 'search_in' => $request->input('search_in'),
             ],
-            'classifications' => fn () => Classification::query()
-                ->where('parent_id', null)
+            'classifications' => Inertia::optional(fn () => Classification::query()
                 ->orderBy('code', 'asc')
-                ->get(['id', 'code', 'name']),
-            'resourceTypeOptions' => fn () => array_merge(
+                ->get(['id', 'code', 'name'])),
+            'resourceTypeOptions' => Inertia::optional(fn () => array_merge(
                 [['value' => '', 'label' => 'Tất cả loại sách']],
                 array_map(
                     static fn (ResourceType $e) => [
@@ -300,29 +359,112 @@ class ReaderPageController extends Controller
                     ],
                     ResourceType::cases()
                 )
-            ),
+            )),
         ]);
     }
 
     public function catalogShow(Book $book): Response
     {
-        $book = $this->bookService->getForApiDetail($book);
+        $book = $this->bookService->getForReaderDetail($book);
         $user = request()->user();
-        $hasActiveLibraryCard = false;
-        if ($user !== null) {
-            $hasActiveLibraryCard = LibraryCard::query()
-                ->where('user_id', $user->id)
-                ->where('workflow_status', LibraryCard::WORKFLOW_ACTIVE)
-                ->where('status', LibraryCardStatus::ACTIVE)
-                ->exists();
+        $isDigital = $book->resource_type === ResourceType::DIGITAL;
+        $cardContext = $this->readerLibraryCardContext($user);
+
+        $primaryAsset = $isDigital ? $this->digitalAssetService->resolvePrimaryAsset($book) : null;
+        if ($isDigital && $primaryAsset) {
+            $this->digitalAssetService->incrementViewCount($primaryAsset);
+        } elseif (! $isDigital) {
+            $this->bookService->incrementReaderCatalogView($book);
         }
+
+        $digitalStats = ($isDigital && $primaryAsset)
+            ? $this->buildReaderDigitalStats($book, $primaryAsset, $user)
+            : null;
+
+        $availability = $isDigital
+            ? ['total' => 0, 'available' => 0, 'borrowed' => 0, 'reserved_pending' => 0]
+            : $this->bookService->readerCopyStats($book);
+
+        $readerViewCount = ! $isDigital ? (int) $book->fresh()->view_count : null;
 
         return Inertia::render('Reader/BookShow', [
             'book' => (new ReaderBookDetailResource($book))->resolve(),
-            'availability' => $this->bookService->readerCopyStats($book),
-            'has_active_library_card' => $hasActiveLibraryCard,
-            'borrow_permissions' => $this->readerBorrowPermissions($user),
+            'availability' => $availability,
+            'has_active_library_card' => $cardContext['has_active_card'],
+            'borrow_permissions' => $cardContext['permissions'],
+            'digital_stats' => $digitalStats,
+            'reader_view_count' => $readerViewCount,
         ]);
+    }
+
+    /** Trang xem trước — hiển thị PNG/text từ preview_display (không stream PDF). */
+    public function catalogDigitalPreviewShow(Book $book, DigitalAsset $digital_asset): Response
+    {
+        if ((int) $digital_asset->book_id !== (int) $book->id) {
+            abort(404);
+        }
+
+        if (! $this->digitalAssetPreviewService->isPreviewAvailableForReader($digital_asset)) {
+            abort(404, __('Chưa có bản xem trước cho tài liệu này.'));
+        }
+
+        if (! $this->digitalAssetPreviewDisplayService->hasPreviewDisplay($digital_asset)) {
+            $this->digitalAssetPreviewDisplayService->ensureDisplayFromStoredPreview($digital_asset->fresh());
+            $digital_asset->refresh();
+        }
+
+        if (! $this->digitalAssetPreviewDisplayService->hasPreviewDisplay($digital_asset)) {
+            abort(404, __('Chưa có bản xem trước hiển thị được. Vui lòng chạy lại lệnh tạo preview trên máy chủ.'));
+        }
+
+        $this->digitalAssetService->incrementViewCount($digital_asset);
+
+        $payload = $this->digitalAssetPreviewDisplayService->readerPreviewPayload(
+            $book,
+            $digital_asset,
+            route('reader.catalog.show', ['book' => $book->id], false)
+        );
+
+        return Inertia::render('Reader/BookDigitalPreview', $payload);
+    }
+
+    public function catalogDigitalPreviewPageImage(Book $book, DigitalAsset $digital_asset, int $page)
+    {
+        if ((int) $digital_asset->book_id !== (int) $book->id) {
+            abort(404);
+        }
+
+        return $this->digitalAssetPreviewDisplayService
+            ->streamPreviewPageImage($book, $digital_asset, $page);
+    }
+
+    /**
+     * Tải file PDF gốc (session auth) — chỉ khi đã có quyền tải.
+     */
+    public function catalogDigitalDownloadPdf(Request $request, Book $book, DigitalAsset $digital_asset)
+    {
+        if ((int) $digital_asset->book_id !== (int) $book->id) {
+            abort(404);
+        }
+
+        $user = $request->user();
+        if ($user === null) {
+            abort(401, __('Vui lòng đăng nhập.'));
+        }
+
+        if (! $this->digitalPaywallService->userCanDownloadPdf((int) $user->id, $digital_asset)) {
+            abort(403, __('Vui lòng thanh toán để tải toàn bộ nội dung.'));
+        }
+
+        if ($digital_asset->embargo_until && $digital_asset->embargo_until > now()->toDateString()) {
+            abort(403, __('Tài liệu này chưa mở truy cập.'));
+        }
+
+        $this->digitalAssetService->incrementDownloadCount($digital_asset);
+
+        $safeFilename = $this->digitalAssetService->buildPdfDownloadFilename($digital_asset, $book);
+
+        return $this->digitalAssetService->streamPdfDownloadResponse($digital_asset, $safeFilename);
     }
 
     /**
@@ -345,7 +487,17 @@ class ReaderPageController extends Controller
 
     public function services(): Response
     {
-        return Inertia::render('Reader/Services/Index');
+        $readerHasLibraryCardRecord = false;
+        $user = request()->user();
+        if ($user !== null) {
+            $readerHasLibraryCardRecord = LibraryCard::query()
+                ->where('user_id', $user->id)
+                ->exists();
+        }
+
+        return Inertia::render('Reader/Services/Index', [
+            'reader_has_library_card_record' => $readerHasLibraryCardRecord,
+        ]);
     }
 
     public function servicesLibraryCard(Request $request): Response
@@ -358,6 +510,7 @@ class ReaderPageController extends Controller
                 'profile' => null,
                 'faculties' => [],
                 'periods' => [],
+                'library_card_can_reapply' => false,
             ]);
         }
 
@@ -369,14 +522,20 @@ class ReaderPageController extends Controller
 
         $avatar = $user->avatar;
         if (! empty($avatar) && ! str_starts_with((string) $avatar, 'http')) {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            /** @var FilesystemAdapter $mediaStorage */
             $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
             $avatar = $mediaStorage->url((string) $avatar);
         }
 
+        $libraryCardCanReapply = $card === null
+            && LibraryCard::onlyTrashed()
+                ->where('user_id', $user->id)
+                ->exists();
+
         return Inertia::render('Reader/Services/LibraryCard', [
             'auth_required' => false,
             'card' => $card ? (new LibraryCardResource($card))->resolve() : null,
+            'library_card_can_reapply' => $libraryCardCanReapply,
             'profile' => [
                 'code' => $user->code,
                 'name' => $user->name,
@@ -409,10 +568,74 @@ class ReaderPageController extends Controller
         return Inertia::render('Reader/Services/DigitalDocuments');
     }
 
-    public function servicesBorrowCart(Request $request): Response
+    public function servicesBookCart(Request $request): Response|RedirectResponse
     {
-        return Inertia::render('Reader/Services/BorrowCart', [
-            'borrow_permissions' => $this->readerBorrowPermissions($request->user()),
+        if ($request->query('checkout') === '1' && $request->filled('buy_asset')) {
+            $buyAsset = (int) $request->query('buy_asset');
+            if ($buyAsset > 0) {
+                return redirect()->route('reader.services.digital-payment', ['buy_asset' => $buyAsset]);
+            }
+        }
+
+        $tab = $request->query('tab', 'borrow');
+        if (! in_array($tab, ['borrow', 'purchase'], true)) {
+            $tab = 'borrow';
+        }
+
+        $user = $request->user();
+        $libraryCardPhone = null;
+        if ($user !== null) {
+            $raw = LibraryCard::query()
+                ->where('user_id', $user->id)
+                ->latest('id')
+                ->value('phone');
+            if ($raw !== null && trim((string) $raw) !== '') {
+                $libraryCardPhone = trim((string) $raw);
+            }
+        }
+
+        $digitalPurchaseCartItems = null;
+        if ($tab === 'purchase' && $user !== null) {
+            $digitalPurchaseCartItems = DigitalPurchaseCartItemResource::collection(
+                $this->digitalPurchaseCartService->listDigitalItemsForUser($user)
+            )->resolve();
+        }
+
+        return Inertia::render('Reader/Services/BookCart', [
+            'borrow_permissions' => $this->readerBorrowPermissions($user),
+            'cart_tab' => $tab,
+            'library_card_phone' => $libraryCardPhone,
+            'digital_purchase_cart_items' => $digitalPurchaseCartItems,
+            'payment_checkout_only' => false,
+        ]);
+    }
+
+    /** Thanh toán trực tiếp tài liệu số (mua ngay) — không qua màn giỏ hàng. */
+    public function servicesDigitalOrders(): Response
+    {
+        return Inertia::render('Reader/Orders/Index');
+    }
+
+    public function servicesDigitalPayment(Request $request): Response
+    {
+        $user = $request->user();
+        $libraryCardPhone = null;
+        if ($user !== null) {
+            $raw = LibraryCard::query()
+                ->where('user_id', $user->id)
+                ->latest('id')
+                ->value('phone');
+            if ($raw !== null && trim((string) $raw) !== '') {
+                $libraryCardPhone = trim((string) $raw);
+            }
+        }
+
+        return Inertia::render('Reader/Services/BookCart', [
+            'borrow_permissions' => $this->readerBorrowPermissions($user),
+            'cart_tab' => 'purchase',
+            'library_card_phone' => $libraryCardPhone,
+            'digital_purchase_cart_items' => null,
+            'payment_checkout_only' => true,
         ]);
     }
 

@@ -12,6 +12,7 @@ use App\Models\LibraryCard;
 use App\Models\LoanBorrowRequest;
 use App\Models\StorageCabinet;
 use App\Models\Warehouse;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\SeedsLoanPolicies;
 use Tests\TestCase;
@@ -230,19 +231,32 @@ class LoanBorrowRequestFlowTest extends TestCase
             'user_id' => $reader->id,
         ]);
 
+        $loanDate = now()->toDateString();
         $create = $this->postJson('/api/v1/me/loan-borrow-requests', [
             'loan_type' => 'onsite',
             'book_ids' => [$book->id],
             'quantity' => [1],
-            'requested_loan_date' => now()->toDateString(),
+            'requested_loan_date' => $loanDate,
         ], $this->apiTokenHeaders($readerToken));
 
         $create->assertStatus(201)->assertJsonPath('status', 'success');
+        $requestId = (int) $create->json('data.id');
         $this->assertDatabaseHas('loan_borrow_requests', [
-            'id' => (int) $create->json('data.id'),
+            'id' => $requestId,
             'loan_type' => 'onsite',
             'status' => LoanBorrowRequest::STATUS_PENDING,
         ]);
+
+        [, $adminToken] = $this->createAdminUserAndToken();
+        $list = $this->getJson('/api/v1/loans/borrow-requests?status=pending', $this->apiTokenHeaders($adminToken));
+        $list->assertStatus(200);
+        $row = collect($list->json('data.data'))->firstWhere('id', $requestId);
+        $this->assertNotNull($row);
+        $this->assertNull($row['requested_due_date'] ?? null);
+        $this->assertSame(
+            Carbon::parse($loanDate)->addDays(30)->toDateString(),
+            $row['suggested_due_date'] ?? null
+        );
     }
 
     public function test_reader_index_filters_by_status_and_respects_per_page(): void

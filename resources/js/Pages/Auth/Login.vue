@@ -70,10 +70,30 @@ const { showPassword, form, submit } = useLoginPage({ fromRegister });
                     </div>
                     <div
                         v-if="fromRegister"
-                        class="mb-6 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-xs font-semibold text-blue-100"
+                        class="mb-6 p-4 rounded-xl bg-emerald-950/30 border border-emerald-500/20 backdrop-blur-md flex items-center gap-3"
                     >
-                        Sau khi đăng nhập, bạn có thể vào <span class="text-white">Thông tin cá nhân</span> để cập nhật hồ sơ và gửi yêu cầu xác nhận
-                        <span class="text-white">Sinh viên / Giáo viên</span>.
+                        <div
+                            class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2.5"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                        </div>
+                        <p
+                            class="text-[12px] text-emerald-400/90 font-bold tracking-wide leading-tight"
+                        >
+                            Đăng ký tài khoản thành công. Vui lòng đăng nhập bằng email hoặc mã định danh và mật khẩu bạn vừa đặt.
+                        </p>
                     </div>
 
                     <form @submit.prevent="submit" class="space-y-5">

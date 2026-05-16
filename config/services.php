@@ -43,4 +43,23 @@ return [
         ],
     ],
 
+    'sepay' => [
+        'api_token' => env('SEPAY_API_TOKEN'),
+        'api_base_url' => env('SEPAY_API_BASE_URL', 'https://userapi.sepay.vn/v2'),
+        'sync_lookback_days' => (int) env('SEPAY_SYNC_LOOKBACK_DAYS', 3),
+        'webhook_secret' => env('SEPAY_WEBHOOK_SECRET'),
+    ],
+
+    /** Đơn tài liệu số pending quá số ngày này sẽ bị xóa tự động (chỉ khi chưa thanh toán). */
+    'digital_orders' => [
+        'pending_max_age_days' => (int) env('DIGITAL_ORDER_PENDING_MAX_AGE_DAYS', 3),
+    ],
+
+    /** Công cụ CLI tạo PDF xem trước khi FPDI không đọc được PDF nén (Word, InDesign…). */
+    'pdf_preview' => [
+        'qpdf_binary' => env('QPDF_BINARY'),
+        'ghostscript_binary' => env('GHOSTSCRIPT_BINARY'),
+        'pdftoppm_binary' => env('PDFTOPPM_BINARY'),
+    ],
+
 ];

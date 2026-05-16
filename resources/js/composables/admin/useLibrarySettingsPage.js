@@ -61,7 +61,6 @@ export function useLibrarySettingsPage() {
     const policies = ref([]);
     const loading = ref(false);
     const saving = ref(false);
-
     const studentForm = ref(emptyForm());
     const teacherForm = ref(emptyForm());
     const externalForm = ref(emptyForm());
@@ -119,14 +118,14 @@ export function useLibrarySettingsPage() {
         } catch (e) {
             policies.value = [];
             toast.error('Không tải được danh sách quy định mượn.');
+        } finally {
+            loading.value = false;
         }
-        loading.value = false;
     };
 
     onMounted(() => {
         fetchPolicies();
     });
-
     function clampInt0(v, fallback = 0) {
         const n = Number(v);
         if (Number.isNaN(n)) {
@@ -229,7 +228,6 @@ export function useLibrarySettingsPage() {
                 if (r.skipped) continue;
                 if (!r.ok && r.validation) {
                     toast.error('Vui lòng kiểm tra lại dữ liệu đã nhập.');
-                    saving.value = false;
                     return;
                 }
             }
@@ -237,8 +235,9 @@ export function useLibrarySettingsPage() {
             await fetchPolicies();
         } catch (e) {
             toast.error(e?.response?.data?.messages ?? 'Lưu thất bại.');
+        } finally {
+            saving.value = false;
         }
-        saving.value = false;
     };
 
     const cancelAll = () => {

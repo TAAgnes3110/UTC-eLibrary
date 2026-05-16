@@ -18,6 +18,7 @@ import { toast } from '@/store/toast';
 import { newsPostsApi } from '@/api/newsPosts';
 import { extractApiPaginator } from '@/utils/adminPagination';
 import { useImageFallback } from '@/composables/useImageFallback';
+import { resetFileInput } from '@/utils/resetFileInput';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -65,6 +66,8 @@ const form = ref({
 const MAX_ATTACHMENTS = 10;
 const editorRef = ref(null);
 const editorImageInputRef = ref(null);
+const thumbnailFileInputRef = ref(null);
+const attachmentsFileInputRef = ref(null);
 const thumbnailPreviewUrl = ref('');
 const uploadingInlineImage = ref(false);
 const quill = ref(null);
@@ -79,7 +82,7 @@ let rowsRequestSerial = 0;
 const hasSelection = computed(() => selectedIds.value.length > 0);
 const isAllSelected = computed(() => rows.value.length > 0 && selectedIds.value.length === rows.value.length);
 const isEditing = computed(() => !!form.value.id);
-function resetForm() {
+function resetFormFields() {
     form.value = {
         id: null,
         title: '',
@@ -96,6 +99,14 @@ function resetForm() {
         URL.revokeObjectURL(thumbnailPreviewUrl.value);
     }
     thumbnailPreviewUrl.value = '';
+    resetFileInput(thumbnailFileInputRef.value);
+    resetFileInput(attachmentsFileInputRef.value);
+    resetFileInput(editorImageInputRef.value);
+}
+
+function closeFormModal() {
+    showFormModal.value = false;
+    resetFormFields();
 }
 
 async function loadRows(page = 1) {
@@ -141,7 +152,7 @@ function scheduleRowsReload({ resetPage = false, delayMs = 180 } = {}) {
 }
 
 function openCreateForm() {
-    resetForm();
+    resetFormFields();
     showFormModal.value = true;
 }
 
@@ -344,8 +355,7 @@ async function savePost() {
             await newsPostsApi.create(fd);
             toast.success('Đã tạo bài viết.');
         }
-        showFormModal.value = false;
-        resetForm();
+        closeFormModal();
         await loadRows(1);
     } catch (e) {
         toast.error(e?.response?.data?.messages || 'Không thể lưu bài viết.');
@@ -895,13 +905,13 @@ async function onInlineImageSelected(event) {
 
         <Teleport to="body">
             <div v-if="showFormModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-slate-900/60" @click="showFormModal = false" />
+                <div class="absolute inset-0 bg-slate-900/60" @click="closeFormModal" />
                 <div class="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
                     <div class="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-slate-700">
                         <h3 class="text-base font-bold text-slate-900 dark:text-white">
                             {{ isEditing ? 'Sửa bài viết' : 'Tạo bài viết mới' }}
                         </h3>
-                        <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="showFormModal = false">
+                        <button type="button" class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300" @click="closeFormModal">
                             <Icon icon="lucide:x" class="h-5 w-5" />
                         </button>
                     </div>
@@ -930,7 +940,7 @@ async function onInlineImageSelected(event) {
                                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Ảnh đại diện hiển thị ở danh sách và trang chi tiết.</p>
                                 <div class="mt-3 flex flex-wrap items-center gap-2">
                                     <label class="inline-flex h-10 cursor-pointer items-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                                        <input type="file" accept=".jpg,.jpeg,.png,.webp" class="hidden" @change="onThumbnailChange" />
+                                        <input ref="thumbnailFileInputRef" type="file" accept=".jpg,.jpeg,.png,.webp" class="hidden" @change="onThumbnailChange" />
                                         Chọn ảnh đại diện
                                     </label>
                                     <button
@@ -964,7 +974,7 @@ async function onInlineImageSelected(event) {
                                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">File đính kèm (nhiều tệp)</p>
                                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Bấm chọn để tải lên PDF/Word/Excel/Zip... tối đa {{ MAX_ATTACHMENTS }} tệp.</p>
                                 <label class="mt-3 flex min-h-[92px] cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
-                                    <input type="file" multiple class="hidden" @change="onAttachmentsChange" />
+                                    <input ref="attachmentsFileInputRef" type="file" multiple class="hidden" @change="onAttachmentsChange" />
                                     <Icon icon="lucide:upload-cloud" class="h-5 w-5 mb-1" />
                                     Chọn nhiều file đính kèm
                                 </label>
@@ -998,7 +1008,7 @@ async function onInlineImageSelected(event) {
                         </div>
                     </div>
                     <div class="flex shrink-0 justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-                        <Button variant="outline" :disabled="saving" @click="showFormModal = false">Hủy</Button>
+                        <Button variant="outline" :disabled="saving" @click="closeFormModal">Hủy</Button>
                         <Button
                             class="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
                             :disabled="saving"

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
+import { resetFileInput } from '@/utils/resetFileInput';
 
 /**
  * Định dạng chung: Modal nhập file / upload ảnh cho mọi trang.
@@ -28,12 +29,20 @@ const emit = defineEmits(['close', 'submit', 'download-template']);
 const file = ref(null);
 const fileName = ref('');
 const dragOver = ref(false);
+const fileInputRef = ref(null);
+
+function resetFileState() {
+    file.value = null;
+    fileName.value = '';
+    resetFileInput(fileInputRef.value);
+}
 
 watch(() => props.show, (val) => {
     if (!val) {
-        file.value = null;
-        fileName.value = '';
+        resetFileState();
+        return;
     }
+    resetFileState();
 });
 
 const onFileSelect = (e) => {
@@ -55,8 +64,7 @@ const onDrop = (e) => {
 };
 
 const reset = () => {
-    file.value = null;
-    fileName.value = '';
+    resetFileState();
 };
 
 const submit = () => {
@@ -109,6 +117,7 @@ const submit = () => {
                             ]"
                         >
                             <input
+                                ref="fileInputRef"
                                 type="file"
                                 :accept="accept"
                                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"

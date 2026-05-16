@@ -1,10 +1,9 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Head, Link, router } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { libraryCardsApi } from '@/api/libraryCards'
-import { profileApi } from '@/api/profile'
 import { extractLaravelValidationErrors } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
@@ -15,6 +14,8 @@ const props = defineProps({
     profile: { type: Object, default: null },
     faculties: { type: Array, default: () => [] },
     periods: { type: Array, default: () => [] },
+    /** Đã từng có hồ sơ thẻ bị gỡ (soft delete) — được phép gửi lại từ biểu mẫu */
+    library_card_can_reapply: { type: Boolean, default: false },
 })
 
 const form = reactive({
@@ -24,11 +25,13 @@ const form = reactive({
 const errors = reactive({})
 const state = reactive({
     submitting: false,
+    cancelSubmitting: false,
     avatarPreview: props.profile?.avatar ?? '',
     avatarFileName: '',
 })
 const avatarInput = ref(null)
 const showAvatarPreviewModal = ref(false)
+const showCancelConfirmModal = ref(false)
 const { withFallback } = useImageFallback()
 
 const role = computed(() => String(props.profile?.user_type || '').trim().toUpperCase())
@@ -36,6 +39,24 @@ const isStudent = computed(() => role.value === 'STUDENT')
 const isTeacher = computed(() => role.value === 'TEACHER')
 const isExternalReader = computed(() => !isStudent.value && !isTeacher.value)
 const hasCard = computed(() => props.card !== null)
+/** Chờ duyệt: cho phép sửa biểu mẫu và gửi lại (API thay thế atomic). */
+const isPendingReviewResubmit = computed(
+    () => hasCard.value && props.card?.workflow_status === 'pending_review',
+)
+/** Thẻ đã được duyệt / đang chờ lấy — hiện nút hướng dẫn «cấp lại» (thủ tục tại quầy). */
+const showReissueLibraryCardCta = computed(() => {
+    if (!hasCard.value) return false
+    const ws = props.card?.workflow_status
+
+    return ws === 'active' || ws === 'pending_pickup'
+})
+const showApplyForm = computed(() => {
+    if (!hasCard.value) {
+        return true
+    }
+
+    return props.card?.workflow_status === 'pending_review'
+})
 const profileCode = computed(() => String(props.profile?.code || '').trim())
 const profileName = computed(() => String(props.profile?.name || '').trim())
 const profileFacultyId = computed(() => {
@@ -70,6 +91,22 @@ const missingProfileFields = computed(() => {
     return missing
 })
 const canSubmitApply = computed(() => missingProfileFields.value.length === 0)
+const applyPrimaryLabel = computed(() => {
+    if (isPendingReviewResubmit.value) {
+        return 'Cấp lại thẻ thư viện'
+    }
+    if (!hasCard.value && props.library_card_can_reapply) {
+        return 'Cấp lại thẻ thư viện'
+    }
+
+    return 'Cấp thẻ thư viện'
+})
+
+const canCancelCardRequest = computed(() => {
+    if (!hasCard.value || !props.card) return false
+    const ws = props.card.workflow_status
+    return ws === 'pending_review' || ws === 'pending_payment'
+})
 
 const workflowLabel = computed(() => {
     const v = props.card?.workflow_status
@@ -121,6 +158,7 @@ const cardDetailItems = computed(() => {
     items.push(
         { label: 'Trạng thái', value: cardStatusLabel.value },
         { label: 'Quy trình', value: workflowLabel.value },
+        { label: 'Ngày gửi yêu cầu', value: formatDateTime(card.created_at) },
         { label: 'Hiệu lực', value: `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}` },
     )
 
@@ -133,6 +171,37 @@ function formatDate(value) {
     if (Number.isNaN(d.getTime())) return '—'
     return d.toLocaleDateString('vi-VN')
 }
+
+function formatDateTime(value) {
+    if (!value) return '—'
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(d)
+}
+
+watch(
+    () => [props.card?.id, props.card?.workflow_status, props.profile?.name, props.profile?.avatar],
+    () => {
+        if (isPendingReviewResubmit.value) {
+            form.full_name = String(props.card?.full_name || props.profile?.name || '').trim()
+            form.avatar_file = null
+            state.avatarFileName = ''
+            state.avatarPreview = props.card?.photo_url || props.profile?.avatar || ''
+        } else if (!hasCard.value) {
+            form.full_name = String(props.profile?.name || '').trim()
+            form.avatar_file = null
+            state.avatarFileName = ''
+            state.avatarPreview = props.profile?.avatar ?? ''
+        }
+    },
+    { immediate: true },
+)
 
 function clearErrors() {
     for (const key of Object.keys(errors)) delete errors[key]
@@ -174,6 +243,10 @@ function mapApiErrors(err) {
     if (!Object.keys(errors).length) {
         errors.general = err?.response?.data?.messages || err?.response?.data?.message || 'Không thể gửi yêu cầu cấp thẻ.'
     }
+    if (errors.library_card) {
+        errors.general = errors.general || errors.library_card
+        delete errors.library_card
+    }
 }
 
 async function submitApply() {
@@ -202,6 +275,12 @@ async function submitApply() {
             payload.faculty_id = profileFacultyId.value
         }
 
+        if (isPendingReviewResubmit.value && !form.avatar_file && props.card?.photo_path) {
+            payload.photo_path = props.card.photo_path
+        }
+
+        const useReplace = isPendingReviewResubmit.value
+
         if (form.avatar_file) {
             const formData = new FormData()
             for (const [key, value] of Object.entries(payload)) {
@@ -213,14 +292,59 @@ async function submitApply() {
             payload = formData
         }
 
-        await libraryCardsApi.createForMe(payload)
-        toast.success('Đã gửi yêu cầu cấp thẻ thư viện.', { title: 'Thẻ thư viện' })
-        router.reload({ only: ['card'], preserveScroll: true })
+        if (useReplace) {
+            await libraryCardsApi.replacePendingReviewForMe(payload)
+            toast.success('Đã gửi lại hồ sơ cấp thẻ thư viện (yêu cầu trước đã được thay thế).', { title: 'Thẻ thư viện' })
+        } else {
+            await libraryCardsApi.createForMe(payload)
+            const okMsg = props.library_card_can_reapply
+                ? 'Đã gửi yêu cầu cấp lại thẻ thư viện.'
+                : 'Đã gửi yêu cầu cấp thẻ thư viện.'
+            toast.success(okMsg, { title: 'Thẻ thư viện' })
+        }
+        router.reload({ only: ['card', 'library_card_can_reapply'], preserveScroll: true })
     } catch (err) {
         mapApiErrors(err)
     } finally {
         state.submitting = false
     }
+}
+
+function closeCancelConfirmModal() {
+    if (state.cancelSubmitting) return
+    showCancelConfirmModal.value = false
+}
+
+function openCancelConfirmModal() {
+    if (!canCancelCardRequest.value || state.cancelSubmitting) return
+    showCancelConfirmModal.value = true
+}
+
+async function confirmCancelCardRequest() {
+    if (!canCancelCardRequest.value || state.cancelSubmitting) return
+    state.cancelSubmitting = true
+    try {
+        await libraryCardsApi.cancelForMe()
+        closeCancelConfirmModal()
+        toast.success('Đã hủy yêu cầu cấp thẻ thư viện.', { title: 'Thẻ thư viện' })
+        router.reload({ only: ['card', 'library_card_can_reapply'], preserveScroll: true })
+    } catch (err) {
+        const msg = err?.response?.data?.messages || err?.response?.data?.message || 'Không hủy được yêu cầu.'
+        toast.error(msg, { title: 'Thẻ thư viện' })
+    } finally {
+        state.cancelSubmitting = false
+    }
+}
+
+function notifyReissueActiveLibraryCard() {
+    const ws = props.card?.workflow_status
+    const isPickup = ws === 'pending_pickup'
+    toast.info(
+        isPickup
+            ? 'Hồ sơ của bạn đã được duyệt và đang chờ lấy thẻ tại quầy. Nếu cần đổi thông tin hoặc làm lại thủ tục, vui lòng liên hệ thư viện và xem mục «Thủ tục làm thẻ» trong Quy định.'
+            : 'Thẻ của bạn đang hiệu lực trên hệ thống. Để đổi thẻ, làm lại khi mất thẻ hoặc khi hết hạn, vui lòng làm thủ tục tại quầy thư viện theo quy định. Xem thêm tại mục «Thủ tục làm thẻ» trong Quy định.',
+        { title: 'Cấp lại thẻ thư viện', duration: 10000 },
+    )
 }
 </script>
 
@@ -250,7 +374,7 @@ async function submitApply() {
                 </div>
 
                 <template v-else>
-                    <div v-if="hasCard" class="mt-6">
+                    <div v-if="hasCard" class="mt-6 space-y-3">
                         <div class="relative overflow-hidden rounded-2xl border border-indigo-300/30 bg-gradient-to-br from-indigo-700 via-blue-700 to-slate-900 p-5 text-white shadow-lg shadow-blue-900/30 sm:p-6">
                             <div class="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
                             <div class="pointer-events-none absolute -bottom-16 -left-20 h-56 w-56 rounded-full bg-cyan-300/10 blur-3xl" />
@@ -272,14 +396,56 @@ async function submitApply() {
                                 </div>
                             </div>
                         </div>
+                        <div v-if="canCancelCardRequest" class="flex flex-wrap justify-end gap-2">
+                            <button
+                                type="button"
+                                :disabled="state.cancelSubmitting"
+                                class="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-rose-300/80 bg-white/95 px-4 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50 disabled:pointer-events-none disabled:opacity-60 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                                @click="openCancelConfirmModal"
+                            >
+                                <Icon icon="lucide:x-circle" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                Hủy yêu cầu cấp thẻ
+                            </button>
+                        </div>
+                        <div v-if="showReissueLibraryCardCta" class="flex flex-wrap justify-end gap-2">
+                            <Link
+                                :href="route('reader.regulations.card')"
+                                class="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+                            >
+                                <Icon icon="lucide:book-open" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                Thủ tục làm / đổi thẻ
+                            </Link>
+                            <button
+                                type="button"
+                                class="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-emerald-300/90 bg-emerald-50 px-4 text-sm font-semibold text-emerald-900 shadow-sm transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                                @click="notifyReissueActiveLibraryCard"
+                            >
+                                <Icon icon="lucide:refresh-ccw" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                Cấp lại thẻ thư viện
+                            </button>
+                        </div>
                     </div>
 
-                    <div v-else class="mt-6 rounded-xl border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
-                        Bạn chưa có thẻ thư viện. Vui lòng kiểm tra đầy đủ thông tin bên dưới (Mã định danh, Tên hiển thị, Khoa/Niên khóa/Lớp nếu có) và ảnh 3x4, sau đó bấm
-                        <strong>Cấp thẻ thư viện</strong> để gửi yêu cầu.
+                    <div v-if="!hasCard" class="mt-6 rounded-xl border border-dashed border-slate-300 px-4 py-4 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
+                        <template v-if="library_card_can_reapply">
+                            Bạn chưa có thẻ thư viện đang hiệu lực nhưng đã từng có hồ sơ bị gỡ. Kiểm tra thông tin bên dưới và ảnh 3x4, sau đó bấm
+                            <strong>Cấp lại thẻ thư viện</strong> để gửi yêu cầu mới.
+                        </template>
+                        <template v-else>
+                            Bạn chưa có thẻ thư viện. Vui lòng kiểm tra đầy đủ thông tin bên dưới (Mã định danh, Tên hiển thị, Khoa/Niên khóa/Lớp nếu có) và ảnh 3x4, sau đó bấm
+                            <strong>Cấp thẻ thư viện</strong> để gửi yêu cầu.
+                        </template>
                     </div>
 
-                    <div v-if="!hasCard" class="mt-6 space-y-4">
+                    <div
+                        v-if="isPendingReviewResubmit"
+                        class="mt-6 rounded-xl border border-dashed border-indigo-300/80 bg-indigo-50/40 px-4 py-4 text-sm text-slate-700 dark:border-indigo-800/60 dark:bg-indigo-950/25 dark:text-slate-200"
+                    >
+                        Hồ sơ đang <strong>chờ duyệt</strong>. Bạn có thể chỉnh tên và ảnh 3×4 bên dưới, rồi bấm
+                        <strong>Cấp lại thẻ thư viện</strong> — hệ thống sẽ hủy yêu cầu cũ và tạo yêu cầu mới trong một bước (tránh trùng với thủ thư đang duyệt cùng lúc).
+                    </div>
+
+                    <div v-if="showApplyForm" class="mt-6 space-y-4">
                         <div v-if="errors.general" class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-800 dark:bg-rose-900/20 dark:text-rose-300">
                             {{ errors.general }}
                         </div>
@@ -386,7 +552,16 @@ async function submitApply() {
                                             Xem ảnh
                                         </button>
                                     </div>
-                                    <p class="text-xs text-slate-500 dark:text-slate-400">{{ state.avatarFileName || 'Chọn ảnh rõ mặt, tỷ lệ 3x4. Ảnh này sẽ được dùng ngay khi bấm Cấp thẻ thư viện.' }}</p>
+                                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                                        {{
+                                            state.avatarFileName
+                                                || (isPendingReviewResubmit
+                                                    ? 'Có thể giữ ảnh hiện tại hoặc chọn ảnh mới. Bấm Cấp lại thẻ thư viện để gửi lại hồ sơ.'
+                                                    : library_card_can_reapply
+                                                        ? 'Chọn ảnh rõ mặt, tỷ lệ 3x4. Ảnh này sẽ được dùng khi bấm Cấp lại thẻ thư viện.'
+                                                        : 'Chọn ảnh rõ mặt, tỷ lệ 3x4. Ảnh này sẽ được dùng ngay khi bấm Cấp thẻ thư viện.')
+                                        }}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -406,7 +581,7 @@ async function submitApply() {
                                 @click="submitApply"
                             >
                                 <Icon v-if="state.submitting" icon="lucide:loader-2" class="mr-2 h-4 w-4 animate-spin" />
-                                Cấp thẻ thư viện
+                                {{ applyPrimaryLabel }}
                             </button>
                             <Link
                                 :href="route('reader.profile')"
@@ -418,6 +593,64 @@ async function submitApply() {
                     </div>
                 </template>
             </article>
+        </div>
+        <!-- Xác nhận hủy yêu cầu cấp thẻ (không dùng window.confirm) -->
+        <div
+            v-if="showCancelConfirmModal"
+            class="fixed inset-0 z-[121] flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-card-request-title"
+        >
+            <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-[2px]" @click="closeCancelConfirmModal" />
+            <div
+                class="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-200/80 dark:border-slate-600 dark:bg-slate-900 dark:ring-slate-700/80"
+            >
+                <div class="border-b border-rose-200/80 bg-rose-50/90 px-5 py-4 dark:border-rose-900/50 dark:bg-rose-950/40">
+                    <div class="flex items-start gap-3">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200">
+                            <Icon icon="lucide:alert-circle" class="h-6 w-6" aria-hidden="true" />
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <h2 id="cancel-card-request-title" class="text-base font-bold text-slate-900 dark:text-white">
+                                Xác nhận hủy yêu cầu
+                            </h2>
+                            <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                Bạn có chắc muốn hủy yêu cầu cấp thẻ thư viện? Hồ sơ sẽ được gỡ khỏi danh sách chờ và bạn có thể gửi yêu cầu mới sau này.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            class="shrink-0 rounded-lg p-2 text-slate-500 transition hover:bg-white/80 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                            :disabled="state.cancelSubmitting"
+                            aria-label="Đóng"
+                            @click="closeCancelConfirmModal"
+                        >
+                            <Icon icon="lucide:x" class="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+                <div class="flex flex-col-reverse gap-2 px-5 py-4 sm:flex-row sm:justify-end sm:gap-3">
+                    <button
+                        type="button"
+                        class="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 sm:w-auto"
+                        :disabled="state.cancelSubmitting"
+                        @click="closeCancelConfirmModal"
+                    >
+                        Giữ yêu cầu
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-rose-500 disabled:opacity-60 dark:bg-rose-700 dark:hover:bg-rose-600 sm:w-auto"
+                        :disabled="state.cancelSubmitting"
+                        @click="confirmCancelCardRequest"
+                    >
+                        <Icon v-if="state.cancelSubmitting" icon="lucide:loader-2" class="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                        <Icon v-else icon="lucide:trash-2" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                        {{ state.cancelSubmitting ? 'Đang hủy…' : 'Xác nhận hủy' }}
+                    </button>
+                </div>
+            </div>
         </div>
         <div v-if="showAvatarPreviewModal && state.avatarPreview" class="fixed inset-0 z-[120] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-slate-900/60" @click="closeAvatarPreviewModal" />

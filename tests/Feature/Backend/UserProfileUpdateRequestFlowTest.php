@@ -2,10 +2,11 @@
 
 namespace Tests\Feature\Backend;
 
+use App\Enums\NotificationType;
 use App\Enums\RoleType;
 use App\Models\Faculty;
+use App\Models\Notification;
 use App\Models\Period;
-use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -115,6 +116,12 @@ class UserProfileUpdateRequestFlowTest extends TestCase
         );
         $submitResponse->assertStatus(201);
 
+        $this->assertDatabaseHas('notifications', [
+            'recipient_type' => Notification::RECIPIENT_ADMIN,
+            'recipient_id' => $admin->id,
+            'type' => NotificationType::ADMIN_PROFILE_REVIEW_NEEDED->value,
+        ]);
+
         /** @var UserProfileUpdateRequest $requestRecord */
         $requestRecord = UserProfileUpdateRequest::query()->firstOrFail();
 
@@ -197,4 +204,3 @@ class UserProfileUpdateRequestFlowTest extends TestCase
         ]);
     }
 }
-

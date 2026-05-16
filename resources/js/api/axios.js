@@ -122,48 +122,86 @@ client.interceptors.response.use(
         }
         originalRequest._retry = true;
 
+        const retryWithoutBearer = async () => {
+            if (originalRequest._sessionRetry) {
+                return null;
+            }
+            originalRequest._sessionRetry = true;
+            const headers = { ...(originalRequest.headers || {}) };
+            delete headers.Authorization;
+            delete headers.authorization;
+            originalRequest.headers = headers;
+            try {
+                return await client(originalRequest);
+            } catch {
+                return null;
+            }
+        };
+
         try {
             if (isRefreshing && refreshPromise) {
                 const newToken = await refreshPromise;
                 if (newToken) {
                     originalRequest.headers = originalRequest.headers || {};
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                    return client(originalRequest);
+                    return await client(originalRequest);
+                }
+                const sessionResponse = await retryWithoutBearer();
+                if (sessionResponse) {
+                    return sessionResponse;
+                }
+                throw error;
+            }
+
+            const oldToken = localStorage.getItem('token');
+            if (!oldToken) {
+                const sessionResponse = await retryWithoutBearer();
+                if (sessionResponse) {
+                    return sessionResponse;
                 }
                 throw error;
             }
 
             isRefreshing = true;
-            const oldToken = localStorage.getItem('token');
-            if (!oldToken) throw error;
-
             refreshPromise = axios
                 .post('/api/v1/auth/refresh', null, {
+                    withCredentials: true,
                     headers: { Authorization: `Bearer ${oldToken}` },
                 })
                 .then((res) => res.data?.token || null)
                 .catch(() => null);
 
             const newToken = await refreshPromise;
-            isRefreshing = false;
-            refreshPromise = null;
 
-            if (!newToken) {
-                throw error;
+            if (newToken) {
+                localStorage.setItem('token', newToken);
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                return await client(originalRequest);
             }
 
-            localStorage.setItem('token', newToken);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
 
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers.Authorization = `Bearer ${newToken}`;
-            return client(originalRequest);
+            const sessionResponse = await retryWithoutBearer();
+            if (sessionResponse) {
+                return sessionResponse;
+            }
+
+            throw error;
         } catch (e) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+            const path = typeof window !== 'undefined' ? window.location.pathname : '';
+            const onAuthPage = path.startsWith('/login') || path.startsWith('/register');
+            const triedSession = Boolean(originalRequest._sessionRetry);
+            if (typeof window !== 'undefined' && !onAuthPage && triedSession) {
                 window.location.href = '/login';
             }
             return Promise.reject(e);
+        } finally {
+            isRefreshing = false;
+            refreshPromise = null;
         }
     }
 );

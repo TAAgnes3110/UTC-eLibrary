@@ -6,6 +6,7 @@ namespace App\Helpers;
 
 use App\Enums\UploadDirectory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -100,6 +101,96 @@ final class FileHelpers
         return (string) config('filesystems.media_disk', 'public');
     }
 
+    public static function digitalAssetsDisk(): string
+    {
+        return (string) config('filesystems.digital_assets_disk', 'local');
+    }
+
+    /**
+     * Đường dẫn tuyệt đối để CLI/Imagick đọc file trên disk (hoặc bản copy tạm trên cloud disk).
+     *
+     * @return array{0: string, 1: bool} [absolutePath, shouldUnlink]
+     */
+    public static function materializeStoragePathToLocalTemp(string $diskName, string $relativePath): array
+    {
+        $adapter = Storage::disk($diskName);
+        try {
+            $localPath = $adapter->path($relativePath);
+            if (is_readable($localPath)) {
+                return [$localPath, false];
+            }
+        } catch (\Throwable) {
+            //
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'utc_mat_');
+        if ($tmp === false) {
+            throw new \RuntimeException('Cannot create temp file');
+        }
+        file_put_contents($tmp, $adapter->get($relativePath));
+
+        return [$tmp, true];
+    }
+
+    /** Sao chép object giữa disk (local / R2 / S3) — không cần path() tuyệt đối. */
+    public static function copyStorageObject(string $fromDisk, string $fromPath, string $toDisk, string $toPath): void
+    {
+        $fromPath = trim($fromPath, '/');
+        $toPath = trim($toPath, '/');
+        if ($fromPath === '' || $toPath === '') {
+            return;
+        }
+
+        if ($fromDisk === $toDisk) {
+            Storage::disk($toDisk)->copy($fromPath, $toPath);
+
+            return;
+        }
+
+        $stream = Storage::disk($fromDisk)->readStream($fromPath);
+        if ($stream === false) {
+            throw new \RuntimeException('Cannot read storage object.');
+        }
+
+        try {
+            Storage::disk($toDisk)->writeStream($toPath, $stream);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+    }
+
+    /** SHA-256 từ stream — dùng được với disk remote (R2/S3), không cần path() local. */
+    public static function hashSha256FromStorage(string $disk, string $path): ?string
+    {
+        $path = trim($path, '/');
+        if ($path === '') {
+            return null;
+        }
+
+        try {
+            $stream = Storage::disk($disk)->readStream($path);
+            if ($stream === false) {
+                return null;
+            }
+
+            $ctx = hash_init('sha256');
+            while (! feof($stream)) {
+                $chunk = fread($stream, 1024 * 1024);
+                if ($chunk === false) {
+                    break;
+                }
+                hash_update($ctx, $chunk);
+            }
+            fclose($stream);
+
+            return hash_final($ctx);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public static function mediaUrl(?string $path): ?string
     {
         if (empty($path)) {
@@ -109,7 +200,7 @@ final class FileHelpers
             return (string) $path;
         }
 
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+        /** @var FilesystemAdapter $storage */
         $storage = Storage::disk(self::mediaDisk());
 
         return $storage->url((string) $path);
@@ -340,6 +431,7 @@ final class FileHelpers
             if ($worksheetIndex >= $spreadsheet->getSheetCount()) {
                 $spreadsheet->disconnectWorksheets();
                 unset($spreadsheet);
+
                 return;
             }
             $worksheet = $spreadsheet->getSheet($worksheetIndex);
@@ -347,6 +439,7 @@ final class FileHelpers
             if (empty($data) || ! isset($data[$headerRow])) {
                 $spreadsheet->disconnectWorksheets();
                 unset($spreadsheet);
+
                 continue;
             }
 

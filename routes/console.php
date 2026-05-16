@@ -29,3 +29,7 @@ Schedule::command('loans:notify-due-soon')
 Schedule::command('storage:sync-quantities')
     ->dailyAt('01:10')
     ->withoutOverlapping();
+
+Schedule::command('digital-orders:expire-pending')
+    ->everyFiveMinutes()
+    ->withoutOverlapping();

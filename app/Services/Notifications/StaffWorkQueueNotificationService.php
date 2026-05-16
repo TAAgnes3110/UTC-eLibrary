@@ -18,8 +18,44 @@ class StaffWorkQueueNotificationService
     ) {}
 
     /**
+     * Đồng bộ digest hàng chờ cho toàn bộ tài khoản staff đang hoạt động (gọi khi có sự kiện mới: yêu cầu cập nhật hồ sơ, cấp thẻ…).
+     *
+     * Số liệu hàng chờ là toàn hệ thống (giống nhau cho mọi staff) nên chỉ COUNT một lần, tránh N×4 truy vấn khi có nhiều tài khoản thủ thư.
+     */
+    public function syncForAllActiveStaff(): void
+    {
+        try {
+            $queue = $this->aggregateWorkQueueCounts();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
+
+        User::query()
+            ->whereIn('user_type', RoleType::staffRoles())
+            ->where('is_active', true)
+            ->select(['id', 'user_type'])
+            ->chunkById(100, function ($users) use ($queue): void {
+                foreach ($users as $user) {
+                    try {
+                        $this->syncForUser($user, $queue);
+                    } catch (\Throwable $e) {
+                        report($e);
+                    }
+                }
+            });
+    }
+
+    /**
      * Đồng bộ thông báo digest theo hàng chờ xử lý của staff.
      *
+     * @param  array{
+     *     library_cards_pending_review:int,
+     *     library_cards_pending_payment:int,
+     *     user_profile_update_requests_pending:int,
+     *     loan_renewal_requests_pending:int
+     * }|null  $precomputedQueue  Bỏ qua COUNT nếu truyền (dùng khi đã gọi {@see aggregateWorkQueueCounts()} cho nhiều staff).
      * @return array{
      *     library_cards_pending_review:int,
      *     library_cards_pending_payment:int,
@@ -27,12 +63,13 @@ class StaffWorkQueueNotificationService
      *     loan_renewal_requests_pending:int
      * }|null
      */
-    public function syncForUser(?User $user): ?array
+    public function syncForUser(?User $user, ?array $precomputedQueue = null): ?array
     {
-        $queue = $this->workQueueForUser($user);
-        if (! $user instanceof User || $queue === null) {
+        if (! $user instanceof User || ! $this->isStaffUser($user)) {
             return null;
         }
+
+        $queue = $precomputedQueue ?? $this->aggregateWorkQueueCounts();
 
         $recipientType = Notification::RECIPIENT_ADMIN;
         $recipientId = (int) $user->id;
@@ -81,14 +118,25 @@ class StaffWorkQueueNotificationService
      */
     public function workQueueForUser(?User $user): ?array
     {
-        if (! $user instanceof User) {
-            return null;
-        }
-        $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : (string) ($user->user_type ?? '');
-        if ($roleValue === '' || ! in_array($roleValue, RoleType::staffRoles(), true)) {
+        if (! $user instanceof User || ! $this->isStaffUser($user)) {
             return null;
         }
 
+        return $this->aggregateWorkQueueCounts();
+    }
+
+    /**
+     * Số lượng chờ xử lý toàn hệ thống (dùng cho digest staff — không phụ thuộc từng user).
+     *
+     * @return array{
+     *     library_cards_pending_review:int,
+     *     library_cards_pending_payment:int,
+     *     user_profile_update_requests_pending:int,
+     *     loan_renewal_requests_pending:int
+     * }
+     */
+    public function aggregateWorkQueueCounts(): array
+    {
         return [
             'library_cards_pending_review' => (int) LibraryCard::query()
                 ->where('workflow_status', LibraryCard::WORKFLOW_PENDING_REVIEW)
@@ -105,8 +153,15 @@ class StaffWorkQueueNotificationService
         ];
     }
 
+    private function isStaffUser(User $user): bool
+    {
+        $roleValue = $user->user_type instanceof RoleType ? $user->user_type->value : (string) ($user->user_type ?? '');
+
+        return $roleValue !== '' && in_array($roleValue, RoleType::staffRoles(), true);
+    }
+
     /**
-     * @param array<string,int> $queue
+     * @param  array<string,int>  $queue
      */
     private function upsertQueueDigestNotification(
         NotificationType $type,

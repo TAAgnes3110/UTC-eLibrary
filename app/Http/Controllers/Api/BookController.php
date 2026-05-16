@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\LoanStatus;
+
 use App\Enums\LoanItemCondition;
 use App\Exports\BookImportTemplateExport;
 use App\Helpers\ApiResponse;
@@ -53,6 +55,7 @@ class BookController extends Controller
         }
         $cacheKey = 'api:books:index:'.md5(json_encode([
             'v' => $this->bookService->adminListCacheVersion(),
+            'dl' => 2,
             'page' => (int) $request->input('page', 1),
             'per_page' => $perPage,
             'resource_type' => (string) $resourceType,
@@ -247,7 +250,7 @@ class BookController extends Controller
             ->when($resourceType !== '', fn ($q) => $q->where('resource_type', $resourceType))
             ->whereHas('loanItems', function ($q) {
                 $q->where('condition_on_return', LoanItemCondition::LOST->value)
-                    ->whereHas('loan', fn ($loanQ) => $loanQ->where('status', Loan::STATUS_RETURNED));
+                    ->whereHas('loan', fn ($loanQ) => $loanQ->where('status', LoanStatus::RETURNED));
             })
             ->orderBy('id')
             ->pluck('id')

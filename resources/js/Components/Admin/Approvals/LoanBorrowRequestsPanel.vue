@@ -214,7 +214,7 @@ async function approveRow(row) {
         holder_type: row.library_card?.holder_type || '',
         loan_type: row.loan_type || 'home',
         requested_loan_date: row.requested_loan_date || '',
-        requested_due_date: row.requested_due_date || '',
+        requested_due_date: row.requested_due_date || row.suggested_due_date || '',
         request_note: row.request_note || '',
         items: (row.items || []).map((it) => ({
             request_item_id: it.id,

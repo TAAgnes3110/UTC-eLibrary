@@ -86,6 +86,25 @@ final class ApiResponse
     }
 
     /**
+     * Map {@see \RuntimeException} có HTTP code trong getCode() (403, 404, 413…).
+     */
+    public static function fromRuntimeException(
+        \RuntimeException $e,
+        int $defaultCode = 422,
+        ?string $fallbackMessage = null
+    ): JsonResponse {
+        $code = (int) $e->getCode();
+        if ($code < 400 || $code > 599) {
+            $code = $defaultCode;
+        }
+
+        return self::error(
+            $e->getMessage() !== '' ? $e->getMessage() : ($fallbackMessage ?? 'Không tải được tài liệu.'),
+            $code
+        );
+    }
+
+    /**
      * Trả về JsonResponse với UTF-8, unescaped unicode.
      *
      * @param  mixed  $data  Array hoặc Arrayable/Jsonable (vd. JsonResource).

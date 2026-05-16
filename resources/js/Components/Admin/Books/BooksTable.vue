@@ -3,6 +3,9 @@ import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import AdminTableActionIcon from '@/Components/Admin/Shared/AdminTableActionIcon.vue';
 import { useImageFallback } from '@/composables/useImageFallback';
+import { downloadAdminDigitalAsset, hasAdminDigitalAttachment, digitalAttachmentFileName } from '@/utils/adminDigitalAsset';
+import { formatDate } from '@/utils/index.js';
+import { toast } from '@/store/toast';
 
 const emit = defineEmits(['toggle-select-all', 'toggle-select', 'view', 'edit', 'delete', 'cover']);
 
@@ -51,17 +54,34 @@ function warehouseLine(book) {
     return name || code || '—';
 }
 
-function fileAttachmentUrl(book) {
-    return book?.primary_digital_asset_url || book?.digital_assets?.[0]?.url || null;
+function fileAttachmentName(book) {
+    return digitalAttachmentFileName(book);
 }
 
-function fileAttachmentName(book) {
-    const raw = book?.digital_assets?.[0]?.original_name;
-    const name = String(raw || '').trim();
-    return name || 'Mở file đính kèm';
+const downloadingBookId = ref(null);
+
+function onDownloadAttachment(book) {
+    if (!hasAdminDigitalAttachment(book) || downloadingBookId.value != null) {
+        return;
+    }
+    downloadingBookId.value = book.id;
+    try {
+        downloadAdminDigitalAsset(book);
+    } catch {
+        toast.error('Không có file đính kèm để tải.', { title: 'Tải file' });
+    } finally {
+        window.setTimeout(() => {
+            if (downloadingBookId.value === book.id) {
+                downloadingBookId.value = null;
+            }
+        }, 1500);
+    }
 }
 
 function circulationStatusLabel(book) {
+    if (isDigitalPage.value) {
+        return hasAdminDigitalAttachment(book) ? 'Đang hoạt động' : 'Chưa có file';
+    }
     const label = String(book?.circulation_status_label || '').trim();
     if (label) return label;
     const available = Number(book?.real_quantity ?? book?.available_quantity ?? book?.quantity ?? 0);
@@ -94,8 +114,7 @@ function circulationStatusLabel(book) {
                         <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tên sách</th>
                         <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Tác giả</th>
                         <template v-if="isDigitalPage">
-                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Mô tả</th>
-                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Nhà xuất bản</th>
+                            <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Ngày tạo</th>
                             <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">File đính kèm</th>
                             <th class="px-3 py-3.5 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-300">Trạng thái</th>
                         </template>
@@ -161,32 +180,28 @@ function circulationStatusLabel(book) {
                             </p>
                         </td>
                         <template v-if="isDigitalPage">
-                            <td class="px-3 py-3 align-middle">
-                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words text-left" :title="book.summary || '—'">
-                                    {{ book.summary || '—' }}
+                            <td class="px-3 py-3 align-middle whitespace-nowrap">
+                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200" :title="formatDate(book.created_at)">
+                                    {{ formatDate(book.created_at) }}
                                 </p>
                             </td>
                             <td class="px-3 py-3 align-middle">
-                                <p class="text-[12px] font-medium text-slate-700 dark:text-slate-200 line-clamp-2 break-words" :title="book.publishers_label || '—'">
-                                    {{ book.publishers_label || '—' }}
-                                </p>
-                            </td>
-                            <td class="px-3 py-3 align-middle">
-                                <a
-                                    v-if="fileAttachmentUrl(book)"
-                                    :href="fileAttachmentUrl(book)"
-                                    target="_blank"
-                                    class="text-[12px] font-semibold text-blue-700 hover:underline dark:text-blue-300 line-clamp-1 break-all"
+                                <button
+                                    v-if="hasAdminDigitalAttachment(book)"
+                                    type="button"
+                                    class="text-left text-[12px] font-semibold text-blue-700 hover:underline disabled:opacity-50 dark:text-blue-300 line-clamp-1 break-all"
                                     :title="fileAttachmentName(book)"
+                                    :disabled="downloadingBookId === book.id"
+                                    @click.stop="onDownloadAttachment(book)"
                                 >
-                                    {{ fileAttachmentName(book) }}
-                                </a>
+                                    {{ downloadingBookId === book.id ? 'Đang tải…' : fileAttachmentName(book) }}
+                                </button>
                                 <span v-else class="text-[12px] text-slate-500 dark:text-slate-400">—</span>
                             </td>
                             <td class="px-3 py-3 align-middle whitespace-nowrap">
                                 <span
                                     class="inline-flex min-h-[28px] items-center rounded-md px-3 py-1 text-[12px] font-semibold leading-none"
-                                    :class="circulationStatusLabel(book) === 'Còn lưu hành'
+                                    :class="circulationStatusLabel(book) === 'Còn lưu hành' || circulationStatusLabel(book) === 'Đang hoạt động'
                                         ? 'bg-emerald-950/60 text-emerald-300 ring-1 ring-emerald-700/40'
                                         : 'bg-rose-950/60 text-rose-300 ring-1 ring-rose-700/40'"
                                 >

@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Helpers\FileHelpers;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ class BookListResource extends JsonResource
     {
         $coverImage = $this->cover_image;
         if (! empty($coverImage) && ! str_starts_with((string) $coverImage, 'http')) {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            /** @var FilesystemAdapter $mediaStorage */
             $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
             $coverImage = $mediaStorage->url((string) $coverImage);
         }
@@ -56,7 +57,11 @@ class BookListResource extends JsonResource
                 'name' => $this->warehouse->name,
             ] : null),
             'primary_digital_asset_url' => $this->resolvePrimaryDigitalAssetUrl(),
-            'digital_assets' => $this->whenLoaded('digitalAssets', fn () => DigitalAssetResource::collection($this->digitalAssets)),
+            'primary_digital_asset_download_url' => $this->resolvePrimaryDigitalAssetDownloadUrl(),
+            'has_digital_attachment' => $this->resolveHasDigitalAttachment(),
+            'digital_assets' => $this->whenLoaded('digitalAssets', function () {
+                return DigitalAssetResource::collection($this->digitalAssets)->resolve(request());
+            }),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];
@@ -76,10 +81,42 @@ class BookListResource extends JsonResource
         }
 
         $disk = $asset->storage_disk ?: 'public';
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $assetStorage */
+        // PDF tài liệu số trên disk `local` là private — không có URL công khai hợp lệ (tránh `/storage/...` giả).
+        if ($disk === 'local') {
+            return null;
+        }
+
+        /** @var FilesystemAdapter $assetStorage */
         $assetStorage = Storage::disk($disk);
 
         return $assetStorage->url($asset->path);
     }
-}
 
+    private function resolveHasDigitalAttachment(): bool
+    {
+        if (! $this->relationLoaded('digitalAssets')) {
+            return false;
+        }
+
+        return $this->digitalAssets->contains(fn ($asset) => filled($asset->path));
+    }
+
+    private function resolvePrimaryDigitalAssetDownloadUrl(): ?string
+    {
+        if (! $this->relationLoaded('digitalAssets')) {
+            return null;
+        }
+
+        $asset = $this->digitalAssets
+            ->sortByDesc(fn ($it) => (int) ($it->is_primary ?? false))
+            ->first();
+        if (! $asset || ! filled($asset->path)) {
+            return null;
+        }
+
+        return route('admin.books.digital-assets.download', [
+            'book' => $this->id,
+            'digital_asset' => $asset->id,
+        ], false);
+    }
+}

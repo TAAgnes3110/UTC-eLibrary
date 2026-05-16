@@ -8,6 +8,7 @@ import { BOOK_FORM_FIELD_MAP } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
 import { extractApiPaginator } from '@/utils/adminPagination';
+import { primaryDigitalAsset } from '@/utils/adminDigitalAsset';
 
 const BOOKS_PER_PAGE = 20;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -80,6 +81,8 @@ function normalizeResourceTypeInput(rawValue) {
     if (
         raw.includes('tai lieu so')
         || raw.includes('tài liệu số')
+        || raw.includes('đồ án')
+        || raw.includes('luận văn')
         || raw.includes('do an')
         || raw.includes('đồ án')
         || raw.includes('luan van')
@@ -215,6 +218,9 @@ export function useBooksAdminPage() {
     const createCoverFile = ref(null);
     const createCoverPreviewUrl = ref('');
     const createDigitalFile = ref(null);
+    /** Khi sửa: ảnh bìa / tên PDF đang có trên server (không phải file mới chọn). */
+    const editExistingCoverUrl = ref('');
+    const editExistingDigitalFileName = ref('');
 
     const {
         fieldErrors: bookFormErrors,
@@ -572,6 +578,55 @@ export function useBooksAdminPage() {
         createDigitalFile.value = null;
     }
 
+    function clearEditExistingMedia() {
+        editExistingCoverUrl.value = '';
+        editExistingDigitalFileName.value = '';
+    }
+
+    function clearEditExistingCover() {
+        editExistingCoverUrl.value = '';
+    }
+
+    function clearEditExistingDigitalFileName() {
+        editExistingDigitalFileName.value = '';
+    }
+
+    function fillFormFromBook(book) {
+        const editResourceTypeRaw = String(book.resource_type || '').trim();
+        const editResourceTypeNormalized = normalizeResourceTypeInput(editResourceTypeRaw);
+        const editResourceTypeLabel = RESOURCE_TYPE_OPTIONS.find((o) => o.value === editResourceTypeNormalized)?.label
+            || editResourceTypeRaw;
+        form.value = {
+            id: book.id ?? null,
+            registration_number: book.registration_number || '',
+            book_code: book.book_code || '',
+            title: book.title || '',
+            sub_title: book.sub_title || '',
+            language: book.language || '',
+            authors: book.authors_label || '',
+            publisher: book.publishers_label || '',
+            published_year: book.published_year || '',
+            pages: book.pages ?? '',
+            book_size: book.book_size || '',
+            description: book.summary || '',
+            price: book.price ?? '',
+            classification: book.classification
+                ? `${book.classification.code || ''} – ${book.classification.name || ''}`.trim()
+                : '',
+            warehouse: book.warehouse?.name || '',
+            cabinet: book.cabinet || '',
+            quantity: book.quantity ?? 1,
+            resource_type: editResourceTypeLabel,
+        };
+    }
+
+    function applyEditExistingMediaFromBook(book) {
+        const cover = String(book?.cover_image || '').trim();
+        editExistingCoverUrl.value = cover && !cover.includes('default-book-cover') ? cover : '';
+        const asset = primaryDigitalAsset(book);
+        editExistingDigitalFileName.value = String(asset?.original_name || '').trim();
+    }
+
     function setCreateDigitalFile(file) {
         if (!(file instanceof File)) {
             clearCreateDigitalFile();
@@ -624,7 +679,10 @@ export function useBooksAdminPage() {
             return byPriority(
                 (x) => x.codeLower.includes('kho-so'),
                 (x) => x.combined.includes('tai lieu so'),
-                (x) => x.combined.includes('tài liệu số'),
+                (x) =>
+                    x.combined.includes('tài liệu số')
+                    || x.combined.includes('đồ án')
+                    || x.combined.includes('luận văn'),
                 (x) => x.combined.includes('digital')
             );
         }
@@ -711,6 +769,7 @@ export function useBooksAdminPage() {
         form.value = emptyForm();
         clearCreateCoverFile();
         clearCreateDigitalFile();
+        clearEditExistingMedia();
         if (pageKind.value === 'digital') {
             form.value.resource_type = 'Đồ án, luận văn';
             form.value.quantity = 0;
@@ -729,42 +788,31 @@ export function useBooksAdminPage() {
     };
 
     const openEditModal = async (book) => {
+        if (!book?.id) return;
         await Promise.allSettled([loadWarehouses()]);
         isEditing.value = true;
         clearBookFormErrors();
-        const editResourceTypeRaw = String(book.resource_type || '').trim();
-        const editResourceTypeNormalized = normalizeResourceTypeInput(editResourceTypeRaw);
-        const editResourceTypeLabel = RESOURCE_TYPE_OPTIONS.find((o) => o.value === editResourceTypeNormalized)?.label
-            || editResourceTypeRaw;
-        form.value = {
-            id: book.id ?? null,
-            registration_number: book.registration_number || '',
-            book_code: book.book_code || '',
-            title: book.title || '',
-            sub_title: book.sub_title || '',
-            language: book.language || '',
-            authors: book.authors_label || '',
-            publisher: book.publishers_label || '',
-            published_year: book.published_year || '',
-            pages: book.pages ?? '',
-            book_size: book.book_size || '',
-            description: book.summary || '',
-            price: book.price ?? '',
-            classification: book.classification
-                ? `${book.classification.code || ''} – ${book.classification.name || ''}`.trim()
-                : '',
-            warehouse: book.warehouse?.name || '',
-            cabinet: book.cabinet || '',
-            quantity: book.quantity ?? 1,
-            resource_type: editResourceTypeLabel,
-        };
         clearCreateCoverFile();
         clearCreateDigitalFile();
+        clearEditExistingMedia();
         warehouseTouched.value = true;
         settingWarehouseSuggestion.value = false;
         bookCodeTouched.value = true;
         registrationTouched.value = true;
         storageSuggestionMessage.value = '';
+
+        try {
+            const res = await booksApi.get(book.id);
+            const detail = res?.data ?? res;
+            fillFormFromBook(detail);
+            applyEditExistingMediaFromBook(detail);
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error('Failed to load book detail', e);
+            fillFormFromBook(book);
+            applyEditExistingMediaFromBook(book);
+        }
+
         showModal.value = true;
     };
 
@@ -827,6 +875,11 @@ export function useBooksAdminPage() {
         try {
             if (isEditing.value && form.value.id != null) {
                 await booksApi.update(form.value.id, payload);
+                if (createCoverFile.value instanceof File) {
+                    const coverData = new FormData();
+                    coverData.append('book_cover', createCoverFile.value);
+                    await booksApi.updateCover(form.value.id, coverData);
+                }
                 if (pageKind.value === 'digital' && createDigitalFile.value instanceof File) {
                     const digitalData = new FormData();
                     digitalData.append('file', createDigitalFile.value);
@@ -856,6 +909,7 @@ export function useBooksAdminPage() {
             showModal.value = false;
             clearCreateCoverFile();
             clearCreateDigitalFile();
+            clearEditExistingMedia();
             await loadBooks();
         } catch (e) {
             // eslint-disable-next-line no-console
@@ -1279,6 +1333,11 @@ export function useBooksAdminPage() {
         createCoverPreviewUrl,
         setCreateCoverFile,
         clearCreateCoverFile,
+        editExistingCoverUrl,
+        editExistingDigitalFileName,
+        clearEditExistingMedia,
+        clearEditExistingCover,
+        clearEditExistingDigitalFileName,
         setCreateDigitalFile,
         clearCreateDigitalFile,
         filterValues,

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\LoanStatus;
+
 use App\Models\Loan;
 use App\Models\LoanRenewalRequest;
 use App\Models\User;
@@ -50,7 +52,7 @@ class LoanRenewalRequestService
             ];
         }
 
-        if (! in_array((string) $loan->status, [Loan::STATUS_BORROWED, Loan::STATUS_OVERDUE], true)) {
+        if (! in_array($loan->status, [LoanStatus::BORROWED, LoanStatus::OVERDUE], true)) {
             return [
                 'eligible' => false,
                 'reason' => 'invalid_status',
@@ -230,8 +232,8 @@ class LoanRenewalRequestService
             $loan->due_date = $newDue;
             if ($loan->return_date === null) {
                 $loan->status = now()->toDateString() > Carbon::parse($loan->due_date)->toDateString()
-                    ? Loan::STATUS_OVERDUE
-                    : Loan::STATUS_BORROWED;
+                    ? LoanStatus::OVERDUE
+                    : LoanStatus::BORROWED;
             }
             $loan->save();
 

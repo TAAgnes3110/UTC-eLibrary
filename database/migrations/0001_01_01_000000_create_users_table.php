@@ -35,6 +35,8 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['user_type', 'is_active']);
+            $table->index(['is_active', 'user_type', 'id'], 'users_active_type_id_idx');
+            $table->index(['user_type', 'id'], 'users_type_id_idx');
             $table->foreign('faculty_id')->references('id')->on('faculties')->onDelete('set null');
             $table->foreign('department_id')->references('id')->on('departments')->onDelete('set null');
         });

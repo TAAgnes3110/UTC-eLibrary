@@ -19,6 +19,8 @@
         "maatwebsite/excel": "^3.1",
         "php-open-source-saver/jwt-auth": "^2.8",
         "predis/predis": "^3.4",
+        "setasign/fpdf": "^1.8",
+        "setasign/fpdi": "^2.6",
         "socialiteproviders/microsoft-azure": "^5.2",
         "spatie/laravel-permission": "^6.24",
         "tightenco/ziggy": "^2.0"
@@ -78,6 +80,9 @@
             "@php artisan route:cache --ansi",
             "@php artisan view:cache --ansi"
         ],
+        "deploy:infinityfree-package": [
+            "bash scripts/prepare-infinityfree-deploy.sh"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
@@ -103,7 +108,7 @@
         }
     },
     "config": {
-        "optimize-autoloader": true,
+        "optimize-autoloader": false,
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {

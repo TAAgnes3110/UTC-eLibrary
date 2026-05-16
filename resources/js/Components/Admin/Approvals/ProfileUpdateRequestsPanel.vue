@@ -426,7 +426,7 @@ onMounted(() => {
 
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[760px]">
+                    <table class="w-full text-left border-collapse min-w-[880px]">
                         <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                             <tr>
                                 <th class="p-4 w-12 align-middle">
@@ -450,16 +450,16 @@ onMounted(() => {
                                 <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
                                     Họ tên
                                 </th>
-                                <th class="p-4 align-middle text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[180px]">
+                                <th class="p-4 align-middle text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[260px]">
                                     Yêu cầu
                                 </th>
-                                <th class="p-4 align-middle text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[150px]">
+                                <th class="p-4 align-middle text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[140px] max-w-[200px]">
                                     Lý do
                                 </th>
-                                <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
+                                <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[112px]">
                                     Minh chứng
                                 </th>
-                                <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[125px]">
+                                <th class="p-4 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 min-w-[168px]">
                                     Thao tác
                                 </th>
                             </tr>
@@ -497,42 +497,48 @@ onMounted(() => {
                                         {{ renderField(item.user?.code) }}
                                     </p>
                                 </td>
-                                <td class="p-3 align-middle max-w-[130px]">
-                                    <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="item.user?.name">
+                                <td class="p-3 align-middle max-w-[160px]">
+                                    <p class="font-semibold text-[15px] leading-snug text-slate-900 dark:text-white truncate" :title="item.user?.name">
                                         {{ item.user?.name || '—' }}
                                     </p>
                                 </td>
-                                <td class="p-3 align-middle text-[12px] text-slate-600 dark:text-slate-300 max-w-[210px]">
-                                    <div class="space-y-1.5">
-                                        <template v-if="requestChangeLines(item).length">
-                                            <div
-                                                v-for="line in requestChangeLines(item)"
-                                                :key="`${item.id}-${line.key}`"
-                                                class="flex items-center gap-1.5 truncate rounded-md border border-slate-200/70 px-2 py-1 dark:border-slate-700/80"
+                                <td class="p-3 align-middle text-slate-700 dark:text-slate-200 min-w-[260px] max-w-[360px]">
+                                    <div
+                                        v-if="requestChangeLines(item).length"
+                                        class="grid grid-cols-2 gap-1.5"
+                                    >
+                                        <div
+                                            v-for="line in requestChangeLines(item)"
+                                            :key="`${item.id}-${line.key}`"
+                                            class="min-w-0 rounded-lg border border-slate-200/90 bg-slate-50/80 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-800/50"
+                                        >
+                                            <p class="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                                {{ line.label }}
+                                            </p>
+                                            <p
+                                                class="mt-1 text-xs leading-snug text-slate-800 dark:text-slate-100 line-clamp-2"
+                                                :title="`${renderField(line.from)} → ${renderField(line.to)}`"
                                             >
-                                                <span class="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                                    {{ line.label }}:
-                                                </span>
-                                                <span class="min-w-0 truncate text-[11px]" :title="`${renderField(line.from)} -> ${renderField(line.to)}`">
-                                                    {{ renderField(line.from) }} -> {{ renderField(line.to) }}
-                                                </span>
-                                            </div>
-                                        </template>
-                                        <p v-else class="text-slate-400 dark:text-slate-500">
-                                            Không có mô tả trường thay đổi (xem minh chứng / chi tiết).
-                                        </p>
+                                                <span class="text-slate-500 dark:text-slate-400">{{ renderField(line.from) }}</span>
+                                                <span class="mx-0.5 text-slate-400 dark:text-slate-500" aria-hidden="true">→</span>
+                                                <span class="font-medium text-slate-900 dark:text-white">{{ renderField(line.to) }}</span>
+                                            </p>
+                                        </div>
                                     </div>
+                                    <p v-else class="text-xs text-slate-500 dark:text-slate-400">
+                                        Không có mô tả (xem minh chứng / chi tiết).
+                                    </p>
                                 </td>
-                                <td class="p-3 align-middle text-[12px] text-slate-600 dark:text-slate-300 max-w-[130px]">
-                                    <p class="truncate whitespace-nowrap" :title="item.reason || ''">{{ item.reason || '—' }}</p>
+                                <td class="p-3 align-middle text-sm text-slate-700 dark:text-slate-200 max-w-[200px]">
+                                    <p class="line-clamp-2 leading-snug" :title="item.reason || ''">{{ item.reason || '—' }}</p>
                                 </td>
                                 <td class="p-3 align-middle">
-                                    <a
+                                    <button
                                         v-if="item.proof_image_url"
-                                        href="#"
-                                        class="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 hover:ring-2 hover:ring-blue-500/30"
-                                        title="Xem ảnh minh chứng"
-                                        @click.prevent="openProofPreview(item.proof_image_url)"
+                                        type="button"
+                                        class="group relative flex h-[5.5rem] w-[5.5rem] shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-100 shadow-sm transition hover:border-blue-400 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-600 dark:bg-slate-800 dark:hover:border-blue-500"
+                                        title="Xem ảnh minh chứng phóng to"
+                                        @click="openProofPreview(item.proof_image_url)"
                                     >
                                         <img
                                             :src="item.proof_image_url"
@@ -540,69 +546,74 @@ onMounted(() => {
                                             class="h-full w-full object-cover"
                                             @error="withFallback('/images/default-news-cover.jpg')($event)"
                                         />
-                                    </a>
-                                    <span v-else class="text-[12px] text-slate-500">—</span>
+                                        <span
+                                            class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide text-white opacity-0 transition group-hover:opacity-100"
+                                        >
+                                            Phóng to
+                                        </span>
+                                    </button>
+                                    <span v-else class="text-sm text-slate-500">—</span>
                                 </td>
                                 <td class="p-3 align-middle">
-                                    <div v-if="item.status === 'pending'" class="grid grid-cols-1 gap-1.5">
+                                    <div v-if="item.status === 'pending'" class="grid w-full min-w-[156px] grid-cols-2 gap-1.5">
                                         <button
                                             type="button"
-                                            class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            class="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-slate-50 px-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
                                             title="Xem chi tiết thay đổi"
                                             @click="toggleDetails(item.id)"
                                         >
-                                            <Icon icon="lucide:eye" class="w-3.5 h-3.5 shrink-0" />
-                                            <span>Chi tiết</span>
+                                            <Icon icon="lucide:eye" class="h-4 w-4 shrink-0" />
+                                            <span class="truncate">Chi tiết</span>
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
+                                            class="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-emerald-300 bg-emerald-50 px-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/35 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
                                             title="Đồng ý — cập nhật hồ sơ người dùng"
                                             :disabled="approvingIds.includes(item.id)"
                                             @click="approveRequest(item)"
                                         >
-                                            <Icon icon="lucide:check-circle-2" class="w-3.5 h-3.5 shrink-0" />
-                                            <span>{{ approvingIds.includes(item.id) ? 'Đang...' : 'Đồng ý' }}</span>
+                                            <Icon icon="lucide:check-circle-2" class="h-4 w-4 shrink-0" />
+                                            <span class="truncate">{{ approvingIds.includes(item.id) ? 'Đang...' : 'Đồng ý' }}</span>
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-2 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45 transition-colors"
+                                            class="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-rose-300 bg-rose-50 px-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/45 transition-colors"
                                             title="Từ chối — không đổi dữ liệu"
                                             @click="rejectRequest(item)"
                                         >
-                                            <Icon icon="lucide:x-circle" class="w-3.5 h-3.5 shrink-0" />
-                                            <span>Từ chối</span>
+                                            <Icon icon="lucide:x-circle" class="h-4 w-4 shrink-0" />
+                                            <span class="truncate">Từ chối</span>
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            class="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
                                             title="Ẩn yêu cầu"
                                             :disabled="hidingIds.includes(item.id)"
                                             @click="hideRequest(item)"
                                         >
-                                            <Icon icon="lucide:trash-2" class="w-3.5 h-3.5 shrink-0" />
-                                            <span>{{ hidingIds.includes(item.id) ? 'Đang xóa...' : 'Xóa' }}</span>
+                                            <Icon icon="lucide:trash-2" class="h-4 w-4 shrink-0" />
+                                            <span class="truncate">{{ hidingIds.includes(item.id) ? 'Đang...' : 'Xóa' }}</span>
                                         </button>
                                     </div>
-                                    <div v-else class="grid grid-cols-1 gap-1.5">
+                                    <div v-else class="grid w-full min-w-[156px] grid-cols-2 gap-1.5">
                                         <button
                                             type="button"
-                                            class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            class="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-slate-50 px-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
                                             title="Xem chi tiết thay đổi"
                                             @click="toggleDetails(item.id)"
                                         >
-                                            <Icon icon="lucide:eye" class="w-3.5 h-3.5 shrink-0" />
-                                            <span>Chi tiết</span>
+                                            <Icon icon="lucide:eye" class="h-4 w-4 shrink-0" />
+                                            <span class="truncate">Chi tiết</span>
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            class="inline-flex min-h-[44px] items-center justify-center gap-1 rounded-lg border border-slate-300 bg-white px-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 transition-colors"
                                             title="Ẩn yêu cầu"
                                             :disabled="hidingIds.includes(item.id)"
                                             @click="hideRequest(item)"
                                         >
-                                            <Icon icon="lucide:trash-2" class="w-3.5 h-3.5 shrink-0" />
-                                            <span>{{ hidingIds.includes(item.id) ? 'Đang xóa...' : 'Xóa' }}</span>
+                                            <Icon icon="lucide:trash-2" class="h-4 w-4 shrink-0" />
+                                            <span class="truncate">{{ hidingIds.includes(item.id) ? 'Đang...' : 'Xóa' }}</span>
                                         </button>
                                     </div>
                                 </td>

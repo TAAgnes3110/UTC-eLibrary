@@ -40,7 +40,8 @@ const {
     deleteAllNotifications,
     deletingAll,
     deletingIds,
-} = useNotifications();
+    fetchNotifications,
+} = useNotifications({ pollIntervalMs: 12000, refetchOnVisibility: true });
 
 const getNotifIcon = (type) => {
     if (type.includes('overdue') || type.includes('expired') || type.includes('rejected')) return 'lucide:alert-circle';
@@ -84,7 +85,7 @@ const onNotificationClick = async (notification) => {
             <ThemeToggle />
 
             <!-- Thông báo (chuông) -->
-            <DropdownMenu>
+            <DropdownMenu @update:open="(open) => open && fetchNotifications()">
                 <DropdownMenuTrigger as-child>
                     <Button variant="ghost" size="icon" class="relative w-9 h-9 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl">
                         <Icon icon="lucide:bell" class="h-4 w-4" />
@@ -170,7 +171,7 @@ const onNotificationClick = async (notification) => {
                                 <Icon icon="lucide:bell-off" class="w-6 h-6" />
                             </div>
                             <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Chưa có thông báo</p>
-                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Các thông báo mượn trả, quá hạn sẽ hiển thị tại đây</p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Mượn trả, quá hạn, duyệt hồ sơ, cấp thẻ, gia hạn… sẽ hiển thị tại đây</p>
                         </div>
                     </div>
                     <div class="px-4 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">

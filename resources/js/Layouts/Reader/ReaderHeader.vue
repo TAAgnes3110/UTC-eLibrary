@@ -2,10 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Link, usePage, router } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
-import { DropdownMenuItem } from '@/Components/ui/dropdown-menu'
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/Components/ui/dropdown-menu'
 import UserAccountDropdown from '@/Components/UserAccountDropdown.vue'
@@ -17,6 +17,8 @@ import { useNotifications } from '@/composables/useNotifications'
 import { useImageFallback } from '@/composables/useImageFallback'
 import { clearClientApiCredentials } from '@/utils/apiAuthStorage'
 import { clearStaffWorkQueueSessionHint } from '@/utils/staffWorkQueueHint'
+import { digitalPurchaseCartApi } from '@/api/digitalPurchaseCart'
+import { READER_BORROW_CART_KEY, READER_CART_UPDATED_EVENT } from '@/config/readerCartKeys'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -24,7 +26,8 @@ const user = computed(() => page.props.auth?.user)
 const isStaff = computed(() => page.props.auth?.is_staff === true)
 const mobileOpen = ref(false)
 const borrowCartCount = ref(0)
-const BORROW_CART_KEY = 'reader_borrow_cart_v1'
+const digitalCartCount = ref(0)
+const totalBookCartCount = computed(() => borrowCartCount.value + digitalCartCount.value)
 const {
     notifications,
     unreadCount,
@@ -40,7 +43,7 @@ const hasNotifications = computed(() => Array.isArray(notifications.value) && no
 
 const syncBorrowCartCount = () => {
     try {
-        const raw = JSON.parse(localStorage.getItem(BORROW_CART_KEY) || '[]')
+        const raw = JSON.parse(localStorage.getItem(READER_BORROW_CART_KEY) || '[]')
         const items = Array.isArray(raw) ? raw : []
         borrowCartCount.value = items.filter((x) => Number(x?.book_id) > 0).length
     } catch {
@@ -48,19 +51,59 @@ const syncBorrowCartCount = () => {
     }
 }
 
+const syncDigitalCartCount = async () => {
+    if (!user.value) {
+        digitalCartCount.value = 0
+        return
+    }
+    try {
+        const payload = await digitalPurchaseCartApi.count()
+        const n = Number(payload?.data?.count ?? payload?.count ?? 0)
+        digitalCartCount.value = Number.isFinite(n) ? n : 0
+    } catch {
+        digitalCartCount.value = 0
+    }
+}
+
+const DIGITAL_CART_COUNT_DEBOUNCE_MS = 380
+let digitalCartCountDebounceTimer = null
+function scheduleDigitalCartCountDebounced() {
+    if (digitalCartCountDebounceTimer) clearTimeout(digitalCartCountDebounceTimer)
+    digitalCartCountDebounceTimer = setTimeout(() => {
+        digitalCartCountDebounceTimer = null
+        void syncDigitalCartCount()
+    }, DIGITAL_CART_COUNT_DEBOUNCE_MS)
+}
+
+const syncAllBookCartCounts = () => {
+    syncBorrowCartCount()
+    scheduleDigitalCartCountDebounced()
+}
+
 const onStorage = (event) => {
-    if (!event?.key || event.key === BORROW_CART_KEY) {
+    if (!event?.key || event.key === READER_BORROW_CART_KEY) {
         syncBorrowCartCount()
     }
 }
 
+const onReaderCartUpdated = () => {
+    syncAllBookCartCounts()
+}
+
 onMounted(() => {
     syncBorrowCartCount()
+    void syncDigitalCartCount()
     window.addEventListener('storage', onStorage)
+    window.addEventListener(READER_CART_UPDATED_EVENT, onReaderCartUpdated)
 })
 
 onBeforeUnmount(() => {
+    if (digitalCartCountDebounceTimer) {
+        clearTimeout(digitalCartCountDebounceTimer)
+        digitalCartCountDebounceTimer = null
+    }
     window.removeEventListener('storage', onStorage)
+    window.removeEventListener(READER_CART_UPDATED_EVENT, onReaderCartUpdated)
 })
 
 const hasRoute = (routeName) => {
@@ -242,17 +285,17 @@ const navChildLinkClass = (childRoute) => {
                 <template v-else>
                     <Link
                         prefetch
-                        :href="route('reader.services.borrow-cart')"
+                        :href="route('reader.services.book-cart')"
                         class="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                        aria-label="Giỏ mượn"
-                        title="Giỏ mượn"
+                        aria-label="Giỏ sách"
+                        title="Giỏ sách"
                     >
                         <Icon icon="lucide:shopping-cart" class="h-5 w-5" />
                         <span
-                            v-if="borrowCartCount > 0"
+                            v-if="totalBookCartCount > 0"
                             class="absolute -right-1 -top-1 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white"
                         >
-                            {{ borrowCartCount > 99 ? '99+' : borrowCartCount }}
+                            {{ totalBookCartCount > 99 ? '99+' : totalBookCartCount }}
                         </span>
                     </Link>
                     <DropdownMenu>
@@ -365,6 +408,14 @@ const navChildLinkClass = (childRoute) => {
                     >
                         <template #items>
                             <DropdownMenuItem
+                                v-if="!isStaff && hasRoute('reader.services.digital-orders')"
+                                class="mx-2 cursor-pointer rounded-xl px-3 py-2.5 text-sm focus:bg-slate-100 dark:focus:bg-slate-800"
+                                @click="router.visit(route('reader.services.digital-orders'))"
+                            >
+                                <Icon icon="lucide:receipt" class="mr-3 h-4 w-4 shrink-0 text-violet-600 dark:text-violet-400" />
+                                <span class="text-slate-700 dark:text-slate-300">{{ accountMenuStrings.myDigitalOrders }}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                                 v-if="!isStaff"
                                 class="mx-2 cursor-pointer rounded-xl px-3 py-2.5 text-sm focus:bg-slate-100 dark:focus:bg-slate-800"
                                 @click="router.visit(route('reader.profile-update-requests'))"
@@ -456,6 +507,23 @@ const navChildLinkClass = (childRoute) => {
                         {{ S.catalog }}
                     </Link>
                     <Link
+                        prefetch
+                        :href="route('reader.services.book-cart')"
+                        class="inline-flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800"
+                        @click="mobileOpen = false"
+                    >
+                        <span class="flex items-center gap-2">
+                            <Icon icon="lucide:shopping-cart" class="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                            Giỏ sách
+                        </span>
+                        <span
+                            v-if="totalBookCartCount > 0"
+                            class="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-emerald-500 px-2 text-xs font-bold text-white"
+                        >
+                            {{ totalBookCartCount > 99 ? '99+' : totalBookCartCount }}
+                        </span>
+                    </Link>
+                    <Link
                         v-if="isStaff"
                         prefetch
                         :href="route('admin.dashboard')"
@@ -463,6 +531,16 @@ const navChildLinkClass = (childRoute) => {
                         @click="mobileOpen = false"
                     >
                         {{ S.goToApp }}
+                    </Link>
+                    <Link
+                        v-if="!isStaff && hasRoute('reader.services.digital-orders')"
+                        prefetch
+                        :href="route('reader.services.digital-orders')"
+                        class="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-800 dark:border-slate-600 dark:text-slate-100"
+                        @click="mobileOpen = false"
+                    >
+                        <Icon icon="lucide:receipt" class="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                        {{ accountMenuStrings.myDigitalOrders }}
                     </Link>
                     <Link
                         v-if="hasRoute('reader.profile')"

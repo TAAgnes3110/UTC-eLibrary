@@ -1,9 +1,11 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { useImageFallback } from '@/composables/useImageFallback';
+import { resetFileInput } from '@/utils/resetFileInput';
+import RichTextEditor from '@/Components/Shared/RichTextEditor.vue';
 
 const props = defineProps({
     show: { type: Boolean, required: true },
@@ -18,6 +20,10 @@ const props = defineProps({
     createCoverPreviewUrl: { type: String, default: '' },
     setCreateCoverFile: { type: Function, default: () => () => {} },
     clearCreateCoverFile: { type: Function, default: () => () => {} },
+    editExistingCoverUrl: { type: String, default: '' },
+    editExistingDigitalFileName: { type: String, default: '' },
+    clearEditExistingCover: { type: Function, default: () => () => {} },
+    clearEditExistingDigitalFileName: { type: Function, default: () => () => {} },
     setCreateDigitalFile: { type: Function, default: () => () => {} },
     clearCreateDigitalFile: { type: Function, default: () => () => {} },
     saveLoading: { type: Boolean, default: false },
@@ -29,6 +35,18 @@ const emit = defineEmits(['close', 'save', 'book-code-touched', 'registration-to
 const currentYear = new Date().getFullYear();
 const isDigitalPage = computed(() => props.pageKind === 'digital');
 const { withFallback } = useImageFallback();
+
+const coverPreviewUrl = computed(
+    () => props.createCoverPreviewUrl || (props.isEditing ? props.editExistingCoverUrl : '')
+);
+
+const digitalFileLabel = computed(() => {
+    if (createDigitalFileName.value) return createDigitalFileName.value;
+    if (props.isEditing && props.editExistingDigitalFileName) {
+        return props.editExistingDigitalFileName;
+    }
+    return '';
+});
 
 function errClass(key) {
     return props.fieldErrors[key] ? 'border-red-500 dark:border-red-500' : 'border-slate-200 dark:border-slate-700';
@@ -62,13 +80,46 @@ function onCoverFileChange(event) {
 }
 
 const createCoverFileName = ref('');
+const createCoverFileInput = ref(null);
+const createDigitalFileName = ref('');
+const createDigitalFileInput = ref(null);
 
-function removeCreateCover() {
+function resetCreateFileUi() {
     createCoverFileName.value = '';
-    props.clearCreateCoverFile();
+    createDigitalFileName.value = '';
+    resetFileInput(createCoverFileInput.value);
+    resetFileInput(createDigitalFileInput.value);
 }
 
-const createDigitalFileName = ref('');
+watch(
+    () => props.show,
+    (visible) => {
+        if (!visible || !props.isEditing) {
+            resetCreateFileUi();
+        }
+    }
+);
+
+function removeCreateCover() {
+    if (props.createCoverPreviewUrl) {
+        createCoverFileName.value = '';
+        resetFileInput(createCoverFileInput.value);
+        props.clearCreateCoverFile();
+        return;
+    }
+    if (props.isEditing && props.editExistingCoverUrl) {
+        props.clearEditExistingCover();
+    }
+}
+
+function removeExistingDigitalLabel() {
+    createDigitalFileName.value = '';
+    resetFileInput(createDigitalFileInput.value);
+    props.clearCreateDigitalFile();
+    if (props.isEditing && props.editExistingDigitalFileName) {
+        props.clearEditExistingDigitalFileName();
+    }
+}
 
 function onDigitalFileChange(event) {
     const file = event?.target?.files?.[0] ?? null;
@@ -80,6 +131,7 @@ function onDigitalFileChange(event) {
 
 function removeCreateDigitalFile() {
     createDigitalFileName.value = '';
+    resetFileInput(createDigitalFileInput.value);
     props.clearCreateDigitalFile();
 }
 </script>
@@ -360,6 +412,7 @@ function removeCreateDigitalFile() {
                             <div class="flex flex-wrap items-center gap-2">
                                 <input
                                     id="book-create-cover-upload"
+                                    ref="createCoverFileInput"
                                     type="file"
                                     accept=".jpg,.jpeg,.png,.gif,.webp"
                                     class="sr-only"
@@ -372,23 +425,29 @@ function removeCreateDigitalFile() {
                                     Chọn ảnh bìa
                                 </label>
                                 <span class="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[360px]">
-                                    {{ createCoverFileName || 'Chưa chọn ảnh' }}
+                                    {{
+                                        createCoverFileName
+                                            || (isEditing && editExistingCoverUrl ? 'Ảnh bìa hiện tại' : 'Chưa chọn ảnh')
+                                    }}
                                 </span>
                             </div>
-                            <div v-if="createCoverPreviewUrl" class="mt-3 flex items-center gap-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-2">
-                                <img :src="createCoverPreviewUrl" alt="Ảnh bìa xem trước" class="h-16 w-12 rounded object-cover ring-1 ring-slate-200 dark:ring-slate-700" @error="withFallback('/images/default-book-cover.png')($event)" />
+                            <div v-if="coverPreviewUrl" class="mt-3 flex items-center gap-3 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40 p-2">
+                                <img :src="coverPreviewUrl" alt="Ảnh bìa" class="h-16 w-12 rounded object-cover ring-1 ring-slate-200 dark:ring-slate-700" @error="withFallback('/images/default-book-cover.png')($event)" />
                                 <Button type="button" variant="outline" size="sm" @click="removeCreateCover">Bỏ ảnh</Button>
                             </div>
                         </div>
                     </div>
                     <div v-if="isDigitalPage" class="sm:col-span-2 space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Tệp đồ án/luận văn (PDF) <span class="text-rose-500">*</span>
+                            Tệp đồ án/luận văn (PDF)
+                            <span v-if="!isEditing" class="text-rose-500">*</span>
+                            <span v-else class="text-slate-400 font-normal text-xs">(để trống giữ file hiện tại)</span>
                         </label>
                         <div class="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 p-3 bg-slate-50/60 dark:bg-slate-800/40">
                             <div class="flex flex-wrap items-center gap-2">
                                 <input
                                     id="book-create-digital-upload"
+                                    ref="createDigitalFileInput"
                                     type="file"
                                     accept=".pdf,application/pdf"
                                     class="sr-only"
@@ -401,9 +460,15 @@ function removeCreateDigitalFile() {
                                     Chọn file PDF
                                 </label>
                                 <span class="text-xs text-slate-500 dark:text-slate-400 truncate max-w-[360px]">
-                                    {{ createDigitalFileName || 'Chưa chọn file PDF' }}
+                                    {{ digitalFileLabel || 'Chưa chọn file PDF' }}
                                 </span>
-                                <Button v-if="createDigitalFileName" type="button" variant="outline" size="sm" @click="removeCreateDigitalFile">
+                                <Button
+                                    v-if="digitalFileLabel"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    @click="removeExistingDigitalLabel"
+                                >
                                     Bỏ file
                                 </Button>
                             </div>
@@ -411,14 +476,15 @@ function removeCreateDigitalFile() {
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">
                         <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mô tả</label>
-                        <textarea
-                            v-model="form.description"
-                            rows="3"
-                            class="w-full rounded-lg border bg-slate-50 dark:bg-slate-800 text-sm text-slate-900 dark:text-white px-3 py-2 resize-y"
-                            :class="errClass('description')"
-                            :placeholder="isDigitalPage ? 'Nhập mô tả ngắn về đồ án/luận văn' : 'Nhập mô tả ngắn về nội dung sách'"
-                            @input="clearFieldError('description')"
-                        />
+                        <div :class="fieldErrors.description ? 'rounded-xl ring-2 ring-red-500' : ''">
+                            <RichTextEditor
+                                v-model="form.description"
+                                :active="show"
+                                :placeholder="isDigitalPage ? 'Nhập mô tả về đồ án/luận văn…' : 'Nhập mô tả về nội dung sách…'"
+                                min-height="220px"
+                                @update:model-value="clearFieldError('description')"
+                            />
+                        </div>
                         <p v-if="fieldErrors.description" class="text-xs text-red-500 font-medium">{{ fieldErrors.description }}</p>
                     </div>
                     <p v-if="!isDigitalPage && storageSuggestionMessage" class="sm:col-span-2 text-xs font-medium text-amber-600 dark:text-amber-400">

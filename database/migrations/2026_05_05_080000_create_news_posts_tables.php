@@ -15,9 +15,15 @@ return new class extends Migration
             $table->longText('content');
             $table->string('thumbnail_path', 500)->nullable();
             $table->string('status', 20)->default('draft')->comment('draft|published')->index();
+            $table->string('type', 20)->default('news')->comment('Loại bài viết: news|notice')->index();
             $table->timestamp('published_at')->nullable()->index();
             $table->userAuditColumns();
             $table->timestamps();
+
+            $table->index(['status', 'type', 'published_at', 'id'], 'news_posts_status_type_published_id_idx');
+            $table->index(['type', 'status', 'published_at', 'id'], 'news_posts_type_status_published_id_idx');
+            $table->index(['status', 'id'], 'news_posts_status_id_idx');
+            $table->index(['status', 'type', 'id'], 'news_posts_status_type_id_idx');
         });
 
         Schema::create('news_attachments', function (Blueprint $table) {

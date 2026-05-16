@@ -10,6 +10,15 @@ enum ResourceType: string
 
     case DIGITAL = 'digital';
 
+    public function label(): string
+    {
+        return match ($this) {
+            self::TEXTBOOK => 'Giáo trình',
+            self::REFERENCE => 'Tham khảo',
+            self::DIGITAL => 'Tài liệu số',
+        };
+    }
+
     /**
      * @return list<string>
      */

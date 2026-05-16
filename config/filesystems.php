@@ -26,6 +26,9 @@ return [
     */
     'media_disk' => env('MEDIA_DISK', 'public'),
 
+    /** Disk lưu PDF tài liệu số gốc (thường private/local). */
+    'digital_assets_disk' => env('DIGITAL_ASSETS_DISK', 'local'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks

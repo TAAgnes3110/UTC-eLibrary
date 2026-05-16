@@ -2,6 +2,7 @@
 
 use App\Enums\RoleType;
 use App\Http\Controllers\Api\AuthController as BackendAuthController;
+use App\Http\Controllers\Api\DigitalAssetController;
 use App\Http\Controllers\Frontend\Admin\BookPageController;
 use App\Http\Controllers\Frontend\Admin\ChangePasswordController;
 use App\Http\Controllers\Frontend\Admin\DashboardController;
@@ -32,6 +33,14 @@ Route::prefix('quy-dinh')->group(function () {
     Route::get('/muon-sach', [ReaderPageController::class, 'regulationsBorrowing'])->name('reader.regulations.borrowing');
 });
 Route::get('/tra-cuu-sach', [ReaderPageController::class, 'catalog'])->name('reader.catalog');
+Route::get('/tra-cuu-sach/{book}/tai-lieu/{digital_asset}/xem-truoc', [ReaderPageController::class, 'catalogDigitalPreviewShow'])
+    ->name('reader.catalog.digital-preview');
+Route::get('/tra-cuu-sach/{book}/tai-lieu/{digital_asset}/xem-truoc/trang/{page}.png', [ReaderPageController::class, 'catalogDigitalPreviewPageImage'])
+    ->whereNumber('page')
+    ->name('reader.catalog.digital-preview-page-image');
+Route::get('/tra-cuu-sach/{book}/tai-lieu/{digital_asset}/tai-pdf', [ReaderPageController::class, 'catalogDigitalDownloadPdf'])
+    ->middleware('auth')
+    ->name('reader.catalog.digital-download-pdf');
 Route::get('/tra-cuu-sach/{book}', [ReaderPageController::class, 'catalogShow'])->name('reader.catalog.show');
 Route::get('/tin-tuc', [ReaderPageController::class, 'newsIndex'])->name('reader.news.index');
 Route::get('/tin-tuc/{slug}', [ReaderPageController::class, 'newsShow'])->name('reader.news.show');
@@ -40,7 +49,11 @@ Route::prefix('dich-vu')->name('reader.services.')->group(function () {
     Route::get('/cap-the-thu-vien', [ReaderPageController::class, 'servicesLibraryCard'])->name('library-card');
     Route::get('/phieu-muon', [ReaderPageController::class, 'servicesLoanRequests'])->middleware('auth')->name('loan-requests');
     Route::get('/tai-lieu-so', [ReaderPageController::class, 'servicesDigitalDocuments'])->name('digital-documents');
-    Route::get('/gio-muon', [ReaderPageController::class, 'servicesBorrowCart'])->middleware('auth')->name('borrow-cart');
+    Route::redirect('/gio-muon', '/dich-vu/gio-sach', 301)->middleware('auth');
+    Route::redirect('/gio-tai-lieu-so', '/dich-vu/gio-sach?tab=purchase', 301)->middleware('auth');
+    Route::get('/gio-sach', [ReaderPageController::class, 'servicesBookCart'])->middleware('auth')->name('book-cart');
+    Route::get('/thanh-toan', [ReaderPageController::class, 'servicesDigitalPayment'])->middleware('auth')->name('digital-payment');
+    Route::get('/don-hang-cua-toi', [ReaderPageController::class, 'servicesDigitalOrders'])->middleware('auth')->name('digital-orders');
     Route::get('/phieu-muon/{loan}', [ReaderPageController::class, 'servicesLoanRequestShow'])->middleware('auth')->name('loan-requests.show');
 });
 
@@ -87,12 +100,15 @@ Route::middleware('auth')->group(function () {
         Route::get('/books/reference', [BookPageController::class, 'reference'])->name('books.reference');
         Route::get('/books/digital/submissions', [BookPageController::class, 'digitalSubmissions'])->name('books.digital-submissions');
         Route::get('/books/digital', [BookPageController::class, 'digital'])->name('books.digital');
+        Route::get('/books/{book}/digital-assets/{digital_asset}/download', [DigitalAssetController::class, 'download'])
+            ->name('books.digital-assets.download');
         Route::get('/books', [BookPageController::class, 'index'])->name('books.index');
         Route::get('/news-posts', [NewsPageController::class, 'index'])->name('news-posts.index');
         Route::get('/warehouses', [WarehousePageController::class, 'index'])->name('warehouses.index');
         Route::get('/warehouses/storage', [WarehousePageController::class, 'storage'])->name('warehouses.storage');
         Route::get('/warehouses/storage-cabinets', [WarehousePageController::class, 'storageCabinets'])->name('warehouses.storage-cabinets');
         Route::get('/library-settings', [LibrarySettingsPageController::class, 'index'])->name('library-settings.index');
+        Route::get('/library-settings/pricing', [LibrarySettingsPageController::class, 'pricing'])->name('library-settings.pricing');
         Route::get('/library-settings/classifications', [LibrarySettingsPageController::class, 'classifications'])->name('library-settings.classifications');
         Route::get('/classifications', [LibraryClassificationPageController::class, 'index'])->name('classifications.index');
         Route::get('/library-cards', [LibraryCardPageController::class, 'index'])->name('library-cards.index');

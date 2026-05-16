@@ -7,6 +7,16 @@ export const libraryCardsApi = {
         }
         return client.post('/me/library-card', payload).then((r) => r.data);
     },
+    /** Chỉ khi hồ sơ đang chờ duyệt: hủy bản cũ + tạo bản mới (atomic). */
+    replacePendingReviewForMe(payload) {
+        if (payload instanceof FormData) {
+            return client.post('/me/library-card/replace', payload).then((r) => r.data);
+        }
+        return client.post('/me/library-card/replace', payload).then((r) => r.data);
+    },
+    cancelForMe() {
+        return client.delete('/me/library-card').then((r) => r.data);
+    },
     list(params = {}) {
         return client.get('/library-cards', { params }).then((r) => r.data);
     },

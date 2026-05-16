@@ -8,8 +8,11 @@ export const digitalDocumentsApi = {
         return client.get('/me/digital-document-submissions', { params }).then((r) => r.data);
     },
     submit(payload) {
-        // Không set Content-Type thủ công: axios + interceptor gắn boundary đúng cho FormData.
-        return client.post('/me/digital-document-submissions', payload).then((r) => r.data);
+        return client
+            .post('/me/digital-document-submissions', payload, {
+                timeout: 300000,
+            })
+            .then((r) => r.data);
     },
     hide(id) {
         return client.post(`/me/digital-document-submissions/${id}/hide`).then((r) => r.data);

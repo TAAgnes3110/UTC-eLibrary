@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\FileHelpers;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
-use App\Helpers\FileHelpers;
 
 class BookResource extends JsonResource
 {
@@ -16,7 +17,7 @@ class BookResource extends JsonResource
     {
         $coverImage = $this->cover_image;
         if (! empty($coverImage) && ! str_starts_with((string) $coverImage, 'http')) {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+            /** @var FilesystemAdapter $mediaStorage */
             $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
             $coverImage = $mediaStorage->url((string) $coverImage);
         }
@@ -102,8 +103,18 @@ class BookResource extends JsonResource
                 'params' => $this->thesisMetadata->params ?? [],
             ] : null),
 
-            'digital_assets' => $this->whenLoaded('digitalAssets', fn () => DigitalAssetResource::collection($this->digitalAssets)),
+            'digital_assets' => $this->whenLoaded('digitalAssets', function () {
+                return DigitalAssetResource::collection($this->digitalAssets)->resolve(request());
+            }),
+            'has_digital_attachment' => $this->resolveHasDigitalAttachment(),
             'primary_digital_asset_url' => $this->resolvePrimaryDigitalAssetUrl(),
+            'primary_digital_asset_download_url' => $this->resolvePrimaryDigitalAssetDownloadUrl(),
+
+            'created_by_user' => $this->whenLoaded('createdBy', fn () => $this->createdBy ? [
+                'id' => $this->createdBy->id,
+                'name' => $this->createdBy->name,
+                'email' => $this->createdBy->email,
+            ] : null),
             'loan_history' => $this->whenLoaded('loanItems', function () {
                 return $this->loanItems->map(function ($item) {
                     $loan = $item->loan;
@@ -236,10 +247,42 @@ class BookResource extends JsonResource
             return null;
         }
 
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $assetStorage */
+        if ($disk === 'local') {
+            return null;
+        }
+
+        /** @var FilesystemAdapter $assetStorage */
         $assetStorage = Storage::disk($disk);
 
         return $assetStorage->url($asset->path);
+    }
+
+    private function resolvePrimaryDigitalAssetDownloadUrl(): ?string
+    {
+        if (! $this->relationLoaded('digitalAssets')) {
+            return null;
+        }
+
+        $asset = $this->digitalAssets
+            ->sortByDesc(fn ($it) => (int) ($it->is_primary ?? false))
+            ->first();
+        if (! $asset || ! filled($asset->path)) {
+            return null;
+        }
+
+        return route('admin.books.digital-assets.download', [
+            'book' => $this->id,
+            'digital_asset' => $asset->id,
+        ], false);
+    }
+
+    private function resolveHasDigitalAttachment(): bool
+    {
+        if (! $this->relationLoaded('digitalAssets')) {
+            return false;
+        }
+
+        return $this->digitalAssets->contains(fn ($a) => filled($a->path));
     }
 
     private function resolveAccessMode(): string

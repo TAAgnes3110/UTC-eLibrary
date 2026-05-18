@@ -53,6 +53,8 @@ return [
     /** Đơn tài liệu số pending quá số ngày này sẽ bị xóa tự động (chỉ khi chưa thanh toán). */
     'digital_orders' => [
         'pending_max_age_days' => (int) env('DIGITAL_ORDER_PENDING_MAX_AGE_DAYS', 3),
+        /** Số đơn chờ thanh toán tối đa mỗi tài khoản (chống spam QR). */
+        'pending_max_per_user' => (int) env('DIGITAL_ORDER_PENDING_MAX_PER_USER', 3),
     ],
 
     /** Công cụ CLI tạo PDF xem trước khi FPDI không đọc được PDF nén (Word, InDesign…). */

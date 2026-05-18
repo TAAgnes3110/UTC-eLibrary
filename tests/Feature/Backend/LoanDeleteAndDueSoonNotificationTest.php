@@ -2,11 +2,10 @@
 
 namespace Tests\Feature\Backend;
 
-use App\Enums\LoanStatus;
-use App\Enums\LoanType;
-
 use App\Enums\BookStatus;
 use App\Enums\LibraryCardStatus;
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
 use App\Enums\NotificationType;
 use App\Enums\RoleType;
 use App\Models\Book;

@@ -10,6 +10,18 @@ const props = defineProps({
     asset: { type: Object, required: true },
     pages: { type: Array, default: () => [] },
     back_url: { type: String, required: true },
+    preview_state: { type: String, default: 'ready' },
+    preview_message: { type: String, default: '' },
+})
+
+const previewUnavailable = computed(() => props.preview_state !== 'ready')
+
+const unavailableTitle = computed(() => {
+    const state = String(props.preview_state || '')
+    if (state === 'pending' || state === 'processing') {
+        return S.previewPendingTitle
+    }
+    return S.previewUnavailableTitle
 })
 
 const documentTitle = computed(() => {
@@ -84,7 +96,29 @@ const previewPages = computed(() =>
                     />
                 </article>
 
-                <p v-if="!previewPages.length" class="py-12 text-center text-sm text-slate-600 dark:text-slate-400">
+                <div
+                    v-if="previewUnavailable"
+                    class="mx-auto max-w-lg py-16 text-center"
+                >
+                    <Icon
+                        :icon="preview_state === 'pending' || preview_state === 'processing' ? 'lucide:loader-circle' : 'lucide:file-x-2'"
+                        :class="[
+                            'mx-auto h-12 w-12 text-slate-400 dark:text-slate-500',
+                            preview_state === 'pending' || preview_state === 'processing' ? 'animate-spin' : '',
+                        ]"
+                        aria-hidden="true"
+                    />
+                    <h2 class="mt-4 text-base font-bold text-slate-900 dark:text-slate-100">
+                        {{ unavailableTitle }}
+                    </h2>
+                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                        {{ preview_message || S.loadError }}
+                    </p>
+                </div>
+                <p
+                    v-else-if="!previewPages.length"
+                    class="py-12 text-center text-sm text-slate-600 dark:text-slate-400"
+                >
                     {{ S.loadError }}
                 </p>
             </div>

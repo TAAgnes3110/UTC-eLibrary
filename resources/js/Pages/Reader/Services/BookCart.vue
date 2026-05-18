@@ -45,6 +45,9 @@ const bookCartBaseUrl = () => {
 const digitalPaymentBaseUrl = () => {
     try { return route('reader.services.digital-payment') } catch { return '/dich-vu/thanh-toan' }
 }
+const catalogBrowseUrl = () => {
+    try { return route('reader.catalog') } catch { return '/tra-cuu-sach' }
+}
 const pageTitle = computed(() => {
     if (props.payment_checkout_only || (activeTab.value === 'purchase' && purchaseCartPhase.value === 'checkout')) {
         return 'Thanh toán tài liệu số'
@@ -791,16 +794,24 @@ function openDigitalCancelOrderDialog() {
 function closeDigitalCancelOrderDialog() {
     digitalCancelOrderDialogOpen.value = false
 }
+function redirectAfterDigitalOrderCancelled() {
+    stopPaymentPolling()
+    paymentOrder.value = null
+    paymentError.value = ''
+    checkoutStep.value = 1
+    purchaseCartPhase.value = 'pick'
+    clearDigitalBuyNowMode()
+    clearDigitalBuyNowSession()
+    closeDigitalCancelOrderDialog()
+    router.visit(catalogBrowseUrl())
+}
 async function confirmCancelDigitalPaymentOrder() {
     if (!paymentOrder.value?.public_id || cancelOrderLoading.value) return
     cancelOrderLoading.value = true
     try {
         await digitalAssetsApi.cancelOrder(paymentOrder.value.public_id)
-        stopPaymentPolling()
-        paymentOrder.value = null
-        checkoutStep.value = 2
-        closeDigitalCancelOrderDialog()
         toast.success('Đã hủy đơn hàng.', { title: 'Thanh toán' })
+        redirectAfterDigitalOrderCancelled()
     } catch (e) {
         toast.error(extractApiErrorMessage(e, 'Không hủy được đơn hàng.'), { title: 'Thanh toán' })
     } finally {
@@ -884,8 +895,15 @@ watch(
         if (tab === 'purchase') {
             discardStaleBuyNowOnRegularCart()
             const preserve = shouldPreserveDigitalCheckoutScreen()
-            if (!hydrateDigitalCartFromProps()) await fetchDigitalCart({ preserveCheckout: preserve })
-            else await fetchDigitalCart({ silent: true, preserveCheckout: preserve })
+            if (!hydrateDigitalCartFromProps()) {
+                await fetchDigitalCart({ preserveCheckout: preserve })
+            } else {
+                void migrateLegacyLocalDigitalCartOnce().then(() => {
+                    if (!shouldPreserveDigitalCheckoutScreen()) {
+                        void fetchDigitalCart({ silent: true, preserveCheckout: true })
+                    }
+                })
+            }
             if (props.payment_checkout_only) {
                 const appliedFromUrl = await tryApplyDigitalBuyNowCheckout()
                 if (!appliedFromUrl && !preserve) restoreDigitalBuyNowCheckoutSession()
@@ -917,8 +935,15 @@ onMounted(async () => {
     if (isDigitalPurchaseTabActive()) {
         discardStaleBuyNowOnRegularCart()
         const preserve = shouldPreserveDigitalCheckoutScreen()
-        if (hydrateDigitalCartFromProps()) await fetchDigitalCart({ silent: true, preserveCheckout: preserve })
-        else await fetchDigitalCart({ preserveCheckout: preserve })
+        if (!hydrateDigitalCartFromProps()) {
+            await fetchDigitalCart({ preserveCheckout: preserve })
+        } else {
+            void migrateLegacyLocalDigitalCartOnce().then(() => {
+                if (!shouldPreserveDigitalCheckoutScreen()) {
+                    void fetchDigitalCart({ silent: true, preserveCheckout: true })
+                }
+            })
+        }
         if (props.payment_checkout_only) {
             const resumedOrder = await tryResumePendingDigitalOrder()
             if (!resumedOrder) {
@@ -969,7 +994,7 @@ onBeforeUnmount(() => {
                                     {{ pageTitle }}
                                 </h1>
                                 <p v-if="payment_checkout_only" class="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                                    Hoàn tất thanh toán để tải PDF tài liệu đã chọn.
+                                    Hoàn tất thanh toán để tải PDF tài liệu đã chọn. Không yêu cầu thẻ thư viện.
                                 </p>
                             </div>
                             <div
@@ -1021,6 +1046,12 @@ onBeforeUnmount(() => {
                                 Thanh toán tài liệu
                             </Link>
                         </div>
+                        <p
+                            v-if="!payment_checkout_only && activeTab === 'purchase' && purchaseCartPhase === 'pick'"
+                            class="text-xs text-slate-500 dark:text-slate-400"
+                        >
+                            Mua tài liệu số chỉ cần đăng nhập — không yêu cầu thẻ thư viện.
+                        </p>
 
                         <nav
                             v-if="payment_checkout_only || (activeTab === 'purchase' && purchaseCartPhase === 'checkout')"

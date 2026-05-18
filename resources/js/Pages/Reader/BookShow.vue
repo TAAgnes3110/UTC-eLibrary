@@ -17,10 +17,12 @@ import {
 import { markReaderCatalogBooksStale } from '@/config/readerCatalogRefresh'
 import { startBrowserDownload } from '@/utils/downloadAuthenticatedFile'
 import RichHtmlContent from '@/Components/Shared/RichHtmlContent.vue'
+import ReaderRelatedBooksSection from '@/Components/Reader/ReaderRelatedBooksSection.vue'
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
 const isDigitalBook = computed(() => String(props.book?.resource_type || '') === 'digital')
+
 const digitalStats = computed(() => (props.digital_stats && typeof props.digital_stats === 'object' ? props.digital_stats : null))
 
 function normalizeDigitalAssetsPayload(raw) {
@@ -224,12 +226,59 @@ function resolveDigitalAssetPreviewPageUrl(assetId, bookId = null) {
     }
 }
 
-function assetPreviewAvailable(asset) {
+function assetPreviewReady(asset) {
     if (!asset?.id) {
         return false
     }
-    return asset.preview_available === true || Boolean(asset?.preview_url)
+    if (asset.preview_status === 'ready') {
+        return true
+    }
+    return asset.preview_available === true && Boolean(asset?.preview_url)
 }
+
+function assetPreviewDisabled(asset) {
+    return asset?.preview_status === 'disabled'
+}
+
+/** Có thể bấm xem trước (sẵn sàng hoặc đang chờ tạo — hiện thông báo). */
+function assetPreviewActionVisible(asset) {
+    if (!asset?.id || assetPreviewDisabled(asset)) {
+        return false
+    }
+    return assetPreviewReady(asset) || asset.preview_status === 'pending' || asset.preview_status === 'processing' || asset.preview_status === 'failed' || Boolean(asset?.preview_url)
+}
+
+function openDigitalPreview(asset) {
+    if (!asset?.id) {
+        return
+    }
+    if (assetPreviewReady(asset)) {
+        router.visit(resolveDigitalAssetPreviewPageUrl(asset.id))
+        return
+    }
+    const status = String(asset.preview_status || '')
+    if (status === 'pending' || status === 'processing') {
+        toast.info(S.previewPdfProcessing, { title: S.previewPdf })
+        return
+    }
+    toast.warn(S.previewPdfUnavailable, { title: S.previewPdf })
+}
+
+const guestDigitalPreviewReady = computed(
+    () =>
+        isDigitalBook.value &&
+        hasReaderDigitalFile.value &&
+        primaryDigitalAsset.value &&
+        assetPreviewReady(primaryDigitalAsset.value)
+)
+
+const guestDigitalPreviewActionVisible = computed(
+    () =>
+        isDigitalBook.value &&
+        hasReaderDigitalFile.value &&
+        primaryDigitalAsset.value &&
+        assetPreviewActionVisible(primaryDigitalAsset.value)
+)
 
 /** Tải file PDF gốc (session auth) — route web reader.catalog.digital-download-pdf. */
 function resolveDigitalAssetDownloadPdfUrl(assetId, bookId = null) {
@@ -352,6 +401,7 @@ const props = defineProps({
     has_active_library_card: { type: Boolean, default: false },
     /** @type {{ allow_home: boolean, allow_onsite: boolean, holder_type: string }|null} */
     borrow_permissions: { type: Object, default: null },
+    related_books: { type: Array, default: () => [] },
 })
 
 const downloadingPdfAssetId = ref(null)
@@ -574,122 +624,198 @@ const digitalDescription = computed(() => {
 })
 
 const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
+
+const detailPanel = ref('description')
+
+const digitalPriceLabel = computed(() => {
+    const asset = primaryDigitalAsset.value
+    if (!asset?.paywall) {
+        return null
+    }
+    const price = Number(asset.paywall.pdf_download_price_vnd ?? 0)
+    if (asset.paywall.is_enabled === false || price <= 0) {
+        return 'Miễn phí'
+    }
+    return `${price.toLocaleString('vi-VN')} ₫`
+})
+
+const specRows = computed(() => {
+    const rows = []
+    const b = props.book
+    if (b.authors_label) {
+        rows.push({ label: S.authors, value: b.authors_label })
+    }
+    if (!isDigitalBook.value && b.publishers_label) {
+        rows.push({ label: S.publisherLabel, value: b.publishers_label })
+    }
+    if (subjectLine.value && subjectLine.value !== '—') {
+        rows.push({ label: S.subject, value: subjectLine.value })
+    }
+    rows.push({ label: S.resourceType, value: b.resource_type_label || '—' })
+    if (!isDigitalBook.value) {
+        rows.push({ label: S.price, value: priceFmt.value })
+        if (b.warehouse?.name) {
+            rows.push({ label: S.warehouseLabel, value: b.warehouse.name })
+        }
+        if (b.cabinet) {
+            rows.push({ label: S.cabinetLabel, value: b.cabinet })
+        }
+    }
+    if (!isDigitalBook.value && publicationLine.value !== '—') {
+        rows.push({ label: S.publicationInfo, value: publicationLine.value })
+    }
+    if (!isDigitalBook.value && physicalLine.value !== '—') {
+        rows.push({ label: S.physicalDesc, value: physicalLine.value })
+    }
+    return rows
+})
+
+const hasDescriptionPanel = computed(() => {
+    if (isDigitalBook.value) {
+        return Boolean(digitalDescription.value)
+    }
+    return Boolean(props.book?.summary)
+})
+
+watch(hasDescriptionPanel, (has) => {
+    if (!has && detailPanel.value === 'description') {
+        detailPanel.value = 'details'
+    }
+}, { immediate: true })
+
+const displayBookCode = computed(() => String(props.book?.book_code || '').trim())
 </script>
 
 <template>
     <ReaderLayout>
         <Head :title="headTitle" />
-        <div class="mx-auto max-w-5xl animate-in fade-in-50 duration-500">
-            <div class="mb-4">
+        <div class="mx-auto max-w-7xl animate-in fade-in-50 duration-500 px-1 sm:px-0">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
+                <nav
+                    class="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 sm:text-sm"
+                    aria-label="Breadcrumb"
+                >
+                    <Link :href="route('reader.home')" class="hover:text-blue-800 dark:hover:text-blue-400">{{ S.breadcrumbHome }}</Link>
+                    <Icon icon="lucide:chevron-right" class="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
+                    <Link :href="route('reader.catalog')" :preserve-state="false" class="hover:text-blue-800 dark:hover:text-blue-400">{{
+                        S.breadcrumbCatalog
+                    }}</Link>
+                    <Icon icon="lucide:chevron-right" class="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden="true" />
+                    <span class="line-clamp-1 font-medium text-slate-800 dark:text-slate-200">{{ book.title }}</span>
+                </nav>
                 <Link
                     :href="route('reader.catalog')"
                     :preserve-state="false"
-                    class="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-blue-800 hover:underline dark:text-blue-400"
+                    class="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-blue-600 dark:hover:bg-slate-700"
                 >
-                    <Icon icon="lucide:arrow-left" class="h-4 w-4 shrink-0" aria-hidden="true" />
-                    {{ S.backCatalog }}
+                    <Icon icon="lucide:arrow-left" class="h-4 w-4" aria-hidden="true" />
+                    <span class="hidden sm:inline">{{ S.backCatalog }}</span>
+                    <span class="sm:hidden">Tra cứu</span>
                 </Link>
             </div>
-            <nav class="mb-6 flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-400" aria-label="Breadcrumb">
-                <Link :href="route('reader.home')" class="font-medium hover:text-blue-800 dark:hover:text-blue-400">{{
-                    S.breadcrumbHome
-                }}</Link>
-                <span aria-hidden="true">/</span>
-                <Link
-                    :href="route('reader.catalog')"
-                    :preserve-state="false"
-                    class="font-medium hover:text-blue-800 dark:hover:text-blue-400"
-                >{{ S.breadcrumbCatalog }}</Link>
-                <span aria-hidden="true">/</span>
-                <span class="line-clamp-1 font-semibold text-slate-900 dark:text-slate-100">{{ book.title }}</span>
-            </nav>
 
-            <article
-                class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-lg dark:border-slate-700/80 dark:bg-slate-900"
-            >
-                <div class="grid gap-6 p-4 sm:p-8 lg:grid-cols-[240px_1fr] lg:gap-10">
-                    <div class="relative mx-auto w-full max-w-[240px] shrink-0">
-                        <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+            <div class="grid gap-6 lg:grid-cols-12 lg:items-stretch lg:gap-8">
+                <div class="flex lg:col-span-4 xl:col-span-3">
+                    <div class="flex h-full w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                            <div class="flex min-h-[220px] flex-1 items-center justify-center bg-slate-50 p-3 dark:bg-slate-800/50 sm:min-h-[280px] sm:p-5">
                             <img
                                 v-if="book.cover_image"
                                 :src="book.cover_image"
                                 :alt="book.title"
-                                class="aspect-[3/4] w-full object-cover"
+                                class="max-h-full w-full max-w-[300px] object-contain shadow-md"
                                 @error="withFallback('/images/default-book-cover.png')($event)"
                             />
-                            <div v-else class="flex aspect-[3/4] w-full items-center justify-center text-slate-400">
+                            <div v-else class="flex h-full min-h-[200px] w-full max-w-[300px] items-center justify-center bg-slate-100 dark:bg-slate-800">
                                 <Icon icon="lucide:book-open" class="h-20 w-20 opacity-40" aria-hidden="true" />
                                 <span class="sr-only">{{ S.noCover }}</span>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="min-w-0">
-                        <h1 class="text-xl font-black leading-tight text-slate-900 dark:text-white sm:text-3xl">
-                            {{ book.title }}
-                        </h1>
-                        <p v-if="book.sub_title" class="mt-2 text-base text-slate-600 dark:text-slate-300">
-                            {{ book.sub_title }}
-                        </p>
-
-                        <div class="mt-4 flex flex-wrap gap-2">
-                            <span
-                                class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-200"
-                            >
-                                {{ book.resource_type_label }}
-                            </span>
-                            <span
-                                v-if="book.book_code"
-                                class="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 dark:border-slate-600 dark:text-slate-400"
-                            >
-                                {{ book.book_code }}
-                            </span>
+                <div class="flex min-w-0 lg:col-span-8 xl:col-span-9">
+                    <div class="flex h-full w-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                        <div class="border-b border-slate-100 p-4 dark:border-slate-800 sm:p-6">
+                            <dl class="space-y-3.5">
+                                <div>
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ S.bookTitleLabel }}</dt>
+                                    <dd class="mt-1 text-xl font-bold leading-snug text-slate-900 dark:text-white sm:text-2xl">{{ book.title }}</dd>
+                                </div>
+                                <div v-if="book.sub_title">
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ S.subTitleLabel }}</dt>
+                                    <dd class="mt-1 text-sm text-slate-700 dark:text-slate-300">{{ book.sub_title }}</dd>
+                                </div>
+                                <div v-if="book.authors_label">
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ S.authors }}</dt>
+                                    <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ book.authors_label }}</dd>
+                                </div>
+                                <div v-if="book.publishers_label">
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ S.publisherLabel }}</dt>
+                                    <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ book.publishers_label }}</dd>
+                                </div>
+                            </dl>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-900 dark:bg-blue-950/60 dark:text-blue-100">
+                                    <Icon icon="lucide:eye" class="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden="true" />
+                                    {{ S.metaViews }}: {{ isDigitalBook ? formatReaderStatCount(localDigitalStats?.access_sessions) : formatReaderStatCount(localReaderViewCount) }}
+                                </span>
+                                <template v-if="isDigitalBook">
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-900 dark:bg-rose-950/60 dark:text-rose-100">
+                                        <Icon icon="lucide:download" class="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden="true" />
+                                        Lượt tải: {{ formatReaderStatCount(localDigitalStats?.downloads) }}
+                                    </span>
+                                    <span v-if="digitalPriceLabel" class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-900 dark:bg-amber-950/60 dark:text-amber-100">
+                                        <Icon icon="lucide:file-text" class="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden="true" />
+                                        PDF: {{ digitalPriceLabel }}
+                                    </span>
+                                </template>
+                                <template v-else>
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-800 dark:bg-slate-700 dark:text-slate-100">
+                                        <Icon icon="lucide:layers" class="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden="true" />
+                                        {{ S.totalCopies }}: {{ availability.total }}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100">
+                                        <Icon icon="lucide:book-check" class="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden="true" />
+                                        {{ S.availableCopies }}: {{ availability.available }}
+                                    </span>
+                                    <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-900 dark:bg-rose-950/60 dark:text-rose-100">
+                                        <Icon icon="lucide:book-marked" class="h-3.5 w-3.5 shrink-0 opacity-90" aria-hidden="true" />
+                                        {{ S.borrowedCopies }}: {{ availability.borrowed }}
+                                    </span>
+                                </template>
+                            </div>
                         </div>
-
-                        <dl class="mt-6 space-y-3 text-sm">
-                            <div class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.authors }}</dt>
-                                <dd class="text-slate-900 dark:text-slate-100">{{ book.authors_label || '—' }}</dd>
-                            </div>
-                            <div v-if="isDigitalBook" class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                <dt class="font-semibold text-slate-500 dark:text-slate-400">Đồ án, luận văn đính kèm</dt>
-                                <dd class="text-slate-900 dark:text-slate-100">
-                                    <span v-if="hasReaderDigitalFile" class="font-semibold">{{ digitalAttachmentName }}</span>
-                                    <span v-else class="text-slate-500 dark:text-slate-400">—</span>
-                                </dd>
-                            </div>
-                            <template v-if="!isDigitalBook">
-                                <div class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                    <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.publicationInfo }}</dt>
-                                    <dd class="text-slate-900 dark:text-slate-100">{{ publicationLine }}</dd>
-                                </div>
-                                <div class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                    <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.physicalDesc }}</dt>
-                                    <dd class="text-slate-900 dark:text-slate-100">{{ physicalLine }}</dd>
-                                </div>
-                                <div class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                    <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.price }}</dt>
-                                    <dd class="text-slate-900 dark:text-slate-100">{{ priceFmt }}</dd>
-                                </div>
-                            </template>
-                            <div v-if="!isDigitalBook" class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.subject }}</dt>
-                                <dd class="text-slate-900 dark:text-slate-100">{{ subjectLine }}</dd>
-                            </div>
-                            <div class="grid gap-1 sm:grid-cols-[140px_1fr] sm:gap-4">
-                                <dt class="font-semibold text-slate-500 dark:text-slate-400">{{ S.resourceType }}</dt>
-                                <dd class="text-slate-900 dark:text-slate-100">{{ book.resource_type_label || '—' }}</dd>
-                            </div>
-                        </dl>
-
-                        <div class="mt-6">
+                        <div class="border-b border-slate-100 bg-slate-50/90 p-4 dark:border-slate-800 dark:bg-slate-800/30 sm:p-6">
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                                {{ isDigitalBook ? S.buyBoxTitleDigital : S.buyBoxTitle }}
+                            </h2>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ isDigitalBook ? S.buyBoxDigitalHint : S.buyBoxPhysicalHint }}</p>
+                            <div class="mt-4">
                             <template v-if="!isAuthed">
+                                <div v-if="guestDigitalPreviewActionVisible" class="space-y-3">
+                                    <button
+                                        type="button"
+                                        class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-blue-900 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100 dark:hover:bg-blue-900/50"
+                                        @click="openDigitalPreview(primaryDigitalAsset)"
+                                    >
+                                        <Icon icon="lucide:eye" class="h-5 w-5 shrink-0" aria-hidden="true" />
+                                        {{ S.previewPdf }}
+                                    </button>
+                                    <Link
+                                        :href="route('login')"
+                                        class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-blue-900 px-4 text-sm font-bold text-white hover:bg-blue-800"
+                                    >
+                                        <Icon icon="lucide:log-in" class="h-5 w-5 shrink-0" aria-hidden="true" />
+                                        {{ S.guestLoginDigital }}
+                                    </Link>
+                                </div>
                                 <Link
+                                    v-else
                                     :href="route('login')"
                                     class="inline-flex min-h-[48px] min-w-[48px] items-center justify-center gap-2 rounded-xl bg-blue-900 px-6 text-sm font-bold text-white hover:bg-blue-800"
                                 >
                                     <Icon icon="lucide:bookmark" class="h-5 w-5 shrink-0" aria-hidden="true" />
-                                    {{ isDigitalBook ? 'Đăng nhập để mua hoặc tải PDF' : 'Đăng nhập để mượn' }}
+                                    {{ isDigitalBook ? S.guestLoginDigital : S.guestLoginPhysical }}
                                 </Link>
                             </template>
                             <template v-else>
@@ -720,14 +846,15 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                                         v-else-if="hasReaderDigitalFile && primaryDigitalAsset"
                                         class="space-y-3"
                                     >
-                                        <Link
-                                            v-if="assetPreviewAvailable(primaryDigitalAsset)"
-                                            :href="resolveDigitalAssetPreviewPageUrl(primaryDigitalAsset.id)"
+                                        <button
+                                            v-if="assetPreviewActionVisible(primaryDigitalAsset)"
+                                            type="button"
                                             class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-blue-900 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100 dark:hover:bg-blue-900/50"
+                                            @click="openDigitalPreview(primaryDigitalAsset)"
                                         >
                                             <Icon icon="lucide:eye" class="h-5 w-5" />
                                             {{ S.previewPdf }}
-                                        </Link>
+                                        </button>
                                         <div class="grid gap-3 sm:grid-cols-2">
                                             <button
                                                 type="button"
@@ -810,52 +937,81 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                             </template>
                         </div>
                         <p v-if="!isAuthed" class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                            Đăng nhập để thêm sách vào giỏ và gửi yêu cầu mượn.
+                            {{
+                                isDigitalBook
+                                    ? guestDigitalPreviewReady
+                                        ? S.guestDigitalPreviewHint
+                                        : S.guestDigitalNoPreviewHint
+                                    : S.guestPhysicalHint
+                            }}
                         </p>
                         <div v-if="isAuthed" class="mt-2">
                             <Link
-                                :href="route('reader.services.book-cart')"
+                                :href="
+                                    isDigitalBook
+                                        ? `${route('reader.services.book-cart')}?tab=purchase`
+                                        : route('reader.services.book-cart')
+                                "
                                 class="inline-flex text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
                             >
-                                Giỏ sách
+                                {{ isDigitalBook ? S.digitalPurchaseCartLink : S.borrowCartLink }}
                             </Link>
+                        </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="border-t border-slate-100 px-5 py-6 dark:border-slate-800 sm:px-8">
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">
-                        {{ isDigitalBook ? 'Thống kê' : S.availabilityTitle }}
-                    </h2>
-                    <div class="mt-4 flex flex-wrap gap-3">
-                        <template v-if="isDigitalBook">
-                            <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-                                Lượt xem: {{ formatReaderStatCount(localDigitalStats?.access_sessions) }}
-                            </span>
-                            <span class="inline-flex rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-900 dark:bg-rose-950 dark:text-rose-200">
-                                Lượt tải: {{ formatReaderStatCount(localDigitalStats?.downloads) }}
-                            </span>
-                        </template>
-                        <template v-else>
-                            <span class="inline-flex rounded-full bg-blue-100 px-3 py-1.5 text-xs font-bold text-blue-900 dark:bg-blue-950 dark:text-blue-200">
-                                Lượt xem: {{ formatReaderStatCount(localReaderViewCount) }}
-                            </span>
-                            <span class="inline-flex rounded-full bg-slate-200 px-3 py-1.5 text-xs font-bold text-slate-800 dark:bg-slate-700 dark:text-slate-100">
-                                {{ S.totalCopies }}: {{ availability.total }}
-                            </span>
-                            <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
-                                {{ S.availableCopies }}: {{ availability.available }}
-                            </span>
-                            <span class="inline-flex rounded-full bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-900 dark:bg-rose-950 dark:text-rose-200">
-                                {{ S.borrowedCopies }}: {{ availability.borrowed }}
-                            </span>
-                        </template>
+            <div class="mt-8 space-y-6">
+                <div class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                    <div class="flex border-b border-slate-200 dark:border-slate-700">
+                        <button
+                            type="button"
+                            class="min-h-[44px] flex-1 px-4 text-sm font-bold transition"
+                            :class="detailPanel === 'description' ? 'border-b-2 border-blue-800 text-blue-900 dark:border-blue-400 dark:text-blue-100' : 'text-slate-600 dark:text-slate-400'"
+                            @click="detailPanel = 'description'"
+                        >{{ S.tabDescription }}</button>
+                        <button
+                            type="button"
+                            class="min-h-[44px] flex-1 px-4 text-sm font-bold transition"
+                            :class="detailPanel === 'details' ? 'border-b-2 border-blue-800 text-blue-900 dark:border-blue-400 dark:text-blue-100' : 'text-slate-600 dark:text-slate-400'"
+                            @click="detailPanel = 'details'"
+                        >{{ S.tabDetails }}</button>
+                    </div>
+                    <div v-show="detailPanel === 'description'" class="p-4 sm:p-6">
+                        <RichHtmlContent
+                            content-class=""
+                            :html="isDigitalBook ? digitalDescription : book.summary"
+                            :empty-text="isDigitalBook ? 'Chưa có mô tả cho đồ án, luận văn này.' : 'Chưa có mô tả.'"
+                        />
+                    </div>
+                    <div v-show="detailPanel === 'details'" class="p-4 sm:p-6">
+                        <table class="w-full text-sm">
+                            <tbody>
+                                <tr v-if="displayBookCode" class="border-b border-slate-100 dark:border-slate-800">
+                                    <th class="w-36 py-2.5 pr-4 text-left align-top font-semibold text-slate-500 dark:text-slate-400">{{ S.bookCodeLabel }}</th>
+                                    <td class="py-2.5 align-top text-slate-900 dark:text-slate-100">{{ displayBookCode }}</td>
+                                </tr>
+                                <tr v-for="row in specRows" :key="row.label" class="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                                    <th class="w-36 py-2.5 pr-4 text-left align-top font-semibold text-slate-500 dark:text-slate-400">{{ row.label }}</th>
+                                    <td class="py-2.5 text-slate-900 dark:text-slate-100">{{ row.value }}</td>
+                                </tr>
+                                <tr v-if="isDigitalBook" class="border-b border-slate-100 dark:border-slate-800">
+                                    <th class="w-36 py-2.5 pr-4 text-left font-semibold text-slate-500 dark:text-slate-400">File đính kèm</th>
+                                    <td class="py-2.5 text-slate-900 dark:text-slate-100">{{ hasReaderDigitalFile ? digitalAttachmentName : '—' }}</td>
+                                </tr>
+                                <tr v-if="isDigitalBook" class="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                                    <th class="w-36 py-2.5 pr-4 text-left font-semibold text-slate-500 dark:text-slate-400">Lượt tải</th>
+                                    <td class="py-2.5 text-slate-900 dark:text-slate-100">{{ formatReaderStatCount(localDigitalStats?.downloads) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
                 <div
                     v-if="!isDigitalBook && hasReaderDigitalFile && digitalAssetsListForSection.length"
-                    class="border-t border-slate-100 px-5 py-6 dark:border-slate-800 sm:px-8"
+                    class="overflow-hidden rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:p-6"
                 >
                     <h2 class="text-lg font-bold text-slate-900 dark:text-white">
                         {{ S.digitalAssets }}
@@ -920,18 +1076,9 @@ const headTitle = computed(() => `${props.book.title} — ${S.headTitleSuffix}`)
                     </div>
                 </div>
 
-                <div v-if="(!isDigitalBook && book.summary) || isDigitalBook" class="border-t border-slate-100 px-5 py-6 dark:border-slate-800 sm:px-8">
-                    <h2 class="text-lg font-bold text-slate-900 dark:text-white">
-                        {{ S.summaryTitle }}
-                    </h2>
-                    <RichHtmlContent
-                        content-class="mt-3"
-                        :html="isDigitalBook ? digitalDescription : book.summary"
-                        :empty-text="isDigitalBook ? 'Chưa có mô tả cho đồ án, luận văn này.' : 'Chưa có mô tả.'"
-                    />
-                </div>
+            </div>
 
-            </article>
+            <ReaderRelatedBooksSection :books="related_books" :source-book-id="book.id" />
 
             <div v-if="showBorrowPreview" class="fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-3 backdrop-blur-[2px] sm:items-center">
                 <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-800">

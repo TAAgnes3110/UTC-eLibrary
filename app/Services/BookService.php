@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Enums\LoanStatus;
-
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
+use App\Enums\LoanStatus;
 use App\Enums\ResourceType;
 use App\Enums\UploadDirectory;
 use App\Exports\BooksWorkbookExport;
@@ -14,8 +13,6 @@ use App\Imports\BookImport;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\Classification;
-use App\Models\DigitalAsset;
-use App\Models\Loan;
 use App\Models\LoanBorrowRequest;
 use App\Models\LoanBorrowRequestItem;
 use App\Models\LoanItem;
@@ -197,6 +194,91 @@ class BookService
         }
 
         return $book;
+    }
+
+    /**
+     * Gợi ý sách liên quan trên trang chi tiết (phân loại, tác giả, loại tài liệu).
+     * Không dùng doanh số, đánh giá hay «cùng mua».
+     *
+     * @return Collection<int, Book>
+     */
+    public function readerRelatedBooks(Book $book, int $limit = 12): Collection
+    {
+        $limit = max(1, min(24, $limit));
+
+        return $this->readerRelatedBooksQuery($book)->limit($limit)->get();
+    }
+
+    /**
+     * Danh sách sách liên quan có phân trang (trang «Sách liên quan»).
+     */
+    public function readerRelatedBooksPaginated(Book $book, int $perPage = 24): LengthAwarePaginator
+    {
+        $perPage = max(12, min(48, $perPage));
+
+        return $this->readerRelatedBooksQuery($book)->paginate($perPage)->withQueryString();
+    }
+
+    /**
+     * @return Builder<Book>
+     */
+    protected function readerRelatedBooksQuery(Book $book): Builder
+    {
+        $bookId = (int) $book->id;
+        $classificationId = (int) ($book->classification_id ?? 0);
+        $resourceType = $book->resource_type instanceof ResourceType
+            ? $book->resource_type->value
+            : trim((string) ($book->resource_type ?? ''));
+
+        $authorIds = $book->relationLoaded('authors')
+            ? $book->authors->pluck('id')->map(fn ($id) => (int) $id)->filter()->values()->all()
+            : $book->authors()->pluck('authors.id')->map(fn ($id) => (int) $id)->all();
+
+        $query = $this->baseBookListQuery();
+        $this->applyDigitalViewCountProjection($query);
+        $this->applyBorrowableAvailabilityProjection($query);
+        $query->where('books.id', '!=', $bookId);
+
+        if ($classificationId > 0 || $authorIds !== [] || $resourceType !== '') {
+            $query->where(function (Builder $outer) use ($classificationId, $authorIds, $resourceType): void {
+                $applied = false;
+                if ($classificationId > 0) {
+                    $outer->where('books.classification_id', $classificationId);
+                    $applied = true;
+                }
+                if ($authorIds !== []) {
+                    $method = $applied ? 'orWhereHas' : 'whereHas';
+                    $outer->{$method}('authors', fn (Builder $q) => $q->whereIn('authors.id', $authorIds));
+                    $applied = true;
+                }
+                if ($resourceType !== '') {
+                    $method = $applied ? 'orWhere' : 'where';
+                    $outer->{$method}('books.resource_type', $resourceType);
+                }
+            });
+        }
+
+        $scoreSql = [];
+        if ($classificationId > 0) {
+            $scoreSql[] = 'CASE WHEN books.classification_id = '.(int) $classificationId.' THEN 40 ELSE 0 END';
+        }
+        if ($authorIds !== []) {
+            $inAuthors = implode(',', array_map('intval', $authorIds));
+            $scoreSql[] = "CASE WHEN EXISTS (
+                SELECT 1 FROM book_authors
+                WHERE book_authors.book_id = books.id
+                AND book_authors.author_id IN ({$inAuthors})
+            ) THEN 30 ELSE 0 END";
+        }
+        if ($resourceType !== '') {
+            $scoreSql[] = 'CASE WHEN books.resource_type = '.DB::getPdo()->quote($resourceType).' THEN 10 ELSE 0 END';
+        }
+        if ($scoreSql !== []) {
+            $query->orderByRaw('('.implode(' + ', $scoreSql).') DESC');
+        }
+        $query->orderByDesc('books.id');
+
+        return $query;
     }
 
     /**

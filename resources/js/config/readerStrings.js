@@ -32,14 +32,64 @@ export const readerLayoutStrings = {
     footerCopyrightNote: "Đại học Giao thông Vận tải",
 }
 
+/** Footer site độc giả (bố cục nhiều cột). */
+export const readerFooterStrings = {
+    colServices: "DỊCH VỤ",
+    colSupport: "HỖ TRỢ",
+    colAccount: "TÀI KHOẢN CỦA TÔI",
+    colContact: "LIÊN HỆ",
+    brandDesc:
+        "Cổng Thư viện số chính thức — tra cứu tài liệu in và điện tử, đăng ký thẻ, mượn–trả và các dịch vụ thông tin theo quy chế Trường Đại học Giao thông Vận tải.",
+    addressLine1: "Trung tâm Thông tin – Thư viện",
+    addressLine2: "Tầng 5, Nhà A8 · Trường Đại học Giao thông Vận tải",
+    linkCatalog: "Tra cứu sách",
+    linkServicesHub: "Dịch vụ thư viện",
+    linkLibraryCard: "Cấp thẻ thư viện",
+    linkDigitalDocs: "Nộp đồ án, luận văn",
+    linkLoanRequests: "Quản lý phiếu mượn",
+    linkAbout: "Giới thiệu",
+    linkNews: "Tin tức",
+    linkRegulations: "Quy định thư viện",
+    linkCardProcedure: "Thủ tục làm thẻ",
+    linkSchedule: "Lịch phục vụ",
+    linkBorrowing: "Quy định mượn sách",
+    linkOfficialLib: "Website thư viện trường",
+    officialLibUrl: "https://lib.utc.edu.vn",
+    linkLoginRegister: "Đăng nhập / Đăng ký tài khoản",
+    linkLogin: "Đăng nhập",
+    linkRegister: "Đăng ký tài khoản",
+    linkProfile: "Thông tin tài khoản",
+    linkProfileRequests: "Lịch sử yêu cầu cập nhật",
+    linkChangePassword: "Đổi mật khẩu",
+    contactAddressLabel: "Địa chỉ",
+    contactEmailLabel: "Email",
+    contactPhoneLabel: "Điện thoại",
+    contactAddress: "Phòng Nghiệp vụ – Tầng 5, Nhà A8, Trường Đại học Giao thông Vận tải",
+    contactEmail: "thuvien@utc.edu.vn",
+    contactPhone: "(024) 3766 9860",
+    socialFacebookLabel: "Facebook",
+    socialGithubLabel: "Mã nguồn dự án",
+    socialEmailLabel: "Gửi email",
+}
+
 /** About page body copy. */
 export const readerAboutPageStrings = {
     headTitle: "Giới thiệu",
     heroSubtitle:
-        "Cổng Thư viện số · Trung tâm Thông tin – Thư viện, Trường Đại học Giao thông Vận tải.",
+        "Tìm hiểu về Trường Đại học Giao thông Vận tải và hệ thống Thư viện số UTC eLibrary.",
     backHome: "Về trang chủ",
-    lead:
-        "Trung tâm Thông tin – Thư viện, Trường Đại học Giao thông Vận tải là đơn vị chuyên trách thu thập, tổ chức, bảo quản và khai thác nguồn tài nguyên tri thức phục vụ đào tạo, nghiên cứu khoa học và học tập suốt đời của cán bộ, giảng viên, sinh viên và bạn đọc. UTC eLibrary là cổng Thư viện số chính thức của thư viện nhà trường, tích hợp tra cứu danh mục tài liệu in và điện tử (sách tiếng Việt, ngoại ngữ, luận văn, luận án, đề tài nghiên cứu, báo–tạp chí chuyên ngành), đăng ký và quản lý dịch vụ thẻ đọc, mượn–trả, đọc tại chỗ, tra cứu theo yêu cầu cùng các dịch vụ thông tin khác theo quy chế và nội quy hiện hành. Độc giả có thể tiếp cận các nội dung công khai trên cổng; sau khi đăng nhập bằng tài khoản được cấp, bạn sử dụng đầy đủ tiện ích phù hợp với loại thẻ và đối tượng sử dụng. Thông tin về chức năng, nhiệm vụ, lịch phục vụ và quy định chi tiết được công bố tại website thư viện lib.utc.edu.vn.",
+    universitySectionTitle: "Về Trường Đại học Giao thông Vận tải",
+    universityParagraphs: [
+        "Trường Đại học Giao thông Vận tải (UTC) là trường đại học công lập trực thuộc Bộ Giao thông Vận tải, đào tạo đa ngành trong lĩnh vực giao thông vận tải, xây dựng, công nghệ thông tin, kinh tế và các ngành liên quan, phục vụ nhu cầu nhân lực chất lượng cao cho ngành và xã hội.",
+        "Trường có cơ sở đào tạo tại Hà Nội và TP. Hồ Chí Minh; hoạt động đào tạo, nghiên cứu khoa học và hợp tác quốc tế gắn với thực tiễn ngành Giao thông Vận tải.",
+        "Trung tâm Thông tin – Thư viện là đơn vị chuyên trách thu thập, tổ chức, bảo quản và khai thác nguồn tài nguyên tri thức phục vụ cán bộ, giảng viên, sinh viên và bạn đọc. Thông tin, lịch phục vụ và quy định chi tiết được công bố tại website thư viện nhà trường.",
+    ],
+    elibrarySectionTitle: "Về UTC eLibrary — Thư viện số",
+    elibraryParagraphs: [
+        "UTC eLibrary là hệ thống quản lý và khai thác Thư viện số của Trường Đại học Giao thông Vận tải, tích hợp tra cứu danh mục tài liệu in và điện tử (sách tiếng Việt, ngoại ngữ, luận văn, luận án, đề tài nghiên cứu, báo–tạp chí chuyên ngành) trên một cổng thống nhất.",
+        "Độc giả có thể xem nội dung công khai; sau khi đăng nhập, sử dụng dịch vụ theo loại thẻ: đăng ký và theo dõi thẻ đọc, gửi yêu cầu mượn sách giấy, theo dõi phiếu mượn, mua và tải tài liệu số, nộp đồ án/luận văn, nhận thông báo từ thư viện.",
+        "Phía quản trị hỗ trợ cán bộ thư viện: duyệt hồ sơ thẻ, xử lý mượn–trả, quản lý kho sách, cấu hình chính sách mượn, duyệt tài liệu nộp, đăng tin tức và xem thống kê — bám sát quy chế và nội quy hiện hành của thư viện nhà trường.",
+    ],
     exploreTitle: "Khám phá nhanh",
     seeMore: "Xem thêm",
     quickCatalog:
@@ -255,6 +305,12 @@ export const readerBookShowStrings = {
     breadcrumbHome: "Trang chủ",
     breadcrumbCatalog: "Tra cứu sách",
     backCatalog: "Về tra cứu",
+    bookCodeLabel: "Mã đầu mục",
+    copyBookCode: "Sao chép mã",
+    bookTitleLabel: "Tên sách",
+    subTitleLabel: "Phụ đề",
+    genreLabel: "Thể loại / phân loại",
+    publisherLabel: "Nhà xuất bản",
     authors: "Tác giả",
     publicationInfo: "Thông tin xuất bản",
     physicalDesc: "Mô tả vật lý",
@@ -269,7 +325,49 @@ export const readerBookShowStrings = {
     borrowAtDeskHint: "Mượn sách thực hiện tại quầy thư viện khi có thẻ đọc hợp lệ theo quy định.",
     digitalAssets: "Đồ án, luận văn đính kèm",
     noCover: "Chưa có ảnh bìa",
-    previewPdf: "Xem trước PDF"
+    previewPdf: "Xem trước PDF",
+    previewPdfProcessing: "Bản xem trước đang được tạo. Vui lòng thử lại sau vài phút.",
+    previewPdfUnavailable: "Hiện chưa có bản xem trước cho tài liệu này.",
+    relatedBooksTitle: "Sách liên quan",
+    relatedBooksHint: "Gợi ý theo phân loại, tác giả và loại tài liệu trong thư viện.",
+    relatedBooksSeeMore: "Xem tất cả",
+    relatedBooksEmpty: "Chưa có đầu mục liên quan khác trong thư viện.",
+    categoryLabel: "Thể loại",
+    viewsLabel: "lượt xem",
+    seeDetail: "Xem chi tiết",
+    tabDetails: "Thông tin chi tiết",
+    tabDescription: "Mô tả / tóm tắt",
+    buyBoxTitle: "Dịch vụ thư viện",
+    buyBoxTitleDigital: "Mua tài liệu số",
+    buyBoxDigitalHint: "Xem trước một phần hoặc thanh toán để tải PDF đầy đủ. Chỉ cần tài khoản đăng nhập — không yêu cầu thẻ thư viện.",
+    buyBoxPhysicalHint: "Thêm vào giỏ và gửi yêu cầu mượn theo quy định thẻ đọc.",
+    digitalPurchaseCartLink: "Giỏ thanh toán tài liệu số",
+    borrowCartLink: "Giỏ mượn sách",
+    guestLoginDigital: "Đăng nhập để mua hoặc tải PDF",
+    guestLoginPhysical: "Đăng nhập để mượn",
+    guestDigitalPreviewHint: "Xem trước miễn phí. Đăng nhập để mua hoặc tải PDF đầy đủ.",
+    guestDigitalNoPreviewHint: "Đăng nhập để mua hoặc tải PDF.",
+    guestPhysicalHint: "Đăng nhập để thêm sách vào giỏ và gửi yêu cầu mượn.",
+    metaViews: "Lượt xem",
+    metaAvailability: "Còn mượn",
+    warehouseLocation: "Kho / tủ",
+    warehouseLabel: "Kho",
+    cabinetLabel: "Tủ / vị trí",
+}
+
+/** Trang danh sách sách liên quan (/tra-cuu-sach/{id}/lien-quan). */
+export const readerRelatedBooksPageStrings = {
+    headTitleSuffix: "Sách liên quan",
+    breadcrumbCatalog: "Tra cứu sách",
+    backToBook: "Về chi tiết sách",
+    pageTitle: "Sách liên quan",
+    pageHint: "Gợi ý theo phân loại, tác giả và loại tài liệu của",
+    emptyTitle: "Chưa có đầu mục liên quan khác",
+    emptyHint: "Thư viện chưa có sách khác phù hợp với đầu mục này.",
+    categoryLabel: "Thể loại",
+    viewsLabel: "lượt xem",
+    seeDetail: "Xem chi tiết",
+    paginationSummary: "Hiển thị {from}–{to} / {total} đầu mục",
 }
 
 /** Trang xem trước tài liệu số (ảnh PNG / text). */
@@ -281,6 +379,8 @@ export const readerBookDigitalPreviewStrings = {
     paywallNote: "Đây không phải file tải về — bản đầy đủ vẫn cần mua hoặc quyền tải PDF.",
     backToBook: "Quay lại chi tiết sách",
     loadError: "Chưa có nội dung xem trước để hiển thị.",
+    previewPendingTitle: "Đang chuẩn bị bản xem trước",
+    previewUnavailableTitle: "Chưa có bản xem trước",
     pageLabel: "Trang"
 }
 

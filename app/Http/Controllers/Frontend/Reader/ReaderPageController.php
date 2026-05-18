@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Frontend\Reader;
 
+use App\Enums\DigitalAssetPreviewStatus;
 use App\Enums\LibraryCardStatus;
 use App\Enums\ResourceType;
 use App\Helpers\FileHelpers;
@@ -27,6 +28,7 @@ use App\Services\DigitalPaywallService;
 use App\Services\DigitalPurchaseCartService;
 use App\Services\LoanPoliciesService;
 use App\Services\NewsPostService;
+use App\Support\DigitalAssetPreviewJobDispatcher;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\RedirectResponse;
@@ -387,6 +389,10 @@ class ReaderPageController extends Controller
 
         $readerViewCount = ! $isDigital ? (int) $book->fresh()->view_count : null;
 
+        $relatedBooks = ReaderBookCardResource::collection(
+            $this->bookService->readerRelatedBooks($book, 12)
+        )->resolve();
+
         return Inertia::render('Reader/BookShow', [
             'book' => (new ReaderBookDetailResource($book))->resolve(),
             'availability' => $availability,
@@ -394,27 +400,66 @@ class ReaderPageController extends Controller
             'borrow_permissions' => $cardContext['permissions'],
             'digital_stats' => $digitalStats,
             'reader_view_count' => $readerViewCount,
+            'related_books' => $relatedBooks,
         ]);
     }
 
-    /** Trang xem trước — hiển thị PNG/text từ preview_display (không stream PDF). */
+    /** Danh sách đầy đủ sách liên quan với một đầu mục (gợi ý theo phân loại, tác giả, loại tài liệu). */
+    public function catalogRelatedBooks(Book $book, Request $request): Response
+    {
+        $request->validate([
+            'per_page' => ['sometimes', 'integer', 'min:12', 'max:48'],
+        ]);
+
+        $book = $this->bookService->getForReaderDetail($book);
+        $perPage = min(48, max(12, (int) $request->input('per_page', 12)));
+
+        $paginator = $this->bookService->readerRelatedBooksPaginated($book, $perPage);
+        $paginator->through(fn (Book $row) => (new ReaderBookCardResource($row))->resolve());
+
+        return Inertia::render('Reader/RelatedBooks', [
+            'source_book' => [
+                'id' => (int) $book->id,
+                'title' => (string) $book->title,
+            ],
+            'books' => $paginator,
+        ]);
+    }
+
+    /** Trang xem trước — hiển thị PNG/text từ preview_display (không stream PDF, không tạo sync trên request). */
     public function catalogDigitalPreviewShow(Book $book, DigitalAsset $digital_asset): Response
     {
         if ((int) $digital_asset->book_id !== (int) $book->id) {
             abort(404);
         }
 
-        if (! $this->digitalAssetPreviewService->isPreviewAvailableForReader($digital_asset)) {
+        $backUrl = route('reader.catalog.show', ['book' => $book->id], false);
+        $state = $this->digitalAssetPreviewService->resolveReaderPreviewState($digital_asset);
+
+        if ($state === DigitalAssetPreviewStatus::Disabled->value) {
             abort(404, __('Chưa có bản xem trước cho tài liệu này.'));
         }
 
-        if (! $this->digitalAssetPreviewDisplayService->hasPreviewDisplay($digital_asset)) {
-            $this->digitalAssetPreviewDisplayService->ensureDisplayFromStoredPreview($digital_asset->fresh());
-            $digital_asset->refresh();
-        }
+        if ($state !== DigitalAssetPreviewStatus::Ready->value) {
+            if (in_array($state, [
+                DigitalAssetPreviewStatus::Pending->value,
+                DigitalAssetPreviewStatus::Processing->value,
+                DigitalAssetPreviewStatus::Failed->value,
+            ], true) && config('deploy.run_post_upload_processing_on_host', true)) {
+                DigitalAssetPreviewJobDispatcher::dispatch((int) $digital_asset->id);
+            }
 
-        if (! $this->digitalAssetPreviewDisplayService->hasPreviewDisplay($digital_asset)) {
-            abort(404, __('Chưa có bản xem trước hiển thị được. Vui lòng chạy lại lệnh tạo preview trên máy chủ.'));
+            return Inertia::render('Reader/BookDigitalPreview', [
+                'book' => ['id' => (int) $book->id, 'title' => $book->title],
+                'asset' => [
+                    'id' => (int) $digital_asset->id,
+                    'original_name' => $digital_asset->original_name,
+                ],
+                'pages' => [],
+                'back_url' => $backUrl,
+                'preview_state' => $state,
+                'preview_message' => $this->readerPreviewUnavailableMessage($state),
+            ]);
         }
 
         $this->digitalAssetService->incrementViewCount($digital_asset);
@@ -422,10 +467,22 @@ class ReaderPageController extends Controller
         $payload = $this->digitalAssetPreviewDisplayService->readerPreviewPayload(
             $book,
             $digital_asset,
-            route('reader.catalog.show', ['book' => $book->id], false)
+            $backUrl
         );
+        $payload['preview_state'] = DigitalAssetPreviewStatus::Ready->value;
+        $payload['preview_message'] = null;
 
         return Inertia::render('Reader/BookDigitalPreview', $payload);
+    }
+
+    private function readerPreviewUnavailableMessage(string $state): string
+    {
+        return match ($state) {
+            DigitalAssetPreviewStatus::Pending->value,
+            DigitalAssetPreviewStatus::Processing->value => __('Đang tạo bản xem trước. Vui lòng quay lại sau vài phút.'),
+            DigitalAssetPreviewStatus::Failed->value => __('Không tạo được bản xem trước. Vui lòng thử lại sau hoặc liên hệ thư viện.'),
+            default => __('Hiện chưa có bản xem trước cho tài liệu này.'),
+        };
     }
 
     public function catalogDigitalPreviewPageImage(Book $book, DigitalAsset $digital_asset, int $page)

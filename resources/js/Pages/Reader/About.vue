@@ -86,11 +86,44 @@ const quickLinks = computed(() =>
                 </header>
 
                 <div class="border-t border-slate-100 px-5 py-8 dark:border-slate-800 sm:px-8 sm:py-10">
-                    <div class="max-w-none leading-relaxed">
-                        <p class="text-base text-slate-700 dark:text-slate-200 sm:text-lg sm:leading-8">
-                            {{ A.lead }}
-                        </p>
-                    </div>
+                    <section class="max-w-none leading-relaxed" aria-labelledby="about-university-heading">
+                        <h2
+                            id="about-university-heading"
+                            class="text-lg font-bold text-slate-900 dark:text-white sm:text-xl"
+                        >
+                            {{ A.universitySectionTitle }}
+                        </h2>
+                        <div class="mt-4 space-y-4">
+                            <p
+                                v-for="(para, idx) in A.universityParagraphs"
+                                :key="`uni-${idx}`"
+                                class="text-base text-slate-700 dark:text-slate-200 sm:text-lg sm:leading-8"
+                            >
+                                {{ para }}
+                            </p>
+                        </div>
+                    </section>
+
+                    <section
+                        class="mt-10 max-w-none leading-relaxed rounded-2xl border border-blue-100 bg-blue-50/50 p-5 dark:border-blue-900/50 dark:bg-blue-950/20 sm:p-6"
+                        aria-labelledby="about-elibrary-heading"
+                    >
+                        <h2
+                            id="about-elibrary-heading"
+                            class="text-lg font-bold text-blue-900 dark:text-blue-200 sm:text-xl"
+                        >
+                            {{ A.elibrarySectionTitle }}
+                        </h2>
+                        <div class="mt-4 space-y-4">
+                            <p
+                                v-for="(para, idx) in A.elibraryParagraphs"
+                                :key="`elib-${idx}`"
+                                class="text-base text-slate-700 dark:text-slate-200 sm:text-lg sm:leading-8"
+                            >
+                                {{ para }}
+                            </p>
+                        </div>
+                    </section>
 
                     <div class="mt-10">
                         <h2 class="text-sm font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">

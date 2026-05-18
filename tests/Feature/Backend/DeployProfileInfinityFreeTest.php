@@ -63,7 +63,12 @@ class DeployProfileInfinityFreeTest extends TestCase
             'digital_asset' => $asset->id,
         ]));
 
-        $response->assertNotFound();
+        $response->assertOk();
+        $response->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Reader/BookDigitalPreview')
+            ->where('preview_state', 'pending')
+            ->has('pages', 0)
+        );
     }
 
     public function test_reader_preview_serves_prebuilt_file_on_infinityfree(): void
@@ -97,7 +102,7 @@ class DeployProfileInfinityFreeTest extends TestCase
         ]);
 
         $preview = app(DigitalAssetPreviewService::class);
-        $this->assertTrue($preview->isPreviewAvailableForReader($asset));
+        $this->assertFalse($preview->isPreviewAvailableForReader($asset));
 
         $imagePath = 'utc-elibrary/books/digital-assets/'.$book->id.'/1/preview-pages/1.png';
         Storage::disk('local')->put($imagePath, base64_decode(
@@ -109,7 +114,10 @@ class DeployProfileInfinityFreeTest extends TestCase
             'preview_display' => [
                 'pages' => [['page' => 1, 'path' => $imagePath]],
             ],
+            'preview_status' => 'ready',
         ])->save();
+
+        $this->assertTrue($preview->isPreviewAvailableForReader($asset->fresh()));
 
         $response = $this->get(route('reader.catalog.digital-preview', [
             'book' => $book->id,

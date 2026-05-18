@@ -1,7 +1,7 @@
 import client from '@/api/axios';
 
 /**
- * Đồng bộ JWT vào localStorage khi đã đăng nhập Inertia (session) nhưng chưa có token API.
+ * Đồng bộ JWT từ session Inertia khi chưa có token API (tránh gọi lặp mỗi lần đổi trang).
  */
 export async function syncApiTokenFromSession(authUser) {
     if (typeof window === 'undefined' || !authUser?.id) {
@@ -18,6 +18,6 @@ export async function syncApiTokenFromSession(authUser) {
             localStorage.setItem('token', token);
         }
     } catch {
-        // Session chưa sẵn sàng hoặc không có quyền — API vẫn có thể dùng cookie sau statefulApi.
+        // Session chưa sẵn sàng — API vẫn có thể dùng cookie (statefulApi).
     }
 }

@@ -31,7 +31,8 @@ class ReaderDigitalAssetResource extends JsonResource
 
         /** @var DigitalAssetPreviewService $previewService */
         $previewService = app(DigitalAssetPreviewService::class);
-        $previewAvailable = $previewService->isPreviewAvailableForReader($this->resource);
+        $previewStatus = $previewService->resolveReaderPreviewState($this->resource);
+        $previewReady = $previewService->isPreviewReadyForReader($this->resource);
 
         $userCanDownloadPdf = false;
         $isOwnApprovedSubmission = false;
@@ -45,8 +46,9 @@ class ReaderDigitalAssetResource extends JsonResource
             'id' => $this->id,
             'book_id' => $this->book_id,
             'is_primary' => $this->is_primary,
-            'preview_available' => $previewAvailable,
-            'preview_url' => $previewAvailable ? route('reader.catalog.digital-preview', [
+            'preview_status' => $previewStatus,
+            'preview_available' => $previewReady,
+            'preview_url' => $previewReady ? route('reader.catalog.digital-preview', [
                 'book' => $this->book_id,
                 'digital_asset' => $this->id,
             ], false) : null,

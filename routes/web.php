@@ -41,6 +41,8 @@ Route::get('/tra-cuu-sach/{book}/tai-lieu/{digital_asset}/xem-truoc/trang/{page}
 Route::get('/tra-cuu-sach/{book}/tai-lieu/{digital_asset}/tai-pdf', [ReaderPageController::class, 'catalogDigitalDownloadPdf'])
     ->middleware('auth')
     ->name('reader.catalog.digital-download-pdf');
+Route::get('/tra-cuu-sach/{book}/lien-quan', [ReaderPageController::class, 'catalogRelatedBooks'])
+    ->name('reader.catalog.related');
 Route::get('/tra-cuu-sach/{book}', [ReaderPageController::class, 'catalogShow'])->name('reader.catalog.show');
 Route::get('/tin-tuc', [ReaderPageController::class, 'newsIndex'])->name('reader.news.index');
 Route::get('/tin-tuc/{slug}', [ReaderPageController::class, 'newsShow'])->name('reader.news.show');

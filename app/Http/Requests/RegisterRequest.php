@@ -11,6 +11,13 @@ class RegisterRequest extends BaseRequest
     {
         // Nếu user không chọn role thì mặc định là MEMBER (member/bạn đọc legacy).
         $this->merge(['user_type' => $this->input('user_type') ?? RoleType::MEMBER->value]);
+
+        if ($this->has('email')) {
+            $email = (string) $this->input('email');
+            if (str_contains($email, "\0")) {
+                $this->merge(['email' => '']);
+            }
+        }
     }
 
     public function rules(): array

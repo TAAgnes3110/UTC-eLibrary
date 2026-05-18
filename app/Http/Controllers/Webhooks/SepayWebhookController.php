@@ -19,7 +19,11 @@ class SepayWebhookController extends Controller
     public function handle(Request $request): JsonResponse
     {
         $secret = trim((string) config('services.sepay.webhook_secret', ''));
-        if ($secret !== '') {
+        if ($secret === '') {
+            if (app()->environment('production')) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);
+            }
+        } else {
             $incoming = trim((string) ($request->bearerToken() ?? $request->header('X-Sepay-Webhook-Token', '')));
             if ($incoming === '' || ! hash_equals($secret, $incoming)) {
                 return response()->json(['success' => false, 'message' => 'Unauthorized'], 401);

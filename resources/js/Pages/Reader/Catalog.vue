@@ -5,11 +5,10 @@ import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue'
 import { consumeReaderCatalogBooksStale } from '@/config/readerCatalogRefresh'
-import { readerCatalogPageStrings as C, readerLayoutStrings as L } from '@/config/readerStrings'
+import { readerCatalogPageStrings as C } from '@/config/readerStrings'
 import { useImageFallback } from '@/composables/useImageFallback'
 
 const page = usePage()
-const isAuthed = computed(() => !!page.props.auth?.user)
 
 const q = reactive({
     keyword: '',
@@ -282,14 +281,6 @@ function goPage(p) {
                 />
             </div>
 
-            <div v-if="!isAuthed" class="mt-10 flex flex-wrap gap-3">
-                <Link
-                    :href="route('login')"
-                    class="inline-flex min-h-[44px] items-center rounded-xl bg-blue-900 px-5 text-sm font-bold text-white hover:bg-blue-800"
-                >
-                    {{ L.login }}
-                </Link>
-            </div>
         </div>
     </ReaderLayout>
 </template>

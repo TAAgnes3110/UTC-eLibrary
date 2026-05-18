@@ -3,17 +3,17 @@
 namespace App\Http\Controllers\Api\Loan;
 
 use App\Enums\LoanStatus;
-
-use App\Exports\LoanExport;
 use App\Enums\ResourceType;
+use App\Exports\LoanExport;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LoanResource;
 use App\Models\Loan;
 use App\Models\LoanItem;
 use App\Models\LoanRenewalRequest;
-use App\Services\LoanService;
+use App\Models\User;
 use App\Services\LoanRenewalRequestService;
+use App\Services\LoanService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,7 +38,7 @@ class MeLoanController extends Controller
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
 
-        /** @var \App\Models\User $user */
+        /** @var User $user */
         $user = $request->user();
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
         $searchColumns = $this->parseSearchInFilter($request);
@@ -128,7 +128,7 @@ class MeLoanController extends Controller
 
     public function show(Request $request, Loan $loan): JsonResponse
     {
-        /** @var \App\Models\User $reader */
+        /** @var User $reader */
         $reader = $request->user();
         $userId = (int) ($reader?->id ?? 0);
         $loan->load([
@@ -138,7 +138,7 @@ class MeLoanController extends Controller
             'renewalRequests' => fn ($q) => $q->latest('id'),
         ]);
         if ((int) ($loan->libraryCard?->user_id ?? 0) !== $userId) {
-            return ApiResponse::error(__('Không có quyền xem phiếu này.'), 403);
+            return ApiResponse::error(__('Không tìm thấy phiếu mượn.'), 404);
         }
 
         $renewalEligibility = $this->loanRenewalRequestService->renewalEligibilityForReaderLoan($loan, $reader);
@@ -168,7 +168,7 @@ class MeLoanController extends Controller
             'search_in' => ['nullable', 'string'],
             'sort' => ['nullable', 'string', 'in:newest,oldest,due_asc,due_desc,loan_asc,loan_desc'],
             'ids' => ['nullable', 'array', 'max:500'],
-            'ids.*' => ['integer', 'exists:loans,id'],
+            'ids.*' => ['integer', 'min:1'],
         ]);
 
         $query = $this->baseReaderLoanQuery((int) ($request->user()?->id ?? 0));
@@ -245,8 +245,9 @@ class MeLoanController extends Controller
     public function destroy(Request $request, Loan $loan): JsonResponse
     {
         $userId = (int) ($request->user()?->id ?? 0);
+        $loan->load('libraryCard:id,user_id');
         if ((int) ($loan->libraryCard?->user_id ?? 0) !== $userId) {
-            return ApiResponse::error(__('Không có quyền xóa phiếu này.'), 403);
+            return ApiResponse::error(__('Không tìm thấy phiếu mượn.'), 404);
         }
 
         try {

@@ -3,7 +3,6 @@
 namespace App\Services\Notifications;
 
 use App\Enums\LoanStatus;
-
 use App\Enums\NotificationSeverity;
 use App\Enums\NotificationType;
 use App\Enums\RoleType;

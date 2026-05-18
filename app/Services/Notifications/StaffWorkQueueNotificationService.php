@@ -5,6 +5,7 @@ namespace App\Services\Notifications;
 use App\Enums\NotificationSeverity;
 use App\Enums\NotificationType;
 use App\Enums\RoleType;
+use App\Models\DigitalDocumentSubmission;
 use App\Models\LibraryCard;
 use App\Models\LoanRenewalRequest;
 use App\Models\Notification;
@@ -54,13 +55,15 @@ class StaffWorkQueueNotificationService
      *     library_cards_pending_review:int,
      *     library_cards_pending_payment:int,
      *     user_profile_update_requests_pending:int,
-     *     loan_renewal_requests_pending:int
+     *     loan_renewal_requests_pending:int,
+     *     digital_document_submissions_pending:int
      * }|null  $precomputedQueue  Bỏ qua COUNT nếu truyền (dùng khi đã gọi {@see aggregateWorkQueueCounts()} cho nhiều staff).
      * @return array{
      *     library_cards_pending_review:int,
      *     library_cards_pending_payment:int,
      *     user_profile_update_requests_pending:int,
-     *     loan_renewal_requests_pending:int
+     *     loan_renewal_requests_pending:int,
+     *     digital_document_submissions_pending:int
      * }|null
      */
     public function syncForUser(?User $user, ?array $precomputedQueue = null): ?array
@@ -104,6 +107,16 @@ class StaffWorkQueueNotificationService
             '/admin/loans/renewal-requests',
             $queue
         );
+        $this->upsertQueueDigestNotification(
+            NotificationType::ADMIN_DIGITAL_DOCUMENT_SUBMISSION_PENDING,
+            $recipientType,
+            $recipientId,
+            (int) ($queue['digital_document_submissions_pending'] ?? 0),
+            'Đồ án, luận văn chờ duyệt',
+            'Hiện có %d đồ án, luận văn chờ duyệt.',
+            '/admin/books/digital/submissions',
+            $queue
+        );
 
         return $queue;
     }
@@ -113,7 +126,8 @@ class StaffWorkQueueNotificationService
      *     library_cards_pending_review:int,
      *     library_cards_pending_payment:int,
      *     user_profile_update_requests_pending:int,
-     *     loan_renewal_requests_pending:int
+     *     loan_renewal_requests_pending:int,
+     *     digital_document_submissions_pending:int
      * }|null
      */
     public function workQueueForUser(?User $user): ?array
@@ -132,7 +146,8 @@ class StaffWorkQueueNotificationService
      *     library_cards_pending_review:int,
      *     library_cards_pending_payment:int,
      *     user_profile_update_requests_pending:int,
-     *     loan_renewal_requests_pending:int
+     *     loan_renewal_requests_pending:int,
+     *     digital_document_submissions_pending:int
      * }
      */
     public function aggregateWorkQueueCounts(): array
@@ -149,6 +164,9 @@ class StaffWorkQueueNotificationService
                 ->count(),
             'loan_renewal_requests_pending' => (int) LoanRenewalRequest::query()
                 ->where('status', LoanRenewalRequest::STATUS_PENDING)
+                ->count(),
+            'digital_document_submissions_pending' => (int) DigitalDocumentSubmission::query()
+                ->where('status', DigitalDocumentSubmission::STATUS_PENDING)
                 ->count(),
         ];
     }

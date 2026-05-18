@@ -40,6 +40,9 @@ class Init
                 return ApiResponse::error(__('Bạn cần đăng nhập để tiếp tục.'), 401);
             }
 
+            Auth::guard('web')->setUser($user);
+            $request->setUserResolver(static fn () => $user);
+
             $domain = $request->headers->get('domain', request()->getHost());
             $allowedDomains = config('api.allowed_domains', []);
             if (! empty($allowedDomains) && ! $this->isDomainAllowed($domain, $allowedDomains)) {

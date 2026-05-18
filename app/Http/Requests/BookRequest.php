@@ -4,11 +4,21 @@ namespace App\Http\Requests;
 
 use App\Enums\AccessMode;
 use App\Enums\ResourceType;
+use App\Helpers\TextSanitizer;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Validation\Rule;
 
 class BookRequest extends BaseRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('summary')) {
+            $this->merge([
+                'summary' => TextSanitizer::fromRichPaste($this->input('summary')),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -53,7 +63,12 @@ class BookRequest extends BaseRequest
             'language' => ['sometimes', 'nullable', 'string', 'max:50'],
             'authors' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'publisher' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'summary' => ['sometimes', 'nullable', 'string'],
+            'summary' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:'.TextSanitizer::DEFAULT_LONG_TEXT_MAX_CHARS,
+            ],
             'published_year' => ['sometimes', 'nullable', 'integer', 'min:1900', "max:{$currentYear}"],
             'pages' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'book_size' => ['sometimes', 'nullable', 'string', 'max:50'],
@@ -84,6 +99,7 @@ class BookRequest extends BaseRequest
             'published_year.min' => __('Năm xuất bản không hợp lệ'),
             'published_year.max' => __('Năm xuất bản không hợp lệ'),
             'price.min' => __('Giá không được âm'),
+            'summary.max' => __('Mô tả quá dài (tối đa :max ký tự). Hãy chỉ dán phần tóm tắt, không dán nguyên văn bản Word.'),
         ];
     }
 }

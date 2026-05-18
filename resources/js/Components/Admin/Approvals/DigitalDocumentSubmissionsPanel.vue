@@ -155,7 +155,9 @@ function clearSelection() {
     selectedIds.value = [];
 }
 
-onMounted(loadRows);
+onMounted(() => {
+    loadRows();
+});
 
 function openDetail(row) {
     detailRow.value = row;

@@ -62,4 +62,13 @@ return [
         $profile->prefersSyncQueue()
     ),
 
+    /**
+     * Tạo preview ngay trong request (sau HTTP) thay vì đẩy Redis/database queue.
+     * Mặc định bật trên local — tránh job treo khi dev không chạy queue:work.
+     */
+    'preview_dispatch_sync' => (bool) env(
+        'DIGITAL_PREVIEW_DISPATCH_SYNC',
+        $profile === DeployProfile::Local || $profile->prefersSyncQueue()
+    ),
+
 ];

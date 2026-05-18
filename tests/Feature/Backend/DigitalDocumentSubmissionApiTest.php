@@ -83,6 +83,30 @@ class DigitalDocumentSubmissionApiTest extends TestCase
         $this->assertContains($submission->id, $ids);
     }
 
+    public function test_me_list_accepts_web_session_when_bearer_token_is_invalid(): void
+    {
+        [$reader] = $this->createUserAndToken(['email' => 'session-dds@test.com']);
+
+        DigitalDocumentSubmission::query()->create([
+            'submitted_by' => $reader->id,
+            'title' => 'Luận văn session',
+            'author_names' => 'A',
+            'description' => null,
+            'file_path' => 'upload/digital-document-submissions/s.pdf',
+            'original_name' => 's.pdf',
+            'mime' => 'application/pdf',
+            'byte_size' => 500,
+            'status' => DigitalDocumentSubmission::STATUS_PENDING,
+        ]);
+
+        $this->actingAs($reader)
+            ->withHeader('Origin', config('app.url'))
+            ->withHeader('Authorization', 'Bearer invalid.token.value')
+            ->getJson('/api/v1/me/digital-document-submissions')
+            ->assertOk()
+            ->assertJsonPath('status', 'success');
+    }
+
     public function test_reader_can_submit_pdf_with_optional_cover_image(): void
     {
         Storage::fake($this->mediaDisk());

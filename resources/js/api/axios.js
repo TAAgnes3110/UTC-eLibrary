@@ -154,11 +154,14 @@ client.interceptors.response.use(
             }
 
             const oldToken = localStorage.getItem('token');
+
+            // SPA Inertia: thử cookie session trước refresh JWT (tránh chờ refresh khi token localStorage đã hết hạn).
+            const sessionResponse = await retryWithoutBearer();
+            if (sessionResponse) {
+                return sessionResponse;
+            }
+
             if (!oldToken) {
-                const sessionResponse = await retryWithoutBearer();
-                if (sessionResponse) {
-                    return sessionResponse;
-                }
                 throw error;
             }
 
@@ -182,11 +185,6 @@ client.interceptors.response.use(
 
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-
-            const sessionResponse = await retryWithoutBearer();
-            if (sessionResponse) {
-                return sessionResponse;
-            }
 
             throw error;
         } catch (e) {

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Head, Link, usePage } from '@inertiajs/vue3'
 import { Button } from '@/Components/ui/button'
@@ -135,8 +135,13 @@ function readerApiErrorMessage(error, fallback) {
 const hasSelection = computed(() => selectedIds.value.size > 0)
 const isAllSelected = computed(() => rows.value.length > 0 && rows.value.every((row) => selectedIds.value.has(row.id)))
 
+let filterReloadTimer = null
 watch([statusFilter, sortBy], () => {
-    loadRows(1)
+    if (filterReloadTimer) clearTimeout(filterReloadTimer)
+    filterReloadTimer = setTimeout(() => {
+        filterReloadTimer = null
+        loadRows(1)
+    }, 280)
 })
 
 watch(rows, (list) => {
@@ -185,6 +190,10 @@ async function loadRows(page = 1) {
 
 onMounted(() => {
     loadRows()
+})
+
+onBeforeUnmount(() => {
+    if (filterReloadTimer) clearTimeout(filterReloadTimer)
 })
 
 onUnmounted(() => {

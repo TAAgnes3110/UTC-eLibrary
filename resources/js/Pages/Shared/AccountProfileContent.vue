@@ -9,6 +9,7 @@ import { getLaravelErrorMessage } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
 import { resetFileInput } from '@/utils/resetFileInput'
+import { accountProfileStrings as profileS } from '@/config/accountProfileStrings'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -199,6 +200,47 @@ const showFacultyClassInProfile = computed(() => {
 const isStudentProfile = computed(() => effectiveUser.value?.user_type === 'STUDENT')
 /** Profile update request UI: readers only (see shared auth.is_staff). */
 const showProfileUpdateRequestSection = computed(() => !isStaff.value)
+const showLibraryCardGuide = computed(() => !isStaff.value)
+
+const safeReaderRoute = (name) => {
+    try {
+        return route(name)
+    } catch {
+        return '#'
+    }
+}
+
+const libraryCardProcedureUrl = computed(() => safeReaderRoute('reader.regulations.card'))
+const libraryCardServiceUrl = computed(() => safeReaderRoute('reader.services.library-card'))
+
+const libraryCardChecklist = computed(() => {
+    const u = effectiveUser.value
+    const ut = u?.user_type
+    const isStudent = ut === 'STUDENT'
+    const isTeacher = ut === 'TEACHER'
+    const codeOk = String(u?.code || '').trim() !== ''
+    const facultyOk = !isStudent && !isTeacher ? true : Boolean(u?.faculty_id ?? u?.faculty?.id)
+    const periodOk = !isStudent ? true : Boolean(u?.period_id ?? u?.period?.id)
+    const classOk = !isStudent ? true : String(u?.class_code || '').trim() !== ''
+    const avatarOk = Boolean(String(u?.avatar || '').trim()) && !avatarLoadFailed.value
+
+    const items = [
+        { key: 'code', label: profileS.checklistCode, done: codeOk, needsApproval: true },
+    ]
+    if (isStudent || isTeacher) {
+        items.push({ key: 'faculty', label: profileS.checklistFaculty, done: facultyOk, needsApproval: true })
+    }
+    if (isStudent) {
+        items.push(
+            { key: 'period', label: profileS.checklistPeriod, done: periodOk, needsApproval: true },
+            { key: 'class', label: profileS.checklistClass, done: classOk, needsApproval: true },
+        )
+    }
+    items.push({ key: 'avatar', label: profileS.checklistAvatar, done: avatarOk, needsApproval: false })
+    return items
+})
+
+const libraryCardProfileReady = computed(() => libraryCardChecklist.value.every((item) => item.done))
 
 const infoItems = computed(() => {
     const rows = [
@@ -463,6 +505,9 @@ onBeforeUnmount(() => {
                         <div class="min-w-0 space-y-1">
                             <h1 class="truncate text-2xl font-black sm:text-3xl">{{ effectiveUser?.name || 'Người dùng' }}</h1>
                             <p class="truncate text-sm text-blue-100">{{ effectiveUser?.email || 'Chưa có email' }}</p>
+                            <p v-if="showLibraryCardGuide" class="text-[11px] leading-snug text-blue-100/90">
+                                {{ profileS.avatarCardHint }}
+                            </p>
                             <div class="mt-2 flex flex-wrap gap-2">
                                 <span
                                     v-for="role in (effectiveUser?.roles || [])"
@@ -514,6 +559,105 @@ onBeforeUnmount(() => {
                             </div>
                         </div>
                     </div>
+
+                    <div
+                        v-if="showLibraryCardGuide"
+                        id="library-card-guide"
+                        class="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-blue-50 p-5 shadow-md shadow-indigo-100/40 dark:border-indigo-900/50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-900 dark:shadow-black/25"
+                    >
+                        <div class="mb-4 flex items-start gap-3">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/30">
+                                <Icon icon="lucide:id-card" class="h-5 w-5" />
+                            </div>
+                            <div class="min-w-0">
+                                <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ profileS.libraryCardGuideTitle }}</h3>
+                                <p class="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{{ profileS.libraryCardGuideLead }}</p>
+                            </div>
+                        </div>
+
+                        <p class="mb-2 text-[11px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">{{ profileS.libraryCardFlowTitle }}</p>
+                        <ol class="mb-4 space-y-2">
+                            <li class="flex gap-3 rounded-xl border border-white/80 bg-white/70 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/80">
+                                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-black text-white">1</span>
+                                <div class="min-w-0 text-xs">
+                                    <p class="font-semibold text-slate-900 dark:text-white">{{ profileS.libraryCardStepProfile }}</p>
+                                    <p class="mt-0.5 text-slate-600 dark:text-slate-400">{{ profileS.libraryCardStepProfileHint }}</p>
+                                </div>
+                            </li>
+                            <li class="flex gap-3 rounded-xl border border-white/80 bg-white/70 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/80">
+                                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-black text-white">2</span>
+                                <div class="min-w-0 text-xs">
+                                    <p class="font-semibold text-slate-900 dark:text-white">{{ profileS.libraryCardStepApply }}</p>
+                                    <p class="mt-0.5 text-slate-600 dark:text-slate-400">{{ profileS.libraryCardStepApplyHint }}</p>
+                                </div>
+                            </li>
+                            <li class="flex gap-3 rounded-xl border border-white/80 bg-white/70 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/80">
+                                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-black text-white">3</span>
+                                <div class="min-w-0 text-xs">
+                                    <p class="font-semibold text-slate-900 dark:text-white">{{ profileS.libraryCardStepPickup }}</p>
+                                    <p class="mt-0.5 text-slate-600 dark:text-slate-400">{{ profileS.libraryCardStepPickupHint }}</p>
+                                </div>
+                            </li>
+                        </ol>
+
+                        <p class="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">{{ profileS.checklistTitle }}</p>
+                        <ul class="mb-4 space-y-1.5">
+                            <li
+                                v-for="item in libraryCardChecklist"
+                                :key="item.key"
+                                class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs"
+                                :class="item.done
+                                    ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/50 dark:bg-emerald-900/15'
+                                    : 'border-amber-200 bg-amber-50/80 dark:border-amber-900/50 dark:bg-amber-900/15'"
+                            >
+                                <span class="flex min-w-0 items-center gap-2 font-medium text-slate-800 dark:text-slate-200">
+                                    <Icon
+                                        :icon="item.done ? 'lucide:circle-check' : 'lucide:circle-alert'"
+                                        class="h-4 w-4 shrink-0"
+                                        :class="item.done ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'"
+                                    />
+                                    <span class="truncate">{{ item.label }}</span>
+                                    <span
+                                        v-if="item.needsApproval && !item.done"
+                                        class="hidden shrink-0 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 sm:inline dark:bg-slate-700 dark:text-slate-300"
+                                    >Phiếu duyệt</span>
+                                </span>
+                                <span
+                                    class="shrink-0 text-[10px] font-bold uppercase tracking-wide"
+                                    :class="item.done ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'"
+                                >
+                                    {{ item.done ? profileS.checklistDone : profileS.checklistMissing }}
+                                </span>
+                            </li>
+                        </ul>
+
+                        <p
+                            class="mb-4 rounded-lg px-3 py-2 text-xs font-medium"
+                            :class="libraryCardProfileReady
+                                ? 'border border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200'
+                                : 'border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200'"
+                        >
+                            {{ libraryCardProfileReady ? profileS.checklistReady : profileS.checklistNotReady }}
+                        </p>
+
+                        <div class="flex flex-col gap-2">
+                            <Link
+                                :href="libraryCardProcedureUrl"
+                                class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-indigo-300 bg-white px-4 text-xs font-semibold text-indigo-800 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-800 dark:text-indigo-200 dark:hover:bg-slate-700"
+                            >
+                                <Icon icon="lucide:book-open" class="h-4 w-4" />
+                                {{ profileS.linkCardProcedure }}
+                            </Link>
+                            <Link
+                                :href="libraryCardServiceUrl"
+                                class="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 text-xs font-semibold text-white shadow-md shadow-indigo-700/25 hover:brightness-110"
+                            >
+                                <Icon icon="lucide:arrow-right" class="h-4 w-4" />
+                                {{ profileS.linkApplyCard }}
+                            </Link>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div :class="isStaff ? 'space-y-4 lg:col-span-5' : 'space-y-4 lg:col-span-3'">
@@ -656,8 +800,9 @@ onBeforeUnmount(() => {
                         class="rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/30 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/25"
                     >
                         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-                            <div>
-                                <h3 class="text-base font-bold text-slate-900 dark:text-white">Yêu cầu thay đổi thông tin</h3>
+                            <div class="min-w-0">
+                                <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ profileS.updateRequestTitle }}</h3>
+                                <p class="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{{ profileS.updateRequestLead }}</p>
                             </div>
                             <Link
                                 :href="route('reader.profile-update-requests')"
@@ -673,10 +818,17 @@ onBeforeUnmount(() => {
                         >
                             Đã gửi yêu cầu cập nhật. Bạn có thể theo dõi trạng thái ở trang lịch sử.
                         </div>
-                        <div class="mx-6 mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
-                            <p>
-                                <span class="font-bold">Lưu ý:</span> Thông tin cá nhân cơ bản có thể tự sửa ở phần
-                                <span class="font-semibold">Chỉnh sửa hồ sơ</span> phía trên; riêng loại bạn đọc, mã định danh, khoa/niên khóa/lớp cần gửi yêu cầu duyệt bằng biểu mẫu bên dưới.
+                        <div class="mx-6 mt-4 space-y-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-100">
+                            <p class="font-bold">{{ profileS.updateRequestNoteTitle }}</p>
+                            <ul class="list-inside list-disc space-y-1.5 pl-0.5">
+                                <li>{{ profileS.updateRequestNoteSelf }}</li>
+                                <li>{{ profileS.updateRequestNoteApproval }}</li>
+                            </ul>
+                            <p class="border-t border-blue-200/80 pt-2 dark:border-blue-700/60">
+                                {{ profileS.updateRequestCardAfterApproval }}
+                                <Link :href="`${libraryCardServiceUrl}#apply`" class="font-semibold underline underline-offset-2 hover:text-blue-900 dark:hover:text-white">
+                                    Cấp thẻ thư viện
+                                </Link>.
                             </p>
                         </div>
                         <form class="space-y-4 p-6" @submit.prevent="submitProfileUpdateRequest">

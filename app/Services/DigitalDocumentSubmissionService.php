@@ -12,6 +12,7 @@ use App\Models\Book;
 use App\Models\DigitalAsset;
 use App\Models\DigitalDocumentSubmission;
 use App\Models\User;
+use App\Services\Notifications\DigitalDocumentSubmissionNotificationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -29,6 +30,7 @@ class DigitalDocumentSubmissionService
 
     public function __construct(
         private DigitalAssetService $digitalAssetService,
+        private DigitalDocumentSubmissionNotificationService $submissionNotificationService,
     ) {}
 
     /**
@@ -67,7 +69,7 @@ class DigitalDocumentSubmissionService
             );
         }
 
-        return DigitalDocumentSubmission::query()->create([
+        $submission = DigitalDocumentSubmission::query()->create([
             'submitted_by' => $user->id,
             'title' => trim((string) ($attrs['title'] ?? '')),
             'author_names' => trim((string) ($attrs['author_names'] ?? '')),
@@ -79,6 +81,10 @@ class DigitalDocumentSubmissionService
             'cover_image_path' => $coverPath,
             'status' => DigitalDocumentSubmission::STATUS_PENDING,
         ]);
+
+        $this->submissionNotificationService->notifyStaffPendingReview();
+
+        return $submission;
     }
 
     /**
@@ -98,7 +104,7 @@ class DigitalDocumentSubmissionService
     public function paginatePublicApproved(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = DigitalDocumentSubmission::query()
-            ->with($this->listRelations())
+            ->with($this->listPublicRelations())
             ->where('status', DigitalDocumentSubmission::STATUS_APPROVED)
             ->whereHas('approvedBook', fn (Builder $q) => $q->where('resource_type', ResourceType::DIGITAL->value));
 
@@ -130,6 +136,20 @@ class DigitalDocumentSubmissionService
         return [
             'submitter:id,name,email',
             'reviewer:id,name',
+            'approvedBook:id,book_code,title,summary,cover_image',
+            'approvedBook.authors:id,name',
+        ];
+    }
+
+    /**
+     * Quan hệ cho API catalog công khai (không tải email người nộp).
+     *
+     * @return list<string>
+     */
+    private function listPublicRelations(): array
+    {
+        return [
+            'submitter:id,name',
             'approvedBook:id,book_code,title,summary,cover_image',
             'approvedBook.authors:id,name',
         ];
@@ -252,7 +272,12 @@ class DigitalDocumentSubmissionService
                 'approved_book_id' => $book->id,
             ]);
 
-            return $submission->fresh(['submitter:id,name,email', 'reviewer:id,name']);
+            $fresh = $submission->fresh(['submitter:id,name,email', 'reviewer:id,name', 'approvedBook:id,title']);
+
+            $this->submissionNotificationService->notifySubmitterReviewed($fresh, approved: true);
+            $this->submissionNotificationService->notifyStaffPendingReview();
+
+            return $fresh;
         });
     }
 
@@ -296,7 +321,12 @@ class DigitalDocumentSubmissionService
                 'reviewed_at' => now(),
             ]);
 
-            return $submission->fresh(['submitter:id,name,email', 'reviewer:id,name']);
+            $fresh = $submission->fresh(['submitter:id,name,email', 'reviewer:id,name']);
+
+            $this->submissionNotificationService->notifySubmitterReviewed($fresh, approved: false);
+            $this->submissionNotificationService->notifyStaffPendingReview();
+
+            return $fresh;
         });
     }
 

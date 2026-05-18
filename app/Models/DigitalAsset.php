@@ -24,6 +24,7 @@ class DigitalAsset extends BaseModel
         'preview_path',
         'preview_page_count',
         'preview_generated_at',
+        'preview_status',
         'preview_display',
         'original_name',
         'mime',

@@ -139,8 +139,15 @@ class DigitalAssetPreviewDisplayService
             abort(404);
         }
 
-        $relative = $this->resolvePageImagePath($asset, $page)
-            ?? UploadDirectory::digitalAssetPreviewPageImage((int) $book->id, (int) $asset->id, $page);
+        if ($page < 1) {
+            abort(404);
+        }
+
+        // Chỉ phục vụ trang có trong preview_display — không đoán path trên disk (tránh lộ trang ngoài paywall).
+        $relative = $this->resolvePageImagePath($asset, $page);
+        if ($relative === null) {
+            abort(404);
+        }
 
         $diskName = (string) ($asset->storage_disk ?: FileHelpers::digitalAssetsDisk());
         if (! Storage::disk($diskName)->exists($relative)) {

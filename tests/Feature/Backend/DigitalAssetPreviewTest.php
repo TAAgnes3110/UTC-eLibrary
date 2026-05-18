@@ -53,6 +53,7 @@ class DigitalAssetPreviewTest extends TestCase
         $this->assertTrue($service->generate($asset));
         $asset->refresh();
 
+        $this->assertSame('ready', $asset->preview_status);
         $this->assertNotNull($asset->preview_path);
         $this->assertSame(5, (int) $asset->preview_page_count);
         Storage::disk('local')->assertExists($asset->preview_path);

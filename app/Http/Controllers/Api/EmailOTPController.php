@@ -29,7 +29,7 @@ class EmailOTPController extends Controller
                 return ApiResponse::json(['status' => 'error', 'messages' => $result['message']], $statusCode);
             }
 
-            return ApiResponse::json(['status' => 'success', 'messages' => $result['message'], 'otp' => $result['otp']], 200);
+            return ApiResponse::json(['status' => 'success', 'messages' => $result['message']], 200);
         } catch (Exception $e) {
             return ApiResponse::json(['status' => 'error', 'messages' => $e->getMessage()], 500);
         }

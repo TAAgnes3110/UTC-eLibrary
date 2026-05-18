@@ -55,19 +55,14 @@ class DigitalPaymentOrderService
             throw new \RuntimeException('Không có tài liệu nào hợp lệ để thanh toán trực tuyến hoặc tổng tiền bằng 0₫.');
         }
 
-        $payableAssetIds = array_column($orderItemsData, 'digital_asset_id');
-        if ($this->userHasPendingDigitalOrderForAssets($userId, $payableAssetIds)) {
-            throw new \RuntimeException('Bạn đã có đơn đang chờ thanh toán cho một hoặc nhiều tài liệu trong danh sách. Vui lòng hoàn tất hoặc hủy đơn cũ trước khi tạo đơn mới.');
-        }
+        $this->assertUserCanCreatePendingDigitalOrder($userId);
 
         $code = $this->generatePaymentCode();
         $lockUntil = now()->addMinutes((int) env('SEPAY_PRICE_LOCK_MINUTES', 15));
         $qrUrl = $this->sepayQr->buildQrImageUrl($totalPrice, $code);
 
-        return DB::transaction(function () use ($userId, $totalPrice, $code, $lockUntil, $qrUrl, $orderItemsData, $payableAssetIds): Order {
-            if ($this->userHasPendingDigitalOrderForAssets($userId, $payableAssetIds)) {
-                throw new \RuntimeException('Bạn đã có đơn đang chờ thanh toán cho một hoặc nhiều tài liệu trong danh sách. Vui lòng hoàn tất hoặc hủy đơn cũ trước khi tạo đơn mới.');
-            }
+        return DB::transaction(function () use ($userId, $totalPrice, $code, $lockUntil, $qrUrl, $orderItemsData): Order {
+            $this->assertUserCanCreatePendingDigitalOrder($userId);
 
             $order = Order::create([
                 'public_id' => (string) Str::uuid(),
@@ -101,6 +96,11 @@ class DigitalPaymentOrderService
     public function pendingMaxAgeDays(): int
     {
         return max(1, (int) config('services.digital_orders.pending_max_age_days', 3));
+    }
+
+    public function pendingMaxCountPerUser(): int
+    {
+        return max(1, (int) config('services.digital_orders.pending_max_per_user', 3));
     }
 
     /**
@@ -266,12 +266,24 @@ class DigitalPaymentOrderService
         }
         $amount = (int) $amount;
 
-        DB::transaction(function () use ($payload, $candidateRefs, $txId, $amount): void {
-            $order = Order::query()
-                ->where('gateway', Order::GATEWAY_SEPAY)
-                ->whereIn('merchant_reference', $candidateRefs)
-                ->lockForUpdate()
-                ->first();
+        DB::transaction(function () use ($payload, $candidateRefs, $txId, $amount, $primaryCode): void {
+            // Ưu tiên trường `code` SePay gửi — tránh khớp nhầm đơn khi content chứa nhiều mã DL…
+            $order = null;
+            if ($primaryCode !== null) {
+                $order = Order::query()
+                    ->where('gateway', Order::GATEWAY_SEPAY)
+                    ->where('merchant_reference', $primaryCode)
+                    ->lockForUpdate()
+                    ->first();
+            }
+
+            if (! $order) {
+                $order = Order::query()
+                    ->where('gateway', Order::GATEWAY_SEPAY)
+                    ->whereIn('merchant_reference', $candidateRefs)
+                    ->lockForUpdate()
+                    ->first();
+            }
 
             if (! $order) {
                 Log::notice('sepay.webhook.order_not_found', [
@@ -325,24 +337,24 @@ class DigitalPaymentOrderService
         $this->grantPdfDownloadEntitlementsForOrder($order);
     }
 
-    /**
-     * @param  list<int>  $digitalAssetIds
-     */
-    private function userHasPendingDigitalOrderForAssets(int $userId, array $digitalAssetIds): bool
+    private function userPendingDigitalOrderCount(int $userId): int
     {
-        $ids = array_values(array_unique(array_filter(array_map('intval', $digitalAssetIds))));
-        if ($ids === []) {
-            return false;
-        }
-
-        return Order::query()
+        return (int) Order::query()
             ->where('user_id', $userId)
             ->where('type', Order::TYPE_DIGITAL_PURCHASE)
             ->where('status', Order::STATUS_PENDING)
-            ->whereHas('items', fn ($q) => $q
-                ->where('item_type', self::ITEM_TYPE_DIGITAL_UNLOCK)
-                ->whereIn('digital_asset_id', $ids))
-            ->exists();
+            ->count();
+    }
+
+    private function assertUserCanCreatePendingDigitalOrder(int $userId): void
+    {
+        $max = $this->pendingMaxCountPerUser();
+        $count = $this->userPendingDigitalOrderCount($userId);
+        if ($count >= $max) {
+            throw new \RuntimeException(
+                "Bạn đang có {$count} đơn chờ thanh toán (giới hạn {$max}). Vui lòng hoàn tất hoặc hủy bớt đơn cũ trước khi tạo đơn mới."
+            );
+        }
     }
 
     private function grantPdfDownloadEntitlementsForOrder(Order $order): void

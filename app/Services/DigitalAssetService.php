@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\DigitalAssetPreviewStatus;
 use App\Enums\UploadDirectory;
 use App\Helpers\FileHelpers;
 use App\Models\Book;
 use App\Models\DigitalAsset;
+use App\Support\DigitalAssetPreviewJobDispatcher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -70,6 +72,10 @@ class DigitalAssetService
         string $path,
         ?string $mime = null
     ): void {
+        $asset->forceFill([
+            'preview_status' => DigitalAssetPreviewStatus::Pending->value,
+        ])->save();
+
         if (! config('deploy.run_post_upload_processing_on_host', true)) {
             return;
         }
@@ -85,7 +91,7 @@ class DigitalAssetService
             }
 
             $this->trySetBookCoverFromPdf($book, $disk, $path, $mime);
-            $this->previewService->generate($asset->fresh());
+            DigitalAssetPreviewJobDispatcher::dispatch($assetId);
         })->afterResponse();
     }
 

@@ -9,6 +9,7 @@ enum NotificationType: string
     case ADMIN_LOAN_OVERDUE_DETECTED = 'admin.loan_overdue_detected';
     case ADMIN_LOAN_DUE_SOON_DIGEST = 'admin.loan_due_soon_digest';
     case ADMIN_LOAN_RENEWAL_PENDING = 'admin.loan_renewal_pending';
+    case ADMIN_DIGITAL_DOCUMENT_SUBMISSION_PENDING = 'admin.digital_document_submission_pending';
 
     case USER_PROFILE_UPDATE_APPROVED = 'user.profile_update_approved';
     case USER_PROFILE_UPDATE_REJECTED = 'user.profile_update_rejected';
@@ -20,6 +21,8 @@ enum NotificationType: string
     case USER_CARD_REJECTED = 'user.card_rejected';
     case USER_CARD_EXPIRING_SOON = 'user.card_expiring_soon';
     case USER_CARD_EXPIRED = 'user.card_expired';
+    case USER_DIGITAL_DOCUMENT_SUBMISSION_APPROVED = 'user.digital_document_submission_approved';
+    case USER_DIGITAL_DOCUMENT_SUBMISSION_REJECTED = 'user.digital_document_submission_rejected';
 
     /**
      * @return list<string>
@@ -40,6 +43,7 @@ enum NotificationType: string
             self::ADMIN_LOAN_OVERDUE_DETECTED->value,
             self::ADMIN_LOAN_DUE_SOON_DIGEST->value,
             self::ADMIN_LOAN_RENEWAL_PENDING->value,
+            self::ADMIN_DIGITAL_DOCUMENT_SUBMISSION_PENDING->value,
         ];
     }
 
@@ -59,6 +63,8 @@ enum NotificationType: string
             self::USER_CARD_REJECTED->value,
             self::USER_CARD_EXPIRING_SOON->value,
             self::USER_CARD_EXPIRED->value,
+            self::USER_DIGITAL_DOCUMENT_SUBMISSION_APPROVED->value,
+            self::USER_DIGITAL_DOCUMENT_SUBMISSION_REJECTED->value,
         ];
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\DigitalAssetPreviewStatus;
 use App\Enums\UploadDirectory;
 use App\Helpers\FileHelpers;
 use App\Models\DigitalAsset;
@@ -45,15 +46,77 @@ class DigitalAssetPreviewService
     /**
      * Tạo hoặc làm mới preview.pdf. Trả false nếu tắt preview hoặc lỗi (không chặn upload).
      */
+    public function paywallPreviewDisabled(DigitalAsset $asset): bool
+    {
+        $asset->loadMissing('paywallSetting');
+
+        return $this->paywall->resolvePreviewMaxPages($asset) <= 0;
+    }
+
+    public function markPreviewStatus(DigitalAsset $asset, DigitalAssetPreviewStatus $status): void
+    {
+        if ((string) ($asset->preview_status ?? '') === $status->value) {
+            return;
+        }
+
+        $asset->forceFill(['preview_status' => $status->value])->save();
+    }
+
+    /** Trạng thái lưu DB khi migrate / backfill. */
+    public function inferStoredPreviewStatus(DigitalAsset $asset): string
+    {
+        return $this->resolveReaderPreviewState($asset);
+    }
+
+    public function resolveReaderPreviewState(DigitalAsset $asset): string
+    {
+        $asset->loadMissing('paywallSetting');
+
+        if ($this->paywallPreviewDisabled($asset)) {
+            return DigitalAssetPreviewStatus::Disabled->value;
+        }
+
+        if ($this->display->hasPreviewDisplay($asset)) {
+            return DigitalAssetPreviewStatus::Ready->value;
+        }
+
+        $stored = DigitalAssetPreviewStatus::tryFrom((string) ($asset->preview_status ?? ''));
+        if ($stored === DigitalAssetPreviewStatus::Failed) {
+            return DigitalAssetPreviewStatus::Failed->value;
+        }
+
+        if ($stored === DigitalAssetPreviewStatus::Processing) {
+            return DigitalAssetPreviewStatus::Processing->value;
+        }
+
+        if ($this->hasPreview($asset)) {
+            return DigitalAssetPreviewStatus::Processing->value;
+        }
+
+        if (filled($asset->path)) {
+            return DigitalAssetPreviewStatus::Pending->value;
+        }
+
+        return DigitalAssetPreviewStatus::Disabled->value;
+    }
+
+    public function isPreviewReadyForReader(DigitalAsset $asset): bool
+    {
+        return $this->resolveReaderPreviewState($asset) === DigitalAssetPreviewStatus::Ready->value;
+    }
+
     public function generate(DigitalAsset $asset, ?int $maxPages = null): bool
     {
         $asset->loadMissing('paywallSetting');
         $limit = $maxPages ?? $this->paywall->resolvePreviewMaxPages($asset);
         if ($limit <= 0) {
             $this->clearPreview($asset);
+            $this->markPreviewStatus($asset, DigitalAssetPreviewStatus::Disabled);
 
             return false;
         }
+
+        $this->markPreviewStatus($asset, DigitalAssetPreviewStatus::Processing);
 
         $limit = min($limit, self::MAX_PREVIEW_PAGES_CAP);
         $sourcePath = (string) $asset->path;
@@ -97,6 +160,9 @@ class DigitalAssetPreviewService
                 'preview_page_count' => $pagesWritten,
                 'preview_generated_at' => now(),
                 'preview_display' => $display,
+                'preview_status' => $display !== null
+                    ? DigitalAssetPreviewStatus::Ready->value
+                    : DigitalAssetPreviewStatus::Failed->value,
             ])->save();
 
             return $display !== null;
@@ -105,6 +171,7 @@ class DigitalAssetPreviewService
                 'digital_asset_id' => $asset->id,
                 'message' => $e->getMessage(),
             ]);
+            $this->markPreviewStatus($asset, DigitalAssetPreviewStatus::Failed);
 
             return false;
         } finally {
@@ -132,25 +199,14 @@ class DigitalAssetPreviewService
             'preview_page_count' => null,
             'preview_generated_at' => null,
             'preview_display' => null,
+            'preview_status' => DigitalAssetPreviewStatus::Pending->value,
         ])->save();
     }
 
+    /** Chỉ true khi đã có PNG/text hiển thị — không hứa preview khi đang xử lý. */
     public function isPreviewAvailableForReader(DigitalAsset $asset): bool
     {
-        if ($this->paywall->resolvePreviewMaxPages($asset) <= 0) {
-            return false;
-        }
-
-        if ($this->display->hasPreviewDisplay($asset)) {
-            return true;
-        }
-
-        if ($this->hasPreview($asset)) {
-            return true;
-        }
-
-        return config('deploy.allow_runtime_preview_generation', true)
-            && filled($asset->path);
+        return $this->isPreviewReadyForReader($asset);
     }
 
     private function extractPagesToFile(string $sourceAbsolute, string $destAbsolute, int $maxPages): int

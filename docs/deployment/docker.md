@@ -155,3 +155,24 @@ docker compose exec -T mysql mysql -u utc -psecret utc_elibrary < backup.sql
 - PDF preview cần **qpdf**, **ghostscript**, **poppler** — đã có trong image.
 - `DIGITAL_PREVIEW_DISPATCH_SYNC=true` mặc định — không cần container `queue:work` riêng.
 - Build frontend (`npm run build`) chạy **trong Dockerfile** — không cần Node trên host.
+
+## EC2 t3.micro (1 GB RAM) — build hay bị OOM
+
+Docker build đa stage + Vite dễ **hết RAM** (`JavaScript heap out of memory`). Dùng flow nhẹ:
+
+```bash
+# Đã thêm swap 2G (khuyến nghị)
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+sudo mkswap /swapfile && sudo swapon /swapfile
+
+cd ~/utc-elibrary
+git pull origin main
+chmod +x scripts/ec2-prepare-build.sh
+bash scripts/ec2-prepare-build.sh
+
+COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.ec2.yml build --no-cache app
+docker compose -f docker-compose.ec2.yml up -d
+docker compose -f docker-compose.ec2.yml exec app php artisan migrate --force
+```
+
+`ec2-prepare-build.sh` tạo `vendor/` + `public/build/` trên host (từng bước, ít RAM hơn), rồi `Dockerfile.ec2` chỉ đóng gói PHP/nginx.

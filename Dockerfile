@@ -53,6 +53,7 @@ COPY vite.config.js tailwind.config.js postcss.config.js ./
 COPY resources ./resources
 COPY public ./public
 
+ENV NODE_OPTIONS=--max-old-space-size=768
 RUN npm run build
 
 # -----------------------------------------------------------------------------
@@ -79,7 +80,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ghostscript \
     poppler-utils \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j"$(nproc)" \
+    && docker-php-ext-install -j1 \
         pdo_mysql \
         zip \
         gd \
@@ -88,8 +89,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         opcache \
         mbstring \
         xml \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
     && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

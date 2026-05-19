@@ -87,7 +87,7 @@ UTC eLibrary phục vụ:
 
 ### Giao diện (screenshot từ [demo EC2](http://3.0.56.220/))
 
-Ảnh **full-page** (1440px, scale 2×) — mỗi trang **một hàng**, `width="100%"`. Tái chụp toàn bộ: `node scripts/capture-readme-screenshots.mjs`.
+Ảnh **full-page**, viewport **máy tính 1920×1080** (Chrome desktop, dark mode) — mỗi trang **một hàng**, `width="100%"`. Tái chụp: `node scripts/capture-readme-screenshots.mjs`.
 
 ---
 

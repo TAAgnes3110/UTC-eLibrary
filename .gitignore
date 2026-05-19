@@ -26,6 +26,7 @@ LPT1
 /.phpunit.cache
 /.vscode
 /.zed
+/.cursor/settings.json
 /playwright-report/
 /test-results/
 /blob-report/
@@ -68,3 +69,8 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 .eslintcache
+
+# Temp / artifacts đồ án & deploy local
+/.tmp/
+*.zip
+UTC-eLibrary.zip

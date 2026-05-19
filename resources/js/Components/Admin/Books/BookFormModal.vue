@@ -558,7 +558,7 @@ onBeforeUnmount(() => {
                                     class="w-full h-[min(50vh,420px)] bg-slate-100 dark:bg-slate-950"
                                     title="Xem trước PDF"
                                 />
-                            </motion.div>
+                            </div>
                         </div>
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">

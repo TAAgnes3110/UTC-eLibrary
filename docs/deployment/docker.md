@@ -176,3 +176,5 @@ docker compose -f docker-compose.ec2.yml exec app php artisan migrate --force
 ```
 
 `ec2-prepare-build.sh` tạo `vendor/` + `public/build/` trên host (từng bước, ít RAM hơn), rồi `Dockerfile.ec2` chỉ đóng gói PHP/nginx.
+
+**CI/CD (tự deploy sau push `main`):** [`ec2-cicd.md`](ec2-cicd.md) — script `scripts/ec2-deploy.sh` + GitHub Actions.

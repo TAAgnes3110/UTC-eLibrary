@@ -10,14 +10,13 @@ import {
     sessionApiPost,
     sessionApiPut,
     updateDigitalBookViaSession,
-    uploadDigitalAssetViaSession,
     uploadBookCoverViaSession,
 } from '@/utils/adminApiAuth';
 import { BOOK_FORM_FIELD_MAP, getFieldErrorsFromAxiosError, getLaravelErrorMessage } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
 import { extractApiPaginator } from '@/utils/adminPagination';
-import { primaryDigitalAsset } from '@/utils/adminDigitalAsset';
+import { adminDigitalDownloadUrl, primaryDigitalAsset } from '@/utils/adminDigitalAsset';
 
 const BOOKS_PER_PAGE = 20;
 const CURRENT_YEAR = new Date().getFullYear();
@@ -238,6 +237,7 @@ export function useBooksAdminPage() {
     /** Khi sửa: ảnh bìa / tên PDF đang có trên server (không phải file mới chọn). */
     const editExistingCoverUrl = ref('');
     const editExistingDigitalFileName = ref('');
+    const editExistingDigitalDownloadUrl = ref('');
 
     const {
         fieldErrors: bookFormErrors,
@@ -246,8 +246,6 @@ export function useBooksAdminPage() {
         applyAxios422: applyBookApiErrors,
         setClientErrors: setBookClientErrors,
     } = useApiFieldErrors(BOOK_FORM_FIELD_MAP);
-
-    const DIGITAL_UPLOAD_FIELD_MAP = { ...BOOK_FORM_FIELD_MAP, file: 'digital_file' };
 
     function formatSaveStepError(stepLabel, error) {
         const custom = typeof error?.message === 'string' ? error.message.trim() : '';
@@ -708,6 +706,7 @@ export function useBooksAdminPage() {
     function clearEditExistingMedia() {
         editExistingCoverUrl.value = '';
         editExistingDigitalFileName.value = '';
+        editExistingDigitalDownloadUrl.value = '';
     }
 
     function clearEditExistingCover() {
@@ -716,6 +715,7 @@ export function useBooksAdminPage() {
 
     function clearEditExistingDigitalFileName() {
         editExistingDigitalFileName.value = '';
+        editExistingDigitalDownloadUrl.value = '';
     }
 
     function fillFormFromBook(book) {
@@ -752,6 +752,7 @@ export function useBooksAdminPage() {
         editExistingCoverUrl.value = cover && !cover.includes('default-book-cover') ? cover : '';
         const asset = primaryDigitalAsset(book);
         editExistingDigitalFileName.value = String(asset?.original_name || '').trim();
+        editExistingDigitalDownloadUrl.value = adminDigitalDownloadUrl(book) || '';
     }
 
     function setCreateDigitalFile(file) {
@@ -931,6 +932,9 @@ export function useBooksAdminPage() {
         storageSuggestionMessage.value = '';
 
         try {
+            if (pageKind.value === 'digital') {
+                await ensureAdminWebSession();
+            }
             const res = await booksApi.get(book.id);
             const detail = res?.data ?? res;
             fillFormFromBook(detail);
@@ -1029,7 +1033,13 @@ export function useBooksAdminPage() {
             && pageKind.value === 'digital'
             && form.value.id != null
             && createDigitalFile.value instanceof File;
-        const usedAtomicDigital = isNewDigital || isEditDigitalWithPdf;
+        const isEditDigitalCoverOnly =
+            isEditing.value
+            && pageKind.value === 'digital'
+            && form.value.id != null
+            && !(createDigitalFile.value instanceof File)
+            && createCoverFile.value instanceof File;
+        const usedAtomicDigital = isNewDigital || isEditDigitalWithPdf || isEditDigitalCoverOnly;
 
         try {
             if (isNewDigital) {
@@ -1049,11 +1059,11 @@ export function useBooksAdminPage() {
                     return;
                 }
                 savedBookId = createdId;
-            } else if (isEditDigitalWithPdf) {
+            } else if (isEditDigitalWithPdf || isEditDigitalCoverOnly) {
                 await updateDigitalBookViaSession(
                     form.value.id,
                     payload,
-                    createDigitalFile.value,
+                    isEditDigitalWithPdf ? createDigitalFile.value : null,
                     createCoverFile.value instanceof File ? createCoverFile.value : null
                 );
                 savedBookId = Number(form.value.id);
@@ -1088,29 +1098,6 @@ export function useBooksAdminPage() {
                 }
             }
 
-            if (
-                !usedAtomicDigital
-                && pageKind.value === 'digital'
-                && createDigitalFile.value instanceof File
-                && savedBookId
-            ) {
-                try {
-                    await uploadDigitalAssetViaSession(savedBookId, createDigitalFile.value);
-                } catch (uploadError) {
-                    const fieldErrors = applySaveStepApiErrors(uploadError, DIGITAL_UPLOAD_FIELD_MAP);
-                    const stepMsg = formatSaveStepError('Upload PDF', uploadError);
-                    setBookClientErrors({
-                        ...fieldErrors,
-                        general: fieldErrors.general || stepMsg,
-                        digital_file: fieldErrors.digital_file || stepMsg,
-                    });
-                    activateSaveErrorLock();
-                    toast.error(stepMsg, { title: 'Upload PDF' });
-                    await loadBooks();
-                    return;
-                }
-            }
-
             toast.success(toastShort.ok);
             clearSaveErrorLock();
             showModal.value = false;
@@ -1121,7 +1108,10 @@ export function useBooksAdminPage() {
         } catch (e) {
             // eslint-disable-next-line no-console
             console.error('[saveBook]', e);
-            const fieldErrors = applySaveStepApiErrors(e);
+            const fieldErrors = applySaveStepApiErrors(
+                e,
+                usedAtomicDigital ? { ...BOOK_FORM_FIELD_MAP, file: 'digital_file' } : BOOK_FORM_FIELD_MAP
+            );
             const stepMsg = formatSaveStepError(usedAtomicDigital ? 'Lưu tài liệu số' : 'Lưu thông tin', e);
             setBookClientErrors({
                 ...fieldErrors,
@@ -1549,6 +1539,7 @@ export function useBooksAdminPage() {
         clearCreateCoverFile,
         editExistingCoverUrl,
         editExistingDigitalFileName,
+        editExistingDigitalDownloadUrl,
         clearEditExistingMedia,
         clearEditExistingCover,
         clearEditExistingDigitalFileName,

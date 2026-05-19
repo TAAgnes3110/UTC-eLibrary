@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="800" height="300" fill="#f8fafc" rx="12"/>
+  <text x="400" y="32" text-anchor="middle" font-size="18" font-weight="700" fill="#0f172a">Vai trÚ h« th—ng</text>
+  <rect x="40" y="60" width="160" height="200" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+  <text x="120" y="90" text-anchor="middle" font-weight="600" fill="#1e40af">Ÿc gi£</text>
+  <text x="120" y="115" text-anchor="middle" font-size="11" fill="#334155">Tra cÈu s·ch</text>
+  <text x="120" y="135" text-anchor="middle" font-size="11" fill="#334155">M∞„n / tr£</text>
+  <text x="120" y="155" text-anchor="middle" font-size="11" fill="#334155">Thª th∞ vi«n</text>
+  <text x="120" y="175" text-anchor="middle" font-size="11" fill="#334155">T‡i li«u s—</text>
+  <text x="120" y="195" text-anchor="middle" font-size="11" fill="#334155">NŸp ” ·n</text>
+  <rect x="220" y="60" width="160" height="200" rx="10" fill="#fef3c7" stroke="#d97706"/>
+  <text x="300" y="90" text-anchor="middle" font-weight="600" fill="#92400e">ThÁ th∞</text>
+  <text x="300" y="120" text-anchor="middle" font-size="11" fill="#334155">L≠p phiøu m∞„n/tr£</text>
+  <text x="300" y="140" text-anchor="middle" font-size="11" fill="#334155">Duy«t thª / m∞„n</text>
+  <text x="300" y="160" text-anchor="middle" font-size="11" fill="#334155">Qu£n l˝ kho</text>
+  <rect x="400" y="60" width="160" height="200" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="480" y="90" text-anchor="middle" font-weight="600" fill="#166534">Admin</text>
+  <text x="480" y="120" text-anchor="middle" font-size="11" fill="#334155">User / RBAC</text>
+  <text x="480" y="140" text-anchor="middle" font-size="11" fill="#334155">S·ch &amp; t‡i li«u s—</text>
+  <text x="480" y="160" text-anchor="middle" font-size="11" fill="#334155">C•u hÏnh th∞ vi«n</text>
+  <rect x="580" y="60" width="180" height="200" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="670" y="90" text-anchor="middle" font-weight="600" fill="#5b21b6">Super Admin</text>
+  <text x="670" y="120" text-anchor="middle" font-size="11" fill="#334155">To‡n quy¡n</text>
+  <text x="670" y="140" text-anchor="middle" font-size="11" fill="#334155">Roles / Permissions</text>
+  <text x="670" y="160" text-anchor="middle" font-size="11" fill="#334155">Deploy / h« th—ng</text>
+</svg>

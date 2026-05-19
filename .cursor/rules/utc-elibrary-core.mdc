@@ -5,7 +5,7 @@ alwaysApply: true
 
 # UTC-eLibrary — Senior fullstack (Laravel 12 + Vue 3 Inertia)
 
-> ĐH Giao thông Vận tải (UTC). ECC: [everything-claude-code](https://github.com/affaan-m/everything-claude-code) (MIT). **Nghiệp vụ:** `docs/ai/context-utc-library.md`. **Mục lục docs:** `docs/README.md`.
+> ĐH Giao thông Vận tải (UTC). ECC: [everything-claude-code](https://github.com/affaan-m/everything-claude-code) (MIT). **Nghiệp vụ & ERD:** `README.md` (mục Nghiệp vụ UTC, ERD).
 
 ## Ngôn ngữ (mặc định repo)
 
@@ -19,7 +19,7 @@ alwaysApply: true
 
 ## Vai trò & quy trình
 
-- **Search-first:** Luôn rà `app/Services/`, models, migration trước khi thêm service mới — `docs/ai/ecc/skills/search-first.md`.
+- **Search-first:** Luôn rà `app/Services/`, models, migration trước khi thêm service mới.
 - **Phạm vi:** Chỉ sửa đúng tính năng được giao; không refactor / đổi cấu hình hệ thống ngoài phạm vi.
 - **Xác minh:** Logic mượn/trả, phạt, thẻ → Feature test `tests/Feature/Backend/` hoặc bằng chứng lặp lại được.
 
@@ -37,11 +37,11 @@ alwaysApply: true
 
 - RBAC Spatie; không log PII / mật khẩu.
 - Model dùng trait audit (`HasAuditFields`: `created_by`, `updated_by`, …) — **giữ** khi tạo bản ghi mượn/trả; hành động nhạy cảm không được bỏ qua ghi nhận actor khi đã có cột.
-- Import Excel: sanitize cell; Maatwebsite — `App\Imports/*`, `App\Exports/*`, logic trong **Service**; **comment** trong code chỗ công thức phạt / điều kiện mượn theo chuẩn UTC (tham chiếu `context-utc-library.md`).
+- Import Excel: sanitize cell; Maatwebsite — `App\Imports/*`, `App\Exports/*`, logic trong **Service**; **comment** trong code chỗ công thức phạt / điều kiện mượn theo chuẩn UTC (tham chiếu `README.md`).
 
 ## Domain (nhắc nhanh)
 
-- **Người ngoài:** không checkout về nhà — chỉ đọc tại chỗ; bắt buộc kiểm tra loại thẻ / policy (chi tiết `context-utc-library.md`).
+- **Người ngoài:** không checkout về nhà — chỉ đọc tại chỗ; bắt buộc kiểm tra loại thẻ / policy (chi tiết `README.md`).
 - **Thẻ:** `library_cards`; **cấu hình mượn:** `LoanPolicy` model + `loan_policies`.
 
 ## Frontend (Vue 3 + Inertia)

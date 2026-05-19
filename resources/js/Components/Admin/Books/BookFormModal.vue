@@ -22,8 +22,8 @@ const props = defineProps({
     clearCreateCoverFile: { type: Function, default: () => () => {} },
     editExistingCoverUrl: { type: String, default: '' },
     editExistingDigitalFileName: { type: String, default: '' },
+    editExistingDigitalDownloadUrl: { type: String, default: '' },
     clearEditExistingCover: { type: Function, default: () => () => {} },
-    clearEditExistingDigitalFileName: { type: Function, default: () => () => {} },
     setCreateDigitalFile: { type: Function, default: () => () => {} },
     clearCreateDigitalFile: { type: Function, default: () => () => {} },
     saveLoading: { type: Boolean, default: false },
@@ -123,14 +123,34 @@ function removeCreateCover() {
     }
 }
 
-function removeExistingDigitalLabel() {
+/** Chỉ bỏ file PDF vừa chọn trên form — không đụng file đã lưu trên server. */
+function removeSelectedDigitalFile() {
     createDigitalFileName.value = '';
     resetFileInput(createDigitalFileInput.value);
     revokeDigitalPdfPreview();
     props.clearCreateDigitalFile();
-    if (props.isEditing && props.editExistingDigitalFileName) {
-        props.clearEditExistingDigitalFileName();
+}
+
+const hasLocalDigitalFile = computed(() => Boolean(createDigitalFileName.value));
+
+const canPreviewServerDigitalPdf = computed(
+    () =>
+        props.isEditing
+        && Boolean(props.editExistingDigitalDownloadUrl)
+        && Boolean(props.editExistingDigitalFileName)
+        && !hasLocalDigitalFile.value
+);
+
+function openServerDigitalPdfInNewTab() {
+    if (!props.editExistingDigitalDownloadUrl) {
+        return;
     }
+    const opened = window.open(props.editExistingDigitalDownloadUrl, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+        digitalLocalError.value = 'Trình duyệt chặn cửa sổ mới. Cho phép popup hoặc bấm lại «Xem trước».';
+        return;
+    }
+    digitalLocalError.value = '';
 }
 
 function onDigitalFileChange(event) {
@@ -155,6 +175,21 @@ function removeCreateDigitalFile() {
     resetFileInput(createDigitalFileInput.value);
     revokeDigitalPdfPreview();
     props.clearCreateDigitalFile();
+}
+
+/** Chỉ file PDF vừa chọn trên máy (chưa gửi server) — blob URL tab mới, xem rộng. */
+const canPreviewLocalDigitalPdf = computed(() => Boolean(digitalPdfPreviewUrl.value));
+
+function openLocalDigitalPdfInNewTab() {
+    if (!digitalPdfPreviewUrl.value) {
+        return;
+    }
+    const opened = window.open(digitalPdfPreviewUrl.value, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+        digitalLocalError.value = 'Trình duyệt chặn cửa sổ mới. Cho phép popup hoặc bấm lại «Xem trước».';
+        return;
+    }
+    digitalLocalError.value = '';
 }
 
 function handleEscapeKey(event) {
@@ -534,31 +569,53 @@ onBeforeUnmount(() => {
                                     {{ digitalFileLabel || 'Chưa chọn file PDF' }}
                                 </span>
                                 <Button
-                                    v-if="digitalFileLabel"
+                                    v-if="canPreviewLocalDigitalPdf"
                                     type="button"
                                     variant="outline"
                                     size="sm"
-                                    @click="removeExistingDigitalLabel"
+                                    class="inline-flex min-h-[44px] items-center gap-1.5"
+                                    @click="openLocalDigitalPdfInNewTab"
                                 >
-                                    Bỏ file
+                                    <Icon icon="lucide:external-link" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                    Xem trước
+                                </Button>
+                                <Button
+                                    v-else-if="canPreviewServerDigitalPdf"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    class="inline-flex min-h-[44px] items-center gap-1.5"
+                                    @click="openServerDigitalPdfInNewTab"
+                                >
+                                    <Icon icon="lucide:external-link" class="h-4 w-4 shrink-0" aria-hidden="true" />
+                                    Xem trước
+                                </Button>
+                                <Button
+                                    v-if="hasLocalDigitalFile"
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    class="min-h-[44px]"
+                                    @click="removeSelectedDigitalFile"
+                                >
+                                    Bỏ file đã chọn
                                 </Button>
                             </div>
+                            <p
+                                v-if="canPreviewLocalDigitalPdf"
+                                class="mt-2 text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                «Xem trước» mở PDF trên tab mới (file trên máy bạn, chưa lưu lên hệ thống).
+                            </p>
+                            <p
+                                v-else-if="canPreviewServerDigitalPdf"
+                                class="mt-2 text-xs text-slate-500 dark:text-slate-400"
+                            >
+                                «Xem trước» mở file PDF đã lưu trên hệ thống (tab mới).
+                            </p>
                             <p v-if="digitalLocalError || fieldErrors.digital_file" class="mt-2 text-xs text-red-500 font-medium">
                                 {{ digitalLocalError || fieldErrors.digital_file }}
                             </p>
-                            <div
-                                v-if="digitalPdfPreviewUrl"
-                                class="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
-                            >
-                                <p class="px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
-                                    Xem trước PDF (trên máy bạn — chưa gửi lên server)
-                                </p>
-                                <iframe
-                                    :src="digitalPdfPreviewUrl"
-                                    class="w-full h-[min(50vh,420px)] bg-slate-100 dark:bg-slate-950"
-                                    title="Xem trước PDF"
-                                />
-                            </div>
                         </div>
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">

@@ -318,6 +318,7 @@ Route::prefix('v1')->group(function () {
                 Route::delete('/{book}/digital-assets/{digital_asset}', [DigitalAssetController::class, 'destroy']);
                 Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}/digital', [BookController::class, 'updateDigital']);
+                Route::post('/{book}/digital', [BookController::class, 'updateDigital']);
                 Route::put('/{book}', [BookController::class, 'update']);
                 Route::delete('/{book}', [BookController::class, 'destroy']);
                 Route::post('/restore', [BookController::class, 'restoreMany']);

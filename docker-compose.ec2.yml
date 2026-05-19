@@ -1,5 +1,5 @@
 # EC2 t3.micro — build nhẹ (vendor + Vite build trên host trước)
-# Xem: docs/deployment/docker.md
+# Xem: README.md — mục Deploy EC2
 
 services:
   app:

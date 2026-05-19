@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 200" font-family="Segoe UI, Arial, sans-serif">
+  <rect width="900" height="200" fill="#fff" rx="12" stroke="#e2e8f0"/>
+  <text x="450" y="28" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">LuÓng m°ãn sách in (tóm t¯t)</text>
+  <rect x="30" y="60" width="120" height="50" rx="8" fill="#dbeafe"/><text x="90" y="90" text-anchor="middle" font-size="11">Yêu c§u m°ãn</text>
+  <text x="165" y="90" font-size="18" fill="#64748b">’</text>
+  <rect x="190" y="60" width="120" height="50" rx="8" fill="#fef3c7"/><text x="250" y="90" text-anchor="middle" font-size="11">DuyÇt thç th°</text>
+  <text x="325" y="90" font-size="18" fill="#64748b">’</text>
+  <rect x="350" y="60" width="120" height="50" rx="8" fill="#dcfce7"/><text x="410" y="90" text-anchor="middle" font-size="11">Phi¿u m°ãn</text>
+  <text x="485" y="90" font-size="18" fill="#64748b">’</text>
+  <rect x="510" y="60" width="120" height="50" rx="8" fill="#e0e7ff"/><text x="570" y="90" text-anchor="middle" font-size="11">ang m°ãn</text>
+  <text x="645" y="90" font-size="18" fill="#64748b">’</text>
+  <rect x="670" y="60" width="120" height="50" rx="8" fill="#fce7f3"/><text x="730" y="90" text-anchor="middle" font-size="11">Tr£ sách</text>
+  <text x="450" y="160" text-anchor="middle" font-size="11" fill="#64748b">KiÃm tra: th» hãp lÇ · policy · quá h¡n · ph¡t · b£n sao kh£ dång (LoanService)</text>
+</svg>

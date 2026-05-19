@@ -1,4 +1,4 @@
-# Tự deploy EC2 sau mỗi push lên main (cần cấu hình Secrets — xem docs/deployment/ec2-cicd.md).
+# Tự deploy EC2 sau mỗi push lên main (cần cấu hình Secrets — xem README.md mục CI/CD).
 name: Deploy EC2
 
 on:

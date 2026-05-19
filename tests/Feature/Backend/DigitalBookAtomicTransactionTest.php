@@ -72,4 +72,43 @@ class DigitalBookAtomicTransactionTest extends TestCase
         $this->assertSame($before, Book::query()->count());
         $this->assertDatabaseMissing('books', ['title' => 'Không được tạo']);
     }
+
+    public function test_update_digital_via_post_multipart_replaces_pdf_atomically(): void
+    {
+        Storage::fake('local');
+
+        [, $token] = $this->createAdminUserAndToken();
+
+        $create = $this->post(
+            '/api/v1/books/digital',
+            [
+                'title' => 'Đồ án cần cập nhật',
+                'file' => UploadedFile::fake()->create('ban-dau.pdf', 100, 'application/pdf'),
+            ],
+            $this->apiTokenHeaders($token)
+        );
+        $create->assertCreated();
+        $bookId = (int) $create->json('data.id');
+
+        $newPdf = UploadedFile::fake()->create('ban-moi.pdf', 120, 'application/pdf');
+
+        $update = $this->post(
+            "/api/v1/books/{$bookId}/digital",
+            [
+                'title' => 'Đồ án đã cập nhật',
+                'file' => $newPdf,
+                'is_primary' => true,
+                'visibility' => 'public',
+            ],
+            $this->apiTokenHeaders($token)
+        );
+
+        $update->assertOk()->assertJsonPath('data.title', 'Đồ án đã cập nhật');
+
+        $this->assertDatabaseHas('digital_assets', [
+            'book_id' => $bookId,
+            'original_name' => 'ban-moi.pdf',
+            'is_primary' => true,
+        ]);
+    }
 }

@@ -132,14 +132,15 @@ export function createDigitalBookViaSession(payload, pdfFile, coverFile = null) 
     );
 }
 
-/** PUT /books/{id}/digital — metadata + PDF/ảnh mới trong một transaction. */
+/**
+ * Cập nhật tài liệu số atomic — dùng POST multipart (PUT + file hay lỗi trên một số PHP/proxy).
+ */
 export function updateDigitalBookViaSession(bookId, payload, pdfFile = null, coverFile = null) {
-    return client
-        .put(`/books/${bookId}/digital`, buildDigitalBookFormData(payload, { pdfFile, coverFile }), {
-            skipBearerAuth: true,
-            timeout: 300000,
-        })
-        .then((r) => r.data);
+    return sessionApiPostForm(
+        `/books/${bookId}/digital`,
+        buildDigitalBookFormData(payload, { pdfFile, coverFile }),
+        { timeout: 300000 }
+    );
 }
 
 export function sessionApiPut(url, payload) {

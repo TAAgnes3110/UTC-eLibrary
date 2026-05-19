@@ -57,6 +57,7 @@ Thumbs.db
 
 # Deploy artifacts & local test PDFs
 /dist/
+/docs/
 /public/digital/
 
 # Python

@@ -46,9 +46,9 @@ const {
     clearCreateCoverFile,
     editExistingCoverUrl,
     editExistingDigitalFileName,
+    editExistingDigitalDownloadUrl,
     clearEditExistingMedia,
     clearEditExistingCover,
-    clearEditExistingDigitalFileName,
     setCreateDigitalFile,
     clearCreateDigitalFile,
     filterValues,
@@ -304,8 +304,8 @@ const searchPlaceholder = computed(() => (
             :clear-create-cover-file="clearCreateCoverFile"
             :edit-existing-cover-url="editExistingCoverUrl"
             :edit-existing-digital-file-name="editExistingDigitalFileName"
+            :edit-existing-digital-download-url="editExistingDigitalDownloadUrl"
             :clear-edit-existing-cover="clearEditExistingCover"
-            :clear-edit-existing-digital-file-name="clearEditExistingDigitalFileName"
             :set-create-digital-file="setCreateDigitalFile"
             :clear-create-digital-file="clearCreateDigitalFile"
             :save-loading="saveBookLoading"

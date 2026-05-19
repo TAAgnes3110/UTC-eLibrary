@@ -180,13 +180,6 @@ async function confirmCancelOrder() {
     }
 }
 
-function formatAutoRemoveHint(row) {
-    if (!row?.auto_remove_at) return ''
-    const d = new Date(row.auto_remove_at)
-    if (Number.isNaN(d.getTime())) return ''
-    return `Tự xóa nếu chưa thanh toán trước ${d.toLocaleString('vi-VN')}`
-}
-
 async function openDetail(row) {
     if (!row?.public_id) return
     detailRow.value = row
@@ -261,9 +254,8 @@ onMounted(async () => {
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div>
                             <h1 class="text-2xl font-black tracking-tight sm:text-3xl">Đơn hàng của tôi</h1>
-                            <p class="mt-2 max-w-xl text-sm text-blue-100/90">
-                                Theo dõi đơn mua tài liệu số (tải PDF) và xem lại tài liệu đã thanh toán.
-                                Đơn chưa thanh toán quá {{ pendingMaxAgeDays }} ngày sẽ tự động bị xóa; bạn có thể hủy đơn bất cứ lúc nào.
+                            <p class="mt-2 text-sm text-blue-100/90 sm:whitespace-nowrap">
+                                Theo dõi đơn mua tài liệu số (PDF). Đơn chưa thanh toán quá {{ pendingMaxAgeDays }} ngày tự xóa — có thể hủy trong cột thao tác.
                             </p>
                         </div>
                         <button
@@ -318,27 +310,26 @@ onMounted(async () => {
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-slate-200/90 dark:border-slate-700">
-                        <table class="min-w-[720px] w-full text-left text-sm">
+                        <table class="w-full min-w-[880px] text-left text-sm">
                             <thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
                                 <tr>
-                                    <th class="px-4 py-3">Mã đơn</th>
-                                    <th class="px-4 py-3">Tài liệu</th>
-                                    <th class="px-4 py-3 text-right">Tổng tiền</th>
-                                    <th class="px-4 py-3">Trạng thái</th>
-                                    <th class="px-4 py-3">Thanh toán</th>
-                                    <th class="px-4 py-3">Ngày đặt</th>
-                                    <th class="px-4 py-3 text-right">Thao tác</th>
+                                    <th class="whitespace-nowrap px-3 py-2.5">Mã đơn</th>
+                                    <th class="min-w-[8rem] px-3 py-2.5">Tài liệu</th>
+                                    <th class="whitespace-nowrap px-3 py-2.5 text-right">Tổng tiền</th>
+                                    <th class="whitespace-nowrap px-3 py-2.5">Trạng thái</th>
+                                    <th class="whitespace-nowrap px-3 py-2.5">Ngày đặt</th>
+                                    <th class="whitespace-nowrap px-3 py-2.5 text-right">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                                 <tr v-if="loading">
-                                    <td colspan="7" class="px-4 py-10 text-center text-slate-500">
+                                    <td colspan="6" class="px-4 py-10 text-center text-slate-500">
                                         <Icon icon="lucide:loader-2" class="mx-auto h-8 w-8 animate-spin" />
                                         <p class="mt-2">Đang tải…</p>
                                     </td>
                                 </tr>
                                 <tr v-else-if="rows.length === 0">
-                                    <td colspan="7" class="px-4 py-10 text-center text-slate-500 dark:text-slate-400">
+                                    <td colspan="6" class="px-4 py-10 text-center text-slate-500 dark:text-slate-400">
                                         Chưa có đơn hàng tài liệu số nào.
                                     </td>
                                 </tr>
@@ -347,58 +338,59 @@ onMounted(async () => {
                                     :key="row.public_id"
                                     class="bg-white transition hover:bg-slate-50/80 dark:bg-slate-900 dark:hover:bg-slate-800/50"
                                 >
-                                    <td class="max-w-[10rem] px-4 py-3">
+                                    <td class="max-w-[9rem] whitespace-nowrap px-3 py-2.5">
                                         <p class="truncate font-mono text-xs font-bold text-slate-900 dark:text-white" :title="row.public_id">
                                             #{{ row.public_id }}
                                         </p>
                                     </td>
-                                    <td class="max-w-[14rem] px-4 py-3">
-                                        <p class="line-clamp-2 font-medium text-slate-900 dark:text-white">{{ row.product_summary }}</p>
-                                        <p v-if="row.item_count > 1" class="mt-0.5 text-xs text-slate-500">{{ row.item_count }} tài liệu</p>
-                                        <p v-if="row.status === 'pending' && formatAutoRemoveHint(row)" class="mt-1 text-[11px] text-amber-700 dark:text-amber-300">
-                                            {{ formatAutoRemoveHint(row) }}
+                                    <td class="max-w-[12rem] px-3 py-2.5">
+                                        <p
+                                            class="truncate font-medium text-slate-900 dark:text-white"
+                                            :title="row.product_summary + (row.item_count > 1 ? ` · ${row.item_count} tài liệu` : '')"
+                                        >
+                                            {{ row.product_summary }}<span v-if="row.item_count > 1" class="text-slate-500"> · {{ row.item_count }} tài liệu</span>
                                         </p>
                                     </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-right font-bold text-blue-800 dark:text-blue-300">
+                                    <td class="whitespace-nowrap px-3 py-2.5 text-right font-bold text-blue-800 dark:text-blue-300">
                                         {{ formatVnd(row.total_vnd) }}
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="fulfillmentBadgeClass(row)">
-                                            {{ row.fulfillment_label }}
-                                        </span>
+                                    <td class="whitespace-nowrap px-3 py-2.5">
+                                        <div class="inline-flex flex-nowrap items-center gap-1.5">
+                                            <span class="inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" :class="fulfillmentBadgeClass(row)">
+                                                {{ row.fulfillment_label }}
+                                            </span>
+                                            <span class="inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" :class="paymentBadgeClass(row)">
+                                                {{ row.payment_label }}
+                                            </span>
+                                        </div>
                                     </td>
-                                    <td class="px-4 py-3">
-                                        <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" :class="paymentBadgeClass(row)">
-                                            {{ row.payment_label }}
-                                        </span>
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-600 dark:text-slate-400">{{ formatDate(row.created_at) }}</td>
-                                    <td class="px-4 py-3">
-                                        <div class="flex flex-wrap items-center justify-end gap-2">
+                                    <td class="whitespace-nowrap px-3 py-2.5 text-slate-600 dark:text-slate-400">{{ formatDate(row.created_at) }}</td>
+                                    <td class="whitespace-nowrap px-3 py-2.5">
+                                        <div class="flex flex-nowrap items-center justify-end gap-1">
                                             <button
                                                 type="button"
-                                                class="inline-flex min-h-[40px] items-center gap-1 rounded-lg px-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                                                class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                                                 @click="openDetail(row)"
                                             >
-                                                <Icon icon="lucide:eye" class="h-4 w-4" />
+                                                <Icon icon="lucide:eye" class="h-4 w-4 shrink-0" />
                                                 Chi tiết
                                             </button>
                                             <button
                                                 v-if="row.can_pay"
                                                 type="button"
-                                                class="inline-flex min-h-[40px] items-center gap-1 rounded-lg bg-blue-700 px-3 text-xs font-bold text-white hover:bg-blue-800 dark:bg-blue-600"
+                                                class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg bg-blue-700 px-2.5 text-xs font-bold text-white hover:bg-blue-800 dark:bg-blue-600"
                                                 @click="goPay(row)"
                                             >
                                                 Thanh toán
-                                                <Icon icon="lucide:arrow-right" class="h-3.5 w-3.5" />
+                                                <Icon icon="lucide:arrow-right" class="h-3.5 w-3.5 shrink-0" />
                                             </button>
                                             <button
                                                 v-if="row.can_cancel"
                                                 type="button"
-                                                class="inline-flex min-h-[40px] items-center gap-1 rounded-lg border border-rose-200 px-2 text-xs font-bold text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                                                class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-rose-200 px-2 text-xs font-bold text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
                                                 @click="openCancelDialog(row)"
                                             >
-                                                <Icon icon="lucide:trash-2" class="h-4 w-4" />
+                                                <Icon icon="lucide:trash-2" class="h-4 w-4 shrink-0" />
                                                 Hủy
                                             </button>
                                         </div>
@@ -495,45 +487,38 @@ onMounted(async () => {
                             </li>
                         </ul>
 
-                        <p
-                            v-if="detailRow?.status === 'pending' && formatAutoRemoveHint(detailRow)"
-                            class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
-                        >
-                            {{ formatAutoRemoveHint(detailRow) }}
-                        </p>
-
-                        <div class="mt-6 flex flex-col gap-2 sm:flex-row">
+                        <div class="mt-6 flex flex-nowrap items-center justify-end gap-2 overflow-x-auto pb-1">
                             <button
                                 v-if="detailRow?.can_pay"
                                 type="button"
-                                class="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white hover:bg-blue-800"
+                                class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800"
                                 @click="goPay(detailRow); closeDetail()"
                             >
-                                Tiếp tục thanh toán
+                                Thanh toán
                             </button>
                             <button
                                 v-if="detailRow?.can_cancel"
                                 type="button"
-                                class="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-rose-300 text-sm font-bold text-rose-800 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/40"
+                                class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-rose-300 px-4 text-sm font-bold text-rose-800 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-200 dark:hover:bg-rose-950/40"
                                 @click="openCancelDialog(detailRow)"
                             >
-                                Hủy đơn hàng
+                                Hủy
                             </button>
                             <Link
                                 v-if="detailOrder.status === 'paid'"
                                 :href="route('reader.catalog')"
-                                class="inline-flex min-h-[48px] flex-1 items-center justify-center rounded-xl border border-slate-300 text-sm font-bold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100"
+                                class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100"
                                 @click="closeDetail"
                             >
                                 Tra cứu sách
                             </Link>
-                            <Link
-                                :href="route('reader.services.digital-orders')"
-                                class="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 dark:border-slate-600 dark:text-slate-200"
+                            <button
+                                type="button"
+                                class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 px-4 text-sm font-bold text-slate-700 dark:border-slate-600 dark:text-slate-200"
                                 @click="closeDetail"
                             >
                                 Đóng
-                            </Link>
+                            </button>
                         </div>
                     </template>
                 </div>

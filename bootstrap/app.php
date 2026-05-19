@@ -2,6 +2,7 @@
 
 use App\Helpers\ApiResponse;
 use App\Http\Middleware\CheckRoleOrPermission;
+use App\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use App\Http\Middleware\Init;
 use App\Http\Middleware\LogApiRequests;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -22,9 +23,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->statefulApi();
 
-        $middleware->priority([
-            Init::class,
-        ]);
+        $middleware->replace(
+            Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+            EnsureFrontendRequestsAreStateful::class,
+        );
+
         $middleware->alias([
             'init' => Init::class,
             'role_or_permission' => CheckRoleOrPermission::class,

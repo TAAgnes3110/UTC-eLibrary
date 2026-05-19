@@ -31,7 +31,11 @@ class Init
                 try {
                     $user = JWTAuth::parseToken()->authenticate();
                 } catch (\Exception $e) {
+                    $bearer_token = null;
                 }
+            }
+            if (! $user && $request->hasSession()) {
+                $user = Auth::guard('web')->user();
             }
             if (! $user && Auth::guard('web')->check()) {
                 $user = Auth::guard('web')->user();

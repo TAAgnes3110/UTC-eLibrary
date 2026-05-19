@@ -97,8 +97,10 @@ Route::prefix('v1')->group(function () {
 
     Route::post('auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
 
+    Route::post('auth/session-token', [AuthController::class, 'sessionToken'])
+        ->middleware(['auth:web', 'throttle:refresh']);
+
     Route::group(['prefix' => 'auth', 'middleware' => ['init']], function () {
-        Route::post('session-token', [AuthController::class, 'sessionToken'])->middleware('throttle:refresh');
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('user', [AuthController::class, 'user']);
     });

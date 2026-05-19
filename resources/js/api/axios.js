@@ -65,13 +65,11 @@ client.interceptors.request.use(
                 Object.assign(config.headers, getApiCsrfHeaders());
             }
         }
-        const isAdminMultipart =
-            typeof window !== 'undefined'
-            && window.location.pathname.startsWith('/admin')
-            && config.data instanceof FormData;
+        const isAdminSpa =
+            typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
 
-        // Admin upload: chỉ cookie session Inertia — tránh JWT hết hạn (bước 3 PDF).
-        if (isAdminMultipart) {
+        // Trang admin Inertia: luôn dùng cookie session — JWT localStorage hay gây 401/429.
+        if (isAdminSpa && !config.forceBearerAuth) {
             config.skipBearerAuth = true;
         }
 

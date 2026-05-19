@@ -88,3 +88,26 @@ export function uploadBookCoverViaSession(bookId, coverFile) {
     coverData.append('book_cover', coverFile);
     return sessionApiPostForm(`/books/${bookId}/image`, coverData);
 }
+
+export function sessionApiPut(url, payload) {
+    return client.put(url, payload, { skipBearerAuth: true }).then((r) => r.data);
+}
+
+export function sessionApiDelete(url) {
+    return client.delete(url, { skipBearerAuth: true }).then((r) => r.data);
+}
+
+/**
+ * Tạo tài liệu số mới mà upload PDF/ảnh fail → xóa bản ghi tạm (tránh “Chưa có file” trong DB).
+ */
+export async function rollbackDigitalBookCreate(bookId) {
+    if (!bookId) {
+        return false;
+    }
+    try {
+        await sessionApiDelete(`/books/${bookId}`);
+        return true;
+    } catch {
+        return false;
+    }
+}

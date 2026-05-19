@@ -5,9 +5,9 @@ import { booksApi } from '@/api/books';
 import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
 import {
-    prepareAdminApiAuthOnce,
-    callWithSessionFallback,
+    rollbackDigitalBookCreate,
     sessionApiPost,
+    sessionApiPut,
     uploadDigitalAssetViaSession,
     uploadBookCoverViaSession,
 } from '@/utils/adminApiAuth';
@@ -1006,21 +1006,36 @@ export function useBooksAdminPage() {
 
         saveBookLoading.value = true;
         clearSaveErrorLock();
-        await prepareAdminApiAuthOnce();
         let savedBookId = isEditing.value && form.value.id != null ? Number(form.value.id) : null;
+        let createdInThisSave = false;
+
+        const rollbackIfNewDigitalFailed = async (bookId) => {
+            if (!createdInThisSave || pageKind.value !== 'digital' || !bookId) {
+                return;
+            }
+            const rolledBack = await rollbackDigitalBookCreate(bookId);
+            createdInThisSave = false;
+            isEditing.value = false;
+            form.value.id = null;
+            if (rolledBack) {
+                toast.warn(
+                    'Đã hủy bản ghi tạm vì chưa upload xong file — không lưu “shell” vào thư viện.',
+                    { title: 'Hoàn tác' }
+                );
+            } else {
+                toast.warn(
+                    'Upload thất bại và không xóa được bản ghi tạm. Vui lòng xóa tay trong danh sách.',
+                    { title: 'Hoàn tác' }
+                );
+            }
+        };
 
         try {
             if (isEditing.value && form.value.id != null) {
-                await callWithSessionFallback(
-                    () => booksApi.update(form.value.id, payload),
-                    () => client.put(`/books/${form.value.id}`, payload, { skipBearerAuth: true }).then((r) => r.data)
-                );
+                await sessionApiPut(`/books/${form.value.id}`, payload);
                 savedBookId = Number(form.value.id);
             } else {
-                const created = await callWithSessionFallback(
-                    () => booksApi.create(payload),
-                    () => sessionApiPost('/books', payload)
-                );
+                const created = await sessionApiPost('/books', payload);
                 const createdBook = created?.data ?? created ?? {};
                 const createdId = Number(createdBook?.id ?? 0);
                 if (!Number.isInteger(createdId) || createdId <= 0) {
@@ -1033,6 +1048,7 @@ export function useBooksAdminPage() {
                 }
                 savedBookId = createdId;
                 if (pageKind.value === 'digital') {
+                    createdInThisSave = true;
                     isEditing.value = true;
                     form.value.id = createdId;
                     if (createdBook?.book_code) {
@@ -1045,6 +1061,7 @@ export function useBooksAdminPage() {
                 try {
                     await uploadBookCoverViaSession(savedBookId, createCoverFile.value);
                 } catch (coverError) {
+                    await rollbackIfNewDigitalFailed(savedBookId);
                     const msg = formatSaveStepError('Bước 2 — Ảnh bìa', coverError);
                     setBookClientErrors({ general: msg });
                     activateSaveErrorLock();
@@ -1058,6 +1075,7 @@ export function useBooksAdminPage() {
                 try {
                     await uploadDigitalAssetViaSession(savedBookId, createDigitalFile.value);
                 } catch (uploadError) {
+                    await rollbackIfNewDigitalFailed(savedBookId);
                     const fieldErrors = applySaveStepApiErrors(uploadError, DIGITAL_UPLOAD_FIELD_MAP);
                     const stepMsg = formatSaveStepError('Bước 3 — Upload PDF', uploadError);
                     setBookClientErrors({

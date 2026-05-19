@@ -92,6 +92,66 @@ class LoanBorrowRequestFlowTest extends TestCase
         $this->assertSame(2, BookCopy::query()->where('book_id', $book->id)->where('status', BookStatus::BORROWED)->count());
     }
 
+    public function test_admin_approve_provisions_book_copies_when_book_has_quantity_but_no_copies(): void
+    {
+        $warehouse = Warehouse::query()->create([
+            'code' => 'KHO-LEGACY',
+            'name' => 'Kho legacy',
+            'is_active' => true,
+        ]);
+        $classification = Classification::query()->create([
+            'code' => 'CL-LEGACY',
+            'name' => 'Phan loai legacy',
+        ]);
+        $book = Book::query()->create([
+            'title' => 'Sach chi co quantity khong co ban in',
+            'resource_type' => 'reference',
+            'access_mode' => 'circulation_only',
+            'quantity' => 3,
+            'classification_id' => $classification->id,
+            'warehouse_id' => $warehouse->id,
+        ]);
+
+        [$reader, $readerToken] = $this->createUserAndToken([
+            'user_type' => RoleType::STUDENT,
+            'email' => 'reader-legacy@test.com',
+        ]);
+        [, $adminToken] = $this->createAdminUserAndToken();
+
+        $card = LibraryCard::query()->create([
+            'card_number' => 'SV-BR-LEGACY',
+            'code' => 'SV-BR-LEGACY',
+            'holder_type' => LibraryCard::HOLDER_TYPE_STUDENT,
+            'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+            'status' => LibraryCardStatus::ACTIVE,
+            'full_name' => 'Ban doc legacy',
+            'user_id' => $reader->id,
+        ]);
+
+        $create = $this->postJson('/api/v1/me/loan-borrow-requests', [
+            'loan_type' => 'home',
+            'book_ids' => [$book->id],
+            'quantity' => [1],
+            'requested_loan_date' => now()->toDateString(),
+            'requested_due_date' => now()->addDays(7)->toDateString(),
+        ], $this->apiTokenHeaders($readerToken));
+        $create->assertStatus(201);
+        $requestId = (int) $create->json('data.id');
+
+        $this->assertSame(0, BookCopy::query()->where('book_id', $book->id)->count());
+
+        $approve = $this->postJson("/api/v1/loans/borrow-requests/{$requestId}/approve", [
+            'loan_date' => now()->toDateString(),
+            'due_date' => now()->addDays(10)->toDateString(),
+        ], $this->apiTokenHeaders($adminToken));
+
+        $approve->assertStatus(200)->assertJsonPath('status', 'success');
+        $this->assertSame(1, BookCopy::query()->where('book_id', $book->id)->where('status', BookStatus::BORROWED)->count());
+        $this->assertSame(2, BookCopy::query()->where('book_id', $book->id)->where('status', BookStatus::AVAILABLE)->count());
+        $book->refresh();
+        $this->assertSame(2, (int) $book->quantity);
+    }
+
     public function test_second_reader_cannot_create_pending_request_when_only_one_copy_left_and_already_reserved(): void
     {
         [$book] = $this->seedBookWithStorageAndCopies(1);

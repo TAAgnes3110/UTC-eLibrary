@@ -227,6 +227,7 @@ async function approveRow(row) {
             warehouse_name: it.warehouse_name || '',
             warehouse_code: it.warehouse_code || '',
             book_total_quantity: it.book_total_quantity ?? null,
+            available_for_borrow: it.available_for_borrow ?? null,
         })),
     };
     window.sessionStorage.setItem('loanBorrowRequestApprovalPrefill', JSON.stringify(payload));

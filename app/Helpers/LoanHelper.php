@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
-use App\Enums\LoanStatus;
-use App\Enums\LoanType;
-
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
 use App\Enums\LoanItemCondition;
+use App\Enums\LoanStatus;
+use App\Enums\LoanType;
 use App\Enums\ResourceType;
 use App\Models\Book;
 use App\Models\BookCopy;
@@ -21,6 +20,7 @@ use App\Models\LoanPolicy;
 use App\Services\LibrarySettingsService;
 use App\Services\LoanPoliciesService;
 use App\Services\StorageQuantitySyncService;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class LoanHelper
@@ -280,6 +280,9 @@ class LoanHelper
             if ($delta <= 0) {
                 continue;
             }
+
+            $this->ensureBookCopiesForBorrow((int) $bookId, $delta);
+
             $copies = BookCopy::query()
                 ->where('book_id', $bookId)
                 ->where('status', BookStatus::AVAILABLE)
@@ -290,7 +293,19 @@ class LoanHelper
                 ->get(['id']);
 
             if ($copies->count() < $delta) {
-                throw new RuntimeException('Số lượng bản sách sẵn sàng cho mượn không đủ');
+                $book = Book::query()->whereKey($bookId)->first(['id', 'title']);
+                $available = BookCopy::query()
+                    ->where('book_id', $bookId)
+                    ->where('status', BookStatus::AVAILABLE)
+                    ->whereIn('physical_condition', BookPhysicalCondition::borrowableValues())
+                    ->count();
+                $title = $book?->title ?? 'đầu sách #'.$bookId;
+                throw new RuntimeException(sprintf(
+                    'Sách "%s" không đủ bản sẵn sàng cho mượn (cần %d, còn %d bản khả dụng). Kiểm tra bản in trong kho hoặc tình trạng vật lý.',
+                    $title,
+                    $delta,
+                    $available
+                ));
             }
 
             BookCopy::query()
@@ -299,6 +314,52 @@ class LoanHelper
         }
 
         $this->storageQuantitySyncService->syncAll();
+    }
+
+    /**
+     * Đầu sách cũ có thể chỉ có books.quantity mà chưa có book_copies — tạo bản in khớp tồn trước khi gán mượn.
+     * Gọi sau deductBooksByDeltas: quantity đã trừ delta, target = quantity hiện tại + delta.
+     */
+    private function ensureBookCopiesForBorrow(int $bookId, int $borrowDelta): void
+    {
+        $book = Book::query()->whereKey($bookId)->lockForUpdate()->first();
+        if (! $book instanceof Book) {
+            return;
+        }
+
+        $totalCopies = (int) BookCopy::query()->where('book_id', $bookId)->count();
+        $targetTotal = max(0, (int) $book->quantity) + $borrowDelta;
+        if ($totalCopies >= $targetTotal) {
+            return;
+        }
+
+        $toCreate = $targetTotal - $totalCopies;
+        for ($seq = 1; $seq <= $toCreate; $seq++) {
+            $barcode = $this->generateProvisionalBookCopyBarcode($bookId, $totalCopies + $seq);
+            BookCopy::query()->create([
+                'book_id' => $bookId,
+                'barcode' => $barcode,
+                'status' => BookStatus::AVAILABLE,
+                'physical_condition' => BookPhysicalCondition::GOOD,
+                'warehouse_id' => $book->warehouse_id,
+            ]);
+        }
+    }
+
+    private function generateProvisionalBookCopyBarcode(int $bookId, int $sequence): string
+    {
+        $attempts = 0;
+        do {
+            $attempts++;
+            $code = sprintf('BC-%d-%s-%04d', $bookId, now()->format('ymdHis'), $sequence + $attempts);
+            $exists = BookCopy::query()->where('barcode', $code)->exists();
+        } while ($exists && $attempts < 10);
+
+        if ($exists) {
+            $code = sprintf('BC-%d-%s', $bookId, strtoupper(Str::random(8)));
+        }
+
+        return $code;
     }
 
     /**

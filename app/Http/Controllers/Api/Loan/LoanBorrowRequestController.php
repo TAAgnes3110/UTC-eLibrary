@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Loan;
 use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Models\LoanBorrowRequest;
+use App\Models\LoanBorrowRequestItem;
+use App\Services\BookService;
 use App\Services\LoanBorrowRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +16,8 @@ use RuntimeException;
 class LoanBorrowRequestController extends Controller
 {
     public function __construct(
-        private readonly LoanBorrowRequestService $loanBorrowRequestService
+        private readonly LoanBorrowRequestService $loanBorrowRequestService,
+        private readonly BookService $bookService
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -145,20 +148,32 @@ class LoanBorrowRequestController extends Controller
                 'loan_code' => $r->approvedLoan->loan_code,
                 'status' => $r->approvedLoan->status,
             ] : null,
-            'items' => $r->items->map(fn ($item): array => [
-                'id' => $item->id,
-                'book_id' => $item->book_id,
-                'book_title' => $item->book?->title,
-                'book_code' => $item->book?->book_code,
-                'resource_type' => $item->book?->resource_type?->value ?? $item->book?->resource_type,
-                'warehouse_name' => $item->book?->warehouse?->name,
-                'warehouse_code' => $item->book?->warehouse?->code,
-                'cabinet' => $item->book?->cabinet,
-                'book_total_quantity' => $item->book?->quantity,
-                'quantity' => $item->quantity,
-                'condition_on_loan' => $item->condition_on_loan?->value ?? $item->condition_on_loan,
-                'notes' => $item->notes,
-            ])->values()->all(),
+            'items' => $r->items->map(fn (LoanBorrowRequestItem $item): array => $this->mapBorrowRequestItem($item))->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapBorrowRequestItem(LoanBorrowRequestItem $item): array
+    {
+        $book = $item->book;
+        $stats = $book ? $this->bookService->readerCopyStats($book) : ['available' => 0];
+
+        return [
+            'id' => $item->id,
+            'book_id' => $item->book_id,
+            'book_title' => $book?->title,
+            'book_code' => $book?->book_code,
+            'resource_type' => $book?->resource_type?->value ?? $book?->resource_type,
+            'warehouse_name' => $book?->warehouse?->name,
+            'warehouse_code' => $book?->warehouse?->code,
+            'cabinet' => $book?->cabinet,
+            'book_total_quantity' => $book?->quantity,
+            'available_for_borrow' => (int) ($stats['available'] ?? 0),
+            'quantity' => $item->quantity,
+            'condition_on_loan' => $item->condition_on_loan?->value ?? $item->condition_on_loan,
+            'notes' => $item->notes,
         ];
     }
 }

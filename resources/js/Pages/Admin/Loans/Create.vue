@@ -113,7 +113,7 @@ function loadBorrowRequestPrefillFromSession() {
             book_id: String(it.book_id || ''),
             bookTitle: it.book_title || '',
             bookQuery: it.book_title || it.book_code || '',
-            stock: Number(it.book_total_quantity ?? 0),
+            stock: Number(it.available_for_borrow ?? it.book_total_quantity ?? 0),
             resource_type: it.resource_type || '',
             quantity: Number(it.quantity || 1),
             condition_on_loan: 'tot',
@@ -439,7 +439,7 @@ function validateLineQuantity(index) {
     }
     const stock = Number(line.stock ?? 0);
     if (stock < 1) {
-        line.stockMsg = 'Sách này đã hết.';
+        line.stockMsg = 'Không còn bản sách sẵn sàng cho mượn.';
     }
     const q = Number(line.quantity);
     if (Number.isFinite(q) && q > stock) {
@@ -796,7 +796,7 @@ onBeforeUnmount(() => clearCardTimers());
                                 />
                             </div>
                             <div v-if="line.book_id" class="space-y-1">
-                                <label class="text-xs text-slate-500">Còn trong kho</label>
+                                <label class="text-xs text-slate-500">Sẵn sàng mượn</label>
                                 <input
                                     type="text"
                                     class="admin-filter-input w-full bg-slate-50 dark:bg-slate-800"

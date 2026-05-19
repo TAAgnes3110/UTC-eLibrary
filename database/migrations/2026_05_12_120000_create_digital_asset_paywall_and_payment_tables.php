@@ -14,6 +14,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // DB import từ backup có thể đã có bảng nhưng thiếu dòng trong `migrations`.
+        if (Schema::hasTable('digital_asset_paywall_settings')) {
+            return;
+        }
+
         Schema::create('digital_asset_paywall_settings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('digital_asset_id')

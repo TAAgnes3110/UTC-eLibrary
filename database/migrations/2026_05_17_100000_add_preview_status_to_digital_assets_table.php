@@ -11,12 +11,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('digital_assets', function (Blueprint $table) {
-            $table->string('preview_status', 20)
-                ->default(DigitalAssetPreviewStatus::Pending->value)
-                ->after('preview_generated_at')
-                ->comment('pending|processing|ready|failed|disabled — tạo preview qua queue');
-        });
+        if (! Schema::hasColumn('digital_assets', 'preview_status')) {
+            Schema::table('digital_assets', function (Blueprint $table) {
+                $table->string('preview_status', 20)
+                    ->default(DigitalAssetPreviewStatus::Pending->value)
+                    ->after('preview_generated_at')
+                    ->comment('pending|processing|ready|failed|disabled — tạo preview qua queue');
+            });
+        }
 
         /** @var DigitalAssetPreviewService $previewService */
         $previewService = app(DigitalAssetPreviewService::class);

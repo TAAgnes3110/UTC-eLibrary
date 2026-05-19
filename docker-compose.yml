@@ -37,7 +37,11 @@ services:
       - utc-elibrary
 
   scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: utc-elibrary-app:latest
+    pull_policy: never
     restart: unless-stopped
     command: php artisan schedule:work
     env_file:

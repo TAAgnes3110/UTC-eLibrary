@@ -17,23 +17,7 @@ COPY public ./public
 RUN npm run build
 
 # -----------------------------------------------------------------------------
-# Stage 2: PHP dependencies
-# -----------------------------------------------------------------------------
-FROM composer:2 AS vendor
-
-WORKDIR /build
-
-COPY composer.json composer.lock ./
-
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --prefer-dist \
-    --optimize-autoloader \
-    --no-scripts
-
-# -----------------------------------------------------------------------------
-# Stage 3: Application (Nginx + PHP-FPM)
+# Stage 2: Application (Nginx + PHP-FPM)
 # -----------------------------------------------------------------------------
 FROM php:8.3-fpm-bookworm
 
@@ -67,6 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         xml \
     && pecl install redis \
     && docker-php-ext-enable redis \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -76,8 +61,15 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/utc-elibrary.conf
 
 WORKDIR /var/www/html
 
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
+
 COPY --chown=www-data:www-data . .
-COPY --from=vendor --chown=www-data:www-data /build/vendor ./vendor
 COPY --from=frontend --chown=www-data:www-data /build/public/build ./public/build
 
 RUN composer dump-autoload --optimize --classmap-authoritative \

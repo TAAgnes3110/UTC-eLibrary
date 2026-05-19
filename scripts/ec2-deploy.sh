@@ -13,10 +13,14 @@ export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 echo "==> [deploy] Thư mục: $ROOT"
 
 if [[ "${EC2_DEPLOY_SKIP_GIT:-0}" != "1" ]]; then
-    echo "==> [deploy] Git pull origin/${GIT_BRANCH}"
+    echo "==> [deploy] Git sync origin/${GIT_BRANCH} (server luôn khớp remote)"
     git fetch origin "${GIT_BRANCH}"
     git checkout "${GIT_BRANCH}"
-    git pull --ff-only origin "${GIT_BRANCH}"
+  # EC2 không giữ sửa tay trên file tracked — tránh pull bị chặn.
+    if ! git diff --quiet || ! git diff --cached --quiet; then
+        echo "==> [deploy] Phát hiện thay đổi local — reset về origin/${GIT_BRANCH}"
+    fi
+    git reset --hard "origin/${GIT_BRANCH}"
 fi
 
 echo "==> [deploy] Chuẩn bị vendor + Vite (host)"

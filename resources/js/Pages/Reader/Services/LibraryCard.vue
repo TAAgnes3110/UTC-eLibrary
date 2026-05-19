@@ -571,8 +571,8 @@ function notifyReissueActiveLibraryCard() {
                         </div>
                         <div v-if="!canSubmitApply" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                             Thiếu: {{ missingProfileFields.join(', ') }}.
-                            <Link :href="`${route('reader.profile')}#library-card-guide`" class="font-semibold underline underline-offset-2">
-                                Xem hướng dẫn chuẩn bị hồ sơ trên trang Tài khoản
+                            <Link :href="route('reader.profile')" class="font-semibold underline underline-offset-2">
+                                Cập nhật hồ sơ trên trang Tài khoản
                             </Link>
                             trước khi gửi cấp thẻ.
                         </div>
@@ -588,10 +588,10 @@ function notifyReissueActiveLibraryCard() {
                                 {{ applyPrimaryLabel }}
                             </button>
                             <Link
-                                :href="`${route('reader.profile')}#library-card-guide`"
+                                :href="route('reader.profile')"
                                 class="inline-flex min-h-[44px] items-center rounded-xl border border-slate-200 px-5 text-sm font-semibold text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-100 dark:hover:bg-slate-800"
                             >
-                                Chuẩn bị hồ sơ / Tài khoản
+                                Tài khoản
                             </Link>
                         </div>
                     </div>

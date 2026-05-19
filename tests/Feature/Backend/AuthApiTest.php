@@ -10,8 +10,10 @@ use App\Models\LibraryCard;
 use App\Models\User;
 use App\Services\LibraryCard\LibraryCardManagementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
+use Tests\Feature\Backend\ActsAsApiUser;
 use Tests\TestCase;
 
 /**
@@ -21,6 +23,7 @@ use Tests\TestCase;
  */
 class AuthApiTest extends TestCase
 {
+    use ActsAsApiUser;
     use RefreshDatabase;
 
     /**
@@ -357,5 +360,29 @@ class AuthApiTest extends TestCase
         $response->assertStatus(200)->assertJsonStructure([
             'status', 'messages', 'token', 'expires_in',
         ]);
+    }
+
+    public function test_post_books_accepts_web_session_without_bearer(): void
+    {
+        [$user] = $this->createAdminUserAndToken();
+        $now = now();
+        $cid = DB::table('classifications')->insertGetId([
+            'code' => 'TST', 'name' => 'Test', 'created_at' => $now, 'updated_at' => $now,
+        ]);
+        $wid = DB::table('warehouses')->insertGetId([
+            'code' => 'W1', 'name' => 'Kho', 'is_active' => 1, 'created_at' => $now, 'updated_at' => $now,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeader('Origin', config('app.url'))
+            ->postJson('/api/v1/books', [
+                'title' => 'Sách session SPA',
+                'classification_id' => $cid,
+                'warehouse_id' => $wid,
+                'quantity' => 0,
+                'resource_type' => 'digital',
+                'access_mode' => 'online_only',
+            ])
+            ->assertStatus(201);
     }
 }

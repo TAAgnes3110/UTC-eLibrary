@@ -5,6 +5,39 @@ use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Laravel\Sanctum\Http\Middleware\AuthenticateSession;
 use Laravel\Sanctum\Sanctum;
 
+$statefulFromEnv = array_filter(array_map('trim', explode(',', (string) env('SANCTUM_STATEFUL_DOMAINS', ''))));
+
+$statefulFromAppUrl = [];
+$appUrl = (string) env('APP_URL', '');
+if ($appUrl !== '') {
+    $host = parse_url($appUrl, PHP_URL_HOST);
+    $port = parse_url($appUrl, PHP_URL_PORT);
+    if (is_string($host) && $host !== '') {
+        $statefulFromAppUrl[] = $host;
+        if ($port) {
+            $statefulFromAppUrl[] = $host.':'.$port;
+        }
+    }
+}
+
+$statefulDefaults = [
+    'localhost',
+    'localhost:3000',
+    '127.0.0.1',
+    '127.0.0.1:8000',
+    '::1',
+];
+
+$statefulHelper = [];
+try {
+    $helperHost = Sanctum::currentApplicationUrlWithPort();
+    if (is_string($helperHost) && $helperHost !== '') {
+        $statefulHelper[] = $helperHost;
+    }
+} catch (\Throwable) {
+    //
+}
+
 return [
 
     /*
@@ -18,12 +51,12 @@ return [
     |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
-    ))),
+    'stateful' => array_values(array_unique(array_filter(array_merge(
+        $statefulDefaults,
+        $statefulFromEnv,
+        $statefulFromAppUrl,
+        $statefulHelper,
+    )))),
 
     /*
     |--------------------------------------------------------------------------

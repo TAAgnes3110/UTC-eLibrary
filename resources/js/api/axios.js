@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { extractApiTokenFromResponse, fetchSessionApiToken, refreshStoredApiToken } from '@/utils/ensureApiToken';
+import { ensureSanctumCsrfCookie, getApiCsrfHeaders } from '@/utils/apiCsrf';
 
 function isApiDebugEnabled() {
     if (typeof window === 'undefined') return false;
@@ -40,7 +41,7 @@ const client = axios.create({
 });
 
 client.interceptors.request.use(
-    (config) => {
+    async (config) => {
         if (isApiDebugEnabled()) {
             config.metadata = config.metadata || {};
             config.metadata.startTime = performance?.now?.() ?? Date.now();
@@ -56,6 +57,13 @@ client.interceptors.request.use(
             if (config.headers && typeof config.headers === 'object') {
                 delete config.headers['Content-Type'];
                 delete config.headers['content-type'];
+            }
+        }
+        const method = (config.method || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            await ensureSanctumCsrfCookie();
+            if (config.headers && typeof config.headers === 'object') {
+                Object.assign(config.headers, getApiCsrfHeaders());
             }
         }
         const token = localStorage.getItem('token');

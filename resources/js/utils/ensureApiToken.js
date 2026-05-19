@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ensureSanctumCsrfCookie, getApiCsrfHeaders } from '@/utils/apiCsrf';
 
 export function extractApiTokenFromResponse(data) {
     return data?.token ?? data?.data?.token ?? null;
@@ -13,12 +14,14 @@ export async function fetchSessionApiToken() {
     }
 
     try {
+        await ensureSanctumCsrfCookie();
         const res = await axios.post('/api/v1/auth/session-token', null, {
             withCredentials: true,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 Accept: 'application/json',
                 domain: window.location.origin,
+                ...getApiCsrfHeaders(),
             },
         });
         const token = extractApiTokenFromResponse(res.data);

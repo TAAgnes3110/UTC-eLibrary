@@ -6,6 +6,7 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { clearClientApiCredentials } from '@/utils/apiAuthStorage';
+import { ensureSanctumCsrfCookie } from '@/utils/apiCsrf';
 import { syncApiTokenFromSession } from '@/utils/syncApiTokenFromSession';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -13,7 +14,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 function syncApiAuthFromInertiaPage(page) {
     const user = page?.props?.auth?.user ?? null;
     if (user?.id) {
-        void syncApiTokenFromSession(user);
+        void ensureSanctumCsrfCookie().then(() => syncApiTokenFromSession(user));
     } else {
         clearClientApiCredentials();
     }

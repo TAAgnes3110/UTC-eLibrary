@@ -310,12 +310,14 @@ Route::prefix('v1')->group(function () {
                 Route::get('/export', [BookController::class, 'export']);
                 Route::get('/export-lost', [BookController::class, 'exportLost']);
                 Route::post('/import', [BookController::class, 'import']);
+                Route::post('/digital', [BookController::class, 'storeDigital']);
                 Route::post('/', [BookController::class, 'store']);
                 Route::post('/{book}/digital-assets', [DigitalAssetController::class, 'store']);
                 Route::get('/{book}/digital-assets/{digital_asset}/download', [DigitalAssetController::class, 'download'])
                     ->name('api.v1.books.digital-assets.download');
                 Route::delete('/{book}/digital-assets/{digital_asset}', [DigitalAssetController::class, 'destroy']);
                 Route::get('/{book}', [BookController::class, 'show']);
+                Route::put('/{book}/digital', [BookController::class, 'updateDigital']);
                 Route::put('/{book}', [BookController::class, 'update']);
                 Route::delete('/{book}', [BookController::class, 'destroy']);
                 Route::post('/restore', [BookController::class, 'restoreMany']);

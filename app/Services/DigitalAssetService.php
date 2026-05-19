@@ -23,18 +23,25 @@ class DigitalAssetService
     /**
      * @param  array{storage_disk?: string, is_primary?: bool, visibility?: string, embargo_until?: string|null}  $attrs
      */
-    public function store(Book $book, UploadedFile $file, array $attrs = []): DigitalAsset
+    /**
+     * @param  list<array{disk: string, path: string}>|null  $stagedStoragePaths  Ghi nhận path để dọn file nếu transaction ngoài rollback.
+     */
+    public function store(Book $book, UploadedFile $file, array $attrs = [], ?array &$stagedStoragePaths = null): DigitalAsset
     {
         // PDF tài liệu số nên lưu ở disk private để tránh lộ link trực tiếp.
         $disk = $attrs['storage_disk'] ?? FileHelpers::digitalAssetsDisk();
         $dir = UploadDirectory::digitalAssetsByBookId((int) $book->id);
 
-        return DB::transaction(function () use ($book, $file, $attrs, $disk, $dir) {
+        return DB::transaction(function () use ($book, $file, $attrs, $disk, $dir, &$stagedStoragePaths) {
             $path = FileHelpers::storeUploadedFile($file, $disk, $dir);
             if (! is_string($path) || $path === '') {
                 throw ValidationException::withMessages([
                     'file' => [__('Không lưu được file PDF trên server. Kiểm tra quyền thư mục storage/app/private.')],
                 ]);
+            }
+
+            if ($stagedStoragePaths !== null) {
+                $stagedStoragePaths[] = ['disk' => $disk, 'path' => $path];
             }
 
             if (! Storage::disk($disk)->exists($path)) {

@@ -89,6 +89,53 @@ export function uploadBookCoverViaSession(bookId, coverFile) {
     return sessionApiPostForm(`/books/${bookId}/image`, coverData);
 }
 
+function appendBookPayloadToFormData(formData, payload) {
+    Object.entries(payload).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') {
+            return;
+        }
+        if (typeof value === 'object') {
+            formData.append(key, JSON.stringify(value));
+        } else {
+            formData.append(key, String(value));
+        }
+    });
+}
+
+/** FormData tạo/sửa tài liệu số atomic (metadata + PDF + ảnh bìa). */
+export function buildDigitalBookFormData(payload, { pdfFile = null, coverFile = null } = {}) {
+    const formData = new FormData();
+    appendBookPayloadToFormData(formData, payload);
+    if (pdfFile instanceof File) {
+        formData.append('file', pdfFile);
+        formData.append('is_primary', '1');
+        formData.append('visibility', 'public');
+    }
+    if (coverFile instanceof File) {
+        formData.append('book_cover', coverFile);
+    }
+    return formData;
+}
+
+/** POST /books/digital — một transaction phía server. */
+export function createDigitalBookViaSession(payload, pdfFile, coverFile = null) {
+    return sessionApiPostForm(
+        '/books/digital',
+        buildDigitalBookFormData(payload, { pdfFile, coverFile }),
+        { timeout: 300000 }
+    );
+}
+
+/** PUT /books/{id}/digital — metadata + PDF/ảnh mới trong một transaction. */
+export function updateDigitalBookViaSession(bookId, payload, pdfFile = null, coverFile = null) {
+    return client
+        .put(`/books/${bookId}/digital`, buildDigitalBookFormData(payload, { pdfFile, coverFile }), {
+            skipBearerAuth: true,
+            timeout: 300000,
+        })
+        .then((r) => r.data);
+}
+
 export function sessionApiPut(url, payload) {
     return client.put(url, payload, { skipBearerAuth: true }).then((r) => r.data);
 }

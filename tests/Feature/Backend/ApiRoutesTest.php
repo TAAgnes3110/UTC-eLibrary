@@ -138,6 +138,8 @@ class ApiRoutesTest extends TestCase
             'books export' => ['GET', "{$base}/books/export"],
             'books import' => ['POST', "{$base}/books/import"],
             'books store' => ['POST', "{$base}/books"],
+            'books digital store' => ['POST', "{$base}/books/digital", [], [401, 422]],
+            'books digital update' => ['PUT', "{$base}/books/1/digital", ['title' => 'x'], [401, 404, 422]],
             'books digital asset store' => ['POST', "{$base}/books/1/digital-assets", [], [401, 404]],
             'books digital asset delete' => ['DELETE', "{$base}/books/1/digital-assets/1", [], [401, 404]],
             'books show' => ['GET', "{$base}/books/1", [], [401, 404]],

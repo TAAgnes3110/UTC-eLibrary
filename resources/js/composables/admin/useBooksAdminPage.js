@@ -5,9 +5,10 @@ import { booksApi } from '@/api/books';
 import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
 import {
-    rollbackDigitalBookCreate,
+    createDigitalBookViaSession,
     sessionApiPost,
     sessionApiPut,
+    updateDigitalBookViaSession,
     uploadDigitalAssetViaSession,
     uploadBookCoverViaSession,
 } from '@/utils/adminApiAuth';
@@ -1007,31 +1008,42 @@ export function useBooksAdminPage() {
         saveBookLoading.value = true;
         clearSaveErrorLock();
         let savedBookId = isEditing.value && form.value.id != null ? Number(form.value.id) : null;
-        let createdInThisSave = false;
-
-        const rollbackIfNewDigitalFailed = async (bookId) => {
-            if (!createdInThisSave || pageKind.value !== 'digital' || !bookId) {
-                return;
-            }
-            const rolledBack = await rollbackDigitalBookCreate(bookId);
-            createdInThisSave = false;
-            isEditing.value = false;
-            form.value.id = null;
-            if (rolledBack) {
-                toast.warn(
-                    'Đã hủy bản ghi tạm vì chưa upload xong file — không lưu “shell” vào thư viện.',
-                    { title: 'Hoàn tác' }
-                );
-            } else {
-                toast.warn(
-                    'Upload thất bại và không xóa được bản ghi tạm. Vui lòng xóa tay trong danh sách.',
-                    { title: 'Hoàn tác' }
-                );
-            }
-        };
+        const isNewDigital =
+            !isEditing.value && pageKind.value === 'digital' && createDigitalFile.value instanceof File;
+        const isEditDigitalWithPdf =
+            isEditing.value
+            && pageKind.value === 'digital'
+            && form.value.id != null
+            && createDigitalFile.value instanceof File;
+        const usedAtomicDigital = isNewDigital || isEditDigitalWithPdf;
 
         try {
-            if (isEditing.value && form.value.id != null) {
+            if (isNewDigital) {
+                const created = await createDigitalBookViaSession(
+                    payload,
+                    createDigitalFile.value,
+                    createCoverFile.value instanceof File ? createCoverFile.value : null
+                );
+                const createdBook = created?.data ?? created ?? {};
+                const createdId = Number(createdBook?.id ?? 0);
+                if (!Number.isInteger(createdId) || createdId <= 0) {
+                    setBookClientErrors({
+                        general: 'Lưu tài liệu số: API không trả về ID. Mở Console (F12) để xem chi tiết.',
+                    });
+                    activateSaveErrorLock();
+                    toast.error('Tạo tài liệu số thất bại — không nhận được ID.', { title: 'Lưu' });
+                    return;
+                }
+                savedBookId = createdId;
+            } else if (isEditDigitalWithPdf) {
+                await updateDigitalBookViaSession(
+                    form.value.id,
+                    payload,
+                    createDigitalFile.value,
+                    createCoverFile.value instanceof File ? createCoverFile.value : null
+                );
+                savedBookId = Number(form.value.id);
+            } else if (isEditing.value && form.value.id != null) {
                 await sessionApiPut(`/books/${form.value.id}`, payload);
                 savedBookId = Number(form.value.id);
             } else {
@@ -1040,29 +1052,20 @@ export function useBooksAdminPage() {
                 const createdId = Number(createdBook?.id ?? 0);
                 if (!Number.isInteger(createdId) || createdId <= 0) {
                     setBookClientErrors({
-                        general: 'Bước 1 — Lưu thông tin: API không trả về ID sách. Mở Console (F12) hoặc bật localStorage api_debug=1 để xem chi tiết.',
+                        general: 'Lưu thông tin: API không trả về ID sách.',
                     });
                     activateSaveErrorLock();
-                    toast.error('Tạo tài liệu số thất bại — không nhận được ID.', { title: 'Lưu' });
+                    toast.error('Tạo sách thất bại — không nhận được ID.', { title: 'Lưu' });
                     return;
                 }
                 savedBookId = createdId;
-                if (pageKind.value === 'digital') {
-                    createdInThisSave = true;
-                    isEditing.value = true;
-                    form.value.id = createdId;
-                    if (createdBook?.book_code) {
-                        form.value.book_code = createdBook.book_code;
-                    }
-                }
             }
 
-            if (createCoverFile.value instanceof File && savedBookId) {
+            if (!usedAtomicDigital && createCoverFile.value instanceof File && savedBookId) {
                 try {
                     await uploadBookCoverViaSession(savedBookId, createCoverFile.value);
                 } catch (coverError) {
-                    await rollbackIfNewDigitalFailed(savedBookId);
-                    const msg = formatSaveStepError('Bước 2 — Ảnh bìa', coverError);
+                    const msg = formatSaveStepError('Ảnh bìa', coverError);
                     setBookClientErrors({ general: msg });
                     activateSaveErrorLock();
                     toast.error(msg, { title: 'Lưu' });
@@ -1071,13 +1074,17 @@ export function useBooksAdminPage() {
                 }
             }
 
-            if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && savedBookId) {
+            if (
+                !usedAtomicDigital
+                && pageKind.value === 'digital'
+                && createDigitalFile.value instanceof File
+                && savedBookId
+            ) {
                 try {
                     await uploadDigitalAssetViaSession(savedBookId, createDigitalFile.value);
                 } catch (uploadError) {
-                    await rollbackIfNewDigitalFailed(savedBookId);
                     const fieldErrors = applySaveStepApiErrors(uploadError, DIGITAL_UPLOAD_FIELD_MAP);
-                    const stepMsg = formatSaveStepError('Bước 3 — Upload PDF', uploadError);
+                    const stepMsg = formatSaveStepError('Upload PDF', uploadError);
                     setBookClientErrors({
                         ...fieldErrors,
                         general: fieldErrors.general || stepMsg,
@@ -1101,7 +1108,7 @@ export function useBooksAdminPage() {
             // eslint-disable-next-line no-console
             console.error('[saveBook]', e);
             const fieldErrors = applySaveStepApiErrors(e);
-            const stepMsg = formatSaveStepError('Bước 1 — Lưu thông tin', e);
+            const stepMsg = formatSaveStepError(usedAtomicDigital ? 'Lưu tài liệu số' : 'Lưu thông tin', e);
             setBookClientErrors({
                 ...fieldErrors,
                 general: fieldErrors.general || stepMsg,

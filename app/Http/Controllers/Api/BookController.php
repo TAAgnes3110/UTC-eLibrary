@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\LoanStatus;
-
 use App\Enums\LoanItemCondition;
+use App\Enums\LoanStatus;
 use App\Exports\BookImportTemplateExport;
 use App\Helpers\ApiResponse;
 use App\Helpers\BulkZipRequestHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BookRequest;
+use App\Http\Requests\StoreDigitalBookRequest;
+use App\Http\Requests\UpdateDigitalBookRequest;
 use App\Http\Resources\BookListResource;
 use App\Http\Resources\BookResource;
 use App\Models\Book;
-use App\Models\Loan;
 use App\Models\Warehouse;
 use App\Services\BookService;
 use Illuminate\Http\JsonResponse;
@@ -100,11 +100,47 @@ class BookController extends Controller
     }
 
     /**
+     * Tạo tài liệu số + upload PDF (và ảnh bìa tùy chọn) trong một transaction.
+     */
+    public function storeDigital(StoreDigitalBookRequest $request): JsonResponse
+    {
+        $file = $request->file('file');
+        if (! $file) {
+            return ApiResponse::error(__('Vui lòng chọn file PDF.'), 422);
+        }
+
+        $book = $this->bookService->createDigitalWithAssets(
+            $request->bookPayload(),
+            $file,
+            $request->file('book_cover'),
+            $request->digitalAssetAttributes()
+        );
+
+        return ApiResponse::success(new BookResource($book), __('messages.success_create'), 201);
+    }
+
+    /**
      * Cập nhật thông tin sách.
      */
     public function update(BookRequest $request, Book $book): JsonResponse
     {
         $book = $this->bookService->update($book, $request->validated());
+
+        return ApiResponse::success(new BookResource($book), __('messages.success_update'));
+    }
+
+    /**
+     * Cập nhật tài liệu số kèm PDF/ảnh bìa mới (nếu gửi kèm) — một transaction.
+     */
+    public function updateDigital(UpdateDigitalBookRequest $request, Book $book): JsonResponse
+    {
+        $book = $this->bookService->updateDigitalWithAssets(
+            $book,
+            $request->bookPayload(),
+            $request->file('file'),
+            $request->file('book_cover'),
+            $request->digitalAssetAttributes()
+        );
 
         return ApiResponse::success(new BookResource($book), __('messages.success_update'));
     }

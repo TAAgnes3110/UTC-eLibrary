@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\AccessMode;
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
 use App\Enums\LoanStatus;
@@ -26,6 +27,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -38,99 +40,229 @@ class BookService
 
     public const ADMIN_BOOKS_CACHE_VERSION_KEY = 'admin:books:list-cache-version';
 
+    public function __construct(
+        private readonly DigitalAssetService $digitalAssetService
+    ) {}
+
     public function create(array $data): Book
     {
-        $created = DB::transaction(function () use ($data) {
-            $bookData = $data;
-            $authorsInput = $bookData['authors'] ?? null;
-            $publisherInput = $bookData['publisher'] ?? null;
-            $syncThesis = array_key_exists('thesis_metadata', $bookData);
-            $thesisMeta = $bookData['thesis_metadata'] ?? null;
-            unset($bookData['thesis_metadata'], $bookData['authors'], $bookData['publisher']);
-
-            $isDigital = $this->isDigitalResourceType($bookData['resource_type'] ?? null);
-            if ($isDigital) {
-                $bookData['warehouse_id'] = null;
-                $bookData['cabinet'] = null;
-                $bookData['registration_number'] = null;
-                $bookData['quantity'] = 0;
-                if (empty($bookData['book_code'])) {
-                    $bookData['book_code'] = $this->generateDigitalBookCode();
-                }
-            } else {
-                $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
-                $this->ensureStorageLocationForBookData($bookData, null);
-                if (empty($bookData['registration_number'])) {
-                    $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
-                }
-                if (empty($bookData['book_code'])) {
-                    $bookData['book_code'] = $this->generateBookCode($warehouse);
-                }
-            }
-            $book = Book::create($bookData);
-            $this->syncContributors($book, $authorsInput, $publisherInput);
-            if ($syncThesis) {
-                $this->syncThesisMetadata($book, $thesisMeta);
-            }
-
-            return $book->fresh([
-                'classification:id,code,name',
-                'warehouse:id,code,name',
-                'representativeStoredCopy',
-                'thesisMetadata',
-            ]);
-        });
+        $created = DB::transaction(fn () => $this->persistNewBook($data));
 
         $this->bumpAdminBooksCacheVersion();
 
         return $created;
     }
 
+    /**
+     * Tạo tài liệu số + PDF (+ ảnh bìa tùy chọn) trong một transaction — không để “shell” khi upload fail.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $assetAttrs
+     */
+    public function createDigitalWithAssets(
+        array $data,
+        UploadedFile $pdfFile,
+        ?UploadedFile $coverFile = null,
+        array $assetAttrs = []
+    ): Book {
+        $data['resource_type'] = ResourceType::DIGITAL->value;
+        $data['access_mode'] = AccessMode::OnlineOnly->value;
+        $data['quantity'] = 0;
+
+        $stagedStoragePaths = [];
+
+        try {
+            $book = DB::transaction(function () use ($data, $pdfFile, $coverFile, $assetAttrs, &$stagedStoragePaths) {
+                $book = $this->persistNewBook($data);
+                $this->digitalAssetService->store($book, $pdfFile, $assetAttrs, $stagedStoragePaths);
+
+                if ($coverFile) {
+                    $this->updateCoverImage($book, $coverFile, bumpCache: false);
+                }
+
+                return $book->fresh([
+                    'classification:id,code,name',
+                    'warehouse:id,code,name',
+                    'representativeStoredCopy',
+                    'thesisMetadata',
+                    'digitalAssets',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            $this->purgeStagedStorageFiles($stagedStoragePaths);
+            throw $e;
+        }
+
+        $this->bumpAdminBooksCacheVersion();
+
+        return $book;
+    }
+
     public function update(Book $book, array $data): Book
     {
-        $updated = DB::transaction(function () use ($book, $data) {
-            $authorsInput = $data['authors'] ?? null;
-            $publisherInput = $data['publisher'] ?? null;
-            unset(
-                $data['id'],
-                $data['created_at'],
-                $data['updated_at'],
-                $data['authors'],
-                $data['publisher'],
-            );
-            if (array_key_exists('cover_image', $data) && empty($data['cover_image'])) {
-                unset($data['cover_image']);
-            }
-            $syncThesis = array_key_exists('thesis_metadata', $data);
-            $thesisMeta = $data['thesis_metadata'] ?? null;
-            unset($data['thesis_metadata']);
-            if ($this->isDigitalResourceType($data['resource_type'] ?? $book->resource_type)) {
-                $data['warehouse_id'] = null;
-                $data['cabinet'] = null;
-                $data['registration_number'] = null;
-                $data['quantity'] = 0;
-            }
-            $this->ensureStorageLocationForBookData($data, $book);
-
-            $book->update($data);
-            $this->syncContributors($book, $authorsInput, $publisherInput);
-            if ($syncThesis) {
-                $this->syncThesisMetadata($book, $thesisMeta);
-            }
-
-            return $book->fresh([
-                'classification:id,code,name',
-                'warehouse:id,code,name',
-                'authors:id,name',
-                'publishers:id,name',
-                'representativeStoredCopy',
-                'thesisMetadata',
-            ]);
-        });
+        $updated = DB::transaction(fn () => $this->persistBookUpdate($book, $data));
 
         $this->bumpAdminBooksCacheVersion();
 
         return $updated;
+    }
+
+    /**
+     * Cập nhật metadata tài liệu số kèm PDF/ảnh bìa mới (nếu có) — một transaction.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $assetAttrs
+     */
+    public function updateDigitalWithAssets(
+        Book $book,
+        array $data,
+        ?UploadedFile $pdfFile = null,
+        ?UploadedFile $coverFile = null,
+        array $assetAttrs = []
+    ): Book {
+        $data['resource_type'] = ResourceType::DIGITAL->value;
+        $data['access_mode'] = AccessMode::OnlineOnly->value;
+        $data['quantity'] = 0;
+
+        $stagedStoragePaths = [];
+
+        try {
+            $updated = DB::transaction(function () use ($book, $data, $pdfFile, $coverFile, $assetAttrs, &$stagedStoragePaths) {
+                $book = $this->persistBookUpdate($book, $data);
+
+                if ($pdfFile) {
+                    $this->digitalAssetService->store($book, $pdfFile, $assetAttrs, $stagedStoragePaths);
+                }
+
+                if ($coverFile) {
+                    $this->updateCoverImage($book, $coverFile, bumpCache: false);
+                }
+
+                return $book->fresh([
+                    'classification:id,code,name',
+                    'warehouse:id,code,name',
+                    'authors:id,name',
+                    'publishers:id,name',
+                    'representativeStoredCopy',
+                    'thesisMetadata',
+                    'digitalAssets',
+                ]);
+            });
+        } catch (\Throwable $e) {
+            $this->purgeStagedStorageFiles($stagedStoragePaths);
+            throw $e;
+        }
+
+        $this->bumpAdminBooksCacheVersion();
+
+        return $updated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function persistNewBook(array $data): Book
+    {
+        $bookData = $data;
+        $authorsInput = $bookData['authors'] ?? null;
+        $publisherInput = $bookData['publisher'] ?? null;
+        $syncThesis = array_key_exists('thesis_metadata', $bookData);
+        $thesisMeta = $bookData['thesis_metadata'] ?? null;
+        unset($bookData['thesis_metadata'], $bookData['authors'], $bookData['publisher']);
+
+        $isDigital = $this->isDigitalResourceType($bookData['resource_type'] ?? null);
+        if ($isDigital) {
+            $bookData['warehouse_id'] = null;
+            $bookData['cabinet'] = null;
+            $bookData['registration_number'] = null;
+            $bookData['quantity'] = 0;
+            if (empty($bookData['book_code'])) {
+                $bookData['book_code'] = $this->generateDigitalBookCode();
+            }
+        } else {
+            $warehouse = Warehouse::findOrFail($bookData['warehouse_id']);
+            $this->ensureStorageLocationForBookData($bookData, null);
+            if (empty($bookData['registration_number'])) {
+                $bookData['registration_number'] = $this->generateRegistrationNumber($warehouse);
+            }
+            if (empty($bookData['book_code'])) {
+                $bookData['book_code'] = $this->generateBookCode($warehouse);
+            }
+        }
+        $book = Book::create($bookData);
+        $this->syncContributors($book, $authorsInput, $publisherInput);
+        if ($syncThesis) {
+            $this->syncThesisMetadata($book, $thesisMeta);
+        }
+
+        return $book->fresh([
+            'classification:id,code,name',
+            'warehouse:id,code,name',
+            'representativeStoredCopy',
+            'thesisMetadata',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function persistBookUpdate(Book $book, array $data): Book
+    {
+        $authorsInput = $data['authors'] ?? null;
+        $publisherInput = $data['publisher'] ?? null;
+        unset(
+            $data['id'],
+            $data['created_at'],
+            $data['updated_at'],
+            $data['authors'],
+            $data['publisher'],
+        );
+        if (array_key_exists('cover_image', $data) && empty($data['cover_image'])) {
+            unset($data['cover_image']);
+        }
+        $syncThesis = array_key_exists('thesis_metadata', $data);
+        $thesisMeta = $data['thesis_metadata'] ?? null;
+        unset($data['thesis_metadata']);
+        if ($this->isDigitalResourceType($data['resource_type'] ?? $book->resource_type)) {
+            $data['warehouse_id'] = null;
+            $data['cabinet'] = null;
+            $data['registration_number'] = null;
+            $data['quantity'] = 0;
+        }
+        $this->ensureStorageLocationForBookData($data, $book);
+
+        $book->update($data);
+        $this->syncContributors($book, $authorsInput, $publisherInput);
+        if ($syncThesis) {
+            $this->syncThesisMetadata($book, $thesisMeta);
+        }
+
+        return $book->fresh([
+            'classification:id,code,name',
+            'warehouse:id,code,name',
+            'authors:id,name',
+            'publishers:id,name',
+            'representativeStoredCopy',
+            'thesisMetadata',
+        ]);
+    }
+
+    /**
+     * @param  list<array{disk: string, path: string}>  $staged
+     */
+    private function purgeStagedStorageFiles(array $staged): void
+    {
+        foreach ($staged as $item) {
+            if (! is_array($item) || empty($item['path'])) {
+                continue;
+            }
+            $disk = (string) ($item['disk'] ?? FileHelpers::digitalAssetsDisk());
+            try {
+                Storage::disk($disk)->delete((string) $item['path']);
+            } catch (\Throwable) {
+                // Bỏ qua nếu file đã bị xóa hoặc disk không khả dụng.
+            }
+        }
     }
 
     /**
@@ -828,7 +960,7 @@ class BookService
     /**
      * @return array{cover_image: string}
      */
-    public function updateCoverImage(Book $book, UploadedFile $file): array
+    public function updateCoverImage(Book $book, UploadedFile $file, bool $bumpCache = true): array
     {
         $baseName = $book->book_code ?: (string) $book->id;
         $directory = UploadDirectory::bookCovers((string) ($book->resource_type instanceof \BackedEnum ? $book->resource_type->value : $book->resource_type));
@@ -841,7 +973,9 @@ class BookService
             (string) config('filesystems.media_disk', 'public'),
             $directory
         );
-        $this->bumpAdminBooksCacheVersion();
+        if ($bumpCache) {
+            $this->bumpAdminBooksCacheVersion();
+        }
 
         return ['cover_image' => $path];
     }

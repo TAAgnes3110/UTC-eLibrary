@@ -677,9 +677,18 @@ onBeforeUnmount(() => {
                         class="rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-200/30 dark:border-slate-700 dark:bg-slate-900 dark:shadow-black/25"
                     >
                         <div class="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-                            <div class="min-w-0">
+                            <div class="min-w-0 max-w-2xl space-y-1.5">
                                 <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ profileS.updateRequestTitle }}</h3>
-                                <p class="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{{ profileS.updateRequestLead }}</p>
+                                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{{ profileS.updateRequestLead }}</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-500">
+                                    {{ profileS.updateRequestAfterApproval }}
+                                    <Link
+                                        :href="`${libraryCardServiceUrl}#apply`"
+                                        class="font-semibold text-blue-700 underline underline-offset-2 hover:text-blue-900 dark:text-blue-300 dark:hover:text-blue-200"
+                                    >
+                                        {{ profileS.updateRequestAfterApprovalLink }}
+                                    </Link>.
+                                </p>
                             </div>
                             <Link
                                 :href="route('reader.profile-update-requests')"
@@ -694,19 +703,6 @@ onBeforeUnmount(() => {
                             class="mx-6 mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300"
                         >
                             Đã gửi yêu cầu cập nhật. Bạn có thể theo dõi trạng thái ở trang lịch sử.
-                        </div>
-                        <div class="mx-6 mt-4 space-y-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs text-blue-800 dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-100">
-                            <p class="font-bold">{{ profileS.updateRequestNoteTitle }}</p>
-                            <ul class="list-inside list-disc space-y-1.5 pl-0.5">
-                                <li>{{ profileS.updateRequestNoteSelf }}</li>
-                                <li>{{ profileS.updateRequestNoteApproval }}</li>
-                            </ul>
-                            <p class="border-t border-blue-200/80 pt-2 dark:border-blue-700/60">
-                                {{ profileS.updateRequestCardAfterApproval }}
-                                <Link :href="`${libraryCardServiceUrl}#apply`" class="font-semibold underline underline-offset-2 hover:text-blue-900 dark:hover:text-white">
-                                    Cấp thẻ thư viện
-                                </Link>.
-                            </p>
                         </div>
                         <form class="space-y-4 p-6" @submit.prevent="submitProfileUpdateRequest">
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">

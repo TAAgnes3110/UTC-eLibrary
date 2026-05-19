@@ -4,7 +4,13 @@ import apiClient from '@/api/axios';
 import { booksApi } from '@/api/books';
 import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
-import { prepareAdminApiAuthOnce, callWithSessionFallback, sessionApiPost, sessionApiPostForm } from '@/utils/adminApiAuth';
+import {
+    prepareAdminApiAuthOnce,
+    callWithSessionFallback,
+    sessionApiPost,
+    uploadDigitalAssetViaSession,
+    uploadBookCoverViaSession,
+} from '@/utils/adminApiAuth';
 import { BOOK_FORM_FIELD_MAP, getFieldErrorsFromAxiosError, getLaravelErrorMessage } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
@@ -1037,12 +1043,7 @@ export function useBooksAdminPage() {
 
             if (createCoverFile.value instanceof File && savedBookId) {
                 try {
-                    const coverData = new FormData();
-                    coverData.append('book_cover', createCoverFile.value);
-                    await callWithSessionFallback(
-                        () => booksApi.updateCover(savedBookId, coverData),
-                        () => sessionApiPostForm(`/books/${savedBookId}/image`, coverData)
-                    );
+                    await uploadBookCoverViaSession(savedBookId, createCoverFile.value);
                 } catch (coverError) {
                     const msg = formatSaveStepError('Bước 2 — Ảnh bìa', coverError);
                     setBookClientErrors({ general: msg });
@@ -1055,14 +1056,7 @@ export function useBooksAdminPage() {
 
             if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && savedBookId) {
                 try {
-                    const digitalData = new FormData();
-                    digitalData.append('file', createDigitalFile.value);
-                    digitalData.append('is_primary', '1');
-                    digitalData.append('visibility', 'public');
-                    await callWithSessionFallback(
-                        () => booksApi.uploadDigitalAsset(savedBookId, digitalData),
-                        () => sessionApiPostForm(`/books/${savedBookId}/digital-assets`, digitalData, { timeout: 300000 })
-                    );
+                    await uploadDigitalAssetViaSession(savedBookId, createDigitalFile.value);
                 } catch (uploadError) {
                     const fieldErrors = applySaveStepApiErrors(uploadError, DIGITAL_UPLOAD_FIELD_MAP);
                     const stepMsg = formatSaveStepError('Bước 3 — Upload PDF', uploadError);

@@ -67,3 +67,24 @@ export function sessionApiPostForm(url, formData, config = {}) {
         })
         .then((r) => r.data);
 }
+
+/** FormData upload PDF tài liệu số (tạo mới mỗi lần — tránh body rỗng khi retry). */
+export function buildDigitalAssetUploadFormData(file) {
+    const digitalData = new FormData();
+    digitalData.append('file', file);
+    digitalData.append('is_primary', '1');
+    digitalData.append('visibility', 'public');
+    return digitalData;
+}
+
+export function uploadDigitalAssetViaSession(bookId, file) {
+    return sessionApiPostForm(`/books/${bookId}/digital-assets`, buildDigitalAssetUploadFormData(file), {
+        timeout: 300000,
+    });
+}
+
+export function uploadBookCoverViaSession(bookId, coverFile) {
+    const coverData = new FormData();
+    coverData.append('book_cover', coverFile);
+    return sessionApiPostForm(`/books/${bookId}/image`, coverData);
+}

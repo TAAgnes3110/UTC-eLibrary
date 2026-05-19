@@ -444,18 +444,27 @@ export function useUsersAdminPage(props) {
     };
 
     const deleteUser = async () => {
+        const bulkCount = selectedIds.value.length;
         try {
             if (selectedUser.value) {
                 await usersApi.remove(selectedUser.value.id);
-            } else if (selectedIds.value.length > 0) {
+                toast.success('Đã đưa tài khoản vào thùng rác.', { title: 'Xóa' });
+            } else if (bulkCount > 0) {
                 await Promise.all(selectedIds.value.map((id) => usersApi.remove(id)));
+                toast.success(`Đã đưa ${bulkCount} tài khoản vào thùng rác.`, { title: 'Xóa' });
             }
             await fetchUsers();
             if (showTrashDrawer.value) {
                 await fetchTrash();
             }
         } catch (e) {
+            // eslint-disable-next-line no-console
             console.error('Lỗi khi xóa tài khoản:', e);
+            const res = e?.response?.data || {};
+            const msg = res?.message || res?.messages || 'Không thể xóa tài khoản. Vui lòng thử lại.';
+            toast.error(typeof msg === 'string' ? msg : 'Không thể xóa tài khoản. Vui lòng thử lại.', {
+                title: 'Xóa',
+            });
         }
         selectedUser.value = null;
         selectedIds.value = [];
@@ -555,15 +564,23 @@ export function useUsersAdminPage(props) {
     const toggleStatus = async () => {
         const user = userToToggle.value;
         if (!user) return;
+        const locking = user.status === 'active';
         try {
             const res = await usersApi.toggleStatus(user.id);
             if (res?.is_active !== undefined) {
                 user.is_active = res.is_active;
                 user.status = res.is_active ? 'active' : 'blocked';
             }
+            toast.success(locking ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.', { title: 'Thành công' });
             closeToggleConfirm();
         } catch (e) {
+            // eslint-disable-next-line no-console
             console.error('Lỗi khi khóa/mở khóa tài khoản:', e);
+            const res = e?.response?.data || {};
+            const msg = res?.message || res?.messages || 'Không thể cập nhật trạng thái tài khoản.';
+            toast.error(typeof msg === 'string' ? msg : 'Không thể cập nhật trạng thái tài khoản.', {
+                title: 'Lỗi',
+            });
             closeToggleConfirm();
         }
     };

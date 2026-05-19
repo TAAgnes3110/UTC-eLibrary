@@ -74,10 +74,14 @@ Hướng dẫn: [`docs/deployment/ec2-cicd.md`](docs/deployment/ec2-cicd.md)
 DEPLOY_PROFILE=vps
 APP_URL=http://<IP-EC2>
 SESSION_SECURE_COOKIE=false
+SESSION_DOMAIN=
 SANCTUM_STATEFUL_DOMAINS=<IP-EC2>,localhost,127.0.0.1
+API_ALLOWED_DOMAINS=http://<IP-EC2>,<IP-EC2>
 DIGITAL_PREVIEW_DISPATCH_SYNC=true
 QUEUE_CONNECTION=redis
 ```
+
+**Admin / tài liệu số:** trang `/admin` dùng **cookie session** (không JWT `localStorage`). Nếu Lưu báo 401 → F5, đăng xuất/đăng nhập lại; kiểm tra `SESSION_SECURE_COOKIE=false` khi dùng HTTP.
 
 ## Kiểm tra & chất lượng
 

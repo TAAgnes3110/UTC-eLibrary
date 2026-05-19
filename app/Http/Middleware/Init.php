@@ -24,22 +24,33 @@ class Init
         global $currentSystem, $currentCustomer, $currentUser, $currentPerson, $role_prefix, $domain, $bearer_token;
 
         $bearer_token = $request->bearerToken();
+        $hadBearer = is_string($bearer_token) && $bearer_token !== '';
         $user = null;
+        $authenticatedViaWebSession = false;
 
         try {
-            if ($bearer_token) {
+            // Admin Inertia: ưu tiên cookie session — JWT hết hạn trong localStorage hay gây 401.
+            if ($request->hasSession()) {
+                $sessionUser = Auth::guard('web')->user();
+                if ($sessionUser) {
+                    $user = $sessionUser;
+                    $authenticatedViaWebSession = true;
+                }
+            }
+
+            if (! $user && $hadBearer) {
                 try {
                     $user = JWTAuth::parseToken()->authenticate();
                 } catch (\Exception $e) {
                     $bearer_token = null;
                 }
             }
-            if (! $user && $request->hasSession()) {
-                $user = Auth::guard('web')->user();
-            }
+
             if (! $user && Auth::guard('web')->check()) {
                 $user = Auth::guard('web')->user();
+                $authenticatedViaWebSession = true;
             }
+
             if (! $user) {
                 return ApiResponse::error(__('Bạn cần đăng nhập để tiếp tục.'), 401);
             }
@@ -47,9 +58,13 @@ class Init
             Auth::guard('web')->setUser($user);
             $request->setUserResolver(static fn () => $user);
 
-            $domain = $request->headers->get('domain', request()->getHost());
+            $domain = $request->headers->get('domain', $request->getHost());
             $allowedDomains = config('api.allowed_domains', []);
-            if (! empty($allowedDomains) && ! $this->isDomainAllowed($domain, $allowedDomains)) {
+            $shouldCheckDomain = ! $authenticatedViaWebSession
+                && ! empty($allowedDomains)
+                && ! $this->isDomainAllowed($domain, $allowedDomains);
+
+            if ($shouldCheckDomain) {
                 $allowLocalDev = app()->environment('local', 'testing')
                     && $this->isLocalDevelopmentHost($domain);
                 if (! $allowLocalDev) {

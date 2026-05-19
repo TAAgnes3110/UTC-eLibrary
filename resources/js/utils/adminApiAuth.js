@@ -1,5 +1,6 @@
 import client from '@/api/axios';
-import { fetchSessionApiToken } from '@/utils/ensureApiToken';
+import { ensureSanctumCsrfCookie } from '@/utils/apiCsrf';
+import { clearClientApiCredentials } from '@/utils/apiAuthStorage';
 
 function isUnauthorizedError(error) {
     return error?.response?.status === 401;
@@ -14,16 +15,21 @@ export function adminApiRateLimitMessage() {
 }
 
 /**
- * Một lần trước khi Lưu: chỉ cấp token nếu localStorage chưa có.
+ * Trang admin chỉ dùng cookie session — xóa JWT cũ và xác minh /auth/user trước khi Lưu/upload.
  */
-export async function prepareAdminApiAuthOnce() {
+export async function ensureAdminWebSession() {
     if (typeof window === 'undefined') {
-        return null;
+        return;
     }
-    if (localStorage.getItem('token')) {
-        return localStorage.getItem('token');
-    }
-    return fetchSessionApiToken({ force: true });
+    clearClientApiCredentials();
+    await ensureSanctumCsrfCookie();
+    await client.get('/auth/user', { skipBearerAuth: true });
+}
+
+/** @deprecated Dùng ensureAdminWebSession — admin không dùng JWT localStorage. */
+export async function prepareAdminApiAuthOnce() {
+    await ensureAdminWebSession();
+    return null;
 }
 
 /**

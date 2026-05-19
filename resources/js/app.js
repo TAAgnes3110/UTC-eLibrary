@@ -14,7 +14,15 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 function syncApiAuthFromInertiaPage(page) {
     const user = page?.props?.auth?.user ?? null;
     if (user?.id) {
-        void ensureSanctumCsrfCookie().then(() => syncApiTokenFromSession(user));
+        void ensureSanctumCsrfCookie().then(() => {
+            const path = typeof window !== 'undefined' ? window.location.pathname : '';
+            // Admin Inertia: không ghi JWT vào localStorage (token hết hạn → 401 khi upload).
+            if (path.startsWith('/admin')) {
+                clearClientApiCredentials();
+                return;
+            }
+            return syncApiTokenFromSession(user);
+        });
     } else {
         clearClientApiCredentials();
     }

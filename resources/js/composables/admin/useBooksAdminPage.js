@@ -6,6 +6,7 @@ import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
 import {
     createDigitalBookViaSession,
+    ensureAdminWebSession,
     sessionApiPost,
     sessionApiPut,
     updateDigitalBookViaSession,
@@ -1007,6 +1008,19 @@ export function useBooksAdminPage() {
 
         saveBookLoading.value = true;
         clearSaveErrorLock();
+        try {
+            await ensureAdminWebSession();
+        } catch (authError) {
+            saveBookLoading.value = false;
+            const msg =
+                authError?.response?.data?.messages
+                || authError?.message
+                || 'Không xác thực được phiên admin. Đăng xuất, đăng nhập lại rồi thử Lưu.';
+            setBookClientErrors({ general: msg });
+            activateSaveErrorLock();
+            toast.error(msg, { title: 'Đăng nhập' });
+            return;
+        }
         let savedBookId = isEditing.value && form.value.id != null ? Number(form.value.id) : null;
         const isNewDigital =
             !isEditing.value && pageKind.value === 'digital' && createDigitalFile.value instanceof File;

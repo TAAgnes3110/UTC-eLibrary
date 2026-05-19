@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\ApiAllowedDomains;
+
 return [
 
     /*
@@ -18,5 +20,5 @@ return [
     | Để trống hoặc null = không kiểm tra domain. Dùng khi gọi API từ Postman/app bên ngoài.
     | Ví dụ: ['https://your-app.com', 'https://admin.your-app.com']
     */
-    'allowed_domains' => array_filter(array_map('trim', explode(',', env('API_ALLOWED_DOMAINS', '')))),
+    'allowed_domains' => ApiAllowedDomains::resolve(),
 ];

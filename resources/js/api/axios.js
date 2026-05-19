@@ -71,6 +71,12 @@ client.interceptors.request.use(
         // Trang admin Inertia: luôn dùng cookie session — JWT localStorage hay gây 401/429.
         if (isAdminSpa && !config.forceBearerAuth) {
             config.skipBearerAuth = true;
+            try {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            } catch {
+                //
+            }
         }
 
         const token = localStorage.getItem('token');
@@ -149,6 +155,19 @@ client.interceptors.response.use(
         }
 
         const isMultipartBody = originalRequest.data instanceof FormData;
+        const isAdminSpa =
+            typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+
+        // FormData không retry được (body đã consume) — báo lỗi rõ, không gửi request rỗng.
+        if (isMultipartBody) {
+            const multipartError = new Error(
+                isAdminSpa
+                    ? 'Phiên đăng nhập admin không hợp lệ. Tải lại trang (F5), đăng nhập lại rồi bấm Lưu.'
+                    : 'Phiên đăng nhập có thể đã hết hạn khi upload file. Tải lại trang (F5), đăng nhập lại rồi bấm Lưu.'
+            );
+            multipartError.response = response;
+            return Promise.reject(multipartError);
+        }
 
         originalRequest._retry = true;
         originalRequest._sessionRetry = true;
@@ -159,15 +178,12 @@ client.interceptors.response.use(
         }
 
         try {
+            await ensureSanctumCsrfCookie();
+            if (originalRequest.headers && typeof originalRequest.headers === 'object') {
+                Object.assign(originalRequest.headers, getApiCsrfHeaders());
+            }
             return await client(originalRequest);
         } catch (retryError) {
-            if (isMultipartBody) {
-                const multipartError = new Error(
-                    'Phiên đăng nhập có thể đã hết hạn khi upload file. Tải lại trang (F5), đăng nhập lại rồi bấm Lưu.'
-                );
-                multipartError.response = response;
-                return Promise.reject(multipartError);
-            }
             return Promise.reject(retryError);
         }
     }

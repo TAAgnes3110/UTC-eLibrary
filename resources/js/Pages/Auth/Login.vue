@@ -240,7 +240,7 @@ const { showPassword, form, submit } = useLoginPage({ fromRegister });
                         </svg>
                         <span
                             class="uppercase tracking-wide leading-tight text-center"
-                            >Đăng nhập với Microsoft 365</span
+                            >Đăng nhập với Microsoft</span
                         >
                     </a>
 

@@ -87,25 +87,128 @@ UTC eLibrary phục vụ:
 
 ### Giao diện (screenshot từ [demo EC2](http://3.0.56.220/))
 
-Ảnh chụp từ bản triển khai thật — giao diện dark mode, mobile-friendly.
+Ảnh **full-page** (1440px, scale 2×) — mỗi trang **một hàng**, `width="100%"`. Tái chụp toàn bộ: `node scripts/capture-readme-screenshots.mjs`.
 
-#### Cổng độc giả
+---
 
-| | | |
-|:---:|:---:|:---:|
-| **Trang chủ** | **Đăng nhập** | **Đăng ký** |
-| <img src="readme/assets/screenshots/01-home.png" width="300" alt="Trang chủ"/> | <img src="readme/assets/screenshots/02-login.png" width="300" alt="Đăng nhập"/> | <img src="readme/assets/screenshots/03-register.png" width="300" alt="Đăng ký"/> |
-| **Tra cứu sách** | **Chi tiết sách** | |
-| <img src="readme/assets/screenshots/04-catalog.png" width="300" alt="Tra cứu"/> | <img src="readme/assets/screenshots/05-book-detail.png" width="300" alt="Chi tiết sách"/> | |
+#### Luồng trọng tâm — Mượn sách & phiếu mượn
 
-#### Quản trị (`/admin`)
+**Quy định mượn sách** — `/quy-dinh/muon-sach`
 
-| | | |
-|:---:|:---:|:---:|
-| **Tổng quan** | **Đồ án / luận văn** | **Phiếu mượn** |
-| <img src="readme/assets/screenshots/06-admin-dashboard.png" width="300" alt="Dashboard admin"/> | <img src="readme/assets/screenshots/07-admin-digital-books.png" width="300" alt="Tài liệu số admin"/> | <img src="readme/assets/screenshots/08-admin-loans.png" width="300" alt="Phiếu mượn"/> |
+<p align="center"><img src="readme/assets/screenshots/11-reader-borrowing-rules.png" alt="Quy định mượn sách" width="100%"/></p>
 
-> Tài khoản demo xem mục [Tài khoản demo](#tài-khoản-demo). Sau deploy nhớ **Ctrl+F5** để tải JS mới.
+**Làm thẻ thư viện** — `/dich-vu/cap-the-thu-vien`
+
+<p align="center"><img src="readme/assets/screenshots/09-reader-library-card.png" alt="Đăng ký thẻ thư viện" width="100%"/></p>
+
+**Phiếu mượn của tôi (độc giả)** — `/dich-vu/phieu-muon`
+
+<p align="center"><img src="readme/assets/screenshots/10-reader-loan-requests.png" alt="Phiếu mượn độc giả" width="100%"/></p>
+
+**Duyệt yêu cầu mượn (thủ thư)** — `/admin/loans/borrow-requests`
+
+<p align="center"><img src="readme/assets/screenshots/18-admin-borrow-requests.png" alt="Duyệt yêu cầu mượn" width="100%"/></p>
+
+**Lập phiếu mượn tại quầy** — `/admin/loans/create`
+
+<p align="center"><img src="readme/assets/screenshots/19-admin-loan-create.png" alt="Lập phiếu mượn" width="100%"/></p>
+
+**Danh sách phiếu mượn** — `/admin/loans`
+
+<p align="center"><img src="readme/assets/screenshots/08-admin-loans.png" alt="Quản lý phiếu mượn" width="100%"/></p>
+
+**Chi tiết phiếu mượn** — `/admin/loans/{id}`
+
+<p align="center"><img src="readme/assets/screenshots/21-admin-loan-detail.png" alt="Chi tiết phiếu mượn" width="100%"/></p>
+
+**Gia hạn mượn (duyệt)** — `/admin/loans/renewal-requests`
+
+<p align="center"><img src="readme/assets/screenshots/20-admin-renewal-requests.png" alt="Duyệt gia hạn mượn" width="100%"/></p>
+
+---
+
+#### Luồng trọng tâm — Thanh toán & tài liệu số
+
+**Tra cứu & chi tiết sách** — `/tra-cuu-sach`, `/tra-cuu-sach/{id}`
+
+<p align="center"><img src="readme/assets/screenshots/04-catalog.png" alt="Tra cứu sách" width="100%"/></p>
+
+<p align="center"><img src="readme/assets/screenshots/05-book-detail.png" alt="Chi tiết sách" width="100%"/></p>
+
+**Giỏ sách (mượn in)** — `/dich-vu/gio-sach`
+
+<p align="center"><img src="readme/assets/screenshots/12-reader-book-cart.png" alt="Giỏ mượn sách in" width="100%"/></p>
+
+**Giỏ mua tài liệu số** — `/dich-vu/gio-sach?tab=purchase`
+
+<p align="center"><img src="readme/assets/screenshots/13-reader-digital-cart.png" alt="Giỏ mua PDF" width="100%"/></p>
+
+**Thanh toán SePay** — `/dich-vu/thanh-toan`
+
+<p align="center"><img src="readme/assets/screenshots/14-reader-payment.png" alt="Thanh toán tài liệu số" width="100%"/></p>
+
+**Đơn hàng của tôi** — `/dich-vu/don-hang-cua-toi`
+
+<p align="center"><img src="readme/assets/screenshots/15-reader-orders.png" alt="Đơn hàng tài liệu số" width="100%"/></p>
+
+**Cấu hình giá paywall (admin)** — `/admin/library-settings/pricing`
+
+<p align="center"><img src="readme/assets/screenshots/24-admin-digital-pricing.png" alt="Giá tải PDF" width="100%"/></p>
+
+**Đồ án / luận văn (admin)** — `/admin/books/digital`
+
+<p align="center"><img src="readme/assets/screenshots/07-admin-digital-books.png" alt="Quản lý đồ án luận văn" width="100%"/></p>
+
+**Duyệt bài nộp tài liệu số** — `/admin/books/digital/submissions`
+
+<p align="center"><img src="readme/assets/screenshots/26-admin-digital-submissions.png" alt="Duyệt nộp tài liệu số" width="100%"/></p>
+
+**Dịch vụ tài liệu số (độc giả)** — `/dich-vu/tai-lieu-so`
+
+<p align="center"><img src="readme/assets/screenshots/16-reader-digital-documents.png" alt="Dịch vụ tài liệu số" width="100%"/></p>
+
+---
+
+#### Thẻ thư viện & quản trị khác
+
+**Thẻ đã cấp** — `/admin/library-cards`
+
+<p align="center"><img src="readme/assets/screenshots/22-admin-library-cards.png" alt="Quản lý thẻ thư viện" width="100%"/></p>
+
+**Hồ sơ làm thẻ (duyệt)** — `/admin/library-cards/requests`
+
+<p align="center"><img src="readme/assets/screenshots/23-admin-library-card-requests.png" alt="Duyệt làm thẻ" width="100%"/></p>
+
+**Sách in (danh mục)** — `/admin/books/printed`
+
+<p align="center"><img src="readme/assets/screenshots/25-admin-printed-books.png" alt="Sách in" width="100%"/></p>
+
+**Dashboard tổng quan** — `/admin`
+
+<p align="center"><img src="readme/assets/screenshots/06-admin-dashboard.png" alt="Dashboard admin" width="100%"/></p>
+
+---
+
+<details>
+<summary><strong>Xem thêm — Auth & trang giới thiệu</strong></summary>
+
+<br>
+
+**Trang chủ** — `/`
+
+<p align="center"><a href="http://3.0.56.220/"><img src="readme/assets/screenshots/01-home.png" alt="Trang chủ" width="100%"/></a></p>
+
+**Đăng nhập** — `/login`
+
+<p align="center"><img src="readme/assets/screenshots/02-login.png" alt="Đăng nhập" width="100%"/></p>
+
+**Đăng ký** — `/register`
+
+<p align="center"><img src="readme/assets/screenshots/03-register.png" alt="Đăng ký" width="100%"/></p>
+
+</details>
+
+> Demo: [Tài khoản demo](#tài-khoản-demo) (`student@…` cho luồng mượn/TT, `admin@…` cho admin). Sau deploy: **Ctrl+F5**.
 
 ### Luồng tài liệu số (admin)
 
@@ -382,6 +485,28 @@ bash scripts/ec2-deploy.sh
 
 Script: pull → `ec2-prepare-build.sh` → `docker compose build app` → `up -d` → `migrate:existing-schema` → clear cache.
 
+### Vận hành nền (Docker — cấu hình một lần trong `.env`)
+
+`docker-compose.ec2.yml` đã chạy sẵn:
+
+| Container | Lệnh | Mục đích |
+|-----------|------|----------|
+| `scheduler` | `php artisan schedule:work` | Nhắc sắp đến hạn, đồng bộ quá hạn, hết hạn đơn SePay, … |
+| `queue` | `php artisan queue:work` | Preview PDF / job nền khi `DIGITAL_PREVIEW_DISPATCH_SYNC=false` |
+
+**Không cần** thêm crontab `* * * * * php artisan schedule:run` trên EC2 Docker.
+
+Sau khi sửa `.env` (giờ chạy, số ngày báo trước, chu kỳ poll UI):
+
+```bash
+docker compose -f docker-compose.ec2.yml exec app php artisan config:clear
+docker compose -f docker-compose.ec2.yml up -d scheduler queue
+```
+
+Kiểm tra container: `docker compose -f docker-compose.ec2.yml ps` (phải thấy `scheduler`, `queue` **Up**).
+
+**Bare-metal (không Docker):** crontab `* * * * * cd /path/to/UTC-eLibrary && php artisan schedule:run` và process supervisor cho `php artisan queue:work`.
+
 ### DB import từ backup SQL
 
 Khi bảng đã có nhưng thiếu dòng trong `migrations`:
@@ -419,6 +544,9 @@ File: `.github/workflows/deploy-ec2.yml`
 | `API_ALLOWED_DOMAINS` | Domain cho JWT |
 | `DIGITAL_ASSETS_DISK` | `local` hoặc `s3` / R2 |
 | `DIGITAL_PREVIEW_DISPATCH_SYNC` | `true` khi dev không chạy queue |
+| `NOTIFICATION_UI_POLL_INTERVAL_MS` | Poll UI thông báo (ms), mặc định `30000` |
+| `LOAN_DUE_SOON_DAYS_BEFORE` | Báo trước N ngày (mặc định `2`) |
+| `SCHEDULE_LOANS_*_AT` | Giờ chạy `loans:sync-overdue` / `loans:notify-due-soon` |
 
 ### EC2 (HTTP, ví dụ)
 
@@ -431,6 +559,10 @@ SANCTUM_STATEFUL_DOMAINS=<IP-EC2>,localhost,127.0.0.1
 API_ALLOWED_DOMAINS=http://<IP-EC2>,<IP-EC2>
 DIGITAL_PREVIEW_DISPATCH_SYNC=true
 QUEUE_CONNECTION=redis
+NOTIFICATION_UI_POLL_INTERVAL_MS=30000
+LOAN_DUE_SOON_DAYS_BEFORE=2
+SCHEDULE_LOANS_SYNC_OVERDUE_AT=06:05
+SCHEDULE_LOANS_NOTIFY_DUE_SOON_AT=07:00
 ```
 
 **Admin / tài liệu số:** `/admin` dùng cookie session. Lỗi 401 khi Lưu → F5, đăng nhập lại; kiểm tra `SESSION_SECURE_COOKIE=false` trên HTTP.

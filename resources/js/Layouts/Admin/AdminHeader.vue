@@ -41,7 +41,7 @@ const {
     deletingAll,
     deletingIds,
     fetchNotifications,
-} = useNotifications({ pollIntervalMs: 12000, refetchOnVisibility: true });
+} = useNotifications();
 
 const getNotifIcon = (type) => {
     if (type.includes('overdue') || type.includes('expired') || type.includes('rejected')) return 'lucide:alert-circle';

@@ -10,6 +10,10 @@ import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
 import { resetFileInput } from '@/utils/resetFileInput'
 import { accountProfileStrings as profileS } from '@/config/accountProfileStrings'
+import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth'
+
+const maxDateOfBirth = maxDateOfBirthForInput()
+const minDateOfBirth = minDateOfBirthForInput()
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
@@ -721,7 +725,13 @@ onBeforeUnmount(() => {
                                 </div>
                                 <div>
                                     <label class="mb-1.5 block text-xs font-semibold text-slate-600 dark:text-slate-300">Ngày sinh</label>
-                                    <input v-model="profileForm.date_of_birth" type="date" class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:-translate-y-0.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 [color-scheme:dark]" />
+                                    <input
+                                        v-model="profileForm.date_of_birth"
+                                        type="date"
+                                        :max="maxDateOfBirth"
+                                        :min="minDateOfBirth"
+                                        class="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-900 outline-none transition focus:-translate-y-0.5 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 [color-scheme:dark]"
+                                    />
                                     <p v-if="profileForm.errors.date_of_birth" class="mt-1 text-xs font-medium text-red-500">{{ profileForm.errors.date_of_birth }}</p>
                                 </div>
                                 <div>

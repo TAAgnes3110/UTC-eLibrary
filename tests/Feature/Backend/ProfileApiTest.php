@@ -83,6 +83,24 @@ class ProfileApiTest extends TestCase
         $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
     }
 
+    public function test_me_profile_update_rejects_current_year_date_of_birth(): void
+    {
+        [, $token] = $this->createUserAndToken();
+
+        $currentYear = (int) now()->format('Y');
+
+        $this->putJson('/api/v1/me/profile', [
+            'name' => 'Test User',
+            'email' => 'dob-test@example.com',
+            'phone' => '0901111222',
+            'date_of_birth' => "{$currentYear}-01-15",
+            'gender' => 'male',
+            'address' => null,
+        ], $this->apiTokenHeaders($token))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['date_of_birth']);
+    }
+
     public function test_me_password_update_returns_422_when_current_password_invalid(): void
     {
         [, $token] = $this->createUserAndToken([

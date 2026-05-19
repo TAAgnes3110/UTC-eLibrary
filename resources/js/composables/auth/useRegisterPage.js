@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors';
+import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth';
 
 function looksLikeEnglishValidationMessage(message) {
     if (typeof message !== 'string') return false;
@@ -110,5 +111,7 @@ export function useRegisterPage() {
         showPassword,
         showPasswordConfirmation,
         submit,
+        maxDateOfBirth: maxDateOfBirthForInput(),
+        minDateOfBirth: minDateOfBirthForInput(),
     };
 }

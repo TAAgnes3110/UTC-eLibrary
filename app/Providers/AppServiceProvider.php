@@ -43,6 +43,10 @@ class AppServiceProvider extends ServiceProvider
             Vite::useHotFile(storage_path('framework/vite-remote-no-hmr'));
         }
 
+        Inertia::share('notifications', fn () => [
+            'poll_interval_ms' => (int) config('notifications.ui_poll_interval_ms', 30_000),
+        ]);
+
         // @intelephense-ignore-next-line
         Inertia::share('auth', function () {
             $user = request()->user();

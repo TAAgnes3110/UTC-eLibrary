@@ -13,7 +13,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
 /**
- * Nhắc phiếu đang mượn sắp đến hạn trả (khoảng 2 ngày trước ngày hẹn trả) cho bạn đọc và digest cho staff.
+ * Nhắc phiếu đang mượn sắp đến hạn trả (N ngày trước hạn — cấu hình LOAN_DUE_SOON_DAYS_BEFORE).
  */
 class LoanDueSoonNotificationService
 {
@@ -24,10 +24,13 @@ class LoanDueSoonNotificationService
     /**
      * @return int số phiếu đã gửi nhắc (mỗi phiếu tối đa một thông báo chưa đọc / ngày theo dedupe).
      */
-    public function notifyForLoansDueInTwoDays(CarbonInterface $today): int
+    public function notifyForLoansDueSoon(CarbonInterface $today, ?int $daysBefore = null): int
     {
+        $days = $daysBefore ?? (int) config('notifications.loan_due_soon_days_before', 2);
+        $days = max(1, min(14, $days));
+
         $dueOn = $today instanceof Carbon ? $today->copy() : Carbon::parse($today);
-        $dueOn = $dueOn->addDays(2)->toDateString();
+        $dueOn = $dueOn->addDays($days)->toDateString();
 
         $loans = Loan::query()
             ->where('status', LoanStatus::BORROWED)
@@ -38,16 +41,24 @@ class LoanDueSoonNotificationService
 
         $digestDay = $today instanceof Carbon ? $today->copy()->startOfDay() : Carbon::parse($today)->startOfDay();
         foreach ($loans as $loan) {
-            $this->notifyReaderForLoan($loan, $digestDay);
+            $this->notifyReaderForLoan($loan, $digestDay, $days);
         }
 
         $count = $loans->count();
-        $this->notifyAdminsDueSoonSummary($count, (string) $dueOn, $digestDay);
+        $this->notifyAdminsDueSoonSummary($count, (string) $dueOn, $digestDay, $days);
 
         return $count;
     }
 
-    private function notifyReaderForLoan(Loan $loan, CarbonInterface $day): void
+    /**
+     * @deprecated Dùng notifyForLoansDueSoon()
+     */
+    public function notifyForLoansDueInTwoDays(CarbonInterface $today): int
+    {
+        return $this->notifyForLoansDueSoon($today);
+    }
+
+    private function notifyReaderForLoan(Loan $loan, CarbonInterface $day, int $daysBefore): void
     {
         $card = $loan->libraryCard;
         $readerId = (int) ($card?->user_id ?? 0);
@@ -63,8 +74,9 @@ class LoanDueSoonNotificationService
                 'type' => NotificationType::USER_LOAN_DUE_SOON_REMINDER,
                 'title' => 'Phiếu mượn sắp đến hạn trả',
                 'message' => sprintf(
-                    'Phiếu %s sẽ đến hạn trả sau 2 ngày (hạn %s). Vui lòng mang tài liệu đến thư viện trước hoặc đúng ngày hẹn trả.',
+                    'Phiếu %s sẽ đến hạn trả sau %s (hạn %s). Vui lòng mang tài liệu đến thư viện trước hoặc đúng ngày hẹn trả.',
                     (string) ($loan->loan_code ?? '#'.$loan->id),
+                    $this->formatDaysAheadLabel($daysBefore),
                     $dueStr
                 ),
                 'severity' => NotificationSeverity::INFO,
@@ -89,7 +101,7 @@ class LoanDueSoonNotificationService
         }
     }
 
-    private function notifyAdminsDueSoonSummary(int $dueSoonCount, string $dueDate, CarbonInterface $day): void
+    private function notifyAdminsDueSoonSummary(int $dueSoonCount, string $dueDate, CarbonInterface $day, int $daysBefore): void
     {
         if ($dueSoonCount < 1) {
             return;
@@ -112,8 +124,9 @@ class LoanDueSoonNotificationService
                     'type' => NotificationType::ADMIN_LOAN_DUE_SOON_DIGEST,
                     'title' => 'Phiếu mượn sắp đến hạn',
                     'message' => sprintf(
-                        'Có %d phiếu đang mượn sẽ đến hạn trả sau 2 ngày (ngày hẹn trả %s). Vui lòng vào Quản lý phiếu mượn để theo dõi.',
+                        'Có %d phiếu đang mượn sẽ đến hạn trả sau %s (ngày hẹn trả %s). Vui lòng vào Quản lý phiếu mượn để theo dõi.',
                         $dueSoonCount,
+                        $this->formatDaysAheadLabel($daysBefore),
                         $dueDate
                     ),
                     'severity' => NotificationSeverity::INFO,
@@ -137,5 +150,10 @@ class LoanDueSoonNotificationService
                 report($e);
             }
         }
+    }
+
+    private function formatDaysAheadLabel(int $days): string
+    {
+        return $days === 1 ? '1 ngày' : "{$days} ngày";
     }
 }

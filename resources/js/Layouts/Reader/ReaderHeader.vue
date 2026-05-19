@@ -38,6 +38,7 @@ const {
     deleteAllNotifications,
     deletingAll,
     deletingIds,
+    fetchNotifications,
 } = useNotifications()
 const hasNotifications = computed(() => Array.isArray(notifications.value) && notifications.value.length > 0)
 
@@ -298,7 +299,7 @@ const navChildLinkClass = (childRoute) => {
                             {{ totalBookCartCount > 99 ? '99+' : totalBookCartCount }}
                         </span>
                     </Link>
-                    <DropdownMenu>
+                    <DropdownMenu @update:open="(open) => open && fetchNotifications()">
                         <DropdownMenuTrigger as-child>
                             <button
                                 type="button"

@@ -1,6 +1,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import apiClient from '@/api/axios';
+import { NOTIFICATION_POLL_INTERVAL_MS } from '@/config/notificationPolling';
 import { toast } from '@/store/toast';
 
 function formatRelativeTime(isoDate) {
@@ -49,13 +50,22 @@ function normalizeNotification(item) {
 }
 
 /**
- * @param {{ pollIntervalMs?: number, refetchOnVisibility?: boolean }} [options]
+ * @param {{
+ *   pollIntervalMs?: number,
+ *   refetchOnVisibility?: boolean,
+ *   enablePolling?: boolean
+ * }} [options]
  */
 export function useNotifications(options = {}) {
-    const pollIntervalMs = Number(options.pollIntervalMs ?? 0) || 0;
-    const refetchOnVisibility = Boolean(options.refetchOnVisibility ?? false);
-
     const page = usePage();
+    const serverPollMs = Number(page.props.notifications?.poll_interval_ms ?? 0);
+
+    const enablePolling = options.enablePolling !== false;
+    const pollIntervalMs = enablePolling
+        ? Number(options.pollIntervalMs ?? serverPollMs ?? NOTIFICATION_POLL_INTERVAL_MS)
+            || NOTIFICATION_POLL_INTERVAL_MS
+        : 0;
+    const refetchOnVisibility = options.refetchOnVisibility !== false;
     const user = computed(() => page.props.auth?.user ?? null);
     const notifications = ref([]);
     const unreadCount = ref(0);
@@ -64,13 +74,23 @@ export function useNotifications(options = {}) {
     const markingIds = ref(new Set());
     const deletingAll = ref(false);
     const deletingIds = ref(new Set());
+    let fetchInFlight = false;
 
     const hasUnread = computed(() => unreadCount.value > 0);
 
-    async function fetchNotifications() {
-        if (!user.value?.id || loading.value) return;
+    /**
+     * @param {{ silent?: boolean }} [fetchOptions]
+     */
+    async function fetchNotifications(fetchOptions = {}) {
+        const silent = Boolean(fetchOptions.silent);
+        if (!user.value?.id) return;
+        if (fetchInFlight) return;
+        if (!silent && loading.value) return;
 
-        loading.value = true;
+        fetchInFlight = true;
+        if (!silent) {
+            loading.value = true;
+        }
         try {
             const response = await apiClient.get('/me/notifications', {
                 params: { per_page: 20 },
@@ -87,7 +107,10 @@ export function useNotifications(options = {}) {
                 toast.error('Không tải được thông báo. Vui lòng thử lại.', { title: 'Thông báo' });
             }
         } finally {
-            loading.value = false;
+            fetchInFlight = false;
+            if (!silent) {
+                loading.value = false;
+            }
         }
     }
 
@@ -171,13 +194,16 @@ export function useNotifications(options = {}) {
         fetchNotifications();
         if (pollIntervalMs > 0) {
             pollTimer = setInterval(() => {
-                fetchNotifications();
+                if (typeof document !== 'undefined' && document.hidden) {
+                    return;
+                }
+                fetchNotifications({ silent: true });
             }, pollIntervalMs);
         }
         if (refetchOnVisibility) {
             onVisibility = () => {
                 if (!document.hidden) {
-                    fetchNotifications();
+                    fetchNotifications({ silent: true });
                 }
             };
             document.addEventListener('visibilitychange', onVisibility);

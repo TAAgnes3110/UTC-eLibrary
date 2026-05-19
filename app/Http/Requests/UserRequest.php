@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\RoleType;
 use App\Models\User;
+use App\Support\DateOfBirthRules;
 use Illuminate\Validation\Rule;
 
 class UserRequest extends BaseRequest
@@ -117,7 +118,7 @@ class UserRequest extends BaseRequest
                     ->all())),
             ],
             'gender' => ['sometimes', 'nullable', 'string', 'in:male,female,other'],
-            'date_of_birth' => ['sometimes', 'nullable', 'date', 'before:today'],
+            'date_of_birth' => DateOfBirthRules::sometimesNullable(),
             'address' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'avatar' => ['sometimes', 'nullable', 'string', 'max:500'],
             'faculty_id' => $isCreate && ($isStudent || $isTeacher)

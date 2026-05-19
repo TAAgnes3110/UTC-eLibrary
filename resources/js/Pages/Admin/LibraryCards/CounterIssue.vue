@@ -4,6 +4,10 @@ import { Head } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { useLibraryCardCounterPage } from '@/composables/admin/useLibraryCardCounterPage';
 import { holderLabel } from '@/config/libraryCardUi';
+import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth';
+
+const maxDateOfBirth = maxDateOfBirthForInput();
+const minDateOfBirth = minDateOfBirthForInput();
 
 const props = defineProps({
     faculties: { type: Array, default: () => [] },
@@ -148,7 +152,13 @@ function onPhotoChange(e) {
                             </div>
                             <div>
                                 <label class="text-xs font-semibold text-slate-500">Ngày sinh *</label>
-                                <input v-model="c.form.date_of_birth" type="date" class="admin-filter-input w-full mt-1 min-h-[44px]" />
+                                <input
+                                    v-model="c.form.date_of_birth"
+                                    type="date"
+                                    :max="maxDateOfBirth"
+                                    :min="minDateOfBirth"
+                                    class="admin-filter-input w-full mt-1 min-h-[44px]"
+                                />
                             </div>
                         </div>
 
@@ -228,7 +238,13 @@ function onPhotoChange(e) {
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="text-xs font-semibold text-slate-500">Ngày sinh *</label>
-                            <input v-model="c.form.date_of_birth" type="date" class="admin-filter-input w-full mt-1 min-h-[44px]" />
+                            <input
+                                v-model="c.form.date_of_birth"
+                                type="date"
+                                :max="maxDateOfBirth"
+                                :min="minDateOfBirth"
+                                class="admin-filter-input w-full mt-1 min-h-[44px]"
+                            />
                         </div>
                         <div>
                             <label class="text-xs font-semibold text-slate-500">Email *</label>

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\LibraryCardStatus;
 use App\Models\LibraryCard;
+use App\Support\DateOfBirthRules;
 use Illuminate\Validation\Rule;
 
 class LibraryCardRequest extends BaseRequest
@@ -84,7 +85,7 @@ class LibraryCardRequest extends BaseRequest
             'code' => ['required', 'string', 'max:255', Rule::unique('library_cards', 'code')->whereNull('deleted_at')],
             'full_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('library_cards', 'email')->whereNull('deleted_at')],
-            'date_of_birth' => ['required', 'date'],
+            'date_of_birth' => DateOfBirthRules::required(),
             'photo_path' => [Rule::requiredIf(fn () => ! $this->hasFile('photo')), 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:20', Rule::unique('library_cards', 'phone')->whereNull('deleted_at')],
             'address' => ['required', 'string', 'max:1000', Rule::unique('library_cards', 'address')->whereNull('deleted_at')],
@@ -149,7 +150,7 @@ class LibraryCardRequest extends BaseRequest
                 'max:255',
                 Rule::unique('library_cards', 'email')->ignore($ignoreId),
             ],
-            'date_of_birth' => ['sometimes', 'date'],
+            'date_of_birth' => DateOfBirthRules::sometimes(),
             'photo_path' => ['sometimes', 'string', 'max:255'],
             'phone' => [
                 'sometimes',

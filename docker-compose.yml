@@ -65,6 +65,35 @@ services:
     networks:
       - utc-elibrary
 
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: utc-elibrary-app:latest
+    pull_policy: never
+    restart: unless-stopped
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    env_file:
+      - .env
+    environment:
+      DEPLOY_PROFILE: vps
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    volumes:
+      - app_storage:/var/www/html/storage
+      - app_bootstrap_cache:/var/www/html/bootstrap/cache
+    depends_on:
+      app:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - utc-elibrary
+
   mysql:
     image: mysql:8.0
     restart: unless-stopped

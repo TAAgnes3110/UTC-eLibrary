@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\RoleType;
+use App\Support\DateOfBirthRules;
 use Illuminate\Validation\Rule;
 
 class RegisterRequest extends BaseRequest
@@ -35,7 +36,7 @@ class RegisterRequest extends BaseRequest
             ])],
             'organization' => ['nullable', 'string', 'max:255'],
             'province' => ['nullable', 'string', 'max:100'],
-            'date_of_birth' => ['nullable', 'date'],
+            'date_of_birth' => DateOfBirthRules::nullable(),
             'gender' => ['nullable', 'string', 'in:male,female,other'],
             'address' => ['nullable', 'string', 'max:1000'],
             'params' => ['nullable', 'array'],

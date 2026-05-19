@@ -3,7 +3,9 @@
 namespace App\Http\Requests;
 
 use App\Enums\RoleType;
+use App\Support\DateOfBirthRules;
 use Illuminate\Validation\Rule;
+
 class MeLibraryCardStoreRequest extends BaseRequest
 {
     public function rules(): array
@@ -21,7 +23,7 @@ class MeLibraryCardStoreRequest extends BaseRequest
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'date_of_birth' => ['sometimes', 'nullable', 'date'],
+            'date_of_birth' => DateOfBirthRules::sometimesNullable(),
             'photo_path' => ['sometimes', 'nullable', 'string', 'max:255'],
             'photo_file' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],

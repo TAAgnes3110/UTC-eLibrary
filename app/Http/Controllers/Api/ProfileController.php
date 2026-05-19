@@ -7,6 +7,7 @@ use App\Helpers\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Services\ProfileService;
 use App\Services\UserService;
+use App\Support\DateOfBirthRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -35,7 +36,7 @@ class ProfileController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'phone' => ['nullable', 'string', 'max:20', 'unique:users,phone,'.$user->id],
-            'date_of_birth' => ['nullable', 'date', 'before:today'],
+            'date_of_birth' => DateOfBirthRules::nullable(),
             'gender' => ['nullable', 'string', 'in:male,female,other'],
             'address' => ['nullable', 'string', 'max:2000'],
         ];

@@ -26,6 +26,8 @@ import { useRegisterPage } from "@/composables/auth/useRegisterPage";
 const {
     form,
     dateInputRef,
+    maxDateOfBirth,
+    minDateOfBirth,
     showPassword,
     showPasswordConfirmation,
     submit,
@@ -145,6 +147,8 @@ const {
                                     id="date_of_birth"
                                     type="date"
                                     v-model="form.date_of_birth"
+                                    :max="maxDateOfBirth"
+                                    :min="minDateOfBirth"
                                     class="premium-date-input h-11 w-full border border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white focus:bg-blue-600/10 focus:border-blue-500/50 outline-none shadow-inner transition-all duration-300 [color-scheme:dark]"
                                 />
                             </FormField>

@@ -51,4 +51,10 @@ docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-
 echo "==> [deploy] Trạng thái container"
 docker compose -f "${COMPOSE_FILE}" ps
 
+echo "==> [deploy] Kiểm tra scheduler + queue (thông báo / job nền)"
+if ! docker compose -f "${COMPOSE_FILE}" ps --status running 2>/dev/null | grep -qE 'scheduler|queue'; then
+    echo "    Cảnh báo: chưa thấy container scheduler hoặc queue — chạy: docker compose -f ${COMPOSE_FILE} up -d scheduler queue"
+fi
+
 echo "==> [deploy] Xong. Nhớ Ctrl+F5 trên trình duyệt."
+echo "    Thông báo & lịch: chỉnh .env (NOTIFICATION_*, LOAN_DUE_SOON_*, SCHEDULE_*) rồi config:clear."

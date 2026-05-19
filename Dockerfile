@@ -1,7 +1,45 @@
 # syntax=docker/dockerfile:1
 
 # -----------------------------------------------------------------------------
-# Stage 1: Frontend (Vite + Vue)
+# Stage 1: PHP dependencies (cần ext-gd cho composer)
+# -----------------------------------------------------------------------------
+FROM php:8.3-cli-bookworm AS vendor
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    unzip \
+    libzip-dev \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    libicu-dev \
+    libxml2-dev \
+    libonig-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" \
+        zip \
+        gd \
+        intl \
+        bcmath \
+        mbstring \
+        xml \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+
+COPY composer.json composer.lock ./
+
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
+
+# -----------------------------------------------------------------------------
+# Stage 2: Frontend (Vite cần vendor/tightenco/ziggy)
 # -----------------------------------------------------------------------------
 FROM node:20-bookworm-slim AS frontend
 
@@ -10,6 +48,7 @@ WORKDIR /build
 COPY package.json package-lock.json ./
 RUN npm ci
 
+COPY --from=vendor /build/vendor ./vendor
 COPY vite.config.js tailwind.config.js postcss.config.js ./
 COPY resources ./resources
 COPY public ./public
@@ -17,7 +56,7 @@ COPY public ./public
 RUN npm run build
 
 # -----------------------------------------------------------------------------
-# Stage 2: Application (Nginx + PHP-FPM)
+# Stage 3: Application (Nginx + PHP-FPM)
 # -----------------------------------------------------------------------------
 FROM php:8.3-fpm-bookworm
 
@@ -61,15 +100,8 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/utc-elibrary.conf
 
 WORKDIR /var/www/html
 
-COPY composer.json composer.lock ./
-RUN composer install \
-    --no-dev \
-    --no-interaction \
-    --prefer-dist \
-    --optimize-autoloader \
-    --no-scripts
-
 COPY --chown=www-data:www-data . .
+COPY --from=vendor --chown=www-data:www-data /build/vendor ./vendor
 COPY --from=frontend --chown=www-data:www-data /build/public/build ./public/build
 
 RUN composer dump-autoload --optimize --classmap-authoritative \

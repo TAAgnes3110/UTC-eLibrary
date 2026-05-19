@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Image runtime cho EC2 t3.micro — KHÔNG chạy npm/composer trong Docker build.
+# EC2 t3.micro — composer trong image; public/build tạo trên host trước (npm).
 # Trước khi build: bash scripts/ec2-prepare-build.sh
 
 FROM php:8.3-fpm-bookworm
@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         opcache \
         mbstring \
         xml \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -41,12 +42,20 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/utc-elibrary.conf
 
 WORKDIR /var/www/html
 
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts
+
 COPY --chown=www-data:www-data . .
 
-RUN test -d vendor || (echo "Thiếu vendor/ — chạy: bash scripts/ec2-prepare-build.sh" && exit 1) \
-    && test -f public/build/manifest.json || (echo "Thiếu public/build/ — chạy: bash scripts/ec2-prepare-build.sh" && exit 1) \
+RUN test -f public/build/manifest.json || (echo "Thiếu public/build/ — chạy: bash scripts/ec2-prepare-build.sh" && exit 1) \
+    && composer dump-autoload --optimize --classmap-authoritative \
     && mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache vendor \
     && ln -sf /dev/stdout /var/log/nginx/access.log \
     && ln -sf /dev/stderr /var/log/nginx/error.log
 

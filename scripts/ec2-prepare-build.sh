@@ -24,10 +24,9 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=768}"
 npm ci
 npm run build
 
-echo "==> 3/3 Kiểm tra..."
+echo "==> 3/3 Kiểm tra public/build..."
 test -f public/build/manifest.json
-test -d vendor/tightenco/ziggy
 
-echo "Xong. Chạy tiếp:"
+echo "Xong (vendor trong Docker build; public/build trên host). Chạy tiếp:"
 echo "  COMPOSE_PARALLEL_LIMIT=1 docker compose -f docker-compose.ec2.yml build --no-cache app"
 echo "  docker compose -f docker-compose.ec2.yml up -d"

@@ -82,12 +82,22 @@ function onCoverFileChange(event) {
 
 const createCoverFileName = ref('');
 const createCoverFileInput = ref(null);
+function revokeDigitalPdfPreview() {
+    if (digitalPdfPreviewUrl.value) {
+        URL.revokeObjectURL(digitalPdfPreviewUrl.value);
+        digitalPdfPreviewUrl.value = '';
+    }
+}
+
 const createDigitalFileName = ref('');
 const createDigitalFileInput = ref(null);
+const digitalPdfPreviewUrl = ref('');
+const digitalLocalError = ref('');
 
 function resetCreateFileUi() {
     createCoverFileName.value = '';
     createDigitalFileName.value = '';
+    revokeDigitalPdfPreview();
     resetFileInput(createCoverFileInput.value);
     resetFileInput(createDigitalFileInput.value);
 }
@@ -116,6 +126,7 @@ function removeCreateCover() {
 function removeExistingDigitalLabel() {
     createDigitalFileName.value = '';
     resetFileInput(createDigitalFileInput.value);
+    revokeDigitalPdfPreview();
     props.clearCreateDigitalFile();
     if (props.isEditing && props.editExistingDigitalFileName) {
         props.clearEditExistingDigitalFileName();
@@ -124,15 +135,25 @@ function removeExistingDigitalLabel() {
 
 function onDigitalFileChange(event) {
     const file = event?.target?.files?.[0] ?? null;
+    revokeDigitalPdfPreview();
+    digitalLocalError.value = '';
     if (!file) return;
-    createDigitalFileName.value = String(file.name || '');
+    const name = String(file.name || '');
+    if (!name.toLowerCase().endsWith('.pdf')) {
+        digitalLocalError.value = 'Chỉ chấp nhận file PDF (.pdf).';
+        resetFileInput(createDigitalFileInput.value);
+        return;
+    }
+    createDigitalFileName.value = name;
     props.setCreateDigitalFile(file);
-    props.clearFieldError('general');
+    props.clearFieldError('digital_file');
+    digitalPdfPreviewUrl.value = URL.createObjectURL(file);
 }
 
 function removeCreateDigitalFile() {
     createDigitalFileName.value = '';
     resetFileInput(createDigitalFileInput.value);
+    revokeDigitalPdfPreview();
     props.clearCreateDigitalFile();
 }
 
@@ -170,6 +191,7 @@ onBeforeUnmount(() => {
     if (typeof window !== 'undefined') {
         window.removeEventListener('keydown', handleEscapeKey, true);
     }
+    revokeDigitalPdfPreview();
 });
 </script>
 
@@ -521,9 +543,22 @@ onBeforeUnmount(() => {
                                     Bỏ file
                                 </Button>
                             </div>
-                            <p v-if="fieldErrors.digital_file" class="mt-2 text-xs text-red-500 font-medium">
-                                {{ fieldErrors.digital_file }}
+                            <p v-if="digitalLocalError || fieldErrors.digital_file" class="mt-2 text-xs text-red-500 font-medium">
+                                {{ digitalLocalError || fieldErrors.digital_file }}
                             </p>
+                            <div
+                                v-if="digitalPdfPreviewUrl"
+                                class="mt-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
+                            >
+                                <p class="px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
+                                    Xem trước PDF (trên máy bạn — chưa gửi lên server)
+                                </p>
+                                <iframe
+                                    :src="digitalPdfPreviewUrl"
+                                    class="w-full h-[min(50vh,420px)] bg-slate-100 dark:bg-slate-950"
+                                    title="Xem trước PDF"
+                                />
+                            </motion.div>
                         </div>
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">

@@ -1,48 +1,44 @@
-import { fetchSessionApiToken, refreshStoredApiToken } from '@/utils/ensureApiToken';
-
-/**
- * Chuẩn bị auth trước thao tác admin (form tài liệu số thường mất nhiều phút).
- * Ưu tiên JWT mới từ session web; nếu không được thì bỏ token cũ để API dùng cookie.
- */
-export async function prepareAdminApiAuth() {
-    if (typeof window === 'undefined') {
-        return null;
-    }
-
-    const fromSession = await fetchSessionApiToken();
-    if (fromSession) {
-        return fromSession;
-    }
-
-    const refreshed = await refreshStoredApiToken();
-    if (refreshed) {
-        return refreshed;
-    }
-
-    try {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-    } catch {
-        //
-    }
-
-    return null;
-}
+import client from '@/api/axios';
+import { fetchSessionApiToken } from '@/utils/ensureApiToken';
 
 function isUnauthorizedError(error) {
     return error?.response?.status === 401;
 }
 
-/**
- * Gọi API admin; nếu 401 (JWT hết hạn trong localStorage) thì xóa token và thử lại bằng session.
- */
-export async function callWithAdminAuthRetry(requestFn) {
-    await prepareAdminApiAuth();
+function isTooManyRequestsError(error) {
+    return error?.response?.status === 429;
+}
 
+export function adminApiRateLimitMessage() {
+    return 'Hệ thống tạm giới hạn yêu cầu đăng nhập API. Đợi khoảng 1 phút, tải lại trang (F5) rồi thử Lưu lại.';
+}
+
+/**
+ * Một lần trước khi Lưu: chỉ cấp token nếu localStorage chưa có.
+ */
+export async function prepareAdminApiAuthOnce() {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+    if (localStorage.getItem('token')) {
+        return localStorage.getItem('token');
+    }
+    return fetchSessionApiToken({ force: true });
+}
+
+/**
+ * Gọi API; 401 → xóa JWT cũ, thử lại bằng cookie session (không gọi refresh/session-token).
+ */
+export async function callWithSessionFallback(requestFn, sessionRequestFn) {
     try {
         return await requestFn();
     } catch (error) {
-        if (!isUnauthorizedError(error)) {
+        if (isTooManyRequestsError(error)) {
+            const rateError = new Error(adminApiRateLimitMessage());
+            rateError.response = error.response;
+            throw rateError;
+        }
+        if (!isUnauthorizedError(error) || typeof sessionRequestFn !== 'function') {
             throw error;
         }
 
@@ -53,7 +49,21 @@ export async function callWithAdminAuthRetry(requestFn) {
             //
         }
 
-        await fetchSessionApiToken();
-        return await requestFn();
+        return sessionRequestFn();
     }
+}
+
+/** POST JSON qua cookie session (sau khi bỏ bearer hết hạn). */
+export function sessionApiPost(url, payload) {
+    return client.post(url, payload, { skipBearerAuth: true }).then((r) => r.data);
+}
+
+/** POST multipart qua cookie session. */
+export function sessionApiPostForm(url, formData, config = {}) {
+    return client
+        .post(url, formData, {
+            ...config,
+            skipBearerAuth: true,
+        })
+        .then((r) => r.data);
 }

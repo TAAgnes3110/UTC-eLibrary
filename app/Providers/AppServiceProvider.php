@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Enums\RoleType;
 use App\Support\Database\MigrationBlueprintMacros;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
@@ -53,7 +54,7 @@ class AppServiceProvider extends ServiceProvider
             $isStaff = $roleValue && in_array($roleValue, $staffRoles, true);
             $avatar = $user->avatar ?? '';
             if ($avatar && ! str_starts_with($avatar, 'http')) {
-                /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+                /** @var FilesystemAdapter $mediaStorage */
                 $mediaStorage = Storage::disk((string) config('filesystems.media_disk', 'public'));
                 $avatar = $mediaStorage->url($avatar);
             }
@@ -104,7 +105,19 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('refresh', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip());
+            $key = $request->user()?->id
+                ? 'refresh:user:'.$request->user()->id
+                : 'refresh:ip:'.$request->ip();
+
+            return Limit::perMinute(30)->by($key);
+        });
+
+        RateLimiter::for('session_token', function (Request $request) {
+            $key = $request->user()?->id
+                ? 'session-token:user:'.$request->user()->id
+                : 'session-token:ip:'.$request->ip();
+
+            return Limit::perMinute(60)->by($key);
         });
     }
 

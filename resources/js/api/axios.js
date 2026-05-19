@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { extractApiTokenFromResponse, fetchSessionApiToken, refreshStoredApiToken } from '@/utils/ensureApiToken';
 import { ensureSanctumCsrfCookie, getApiCsrfHeaders } from '@/utils/apiCsrf';
 
 function isApiDebugEnabled() {
@@ -81,9 +80,6 @@ client.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-let isRefreshing = false;
-let refreshPromise = null;
-
 client.interceptors.response.use(
     (response) => {
         if (isApiDebugEnabled()) {
@@ -114,169 +110,57 @@ client.interceptors.response.use(
             );
             console.log('message', error?.message);
             console.log('response.data', safeJson(response?.data));
-            console.log('response.headers', safeJson(response?.headers));
             console.groupEnd();
         }
 
         sanitizeApiErrorPayloadForUser(error);
 
-        if (!response || response.status !== 401) {
+        if (!response) {
+            return Promise.reject(error);
+        }
+
+        if (response.status === 429) {
+            const rateError = new Error(
+                'Quá nhiều yêu cầu trong thời gian ngắn. Đợi khoảng 1 phút rồi thử lại.'
+            );
+            rateError.response = response;
+            return Promise.reject(rateError);
+        }
+
+        if (response.status !== 401) {
             return Promise.reject(error);
         }
 
         const reqPath = (originalRequest.url || '').split('?')[0];
-        if (/^\/auth\/(login|register|verify-otp|reset-password|resend-otp)/.test(reqPath)) {
+        if (/^\/auth\/(login|register|verify-otp|reset-password|resend-otp|refresh|session-token)/.test(reqPath)) {
+            return Promise.reject(error);
+        }
+
+        if (originalRequest._retry || originalRequest._sessionRetry) {
             return Promise.reject(error);
         }
 
         const isMultipartBody = originalRequest.data instanceof FormData;
 
-        if (originalRequest._retry) {
-            return Promise.reject(error);
-        }
         originalRequest._retry = true;
-
-        const retryWithoutBearer = async () => {
-            if (originalRequest._sessionRetry) {
-                return null;
-            }
-            originalRequest._sessionRetry = true;
-            originalRequest.skipBearerAuth = true;
-            if (originalRequest.headers && typeof originalRequest.headers === 'object') {
-                delete originalRequest.headers.Authorization;
-                delete originalRequest.headers.authorization;
-            }
-            try {
-                return await client(originalRequest);
-            } catch {
-                return null;
-            }
-        };
-
-        const retryWithFreshToken = async (token) => {
-            if (!token || originalRequest._tokenRetry) {
-                return null;
-            }
-            originalRequest._tokenRetry = true;
-            originalRequest.skipBearerAuth = false;
-            localStorage.setItem('token', token);
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            try {
-                return await client(originalRequest);
-            } catch {
-                return null;
-            }
-        };
-
-        const resolveFreshToken = async () => {
-            const fromSession = await fetchSessionApiToken();
-            if (fromSession) {
-                return fromSession;
-            }
-            return refreshStoredApiToken();
-        };
+        originalRequest._sessionRetry = true;
+        originalRequest.skipBearerAuth = true;
+        if (originalRequest.headers && typeof originalRequest.headers === 'object') {
+            delete originalRequest.headers.Authorization;
+            delete originalRequest.headers.authorization;
+        }
 
         try {
-            if (isRefreshing && refreshPromise) {
-                const newToken = await refreshPromise;
-                if (newToken) {
-                    if (isMultipartBody) {
-                        localStorage.setItem('token', newToken);
-                        const multipartError = new Error(
-                            'Phiên API đã được làm mới. Vui lòng bấm Lưu lại để upload file.'
-                        );
-                        multipartError.response = response;
-                        multipartError.config = originalRequest;
-                        return Promise.reject(multipartError);
-                    }
-                    const tokenResponse = await retryWithFreshToken(newToken);
-                    if (tokenResponse) {
-                        return tokenResponse;
-                    }
-                }
-                const sessionResponse = await retryWithoutBearer();
-                if (sessionResponse) {
-                    return sessionResponse;
-                }
-                throw error;
-            }
-
-            // Upload multipart: không retry FormData — cấp token mới để user bấm Lưu lại.
+            return await client(originalRequest);
+        } catch (retryError) {
             if (isMultipartBody) {
-                const refreshed = await resolveFreshToken();
                 const multipartError = new Error(
-                    refreshed
-                        ? 'Phiên API đã được làm mới. Vui lòng bấm Lưu lại để upload file.'
-                        : 'Phiên đăng nhập hết hạn khi upload file. Đăng nhập lại rồi bấm Lưu.'
+                    'Phiên đăng nhập có thể đã hết hạn khi upload file. Tải lại trang (F5), đăng nhập lại rồi bấm Lưu.'
                 );
                 multipartError.response = response;
-                multipartError.config = originalRequest;
                 return Promise.reject(multipartError);
             }
-
-            // SPA Inertia: thử cookie session trước (không gửi bearer hết hạn).
-            const sessionResponse = await retryWithoutBearer();
-            if (sessionResponse) {
-                return sessionResponse;
-            }
-
-            const freshToken = await resolveFreshToken();
-            if (freshToken) {
-                const tokenResponse = await retryWithFreshToken(freshToken);
-                if (tokenResponse) {
-                    return tokenResponse;
-                }
-            }
-
-            const oldToken = localStorage.getItem('token');
-            if (!oldToken) {
-                throw error;
-            }
-
-            isRefreshing = true;
-            refreshPromise = axios
-                .post('/api/v1/auth/refresh', null, {
-                    withCredentials: true,
-                    headers: { Authorization: `Bearer ${oldToken}` },
-                })
-                .then((res) => extractApiTokenFromResponse(res.data))
-                .catch(() => null);
-
-            const newToken = await refreshPromise;
-
-            if (newToken) {
-                localStorage.setItem('token', newToken);
-                const refreshedResponse = await retryWithFreshToken(newToken);
-                if (refreshedResponse) {
-                    return refreshedResponse;
-                }
-            }
-
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-
-            throw error;
-        } catch (e) {
-            if (!isMultipartBody) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-            }
-            const path = typeof window !== 'undefined' ? window.location.pathname : '';
-            const onAuthPage = path.startsWith('/login') || path.startsWith('/register');
-            const triedSession = Boolean(originalRequest._sessionRetry);
-            if (
-                typeof window !== 'undefined'
-                && !onAuthPage
-                && !isMultipartBody
-                && triedSession
-            ) {
-                window.location.href = '/login';
-            }
-            return Promise.reject(e);
-        } finally {
-            isRefreshing = false;
-            refreshPromise = null;
+            return Promise.reject(retryError);
         }
     }
 );

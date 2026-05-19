@@ -4,7 +4,7 @@ import apiClient from '@/api/axios';
 import { booksApi } from '@/api/books';
 import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
-import { prepareAdminApiAuth, callWithAdminAuthRetry } from '@/utils/adminApiAuth';
+import { prepareAdminApiAuthOnce, callWithSessionFallback, sessionApiPost, sessionApiPostForm } from '@/utils/adminApiAuth';
 import { BOOK_FORM_FIELD_MAP, getFieldErrorsFromAxiosError, getLaravelErrorMessage } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
@@ -1000,15 +1000,21 @@ export function useBooksAdminPage() {
 
         saveBookLoading.value = true;
         clearSaveErrorLock();
-        await prepareAdminApiAuth();
+        await prepareAdminApiAuthOnce();
         let savedBookId = isEditing.value && form.value.id != null ? Number(form.value.id) : null;
 
         try {
             if (isEditing.value && form.value.id != null) {
-                await callWithAdminAuthRetry(() => booksApi.update(form.value.id, payload));
+                await callWithSessionFallback(
+                    () => booksApi.update(form.value.id, payload),
+                    () => client.put(`/books/${form.value.id}`, payload, { skipBearerAuth: true }).then((r) => r.data)
+                );
                 savedBookId = Number(form.value.id);
             } else {
-                const created = await callWithAdminAuthRetry(() => booksApi.create(payload));
+                const created = await callWithSessionFallback(
+                    () => booksApi.create(payload),
+                    () => sessionApiPost('/books', payload)
+                );
                 const createdBook = created?.data ?? created ?? {};
                 const createdId = Number(createdBook?.id ?? 0);
                 if (!Number.isInteger(createdId) || createdId <= 0) {
@@ -1031,10 +1037,12 @@ export function useBooksAdminPage() {
 
             if (createCoverFile.value instanceof File && savedBookId) {
                 try {
-                    await prepareAdminApiAuth();
                     const coverData = new FormData();
                     coverData.append('book_cover', createCoverFile.value);
-                    await callWithAdminAuthRetry(() => booksApi.updateCover(savedBookId, coverData));
+                    await callWithSessionFallback(
+                        () => booksApi.updateCover(savedBookId, coverData),
+                        () => sessionApiPostForm(`/books/${savedBookId}/image`, coverData)
+                    );
                 } catch (coverError) {
                     const msg = formatSaveStepError('Bước 2 — Ảnh bìa', coverError);
                     setBookClientErrors({ general: msg });
@@ -1047,12 +1055,14 @@ export function useBooksAdminPage() {
 
             if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && savedBookId) {
                 try {
-                    await prepareAdminApiAuth();
                     const digitalData = new FormData();
                     digitalData.append('file', createDigitalFile.value);
                     digitalData.append('is_primary', '1');
                     digitalData.append('visibility', 'public');
-                    await callWithAdminAuthRetry(() => booksApi.uploadDigitalAsset(savedBookId, digitalData));
+                    await callWithSessionFallback(
+                        () => booksApi.uploadDigitalAsset(savedBookId, digitalData),
+                        () => sessionApiPostForm(`/books/${savedBookId}/digital-assets`, digitalData, { timeout: 300000 })
+                    );
                 } catch (uploadError) {
                     const fieldErrors = applySaveStepApiErrors(uploadError, DIGITAL_UPLOAD_FIELD_MAP);
                     const stepMsg = formatSaveStepError('Bước 3 — Upload PDF', uploadError);

@@ -54,7 +54,11 @@ Chỉ dùng nếu không dùng GitHub Actions:
 
 Nhược điểm: build mỗi 30 phút dù không có code mới; không có log tập trung như Actions.
 
-## 6. Lưu ý
+## 6. Migration / DB import
+
+Deploy dùng `php artisan migrate:existing-schema --force` thay vì `migrate` thuần — tránh lỗi **Table already exists** khi DB restore từ backup SQL.
+
+## 7. Lưu ý
 
 - Build EC2 t3.micro ~15–25 phút; workflow `timeout-minutes: 45`.
 - `.env` **không** do CI sửa — chỉnh trực tiếp trên server.

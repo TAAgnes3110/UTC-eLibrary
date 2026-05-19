@@ -1,50 +1,15 @@
-# UTC-eLibrary
+# UTC eLibrary
 
-He thong quan ly thu vien so cho Dai hoc Giao thong Van tai (UTC), su dung Laravel 12 + Vue 3 + Inertia.
+Hệ thống quản lý thư viện số — **Đại học Giao thông Vận tải (UTC)**.  
+Stack: **Laravel 12** + **Vue 3 (Inertia)** + **MySQL** + **Redis**.
 
-## Stack
+## Tính năng chính
 
-- Backend: Laravel 12, PHP 8.2+, JWT + session auth
-- Frontend: Vue 3, Inertia, Tailwind CSS
-- Database: MySQL/SQLite
-- Cache/Queue: Redis (khuyen nghi)
+- **Độc giả:** tra cứu, mượn/trả, thẻ thư viện, tài liệu số, nộp đồ án/luận văn
+- **Admin / thủ thư:** quản lý sách, kho, user, thẻ, phiếu mượn, duyệt hồ sơ, thông báo
+- **API:** `/api/v1` (JWT + session Inertia)
 
-## Tinh nang chinh
-
-- **Reader**
-  - Trang cong khai: home, gioi thieu, quy dinh, tra cuu sach
-  - Dich vu: the thu vien, sach da luu, quan ly phieu muon cua toi
-  - Tai khoan: cap nhat thong tin, doi mat khau, lich su yeu cau cap nhat
-- **Admin/Librarian**
-  - Dashboard + thong ke
-  - Quan ly users, books, warehouses, library cards, loans
-  - Duyet yeu cau cap nhat ho so
-  - Import/export excel cho cac module quan tri
-
-## Cau truc thu muc (rut gon)
-
-```text
-app/
-  Http/Controllers/
-    Api/
-    Frontend/
-  Http/Requests/
-  Http/Resources/
-  Services/
-resources/js/
-  Pages/Admin/
-  Pages/Reader/
-  Layouts/
-  Components/
-routes/
-  web.php
-  api.php
-database/
-  migrations/
-  seeders/
-```
-
-## Cai dat nhanh
+## Cài đặt local
 
 ```bash
 git clone https://github.com/TAAgnes3110/UTC-eLibrary.git
@@ -54,71 +19,84 @@ npm install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --seed
-```
-
-## Chay local
-
-Mo 2 terminal:
-
-```bash
-# Terminal 1
-php artisan serve
-
-# Terminal 2
-npm run dev
-```
-
-Truy cap: `http://localhost:8000`
-
-## Tai khoan seed mac dinh
-
-| Vai tro | Email | Mat khau |
-|---|---|---|
-| Super Admin | `superadmin@utc.edu.vn` | `password` |
-| Admin | `admin@utc.edu.vn` | `password` |
-| Librarian | `librarian@utc.edu.vn` | `password` |
-| Student | `student@st.utc.edu.vn` | `password` |
-| Teacher | `teacher@st.utc.edu.vn` | `password` |
-| Member | `member@st.utc.edu.vn` | `password` |
-
-## API luu y
-
-- Prefix API: `/api/v1`
-- Nhieu endpoint dung middleware `init` + role check
-- Header domain can cau hinh theo `API_ALLOWED_DOMAINS` (xem `.env.example`)
-- Route health check: `GET /api/health`
-
-## Quy uoc du lieu sach
-
-- He thong su dung 3 gia tri `resource_type`: `textbook`, `reference`, `digital`.
-- Tren UI admin:
-  - `Sach in` = nhom gom `textbook` + `reference`.
-  - `Tai lieu so` = `digital`.
-- Validation nam:
-  - `published_year` phai trong khoang `1900..nam_hien_tai`.
-  - Import Excel va API deu ap dung cung quy tac tren.
-
-## Test / Quality check
-
-```bash
-# Build frontend
 npm run build
-
-# Kiem tra route nhanh
-php artisan route:list
+php artisan serve   # terminal 1
+npm run dev         # terminal 2
 ```
 
-Neu muon chay test tu dong, can cai day du dev dependencies (composer install khong --no-dev) va cau hinh moi truong test phu hop.
+Mở: `http://localhost:8000`
 
-## Ghi chu quan trong
+### Tài khoản seed (mặc định)
 
-- Khong commit file nhay cam nhu `.env`, key, credentials.
-- `public/build` va file upload local da duoc ignore trong `.gitignore`.
-- Neu thay doi migration/schema, uu tien giu create migration day du, tranh tao chuoi migration add/update/drop khong can thiet.
+| Vai trò        | Email                    | Mật khẩu   |
+|----------------|--------------------------|------------|
+| Super Admin    | `superadmin@utc.edu.vn`  | `password` |
+| Admin          | `admin@utc.edu.vn`       | `password` |
+| Thủ thư        | `librarian@utc.edu.vn`   | `password` |
+| Sinh viên      | `student@st.utc.edu.vn`  | `password` |
 
-## Tai lieu them
+## Deploy EC2 (Docker)
 
-- `docs/API.md`
-- `ARCHITECTURE.md`
-- `tests/README.md`
+Trên server (ví dụ `~/utc-elibrary`):
 
+```bash
+cd ~/utc-elibrary
+git pull origin main
+bash scripts/ec2-deploy.sh
+```
+
+Script tự: pull → `ec2-prepare-build.sh` → build image → `up -d` → **`migrate:existing-schema`** → clear cache.
+
+Chi tiết: [`docs/deployment/docker.md`](docs/deployment/docker.md)
+
+### DB import từ backup SQL
+
+Nếu restore file `.sql` cũ, bảng đã có nhưng thiếu dòng trong `migrations`:
+
+```bash
+php artisan migrate:existing-schema --force
+```
+
+Lệnh chạy từng migration pending; nếu MySQL báo **bảng/cột đã tồn tại** → ghi nhận migration và **tiếp tục** (không dừng giữa chừng).
+
+## CI/CD (tự deploy sau push `main`)
+
+1. Cấu hình GitHub **Secrets**: `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY` (và tùy chọn `EC2_APP_PATH`)
+2. Push lên `main` → workflow **Deploy EC2** chạy `scripts/ec2-deploy.sh` trên server
+
+Hướng dẫn: [`docs/deployment/ec2-cicd.md`](docs/deployment/ec2-cicd.md)
+
+**Lưu ý:** Chỉ `git pull` trên EC2 **không đủ** — code PHP nằm trong Docker image, cần `build app` (deploy script đã gồm).
+
+## `.env` gợi ý (EC2, HTTP)
+
+```env
+DEPLOY_PROFILE=vps
+APP_URL=http://<IP-EC2>
+SESSION_SECURE_COOKIE=false
+SANCTUM_STATEFUL_DOMAINS=<IP-EC2>,localhost,127.0.0.1
+DIGITAL_PREVIEW_DISPATCH_SYNC=true
+QUEUE_CONNECTION=redis
+```
+
+## Kiểm tra & chất lượng
+
+```bash
+npm run build
+php artisan route:list
+php artisan test
+vendor/bin/pint
+```
+
+## Tài liệu thêm
+
+- [`docs/README.md`](docs/README.md) — mục lục docs
+- [`docs/HUONG-DAN-CHAY-NHANH.md`](docs/HUONG-DAN-CHAY-NHANH.md)
+- [`docs/API.md`](docs/API.md)
+- [`docs/ai/context-utc-library.md`](docs/ai/context-utc-library.md) — nghiệp vụ UTC
+
+## Ghi chú
+
+- Không commit `.env`, key, credentials
+- `resource_type`: `textbook` | `reference` | `digital`
+- Sau deploy: **Ctrl+F5** trình duyệt để nạp JS mới

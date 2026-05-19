@@ -39,17 +39,8 @@ DB_PASSWORD="${DB_PASSWORD:-secret}"
 DB_DATABASE="${DB_DATABASE:-utc_elibrary}"
 DB_USERNAME="${DB_USERNAME:-utc}"
 
-echo "==> [deploy] Ghi nhận migration paywall nếu DB import cũ đã có bảng"
-docker compose -f "${COMPOSE_FILE}" exec -T mysql mysql -u "${DB_USERNAME}" -p"${DB_PASSWORD}" "${DB_DATABASE}" -e "
-INSERT INTO migrations (migration, batch)
-SELECT '2026_05_12_120000_create_digital_asset_paywall_and_payment_tables', IFNULL(MAX(batch),0)+1 FROM migrations
-WHERE NOT EXISTS (
-  SELECT 1 FROM migrations WHERE migration = '2026_05_12_120000_create_digital_asset_paywall_and_payment_tables'
-);
-" 2>/dev/null || true
-
-echo "==> [deploy] Artisan migrate + clear cache"
-docker compose -f "${COMPOSE_FILE}" exec -T app php artisan migrate --force --no-interaction
+echo "==> [deploy] Artisan migrate (bỏ qua bảng/cột đã có từ DB import)"
+docker compose -f "${COMPOSE_FILE}" exec -T app php artisan migrate:existing-schema --force --no-interaction
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan config:clear --no-interaction
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-interaction
 

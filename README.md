@@ -135,17 +135,17 @@ UTC eLibrary phục vụ:
 
 <p align="center"><img src="readme/assets/screenshots/05-book-detail.png" alt="Chi tiết sách" width="100%"/></p>
 
-**Giỏ sách (mượn in)** — `/dich-vu/gio-sach`
+**Giỏ sách (mượn in)** — `/dich-vu/gio-sach` *(đã thêm sách từ tra cứu trước khi chụp)*
 
-<p align="center"><img src="readme/assets/screenshots/12-reader-book-cart.png" alt="Giỏ mượn sách in" width="100%"/></p>
+<p align="center"><img src="readme/assets/screenshots/12-reader-book-cart.png" alt="Giỏ mượn sách in có sách" width="100%"/></p>
 
 **Giỏ mua tài liệu số** — `/dich-vu/gio-sach?tab=purchase`
 
 <p align="center"><img src="readme/assets/screenshots/13-reader-digital-cart.png" alt="Giỏ mua PDF" width="100%"/></p>
 
-**Thanh toán SePay** — `/dich-vu/thanh-toan`
+**Thanh toán SePay — bước cuối (QR VietQR)** — `/dich-vu/thanh-toan` *(bước 3/3 sau «Đặt hàng»)*
 
-<p align="center"><img src="readme/assets/screenshots/14-reader-payment.png" alt="Thanh toán tài liệu số" width="100%"/></p>
+<p align="center"><img src="readme/assets/screenshots/14-reader-payment.png" alt="Thanh toán QR SePay bước cuối" width="100%"/></p>
 
 **Đơn hàng của tôi** — `/dich-vu/don-hang-cua-toi`
 

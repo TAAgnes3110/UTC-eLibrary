@@ -77,6 +77,120 @@ async function loginStudent(page) {
   await login(page, STUDENT_EMAIL, STUDENT_PASSWORD, /\/(admin|dich-vu|tai-khoan|\?|$)/);
 }
 
+/** Thêm tối đa 3 đầu mục sách in (có nút mượn) vào giỏ localStorage. */
+async function fillBorrowCartFromCatalog(page) {
+  await page.goto(`${BASE}/tra-cuu-sach`, NAV_OPTS);
+  await waitReady(page, 3500);
+
+  const bookIds = await page.evaluate(() => {
+    const seen = new Set();
+    const ids = [];
+    for (const a of document.querySelectorAll('a[href*="/tra-cuu-sach/"]')) {
+      const m = a.getAttribute('href')?.match(/\/tra-cuu-sach\/(\d+)(?:\?|$|\/)/);
+      if (!m || seen.has(m[1])) continue;
+      seen.add(m[1]);
+      ids.push(m[1]);
+      if (ids.length >= 10) break;
+    }
+    return ids;
+  });
+
+  let added = 0;
+  for (const bookId of bookIds) {
+    if (added >= 3) break;
+    await page.goto(`${BASE}/tra-cuu-sach/${bookId}`, NAV_OPTS);
+    await waitReady(page, 2200);
+    const addBtn = page.getByRole('button', { name: 'Thêm vào giỏ sách' }).first();
+    if (!(await addBtn.isVisible().catch(() => false))) continue;
+    if (await addBtn.isDisabled().catch(() => true)) continue;
+    await addBtn.click();
+    await page.waitForTimeout(900);
+    added += 1;
+  }
+
+  console.log(added > 0 ? `  → Giỏ mượn: đã thêm ${added} sách` : '  ⚠ Giỏ mượn: không thêm được sách in');
+}
+
+/** Thêm tài liệu số có nút Mua/Thêm giỏ từ tra cứu. */
+async function findDigitalBookPage(page) {
+  await page.goto(`${BASE}/tra-cuu-sach`, NAV_OPTS);
+  await waitReady(page, 3000);
+
+  const bookIds = await page.evaluate(() => {
+    const seen = new Set();
+    const ids = [];
+    for (const a of document.querySelectorAll('a[href*="/tra-cuu-sach/"]')) {
+      const m = a.getAttribute('href')?.match(/\/tra-cuu-sach\/(\d+)/);
+      if (!m || seen.has(m[1])) continue;
+      seen.add(m[1]);
+      ids.push(m[1]);
+    }
+    return ids.slice(0, 15);
+  });
+
+  for (const bookId of bookIds) {
+    await page.goto(`${BASE}/tra-cuu-sach/${bookId}`, NAV_OPTS);
+    await waitReady(page, 2000);
+    const buyBtn = page.getByRole('button', { name: 'Mua', exact: true });
+    const addBtn = page.getByRole('button', { name: 'Thêm vào giỏ sách' }).first();
+    if ((await buyBtn.isVisible().catch(() => false)) || (await addBtn.isVisible().catch(() => false))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function fillDigitalPurchaseCart(page) {
+  const ok = await findDigitalBookPage(page);
+  if (!ok) {
+    console.warn('  ⚠ Không tìm thấy trang tài liệu số để thêm giỏ');
+    return;
+  }
+  const addBtn = page.getByRole('button', { name: 'Thêm vào giỏ sách' }).first();
+  if (await addBtn.isVisible().catch(() => false) && !(await addBtn.isDisabled().catch(() => true))) {
+    await addBtn.click();
+    await page.waitForTimeout(1200);
+    console.log('  → Giỏ thanh toán: đã thêm tài liệu số');
+  }
+}
+
+/** Mở thanh toán «Mua ngay» và chụp bước 3/3 — QR VietQR. */
+async function capturePaymentQrFinalStep(page) {
+  const ok = await findDigitalBookPage(page);
+  if (!ok) {
+    console.warn('  ⚠ Không tìm thấy sách có nút Mua — chụp /thanh-toan mặc định');
+    await gotoShot(page, `${BASE}/dich-vu/thanh-toan`, '14-reader-payment.png', 3500);
+    return;
+  }
+
+  const buyBtn = page.getByRole('button', { name: 'Mua', exact: true });
+  if (!(await buyBtn.isVisible().catch(() => false)) || (await buyBtn.isDisabled().catch(() => true))) {
+    console.warn('  ⚠ Nút Mua không khả dụng');
+    await gotoShot(page, `${BASE}/dich-vu/thanh-toan`, '14-reader-payment.png', 3500);
+    return;
+  }
+
+  await buyBtn.click();
+  await page.waitForURL(/\/dich-vu\/thanh-toan/, { timeout: 25000 });
+  await waitReady(page, 3500);
+
+  const continueBtn = page.getByRole('button', { name: 'Tiếp tục' });
+  if (await continueBtn.isVisible().catch(() => false)) {
+    await continueBtn.click();
+    await page.waitForTimeout(1500);
+  }
+
+  const orderBtn = page.getByRole('button', { name: 'Đặt Hàng Ngay' });
+  await orderBtn.waitFor({ state: 'visible', timeout: 20000 });
+  await orderBtn.click();
+
+  await page.waitForSelector('text=Quét mã QR', { timeout: 45000 }).catch(() => {});
+  await page.waitForSelector('img[alt="QR VietQR"]', { timeout: 15000 }).catch(() => {});
+  await waitReady(page, 2500);
+  await shot(page, '14-reader-payment.png');
+  console.log('  ✓ 14-reader-payment.png (bước 3/3 — QR)');
+}
+
 async function main() {
   await mkdir(OUT, { recursive: true });
 
@@ -136,9 +250,14 @@ async function main() {
   await gotoShot(studentPage, `${BASE}/dich-vu/cap-the-thu-vien`, '09-reader-library-card.png', 3000, 'thẻ');
   await gotoShot(studentPage, `${BASE}/dich-vu/phieu-muon`, '10-reader-loan-requests.png', 3500, 'mượn');
   await gotoShot(studentPage, `${BASE}/quy-dinh/muon-sach`, '11-reader-borrowing-rules.png', 2500);
-  await gotoShot(studentPage, `${BASE}/dich-vu/gio-sach`, '12-reader-book-cart.png', 3500);
-  await gotoShot(studentPage, `${BASE}/dich-vu/gio-sach?tab=purchase`, '13-reader-digital-cart.png', 3500);
-  await gotoShot(studentPage, `${BASE}/dich-vu/thanh-toan`, '14-reader-payment.png', 3500);
+
+  await fillBorrowCartFromCatalog(studentPage);
+  await gotoShot(studentPage, `${BASE}/dich-vu/gio-sach`, '12-reader-book-cart.png', 5000, 'Giỏ');
+
+  await fillDigitalPurchaseCart(studentPage);
+  await gotoShot(studentPage, `${BASE}/dich-vu/gio-sach?tab=purchase`, '13-reader-digital-cart.png', 5000);
+
+  await capturePaymentQrFinalStep(studentPage);
   await gotoShot(studentPage, `${BASE}/dich-vu/don-hang-cua-toi`, '15-reader-orders.png', 3500, 'đơn');
   await gotoShot(studentPage, `${BASE}/dich-vu/tai-lieu-so`, '16-reader-digital-documents.png', 3000);
 

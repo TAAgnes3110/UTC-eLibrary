@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { extractApiTokenFromResponse, fetchSessionApiToken, refreshStoredApiToken } from '@/utils/ensureApiToken';
 
 function isApiDebugEnabled() {
     if (typeof window === 'undefined') return false;
@@ -58,8 +59,11 @@ client.interceptors.request.use(
             }
         }
         const token = localStorage.getItem('token');
-        if (token) {
+        if (!config.skipBearerAuth && token) {
             config.headers.Authorization = `Bearer ${token}`;
+        } else if (config.skipBearerAuth && config.headers && typeof config.headers === 'object') {
+            delete config.headers.Authorization;
+            delete config.headers.authorization;
         }
         if (typeof window !== 'undefined') {
             config.headers['domain'] = config.headers['domain'] ?? window.location.origin;
@@ -129,10 +133,11 @@ client.interceptors.response.use(
                 return null;
             }
             originalRequest._sessionRetry = true;
-            const headers = { ...(originalRequest.headers || {}) };
-            delete headers.Authorization;
-            delete headers.authorization;
-            originalRequest.headers = headers;
+            originalRequest.skipBearerAuth = true;
+            if (originalRequest.headers && typeof originalRequest.headers === 'object') {
+                delete originalRequest.headers.Authorization;
+                delete originalRequest.headers.authorization;
+            }
             try {
                 return await client(originalRequest);
             } catch {
@@ -140,12 +145,34 @@ client.interceptors.response.use(
             }
         };
 
+        const retryWithFreshToken = async (token) => {
+            if (!token || originalRequest._tokenRetry) {
+                return null;
+            }
+            originalRequest._tokenRetry = true;
+            originalRequest.skipBearerAuth = false;
+            localStorage.setItem('token', token);
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            try {
+                return await client(originalRequest);
+            } catch {
+                return null;
+            }
+        };
+
+        const resolveFreshToken = async () => {
+            const fromSession = await fetchSessionApiToken();
+            if (fromSession) {
+                return fromSession;
+            }
+            return refreshStoredApiToken();
+        };
+
         try {
             if (isRefreshing && refreshPromise) {
                 const newToken = await refreshPromise;
                 if (newToken) {
-                    originalRequest.headers = originalRequest.headers || {};
-                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
                     if (isMultipartBody) {
                         localStorage.setItem('token', newToken);
                         const multipartError = new Error(
@@ -155,7 +182,10 @@ client.interceptors.response.use(
                         multipartError.config = originalRequest;
                         return Promise.reject(multipartError);
                     }
-                    return await client(originalRequest);
+                    const tokenResponse = await retryWithFreshToken(newToken);
+                    if (tokenResponse) {
+                        return tokenResponse;
+                    }
                 }
                 const sessionResponse = await retryWithoutBearer();
                 if (sessionResponse) {
@@ -164,25 +194,9 @@ client.interceptors.response.use(
                 throw error;
             }
 
-            const oldToken = localStorage.getItem('token');
-
-            // Upload multipart: không retry FormData (body không gửi lại được) — chỉ refresh token.
+            // Upload multipart: không retry FormData — cấp token mới để user bấm Lưu lại.
             if (isMultipartBody) {
-                let refreshed = null;
-                if (oldToken) {
-                    isRefreshing = true;
-                    refreshPromise = axios
-                        .post('/api/v1/auth/refresh', null, {
-                            withCredentials: true,
-                            headers: { Authorization: `Bearer ${oldToken}` },
-                        })
-                        .then((res) => res.data?.token || null)
-                        .catch(() => null);
-                    refreshed = await refreshPromise;
-                    if (refreshed) {
-                        localStorage.setItem('token', refreshed);
-                    }
-                }
+                const refreshed = await resolveFreshToken();
                 const multipartError = new Error(
                     refreshed
                         ? 'Phiên API đã được làm mới. Vui lòng bấm Lưu lại để upload file.'
@@ -193,12 +207,21 @@ client.interceptors.response.use(
                 return Promise.reject(multipartError);
             }
 
-            // SPA Inertia: thử cookie session trước refresh JWT (tránh chờ refresh khi token localStorage đã hết hạn).
+            // SPA Inertia: thử cookie session trước (không gửi bearer hết hạn).
             const sessionResponse = await retryWithoutBearer();
             if (sessionResponse) {
                 return sessionResponse;
             }
 
+            const freshToken = await resolveFreshToken();
+            if (freshToken) {
+                const tokenResponse = await retryWithFreshToken(freshToken);
+                if (tokenResponse) {
+                    return tokenResponse;
+                }
+            }
+
+            const oldToken = localStorage.getItem('token');
             if (!oldToken) {
                 throw error;
             }
@@ -209,16 +232,17 @@ client.interceptors.response.use(
                     withCredentials: true,
                     headers: { Authorization: `Bearer ${oldToken}` },
                 })
-                .then((res) => res.data?.token || null)
+                .then((res) => extractApiTokenFromResponse(res.data))
                 .catch(() => null);
 
             const newToken = await refreshPromise;
 
             if (newToken) {
                 localStorage.setItem('token', newToken);
-                originalRequest.headers = originalRequest.headers || {};
-                originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                return await client(originalRequest);
+                const refreshedResponse = await retryWithFreshToken(newToken);
+                if (refreshedResponse) {
+                    return refreshedResponse;
+                }
             }
 
             localStorage.removeItem('token');

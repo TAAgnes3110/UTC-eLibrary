@@ -1,10 +1,10 @@
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import apiClient from '@/api/axios';
-import axios from 'axios';
 import { booksApi } from '@/api/books';
 import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
+import { ensureApiToken } from '@/utils/ensureApiToken';
 import { BOOK_FORM_FIELD_MAP, getFieldErrorsFromAxiosError, getLaravelErrorMessage } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
@@ -13,24 +13,6 @@ import { primaryDigitalAsset } from '@/utils/adminDigitalAsset';
 
 const BOOKS_PER_PAGE = 20;
 const CURRENT_YEAR = new Date().getFullYear();
-
-async function refreshApiTokenBeforeUpload() {
-    if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-        const res = await axios.post('/api/v1/auth/refresh', null, {
-            withCredentials: true,
-            headers: { Authorization: `Bearer ${token}` },
-        });
-        const next = res.data?.token ?? res.data?.data?.token ?? null;
-        if (next) {
-            localStorage.setItem('token', next);
-        }
-    } catch {
-        // Cookie session vẫn có thể dùng — bỏ qua.
-    }
-}
 
 function matchLookupId(list, text) {
     const raw = (text || '').trim();
@@ -1018,6 +1000,7 @@ export function useBooksAdminPage() {
 
         saveBookLoading.value = true;
         clearSaveErrorLock();
+        await ensureApiToken();
         let savedBookId = isEditing.value && form.value.id != null ? Number(form.value.id) : null;
 
         try {
@@ -1048,7 +1031,7 @@ export function useBooksAdminPage() {
 
             if (createCoverFile.value instanceof File && savedBookId) {
                 try {
-                    await refreshApiTokenBeforeUpload();
+                    await ensureApiToken();
                     const coverData = new FormData();
                     coverData.append('book_cover', createCoverFile.value);
                     await booksApi.updateCover(savedBookId, coverData);
@@ -1064,7 +1047,7 @@ export function useBooksAdminPage() {
 
             if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && savedBookId) {
                 try {
-                    await refreshApiTokenBeforeUpload();
+                    await ensureApiToken();
                     const digitalData = new FormData();
                     digitalData.append('file', createDigitalFile.value);
                     digitalData.append('is_primary', '1');

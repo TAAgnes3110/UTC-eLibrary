@@ -1,23 +1,12 @@
-import client from '@/api/axios';
+import { fetchSessionApiToken } from '@/utils/ensureApiToken';
 
 /**
- * Đồng bộ JWT từ session Inertia khi chưa có token API (tránh gọi lặp mỗi lần đổi trang).
+ * Đồng bộ JWT từ session Inertia (admin SPA) — luôn thử cấp token mới khi đã đăng nhập web.
  */
 export async function syncApiTokenFromSession(authUser) {
     if (typeof window === 'undefined' || !authUser?.id) {
         return;
     }
-    if (localStorage.getItem('token')) {
-        return;
-    }
 
-    try {
-        const response = await client.post('/auth/session-token');
-        const token = response?.data?.token ?? response?.data?.data?.token ?? null;
-        if (token) {
-            localStorage.setItem('token', token);
-        }
-    } catch {
-        // Session chưa sẵn sàng — API vẫn có thể dùng cookie (statefulApi).
-    }
+    await fetchSessionApiToken();
 }

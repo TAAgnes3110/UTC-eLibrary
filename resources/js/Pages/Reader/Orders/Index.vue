@@ -318,7 +318,7 @@ onMounted(async () => {
                                     <th class="whitespace-nowrap px-3 py-2.5 text-right">Tổng tiền</th>
                                     <th class="whitespace-nowrap px-3 py-2.5">Trạng thái</th>
                                     <th class="whitespace-nowrap px-3 py-2.5">Ngày đặt</th>
-                                    <th class="whitespace-nowrap px-3 py-2.5 text-right">Thao tác</th>
+                                    <th class="whitespace-nowrap px-3 py-2.5 text-left">Thao tác</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -366,7 +366,7 @@ onMounted(async () => {
                                     </td>
                                     <td class="whitespace-nowrap px-3 py-2.5 text-slate-600 dark:text-slate-400">{{ formatDate(row.created_at) }}</td>
                                     <td class="whitespace-nowrap px-3 py-2.5">
-                                        <div class="flex flex-nowrap items-center justify-end gap-1">
+                                        <div class="flex flex-nowrap items-center justify-start gap-1">
                                             <button
                                                 type="button"
                                                 class="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"

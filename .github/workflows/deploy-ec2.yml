@@ -25,7 +25,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT != '' && secrets.EC2_SSH_PORT || '22' }}
           command_timeout: 40m
-          script_stop: true
           script: |
             set -euo pipefail
             cd "${{ secrets.EC2_APP_PATH || '/home/ubuntu/utc-elibrary' }}"

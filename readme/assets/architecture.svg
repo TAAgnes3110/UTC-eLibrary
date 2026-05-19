@@ -4,13 +4,16 @@
       <stop offset="0%" stop-color="#eff6ff"/>
       <stop offset="100%" stop-color="#f8fafc"/>
     </linearGradient>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/>
+    </marker>
   </defs>
   <rect width="920" height="420" fill="url(#bg)" rx="12"/>
-  <text x="460" y="36" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">UTC eLibrary  Ki¿n trúc tÕng quan</text>
+  <text x="460" y="36" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">UTC eLibrary ? Ki?n trúc t?ng quan</text>
   <rect x="40" y="70" width="180" height="90" rx="10" fill="#dbeafe" stroke="#2563eb"/>
-  <text x="130" y="105" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Trình duyÇt</text>
+  <text x="130" y="105" text-anchor="middle" font-size="14" font-weight="600" fill="#1e3a8a">Tr?nh duy?t</text>
   <text x="130" y="128" text-anchor="middle" font-size="12" fill="#334155">Vue 3 + Inertia</text>
-  <text x="130" y="146" text-anchor="middle" font-size="11" fill="#64748b">Ùc gi£ / Admin SPA</text>
+  <text x="130" y="146" text-anchor="middle" font-size="11" fill="#64748b">Ð?c gi? / Admin SPA</text>
   <rect x="370" y="55" width="200" height="120" rx="10" fill="#fef3c7" stroke="#d97706"/>
   <text x="470" y="95" text-anchor="middle" font-size="14" font-weight="600" fill="#92400e">Laravel 12</text>
   <text x="470" y="118" text-anchor="middle" font-size="12" fill="#334155">API /api/v1</text>
@@ -18,7 +21,7 @@
   <text x="470" y="154" text-anchor="middle" font-size="11" fill="#64748b">Services + Queue</text>
   <rect x="700" y="70" width="180" height="90" rx="10" fill="#dcfce7" stroke="#16a34a"/>
   <text x="790" y="105" text-anchor="middle" font-size="14" font-weight="600" fill="#14532d">MySQL</text>
-  <text x="790" y="128" text-anchor="middle" font-size="12" fill="#334155">Dï liÇu nghiÇp vå</text>
+  <text x="790" y="128" text-anchor="middle" font-size="12" fill="#334155">D? li?u nghi?p v?</text>
   <rect x="700" y="190" width="180" height="70" rx="10" fill="#fce7f3" stroke="#db2777"/>
   <text x="790" y="222" text-anchor="middle" font-size="14" font-weight="600" fill="#9d174d">Redis</text>
   <text x="790" y="244" text-anchor="middle" font-size="12" fill="#334155">Cache / Queue</text>
@@ -29,9 +32,9 @@
   <text x="130" y="252" text-anchor="middle" font-size="14" font-weight="600" fill="#0f172a">Postman / App</text>
   <text x="130" y="274" text-anchor="middle" font-size="12" fill="#334155">JWT API client</text>
   <path d="M220 115 H370" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
-  <path d="M570 115 H700" stroke="#64748b" stroke-width="2"/>
-  <path d="M470 175 V220" stroke="#64748b" stroke-width="2"/>
-  <path d="M570 255 H700" stroke="#64748b" stroke-width="2"/>
-  <path d="M220 255 H370" stroke="#64748b" stroke-width="2"/>
-  <text x="460" y="360" text-anchor="middle" font-size="12" fill="#475569">Admin: cookie session · Mobile/API: Bearer JWT · Header domain b¯t buÙc (JWT)</text>
+  <path d="M570 115 H700" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M470 175 V220" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M570 255 H700" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M220 255 H370" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="460" y="360" text-anchor="middle" font-size="12" fill="#475569">Admin: cookie session ? Mobile/API: Bearer JWT ? Header domain b?t bu?c (JWT)</text>
 </svg>

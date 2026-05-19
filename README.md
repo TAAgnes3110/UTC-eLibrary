@@ -6,6 +6,12 @@
 </p>
 
 <p align="center">
+  <a href="http://3.0.56.220/"><strong>🌐 Demo trực tuyến</strong></a> ·
+  <code>http://3.0.56.220/</code> (độc giả) ·
+  <a href="http://3.0.56.220/admin"><code>/admin</code></a> (quản trị)
+</p>
+
+<p align="center">
   <img src="readme/assets/architecture.svg" alt="Kiến trúc UTC eLibrary" width="720"/>
 </p>
 
@@ -79,35 +85,27 @@ UTC eLibrary phục vụ:
   <img src="readme/assets/loan-flow.svg" alt="Luồng mượn sách" width="720"/>
 </p>
 
-### Giao diện (screenshot)
+### Giao diện (screenshot từ [demo EC2](http://3.0.56.220/))
 
-<table>
-  <tr>
-    <td align="center"><strong>Đăng nhập</strong><br><img src="readme/assets/screenshots/login.png" width="280" alt="Đăng nhập"/></td>
-    <td align="center"><strong>Đăng ký</strong><br><img src="readme/assets/screenshots/register.png" width="280" alt="Đăng ký"/></td>
-    <td align="center"><strong>Xác minh OTP</strong><br><img src="readme/assets/screenshots/verify-otp-register.png" width="280" alt="OTP"/></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Quên mật khẩu</strong><br><img src="readme/assets/screenshots/forgot-password.png" width="280" alt="Quên MK"/></td>
-    <td align="center"><strong>Email OTP</strong><br><img src="readme/assets/screenshots/otp-email.png" width="280" alt="Email OTP"/></td>
-    <td align="center"><strong>Đặt lại mật khẩu</strong><br><img src="readme/assets/screenshots/set-password.png" width="280" alt="Đặt MK"/></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Dashboard admin</strong><br><img src="readme/assets/screenshots/dashboard.png" width="280" alt="Dashboard"/></td>
-    <td align="center"><strong>Danh mục sách</strong><br><img src="readme/assets/screenshots/books-index.png" width="280" alt="Sách"/></td>
-    <td align="center"><strong>Bạn đọc</strong><br><img src="readme/assets/screenshots/readers.png" width="280" alt="Bạn đọc"/></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Tác giả</strong><br><img src="readme/assets/screenshots/authors.png" width="280" alt="Tác giả"/></td>
-    <td align="center"><strong>Nhà xuất bản</strong><br><img src="readme/assets/screenshots/publishers.png" width="280" alt="NXB"/></td>
-    <td align="center"><strong>Phân loại</strong><br><img src="readme/assets/screenshots/categories.png" width="280" alt="Phân loại"/></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Tài khoản</strong><br><img src="readme/assets/screenshots/accounts.png" width="280" alt="Tài khoản"/></td>
-    <td align="center"><strong>Ngôn ngữ</strong><br><img src="readme/assets/screenshots/languages.png" width="280" alt="Ngôn ngữ"/></td>
-    <td align="center"><strong>Hóa đơn / thanh toán</strong><br><img src="readme/assets/screenshots/bills.png" width="280" alt="Hóa đơn"/></td>
-  </tr>
-</table>
+Ảnh chụp từ bản triển khai thật — giao diện dark mode, mobile-friendly.
+
+#### Cổng độc giả
+
+| | | |
+|:---:|:---:|:---:|
+| **Trang chủ** | **Đăng nhập** | **Đăng ký** |
+| <img src="readme/assets/screenshots/01-home.png" width="300" alt="Trang chủ"/> | <img src="readme/assets/screenshots/02-login.png" width="300" alt="Đăng nhập"/> | <img src="readme/assets/screenshots/03-register.png" width="300" alt="Đăng ký"/> |
+| **Tra cứu sách** | **Chi tiết sách** | |
+| <img src="readme/assets/screenshots/04-catalog.png" width="300" alt="Tra cứu"/> | <img src="readme/assets/screenshots/05-book-detail.png" width="300" alt="Chi tiết sách"/> | |
+
+#### Quản trị (`/admin`)
+
+| | | |
+|:---:|:---:|:---:|
+| **Tổng quan** | **Đồ án / luận văn** | **Phiếu mượn** |
+| <img src="readme/assets/screenshots/06-admin-dashboard.png" width="300" alt="Dashboard admin"/> | <img src="readme/assets/screenshots/07-admin-digital-books.png" width="300" alt="Tài liệu số admin"/> | <img src="readme/assets/screenshots/08-admin-loans.png" width="300" alt="Phiếu mượn"/> |
+
+> Tài khoản demo xem mục [Tài khoản demo](#tài-khoản-demo). Sau deploy nhớ **Ctrl+F5** để tải JS mới.
 
 ### Luồng tài liệu số (admin)
 
@@ -224,7 +222,9 @@ UTC-eLibrary/
 │   ├── ec2-deploy.sh
 │   ├── ec2-prepare-build.sh
 │   └── generate-postman-collection.php
-├── readme/assets/               # SVG minh họa README
+├── readme/assets/               # SVG ERD, kiến trúc, screenshot README
+│   ├── erd-*.svg
+│   └── screenshots/01-*.png …
 ├── UTC-eLibrary.postman_collection.json
 ├── docker-compose.ec2.yml
 └── Dockerfile.ec2
@@ -276,132 +276,62 @@ Trả `200` khi DB + cache OK.
 
 ## ERD cơ sở dữ liệu
 
-Sơ đồ tổng hợp các bảng nghiệp vụ chính (MySQL). Chi tiết cột xem `database/migrations/`.
+Sơ đồ chia theo **miền nghiệp vụ** (MySQL) — dễ đọc hơn một `erDiagram` khổng lồ. Chi tiết cột: `database/migrations/`.
+
+| Miền | Mô tả ngắn |
+|------|------------|
+| **Người dùng & thẻ** | Khoa/bộ môn, tài khoản, đợt cấp thẻ, chính sách mượn |
+| **Danh mục & kho** | Đầu mục sách, bản sao, phân loại, tủ/kệ, tác giả/NXB |
+| **Mượn — trả** | Phiếu mượn, dòng chi tiết, yêu cầu mượn/gia hạn |
+| **Tài liệu số & TT** | PDF, paywall, nộp duyệt, giỏ/đơn, SePay |
+
+### 1. Người dùng & thẻ thư viện
+
+<p align="center">
+  <img src="readme/assets/erd-identity.svg" alt="ERD người dùng và thẻ" width="920"/>
+</p>
+
+### 2. Danh mục & kho vật lý
+
+<p align="center">
+  <img src="readme/assets/erd-catalog.svg" alt="ERD danh mục sách" width="920"/>
+</p>
+
+### 3. Mượn — trả sách in
+
+<p align="center">
+  <img src="readme/assets/erd-loans.svg" alt="ERD phiếu mượn" width="920"/>
+</p>
+
+### 4. Tài liệu số & thanh toán
+
+<p align="center">
+  <img src="readme/assets/erd-digital.svg" alt="ERD tài liệu số" width="920"/>
+</p>
+
+### Sơ đồ quan hệ tổng quan (rút gọn)
 
 ```mermaid
-erDiagram
-    users ||--o{ library_cards : "sở hữu"
-    users ||--o{ loans : "qua thẻ"
-    users ||--o{ carts : "giỏ"
-    users ||--o{ orders : "đơn"
-    users ||--o{ digital_document_submissions : "nộp"
-    users ||--o{ notifications : "nhận"
-
-    faculties ||--o{ departments : "khoa"
-    departments ||--o{ users : "đơn vị"
-    faculties ||--o{ library_cards : "SV"
-
-  periods ||--o{ library_cards : "đợt cấp thẻ"
-
-    library_cards ||--o{ loans : "mượn"
-    loan_policies ||--o{ library_cards : "policy holder"
-
-    loans ||--|{ loan_items : "chi tiết"
-    loan_items }o--|| book_copies : "bản sao"
-    book_copies }o--|| books : "đầu mục"
-    books }o--o| classifications : "phân loại"
-    books }o--o| warehouses : "kho"
-    books ||--o{ digital_assets : "PDF"
-    books ||--o| thesis_metadata : "luận văn"
-    books }o--o{ authors : "book_authors"
-    books }o--o{ publishers : "book_publishers"
-
-    digital_assets ||--o| digital_asset_paywall_settings : "giá tải"
-    digital_assets ||--o{ cart_items : "giỏ mua"
-    digital_assets ||--o{ order_items : "đơn"
-
-    carts ||--|{ cart_items : "items"
-    orders ||--|{ order_items : "items"
-    orders ||--o{ payment_transactions : "SePay"
-
-    digital_document_submissions }o--o| users : "submitter"
-    digital_document_submissions }o--o| books : "sau duyệt"
-
-    loan_borrow_requests }o--|| users : "độc giả"
-    loan_renewal_requests }o--|| loans : "gia hạn"
-
-    warehouses ||--o{ storage_cabinets : "tủ"
-    storage_cabinets ||--o{ storage_slots : "ngăn"
-
-    users {
-        bigint id PK
-        string email
-        string user_type
-        int faculty_id FK
-        int department_id FK
-    }
-
-    library_cards {
-        bigint id PK
-        int user_id FK
-        string card_number
-        enum holder_type
-        string workflow_status
-        date expiry_date
-    }
-
-    books {
-        bigint id PK
-        string title
-        string resource_type
-        string access_mode
-        int classification_id FK
-        int warehouse_id FK
-        int quantity
-    }
-
-    book_copies {
-        bigint id PK
-        bigint book_id FK
-        string barcode
-        tinyint status
-    }
-
-    loans {
-        bigint id PK
-        bigint library_card_id FK
-        enum loan_type
-        date due_date
-        enum status
-    }
-
-    loan_items {
-        bigint id PK
-        bigint loan_id FK
-        bigint book_copy_id FK
-    }
-
-    digital_assets {
-        bigint id PK
-        bigint book_id FK
-        int version
-        bool is_primary
-        string path
-        string visibility
-        string preview_status
-    }
-
-    digital_document_submissions {
-        bigint id PK
-        int user_id FK
-        string status
-        string storage_path
-    }
-
-    orders {
-        bigint id PK
-        uuid public_id
-        int user_id FK
-        string status
-        bigint total_vnd_snapshot
-    }
-
-    loan_policies {
-        bigint id PK
-        string holder_type
-        int max_books
-        int loan_days
-    }
+flowchart TB
+    subgraph Identity["👤 Người dùng"]
+        U[users] --> LC[library_cards]
+        F[faculties] --> D[departments] --> U
+    end
+    subgraph Catalog["📚 Danh mục"]
+        B[books] --> BC[book_copies]
+        B --> DA[digital_assets]
+    end
+    subgraph Loans["📋 Mượn trả"]
+        LC --> L[loans] --> LI[loan_items] --> BC
+    end
+    subgraph Digital["💳 Số & TT"]
+        DA --> PW[paywall_settings]
+        U --> C[carts] --> O[orders] --> PT[payment_transactions]
+        U --> SUB[digital_document_submissions]
+    end
+    Identity --> Loans
+    Catalog --> Loans
+    Catalog --> Digital
 ```
 
 ### Nhóm bảng phụ trợ

@@ -6,7 +6,7 @@ Tài liệu **báo cáo đồ án, UML, slide bảo vệ** nằm ngoài repo (De
 
 | Tài liệu | Mô tả |
 |----------|--------|
-| [HUONG-DAN-CHAY-NHANH.md](./HUONG-DAN-CHAY-NHANH.md) | Chạy local / VPS / InfinityFree / Docker |
+| [HUONG-DAN-CHAY-NHANH.md](./HUONG-DAN-CHAY-NHANH.md) | Chạy local / VPS / Docker |
 | [deployment/docker.md](./deployment/docker.md) | Docker Compose (EC2 AWS, VPS) |
 | [deployment/cloudflare-r2-media.md](./deployment/cloudflare-r2-media.md) | Media Cloudflare R2 |
 

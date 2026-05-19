@@ -27,6 +27,38 @@ final class FileHelpers
 
     public const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
 
+    /**
+     * Rule validate upload PDF — chỉ tin phần mở rộng .pdf (+ max KB).
+     * Trình duyệt hay gửi application/octet-stream; rule mimes:pdf dễ từ chối oan.
+     *
+     * @return array<int, mixed>
+     */
+    public static function pdfUploadRules(int $maxKilobytes): array
+    {
+        return [
+            'required',
+            'file',
+            'max:'.max(1, $maxKilobytes),
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                self::validateUploadedPdfExtension($value, $fail);
+            },
+        ];
+    }
+
+    public static function validateUploadedPdfExtension(mixed $value, \Closure $fail): void
+    {
+        if (! $value instanceof UploadedFile) {
+            $fail(__('Vui lòng chọn file PDF.'));
+
+            return;
+        }
+
+        $ext = strtolower($value->getClientOriginalExtension() ?: '');
+        if ($ext !== 'pdf') {
+            $fail(__('Chỉ hỗ trợ tải lên file PDF.'));
+        }
+    }
+
     public static function mimeForImageExtension(string $ext): string
     {
         return match (strtolower($ext)) {

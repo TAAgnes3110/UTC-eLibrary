@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\ApiResponse;
 use App\Helpers\DeployHelper;
+use App\Helpers\FileHelpers;
 use App\Helpers\TextSanitizer;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DigitalDocumentSubmissionPublicResource;
@@ -13,7 +14,6 @@ use App\Services\DigitalDocumentSubmissionService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 
 class DigitalDocumentSubmissionController extends Controller
@@ -75,22 +75,7 @@ class DigitalDocumentSubmissionController extends Controller
                 'string',
                 'max:'.TextSanitizer::DEFAULT_LONG_TEXT_MAX_CHARS,
             ],
-            'file' => [
-                'required',
-                'file',
-                'max:'.DeployHelper::maxDigitalPdfUploadKilobytes(),
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    if (! $value instanceof UploadedFile) {
-                        $fail(__('Vui lòng chọn file PDF.'));
-
-                        return;
-                    }
-                    $ext = strtolower($value->getClientOriginalExtension() ?: '');
-                    if ($ext !== 'pdf') {
-                        $fail(__('Chỉ hỗ trợ tải lên file PDF.'));
-                    }
-                },
-            ],
+            'file' => FileHelpers::pdfUploadRules(DeployHelper::maxDigitalPdfUploadKilobytes()),
             'cover_image' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ], [
             'author_names.required' => __('Vui lòng nhập tác giả đồ án, luận văn.'),

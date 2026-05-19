@@ -36,6 +36,7 @@ const {
     loading,
     warehouses,
     saveBookLoading,
+    saveBlockedByError,
     classifications,
     cabinetOptions,
     storageSuggestionLoading,
@@ -77,6 +78,7 @@ const {
     openAddModal,
     openEditModal,
     saveBook,
+    requestCloseBookModal,
     openDeleteOne,
     openDeleteMultiple,
     confirmDelete,
@@ -307,9 +309,10 @@ const searchPlaceholder = computed(() => (
             :set-create-digital-file="setCreateDigitalFile"
             :clear-create-digital-file="clearCreateDigitalFile"
             :save-loading="saveBookLoading"
+            :save-blocked="saveBlockedByError"
             :field-errors="bookFormErrors"
             :clear-field-error="clearBookFieldError"
-            @close="showModal = false"
+            @close="requestCloseBookModal"
             @save="saveBook"
             @book-code-touched="markBookCodeTouched"
             @registration-touched="markRegistrationTouched"

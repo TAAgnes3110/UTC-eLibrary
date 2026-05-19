@@ -1,10 +1,11 @@
 import { ref, computed, onBeforeUnmount, onMounted, watch } from 'vue';
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import apiClient from '@/api/axios';
+import axios from 'axios';
 import { booksApi } from '@/api/books';
 import { warehousesApi } from '@/api/warehouses';
 import { toast } from '@/store/toast';
-import { BOOK_FORM_FIELD_MAP } from '@/utils/laravelApiError';
+import { BOOK_FORM_FIELD_MAP, getFieldErrorsFromAxiosError, getLaravelErrorMessage } from '@/utils/laravelApiError';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
 import { toastShort, bookFormClientError } from '@/constants/adminUiMessages';
 import { extractApiPaginator } from '@/utils/adminPagination';
@@ -12,6 +13,24 @@ import { primaryDigitalAsset } from '@/utils/adminDigitalAsset';
 
 const BOOKS_PER_PAGE = 20;
 const CURRENT_YEAR = new Date().getFullYear();
+
+async function refreshApiTokenBeforeUpload() {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+        const res = await axios.post('/api/v1/auth/refresh', null, {
+            withCredentials: true,
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const next = res.data?.token ?? res.data?.data?.token ?? null;
+        if (next) {
+            localStorage.setItem('token', next);
+        }
+    } catch {
+        // Cookie session vẫn có thể dùng — bỏ qua.
+    }
+}
 
 function matchLookupId(list, text) {
     const raw = (text || '').trim();
@@ -113,6 +132,8 @@ export function useBooksAdminPage() {
     });
     const warehouses = ref([]);
     const saveBookLoading = ref(false);
+    /** Khóa rời trang khi lưu/upload lỗi — giữ modal mở để xử lý. */
+    const saveBlockedByError = ref(false);
 
     const classifications = ref([]);
     let booksReloadDebounce = null;
@@ -162,6 +183,9 @@ export function useBooksAdminPage() {
     }));
 
     const goBooksPage = (page) => {
+        if (warnIfSaveErrorLocked('chuyển trang danh sách')) {
+            return;
+        }
         const p = Number(page);
         if (!Number.isFinite(p) || p < 1 || p > booksListMeta.value.last_page) {
             return;
@@ -171,6 +195,9 @@ export function useBooksAdminPage() {
     };
 
     const searchBooks = () => {
+        if (warnIfSaveErrorLocked('tìm kiếm lại')) {
+            return;
+        }
         booksPageNum.value = 1;
         loadBooks();
     };
@@ -229,6 +256,122 @@ export function useBooksAdminPage() {
         applyAxios422: applyBookApiErrors,
         setClientErrors: setBookClientErrors,
     } = useApiFieldErrors(BOOK_FORM_FIELD_MAP);
+
+    const DIGITAL_UPLOAD_FIELD_MAP = { ...BOOK_FORM_FIELD_MAP, file: 'digital_file' };
+
+    function formatSaveStepError(stepLabel, error) {
+        const custom = typeof error?.message === 'string' ? error.message.trim() : '';
+        const detail = custom && custom !== 'Network Error'
+            ? custom
+            : getLaravelErrorMessage(error, 'Không rõ nguyên nhân');
+        const status = error?.response?.status;
+        const suffix = status ? ` (HTTP ${status})` : '';
+        return `${stepLabel}: ${detail}${suffix}`;
+    }
+
+    function applySaveStepApiErrors(error, fieldMap = BOOK_FORM_FIELD_MAP) {
+        return getFieldErrorsFromAxiosError(error, fieldMap);
+    }
+
+    function activateSaveErrorLock() {
+        saveBlockedByError.value = true;
+    }
+
+    function clearSaveErrorLock() {
+        saveBlockedByError.value = false;
+    }
+
+    function requestCloseBookModal() {
+        if (saveBookLoading.value) {
+            toast.warn('Đang lưu/upload — vui lòng đợi hoàn tất.', { title: 'Chưa thể đóng' });
+            return;
+        }
+        if (saveBlockedByError.value) {
+            const ok = window.confirm(
+                'Lưu/upload chưa hoàn tất (PDF có thể chưa lên server).\n\n'
+                + 'Đóng form? Bạn có thể mở «Sửa» từ danh sách để thử upload lại.'
+            );
+            if (!ok) {
+                return;
+            }
+            clearSaveErrorLock();
+        }
+        showModal.value = false;
+    }
+
+    function warnIfSaveErrorLocked(context = 'thao tác này') {
+        if (!showModal.value || !saveBlockedByError.value) {
+            return false;
+        }
+        toast.warn(
+            `Upload PDF chưa xong. Xem lỗi trong form và bấm Lưu lại trước khi ${context}.`,
+            { title: 'Chưa thể tiếp tục' }
+        );
+        return true;
+    }
+
+    let removeInertiaGuard = null;
+
+    function bindNavigationGuard() {
+        if (removeInertiaGuard || typeof window === 'undefined') {
+            return;
+        }
+        removeInertiaGuard = router.on('before', (event) => {
+            if (!showModal.value) {
+                return;
+            }
+            if (saveBookLoading.value) {
+                event.preventDefault();
+                toast.warn('Đang lưu/upload — vui lòng đợi hoàn tất.', { title: 'Chưa thể rời trang' });
+                return;
+            }
+            if (saveBlockedByError.value) {
+                event.preventDefault();
+                toast.warn(
+                    'Upload PDF chưa xong. Xem lỗi trong form và bấm Lưu lại trước khi chuyển trang.',
+                    { title: 'Chưa thể rời trang' }
+                );
+            }
+        });
+    }
+
+    function unbindNavigationGuard() {
+        if (removeInertiaGuard) {
+            removeInertiaGuard();
+            removeInertiaGuard = null;
+        }
+    }
+
+    function handleBeforeUnload(event) {
+        if (!showModal.value) {
+            return;
+        }
+        if (saveBookLoading.value || saveBlockedByError.value) {
+            event.preventDefault();
+            event.returnValue = '';
+        }
+    }
+
+    watch([showModal, saveBlockedByError, saveBookLoading], ([modal, blocked, loading]) => {
+        if (modal && (blocked || loading)) {
+            bindNavigationGuard();
+        } else {
+            unbindNavigationGuard();
+        }
+    });
+
+    onMounted(() => {
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeunload', handleBeforeUnload);
+        }
+    });
+
+    onBeforeUnmount(() => {
+        unbindNavigationGuard();
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        }
+    });
 
     const filteredBooks = computed(() => {
         let list = [...books.value];
@@ -778,6 +921,7 @@ export function useBooksAdminPage() {
         storageSuggestionMessage.value = '';
         await applyWarehouseSuggestionByResourceType();
         clearBookFormErrors();
+        clearSaveErrorLock();
         showModal.value = true;
     };
 
@@ -786,6 +930,7 @@ export function useBooksAdminPage() {
         await Promise.allSettled([loadWarehouses()]);
         isEditing.value = true;
         clearBookFormErrors();
+        clearSaveErrorLock();
         clearCreateCoverFile();
         clearCreateDigitalFile();
         clearEditExistingMedia();
@@ -816,6 +961,7 @@ export function useBooksAdminPage() {
         const client = await collectBookClientErrors();
         if (!client.ok) {
             setBookClientErrors(client.errors);
+            activateSaveErrorLock();
             toast.error(toastShort.fail);
             return;
         }
@@ -829,6 +975,7 @@ export function useBooksAdminPage() {
         } = client;
         if (!isEditing.value && pageKind.value === 'digital' && !(createDigitalFile.value instanceof File)) {
             setBookClientErrors({ general: 'Vui lòng đính kèm file PDF cho đồ án/luận văn.' });
+            activateSaveErrorLock();
             toast.error(toastShort.fail);
             return;
         }
@@ -836,6 +983,10 @@ export function useBooksAdminPage() {
             title,
             resource_type: resourceType,
         };
+        if (pageKind.value === 'digital') {
+            payload.access_mode = 'online_only';
+            payload.quantity = 0;
+        }
         if (pageKind.value !== 'digital') payload.quantity = qty;
         if (pageKind.value !== 'digital' && warehouseId) payload.warehouse_id = warehouseId;
         if (pageKind.value !== 'digital') {
@@ -866,40 +1017,76 @@ export function useBooksAdminPage() {
         if (pageKind.value !== 'digital' && classificationId) payload.classification_id = classificationId;
 
         saveBookLoading.value = true;
+        clearSaveErrorLock();
+        let savedBookId = isEditing.value && form.value.id != null ? Number(form.value.id) : null;
+
         try {
             if (isEditing.value && form.value.id != null) {
                 await booksApi.update(form.value.id, payload);
-                if (createCoverFile.value instanceof File) {
-                    const coverData = new FormData();
-                    coverData.append('book_cover', createCoverFile.value);
-                    await booksApi.updateCover(form.value.id, coverData);
-                }
-                if (pageKind.value === 'digital' && createDigitalFile.value instanceof File) {
-                    const digitalData = new FormData();
-                    digitalData.append('file', createDigitalFile.value);
-                    digitalData.append('is_primary', '1');
-                    digitalData.append('visibility', 'public');
-                    await booksApi.uploadDigitalAsset(form.value.id, digitalData);
-                }
-                toast.success(toastShort.ok);
+                savedBookId = Number(form.value.id);
             } else {
                 const created = await booksApi.create(payload);
                 const createdBook = created?.data ?? created ?? {};
                 const createdId = Number(createdBook?.id ?? 0);
-                if (createCoverFile.value && Number.isInteger(createdId) && createdId > 0) {
+                if (!Number.isInteger(createdId) || createdId <= 0) {
+                    setBookClientErrors({
+                        general: 'Bước 1 — Lưu thông tin: API không trả về ID sách. Mở Console (F12) hoặc bật localStorage api_debug=1 để xem chi tiết.',
+                    });
+                    activateSaveErrorLock();
+                    toast.error('Tạo tài liệu số thất bại — không nhận được ID.', { title: 'Lưu' });
+                    return;
+                }
+                savedBookId = createdId;
+                if (pageKind.value === 'digital') {
+                    isEditing.value = true;
+                    form.value.id = createdId;
+                    if (createdBook?.book_code) {
+                        form.value.book_code = createdBook.book_code;
+                    }
+                }
+            }
+
+            if (createCoverFile.value instanceof File && savedBookId) {
+                try {
+                    await refreshApiTokenBeforeUpload();
                     const coverData = new FormData();
                     coverData.append('book_cover', createCoverFile.value);
-                    await booksApi.updateCover(createdId, coverData);
+                    await booksApi.updateCover(savedBookId, coverData);
+                } catch (coverError) {
+                    const msg = formatSaveStepError('Bước 2 — Ảnh bìa', coverError);
+                    setBookClientErrors({ general: msg });
+                    activateSaveErrorLock();
+                    toast.error(msg, { title: 'Lưu' });
+                    await loadBooks();
+                    return;
                 }
-                if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && Number.isInteger(createdId) && createdId > 0) {
+            }
+
+            if (pageKind.value === 'digital' && createDigitalFile.value instanceof File && savedBookId) {
+                try {
+                    await refreshApiTokenBeforeUpload();
                     const digitalData = new FormData();
                     digitalData.append('file', createDigitalFile.value);
                     digitalData.append('is_primary', '1');
                     digitalData.append('visibility', 'public');
-                    await booksApi.uploadDigitalAsset(createdId, digitalData);
+                    await booksApi.uploadDigitalAsset(savedBookId, digitalData);
+                } catch (uploadError) {
+                    const fieldErrors = applySaveStepApiErrors(uploadError, DIGITAL_UPLOAD_FIELD_MAP);
+                    const stepMsg = formatSaveStepError('Bước 3 — Upload PDF', uploadError);
+                    setBookClientErrors({
+                        ...fieldErrors,
+                        general: fieldErrors.general || stepMsg,
+                        digital_file: fieldErrors.digital_file || stepMsg,
+                    });
+                    activateSaveErrorLock();
+                    toast.error(stepMsg, { title: 'Upload PDF' });
+                    await loadBooks();
+                    return;
                 }
-                toast.success(toastShort.ok);
             }
+
+            toast.success(toastShort.ok);
+            clearSaveErrorLock();
             showModal.value = false;
             clearCreateCoverFile();
             clearCreateDigitalFile();
@@ -907,9 +1094,15 @@ export function useBooksAdminPage() {
             await loadBooks();
         } catch (e) {
             // eslint-disable-next-line no-console
-            console.error(e);
-            applyBookApiErrors(e);
-            toast.error(toastShort.fail);
+            console.error('[saveBook]', e);
+            const fieldErrors = applySaveStepApiErrors(e);
+            const stepMsg = formatSaveStepError('Bước 1 — Lưu thông tin', e);
+            setBookClientErrors({
+                ...fieldErrors,
+                general: fieldErrors.general || stepMsg,
+            });
+            activateSaveErrorLock();
+            toast.error(stepMsg, { title: 'Lưu' });
         } finally {
             saveBookLoading.value = false;
         }
@@ -1319,6 +1512,7 @@ export function useBooksAdminPage() {
         clearMatrixFilter,
         warehouses,
         saveBookLoading,
+        saveBlockedByError,
         loading,
         classifications,
         cabinetOptions,
@@ -1362,6 +1556,7 @@ export function useBooksAdminPage() {
         openAddModal,
         openEditModal,
         saveBook,
+        requestCloseBookModal,
         openDeleteOne,
         openDeleteMultiple,
         confirmDelete,

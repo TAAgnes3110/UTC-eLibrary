@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\ApiResponse;
 use App\Helpers\DeployHelper;
+use App\Helpers\FileHelpers;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DigitalAssetResource;
 use App\Models\Book;
@@ -24,10 +25,14 @@ class DigitalAssetController extends Controller
     public function store(Request $request, Book $book): JsonResponse
     {
         $validated = $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf', 'max:'.DeployHelper::maxDigitalPdfUploadKilobytes()],
+            'file' => FileHelpers::pdfUploadRules(DeployHelper::maxDigitalPdfUploadKilobytes()),
             'is_primary' => ['sometimes', 'boolean'],
             'visibility' => ['sometimes', 'string', 'in:public,internal,restricted'],
             'embargo_until' => ['sometimes', 'nullable', 'date'],
+        ], [
+            'file.max' => __('File PDF không được vượt quá :max MB.', [
+                'max' => DeployHelper::maxDigitalPdfUploadMegabytesLabel(),
+            ]),
         ]);
 
         $attrs = array_intersect_key($validated, array_flip(['is_primary', 'visibility', 'embargo_until']));

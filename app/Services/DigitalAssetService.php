@@ -11,6 +11,7 @@ use App\Support\DigitalAssetPreviewJobDispatcher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DigitalAssetService
@@ -30,6 +31,18 @@ class DigitalAssetService
 
         return DB::transaction(function () use ($book, $file, $attrs, $disk, $dir) {
             $path = FileHelpers::storeUploadedFile($file, $disk, $dir);
+            if (! is_string($path) || $path === '') {
+                throw ValidationException::withMessages([
+                    'file' => [__('Không lưu được file PDF trên server. Kiểm tra quyền thư mục storage/app/private.')],
+                ]);
+            }
+
+            if (! Storage::disk($disk)->exists($path)) {
+                throw ValidationException::withMessages([
+                    'file' => [__('File PDF đã upload nhưng không tìm thấy trên disk :disk.', ['disk' => $disk])],
+                ]);
+            }
+
             $checksum = FileHelpers::hashSha256FromStorage($disk, $path);
 
             $maxVersion = (int) DigitalAsset::query()->where('book_id', $book->id)->max('version');

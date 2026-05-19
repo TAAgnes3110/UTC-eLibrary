@@ -9,8 +9,6 @@ enum DeployProfile: string
 {
     case Local = 'local';
 
-    case Infinityfree = 'infinityfree';
-
     case Vps = 'vps';
 
     public static function tryFromEnv(?string $value): self
@@ -27,53 +25,37 @@ enum DeployProfile: string
      */
     public function readerDefaults(): array
     {
-        return match ($this) {
-            self::Local => [
-                'max_pdf_bytes' => 0,
-                'assets_disk' => 'local',
-            ],
-            self::Infinityfree => [
-                'max_pdf_bytes' => 20 * 1024 * 1024,
-                'assets_disk' => 'local',
-            ],
-            self::Vps => [
-                'max_pdf_bytes' => 0,
-                'assets_disk' => 'local',
-            ],
-        };
+        return [
+            'max_pdf_bytes' => 0,
+            'assets_disk' => 'local',
+        ];
     }
 
     public function label(): string
     {
         return match ($this) {
             self::Local => 'Máy dev (local)',
-            self::Infinityfree => 'Shared hosting (InfinityFree)',
             self::Vps => 'VPS / Docker',
         };
     }
 
     public function allowsShellPdfTools(): bool
     {
-        return $this !== self::Infinityfree;
+        return true;
     }
 
     public function allowsImagickPdf(): bool
     {
-        return $this !== self::Infinityfree;
+        return true;
     }
 
     public function allowsRuntimePreviewGeneration(): bool
     {
-        return $this !== self::Infinityfree;
+        return true;
     }
 
     public function runsPostUploadProcessingOnHost(): bool
     {
-        return $this !== self::Infinityfree;
-    }
-
-    public function prefersSyncQueue(): bool
-    {
-        return $this === self::Infinityfree;
+        return true;
     }
 }

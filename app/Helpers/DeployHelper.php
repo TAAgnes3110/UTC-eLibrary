@@ -11,11 +11,6 @@ class DeployHelper
         return DeployProfile::tryFromEnv(config('deploy.profile'));
     }
 
-    public static function isInfinityFree(): bool
-    {
-        return self::profile() === DeployProfile::Infinityfree;
-    }
-
     /** Kilobyte cho rule validate `max:` upload PDF. */
     public static function maxDigitalPdfUploadKilobytes(): int
     {

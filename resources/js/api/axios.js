@@ -117,6 +117,8 @@ client.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        const isMultipartBody = originalRequest.data instanceof FormData;
+
         if (originalRequest._retry) {
             return Promise.reject(error);
         }
@@ -144,6 +146,15 @@ client.interceptors.response.use(
                 if (newToken) {
                     originalRequest.headers = originalRequest.headers || {};
                     originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    if (isMultipartBody) {
+                        localStorage.setItem('token', newToken);
+                        const multipartError = new Error(
+                            'Phiên API đã được làm mới. Vui lòng bấm Lưu lại để upload file.'
+                        );
+                        multipartError.response = response;
+                        multipartError.config = originalRequest;
+                        return Promise.reject(multipartError);
+                    }
                     return await client(originalRequest);
                 }
                 const sessionResponse = await retryWithoutBearer();
@@ -154,6 +165,33 @@ client.interceptors.response.use(
             }
 
             const oldToken = localStorage.getItem('token');
+
+            // Upload multipart: không retry FormData (body không gửi lại được) — chỉ refresh token.
+            if (isMultipartBody) {
+                let refreshed = null;
+                if (oldToken) {
+                    isRefreshing = true;
+                    refreshPromise = axios
+                        .post('/api/v1/auth/refresh', null, {
+                            withCredentials: true,
+                            headers: { Authorization: `Bearer ${oldToken}` },
+                        })
+                        .then((res) => res.data?.token || null)
+                        .catch(() => null);
+                    refreshed = await refreshPromise;
+                    if (refreshed) {
+                        localStorage.setItem('token', refreshed);
+                    }
+                }
+                const multipartError = new Error(
+                    refreshed
+                        ? 'Phiên API đã được làm mới. Vui lòng bấm Lưu lại để upload file.'
+                        : 'Phiên đăng nhập hết hạn khi upload file. Đăng nhập lại rồi bấm Lưu.'
+                );
+                multipartError.response = response;
+                multipartError.config = originalRequest;
+                return Promise.reject(multipartError);
+            }
 
             // SPA Inertia: thử cookie session trước refresh JWT (tránh chờ refresh khi token localStorage đã hết hạn).
             const sessionResponse = await retryWithoutBearer();
@@ -188,12 +226,19 @@ client.interceptors.response.use(
 
             throw error;
         } catch (e) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            if (!isMultipartBody) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            }
             const path = typeof window !== 'undefined' ? window.location.pathname : '';
             const onAuthPage = path.startsWith('/login') || path.startsWith('/register');
             const triedSession = Boolean(originalRequest._sessionRetry);
-            if (typeof window !== 'undefined' && !onAuthPage && triedSession) {
+            if (
+                typeof window !== 'undefined'
+                && !onAuthPage
+                && !isMultipartBody
+                && triedSession
+            ) {
                 window.location.href = '/login';
             }
             return Promise.reject(e);

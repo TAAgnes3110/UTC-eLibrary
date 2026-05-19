@@ -1,8 +1,8 @@
 # Hướng dẫn chạy nhanh UTC-eLibrary
 
-> **Mục đích:** Không quên bước khi chuyển máy / lên VPS / InfinityFree.  
+> **Mục đích:** Không quên bước khi chuyển máy / lên VPS / Docker.  
 > **Stack:** Laravel 12 + Vue 3 (Inertia) + MySQL + JWT API `/api/v1`.  
-> **Chọn môi trường:** đặt `DEPLOY_PROFILE` trong `.env` → `local` | `vps` | `infinityfree`.
+> **Chọn môi trường:** đặt `DEPLOY_PROFILE` trong `.env` → `local` | `vps`.
 
 ### Docker (một lệnh — khuyến nghị VPS / AWS EC2)
 
@@ -19,19 +19,19 @@ Chi tiết: [`docs/deployment/docker.md`](deployment/docker.md).
 
 ## 1. Bảng chọn nhanh (đọc trước)
 
-| Hạng mục | **local** (dev) | **vps** (production) | **infinityfree** (shared) |
-|----------|-----------------|----------------------|---------------------------|
-| `DEPLOY_PROFILE` | `local` | `vps` | `infinityfree` |
-| `APP_DEBUG` | `true` | `false` | `false` |
-| Redis | Có (khuyến nghị) | Có | **Không** |
-| `CACHE_STORE` | `redis` | `redis` | `database` |
-| `SESSION_DRIVER` | `redis` hoặc `database` | `redis` / `database` | `database` |
-| `QUEUE_CONNECTION` | `redis` hoặc `database` | `redis` | **`sync`** |
-| `DIGITAL_PREVIEW_DISPATCH_SYNC` | **`true`** | `true` *hoặc* `false`+worker | **`true`** (bắt buộc) |
-| Preview PDF trên host | Có (FPDI/qpdf/Poppler) | Có | **Không** — tạo sẵn trên máy dev |
-| `queue:work` | Chỉ khi `DIGITAL_PREVIEW_DISPATCH_SYNC=false` | **Nên chạy** (Supervisor) | Không |
-| Cron `schedule:run` | Tùy chọn | **Bắt buộc** | Hạn chế — dùng cron URL/hosting |
-| Upload PDF tối đa | Theo `DIGITAL_PDF_MAX_KB` | Theo env | **20 MB** (profile) |
+| Hạng mục | **local** (dev) | **vps** (production) |
+|----------|-----------------|----------------------|
+| `DEPLOY_PROFILE` | `local` | `vps` |
+| `APP_DEBUG` | `true` | `false` |
+| Redis | Có (khuyến nghị) | Có |
+| `CACHE_STORE` | `redis` | `redis` |
+| `SESSION_DRIVER` | `redis` hoặc `database` | `redis` / `database` |
+| `QUEUE_CONNECTION` | `redis` hoặc `database` | `redis` |
+| `DIGITAL_PREVIEW_DISPATCH_SYNC` | **`true`** | `true` *hoặc* `false`+worker |
+| Preview PDF trên host | Có (FPDI/qpdf/Poppler) | Có |
+| `queue:work` | Chỉ khi `DIGITAL_PREVIEW_DISPATCH_SYNC=false` | **Nên chạy** (Supervisor / Docker scheduler) |
+| Cron `schedule:run` | Tùy chọn | **Bắt buộc** |
+| Upload PDF tối đa | Theo `DIGITAL_PDF_MAX_KB` | Theo env |
 
 Logic profile: `app/Enums/DeployProfile.php`, `config/deploy.php`.
 
@@ -127,7 +127,7 @@ php artisan test tests/Feature/Backend/
 
 ---
 
-## 4. VPS — production
+## 4. VPS / Docker — production
 
 ### 4.1 `.env` gợi ý
 
@@ -148,10 +148,11 @@ DIGITAL_PREVIEW_DISPATCH_SYNC=true
 
 # Cách B — nhiều user, PDF lớn (khuyến nghị production):
 # DIGITAL_PREVIEW_DISPATCH_SYNC=false
-# + Supervisor chạy queue:work (xem 4.3)
+# + Supervisor hoặc container scheduler (xem 4.3)
 ```
 
-Cài trên server (nếu chưa có): **qpdf** hoặc **ghostscript**, **poppler-utils** (`pdftoppm`), tùy chọn **php-imagick**.
+Cài trên server (nếu chưa có): **qpdf** hoặc **ghostscript**, **poppler-utils** (`pdftoppm`), tùy chọn **php-imagick**.  
+Docker EC2: xem [`docs/deployment/docker.md`](deployment/docker.md).
 
 ### 4.2 Deploy / cập nhật code
 
@@ -185,6 +186,8 @@ redirect_stderr=true
 stdout_logfile=/var/www/utc-elibrary/storage/logs/queue.log
 ```
 
+Docker: service `scheduler` trong `docker-compose.yml` / `docker-compose.ec2.yml`.
+
 ### 4.4 Cron (bắt buộc)
 
 ```cron
@@ -199,57 +202,7 @@ Xem `docs/deployment/cloudflare-r2-media.md` — `MEDIA_DISK`, `DIGITAL_ASSETS_D
 
 ---
 
-## 5. InfinityFree — shared hosting
-
-### 5.1 Hạn chế hệ thống
-
-- Không Redis, không `queue:work` lâu, thường không `exec` (qpdf/Ghostscript/Imagick).
-- `DEPLOY_RUN_POST_UPLOAD_ON_HOST` = **tắt** qua profile → **không** tạo preview trên host.
-- Preview: tạo **trên máy dev/VPS**, upload file `preview.pdf` + thư mục PNG (hoặc chạy lệnh trước khi đóng gói).
-
-### 5.2 `.env` gợi ý
-
-```env
-DEPLOY_PROFILE=infinityfree
-APP_ENV=production
-APP_DEBUG=false
-
-CACHE_STORE=database
-SESSION_DRIVER=database
-QUEUE_CONNECTION=sync
-
-DIGITAL_PREVIEW_DISPATCH_SYNC=true
-```
-
-### 5.3 Đóng gói upload
-
-```bash
-bash scripts/prepare-infinityfree-deploy.sh
-# → file zip trong dist/
-```
-
-Trên máy dev **trước khi zip**, với sách đã có PDF:
-
-```bash
-php artisan digital-assets:regenerate-previews
-# hoặc --asset=ID
-```
-
-Upload zip lên host, giải nén, tạo `.env` trên server, trỏ document root vào `public/`.
-
-### 5.4 Sau khi sửa `.env` trên InfinityFree
-
-Qua SSH (nếu có) hoặc script deploy của host:
-
-```bash
-php artisan migrate --force
-php artisan optimize:clear
-php artisan config:cache
-```
-
----
-
-## 6. Xóa cache — khi nào & lệnh gì
+## 5. Xóa cache — khi nào & lệnh gì
 
 | Tình huống | Lệnh |
 |------------|------|
@@ -263,7 +216,7 @@ php artisan config:cache
 
 ---
 
-## 7. Tài liệu số & xem trước (tóm tắt)
+## 6. Tài liệu số & xem trước (tóm tắt)
 
 | Việc | Cách |
 |------|------|
@@ -276,19 +229,19 @@ php artisan config:cache
 
 ---
 
-## 8. Thông báo & cron nghiệp vụ
+## 7. Thông báo & cron nghiệp vụ
 
 - Chuông thông báo: API `GET /api/v1/me/notifications` (JWT + session).
 - Nộp đồ án → staff nhận digest «chờ duyệt»; duyệt/từ chối → độc giả nhận thông báo.
-- Cron: `php artisan schedule:run` mỗi phút (VPS).
+- Cron: `php artisan schedule:run` mỗi phút (VPS / Docker scheduler).
 
 ---
 
-## 9. Git — quy ước ngắn
+## 8. Git — quy ước ngắn
 
 ```bash
 git pull
-# … migrate, build, clear cache (mục 3–5)
+# … migrate, build, clear cache (mục 3–4)
 
 git add …
 git commit -m "feat(scope): mô tả ngắn"
@@ -299,7 +252,7 @@ Không commit `.env`, `.tmp/`, `vendor/`, `node_modules/`.
 
 ---
 
-## 10. Sự cố thường gặp
+## 9. Sự cố thường gặp
 
 | Triệu chứng | Nguyên nhân thường gặp | Xử lý |
 |-------------|------------------------|--------|
@@ -307,14 +260,15 @@ Không commit `.env`, `.tmp/`, `vendor/`, `node_modules/`.
 | Lưu sách 500, mô tả dài | Vượt giới hạn cột (đã LONGTEXT) | Rút gọn / chỉ dán tóm tắt; kiểm tra `migrate` |
 | API 401 sau login web | JWT/session | Đăng nhập lại; xem `Init` middleware |
 | 500 sau đổi `.env` | Config cache cũ | `php artisan config:clear` |
-| InfinityFree không preview | Profile tắt xử lý host | Tạo preview trên dev, upload file |
+| EC2 không mở web | Security Group / HTTPS nhầm | Mở port 80; dùng `http://IP`; xem `docs/deployment/docker.md` |
 
 ---
 
-## 11. Tài liệu liên quan
+## 10. Tài liệu liên quan
 
 - Nghiệp vụ: `docs/ai/context-utc-library.md`
 - R2 / media: `docs/deployment/cloudflare-r2-media.md`
+- Docker / EC2: `docs/deployment/docker.md`
 - Mẫu biến môi trường: `.env.example`
 - Quy tắc agent: `.cursor/rules/utc-elibrary-core.mdc`
 

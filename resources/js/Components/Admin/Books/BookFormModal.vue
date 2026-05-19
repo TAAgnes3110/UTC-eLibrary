@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineAsyncComponent, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
@@ -27,6 +27,7 @@ const props = defineProps({
     setCreateDigitalFile: { type: Function, default: () => () => {} },
     clearCreateDigitalFile: { type: Function, default: () => () => {} },
     saveLoading: { type: Boolean, default: false },
+    saveBlocked: { type: Boolean, default: false },
     fieldErrors: { type: Object, default: () => ({}) },
     clearFieldError: { type: Function, default: () => () => {} },
 });
@@ -134,12 +135,51 @@ function removeCreateDigitalFile() {
     resetFileInput(createDigitalFileInput.value);
     props.clearCreateDigitalFile();
 }
+
+function handleEscapeKey(event) {
+    if (event.key !== 'Escape' || !props.show) {
+        return;
+    }
+    if (props.saveLoading) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+    }
+    if (props.saveBlocked) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+}
+
+watch(
+    () => props.show && (props.saveBlocked || props.saveLoading),
+    (active) => {
+        if (typeof window === 'undefined') {
+            return;
+        }
+        if (active) {
+            window.addEventListener('keydown', handleEscapeKey, true);
+        } else {
+            window.removeEventListener('keydown', handleEscapeKey, true);
+        }
+    },
+    { immediate: true }
+);
+
+onBeforeUnmount(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('keydown', handleEscapeKey, true);
+    }
+});
 </script>
 
 <template>
     <Teleport to="body">
         <div v-if="show" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-slate-900/50" @click="emit('close')" />
+            <div
+                class="absolute inset-0 bg-slate-900/50"
+                @click="!saveLoading && !saveBlocked && emit('close')"
+            />
             <div
                 class="relative bg-white dark:bg-slate-900 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200 dark:border-slate-800"
             >
@@ -155,13 +195,22 @@ function removeCreateDigitalFile() {
                     </h3>
                     <button
                         type="button"
-                        class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                        class="p-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-40"
+                        :disabled="saveLoading"
                         @click="emit('close')"
                     >
                         <Icon icon="lucide:x" class="w-5 h-5" />
                     </button>
                 </div>
                 <div class="px-6 pb-6 pt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div
+                        v-if="saveBlocked"
+                        class="sm:col-span-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                    >
+                        <strong>Lưu/upload chưa xong.</strong>
+                        Form sẽ giữ mở — không chuyển trang / reload cho đến khi bạn sửa lỗi và bấm Lưu lại,
+                        hoặc xác nhận đóng form.
+                    </div>
                     <p v-if="fieldErrors.general" class="sm:col-span-2 text-xs text-red-500 font-medium">
                         {{ fieldErrors.general }}
                     </p>
@@ -472,6 +521,9 @@ function removeCreateDigitalFile() {
                                     Bỏ file
                                 </Button>
                             </div>
+                            <p v-if="fieldErrors.digital_file" class="mt-2 text-xs text-red-500 font-medium">
+                                {{ fieldErrors.digital_file }}
+                            </p>
                         </div>
                     </div>
                     <div class="sm:col-span-2 space-y-1.5">
@@ -500,8 +552,13 @@ function removeCreateDigitalFile() {
                 <div
                     class="px-6 py-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2 bg-slate-50/50 dark:bg-slate-800/30"
                 >
-                    <Button variant="outline" :disabled="saveLoading" @click="emit('close')">Hủy bỏ</Button>
-                    <Button class="bg-blue-600 hover:bg-blue-700 text-white" :disabled="saveLoading" @click="emit('save')">
+                    <Button type="button" variant="outline" :disabled="saveLoading" @click="emit('close')">Hủy bỏ</Button>
+                    <Button
+                        type="button"
+                        class="bg-blue-600 hover:bg-blue-700 text-white"
+                        :disabled="saveLoading"
+                        @click="emit('save')"
+                    >
                         {{ saveLoading ? 'Đang lưu…' : isEditing ? 'Cập nhật' : 'Lưu' }}
                     </Button>
                 </div>

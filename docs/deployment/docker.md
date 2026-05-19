@@ -98,7 +98,7 @@ docker compose exec app php artisan migrate --force
 
 Mở: **http://&lt;PUBLIC_IP&gt;**
 
-### 5. Import DB từ InfinityFree (Windows → EC2)
+### 5. Import DB (Windows → EC2)
 
 Trên Windows (đã có `backup.sql`):
 
@@ -143,7 +143,7 @@ AWS_URL=https://...
 docker compose exec app php artisan media:migrate-images
 ```
 
-## Import DB từ InfinityFree
+## Import DB từ backup
 
 ```bash
 # Trên máy có file backup.sql

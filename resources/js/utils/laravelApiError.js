@@ -32,6 +32,7 @@ export const BOOK_ERROR_DISPLAY_KEYS = new Set([
     'resource_type',
     'authors',
     'publisher',
+    'digital_file',
     'general',
 ]);
 
@@ -120,6 +121,9 @@ export const BOOK_FORM_FIELD_MAP = {
     book_code: 'book_code',
     summary: 'description',
     resource_type: 'resource_type',
+    file: 'digital_file',
+    authors: 'authors',
+    publisher: 'publisher',
 };
 
 export const WAREHOUSE_FORM_FIELD_MAP = {

@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { sanitizeHtml } from '@/utils/sanitizeHtml';
 
 const props = defineProps({
     html: { type: String, default: '' },
@@ -9,7 +10,9 @@ const props = defineProps({
 
 const rendered = computed(() => {
     const raw = String(props.html || '').trim();
-    if (raw) return raw;
+    if (raw) {
+        return sanitizeHtml(raw);
+    }
     return `<p class="text-slate-500">${props.emptyText}</p>`;
 });
 </script>

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { useImageFallback } from '@/composables/useImageFallback'
+import { sanitizeHtml } from '@/utils/sanitizeHtml'
 
 const props = defineProps({
     post: { type: Object, required: true },
@@ -20,6 +21,10 @@ const typePillClasses = computed(() =>
         : 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800/40 dark:bg-blue-950/30 dark:text-blue-200',
 )
 const relatedItems = computed(() => (Array.isArray(props.relatedNews) ? props.relatedNews : []))
+const sanitizedContent = computed(() => {
+    const raw = String(props.post?.content || '').trim()
+    return raw ? sanitizeHtml(raw) : '<p>Không có nội dung.</p>'
+})
 const DEFAULT_NEWS_COVER = '/images/default-news-cover.jpg'
 const { withFallback } = useImageFallback()
 
@@ -64,7 +69,7 @@ function toDate(value) {
                             class="prose prose-slate max-w-none text-[15px] leading-7 dark:prose-invert sm:text-[17px] sm:leading-8
                                    prose-headings:font-bold prose-p:my-4 prose-img:rounded-sm
                                    prose-a:text-blue-700 dark:prose-a:text-blue-300"
-                            v-html="post.content || '<p>Không có nội dung.</p>'"
+                            v-html="sanitizedContent"
                         />
                     </div>
                 </section>

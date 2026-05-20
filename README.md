@@ -28,11 +28,12 @@
 7. [API & Postman](#api--postman)
 8. [ERD cơ sở dữ liệu](#erd-cơ-sở-dữ-liệu)
 9. [Nghiệp vụ UTC (tóm tắt)](#nghiệp-vụ-utc-tóm-tắt)
-10. [Deploy EC2 (Docker)](#deploy-ec2-docker)
-11. [CI/CD](#cicd)
-12. [Biến môi trường](#biến-môi-trường)
-13. [Kiểm tra chất lượng](#kiểm-tra-chất-lượng)
-14. [Ghi chú bảo mật](#ghi-chú-bảo-mật)
+10. [AI / ECC (Cursor)](#ai--ecc-cursor)
+11. [Deploy EC2 (Docker)](#deploy-ec2-docker)
+12. [CI/CD](#cicd)
+13. [Biến môi trường](#biến-môi-trường)
+14. [Kiểm tra chất lượng](#kiểm-tra-chất-lượng)
+15. [Ghi chú bảo mật](#ghi-chú-bảo-mật)
 
 ---
 
@@ -328,6 +329,10 @@ UTC-eLibrary/
 ├── readme/assets/               # SVG ERD, kiến trúc, screenshot README
 │   ├── erd-*.svg
 │   └── screenshots/01-*.png …
+├── .cursor/                     # Rules, agents, skills, commands (ECC + UTC)
+├── docs/ai/                     # Ngữ cảnh nghiệp vụ & hướng dẫn ECC
+├── AGENTS.md                    # Hướng dẫn agent (Cursor / Codex)
+├── ecc-install.json             # Cấu hình cài ECC
 ├── UTC-eLibrary.postman_collection.json
 ├── docker-compose.ec2.yml
 └── Dockerfile.ec2
@@ -473,6 +478,27 @@ flowchart TB
 
 ---
 
+## AI / ECC (Cursor)
+
+Dự án dùng [Everything Claude Code (ECC)](https://github.com/affaan-m/ECC) cho rules, agents, skills và commands trong Cursor.
+
+| Tài liệu | Mô tả |
+|----------|--------|
+| `AGENTS.md` | Hướng dẫn agent tổng quan |
+| `docs/ai/context-utc-library.md` | Nghiệp vụ UTC (mượn/trả, thẻ, tài liệu số) |
+| `docs/ai/ecc/README.md` | Cách cập nhật ECC từ upstream |
+| `.cursor/rules/utc-elibrary-core.mdc` | Rule cốt lõi (luôn bật) |
+
+Cập nhật ECC sau khi clone upstream vào `.tmp/ecc-upstream`:
+
+```bash
+node .tmp/ecc-upstream/scripts/install-apply.js --config ecc-install.json
+```
+
+Hooks ECC (nếu bật): có thể giảm mức bằng biến môi trường `ECC_HOOK_PROFILE=minimal`.
+
+---
+
 ## Deploy EC2 (Docker)
 
 Trên server (ví dụ `~/utc-elibrary`):
@@ -542,6 +568,9 @@ File: `.github/workflows/deploy-ec2.yml`
 | `REDIS_*` | Cache / queue |
 | `SANCTUM_STATEFUL_DOMAINS` | Host SPA (session) |
 | `API_ALLOWED_DOMAINS` | Domain cho JWT |
+| `API_HIDE_BROWSER_ACCESS` | `true` production — chặn mở `/api/*` trên trình duyệt |
+| `API_MINIMAL_HEALTH` | `true` production — health không lộ chi tiết DB |
+| `SECURITY_HEADERS` | Bật CSP, X-Frame-Options, … |
 | `DIGITAL_ASSETS_DISK` | `local` hoặc `s3` / R2 |
 | `DIGITAL_PREVIEW_DISPATCH_SYNC` | `true` khi dev không chạy queue |
 | `NOTIFICATION_UI_POLL_INTERVAL_MS` | Poll UI thông báo (ms), mặc định `30000` |
@@ -557,6 +586,9 @@ SESSION_SECURE_COOKIE=false
 SESSION_DOMAIN=
 SANCTUM_STATEFUL_DOMAINS=<IP-EC2>,localhost,127.0.0.1
 API_ALLOWED_DOMAINS=http://<IP-EC2>,<IP-EC2>
+API_HIDE_BROWSER_ACCESS=true
+API_MINIMAL_HEALTH=true
+SECURITY_HEADERS=true
 DIGITAL_PREVIEW_DISPATCH_SYNC=true
 QUEUE_CONNECTION=redis
 NOTIFICATION_UI_POLL_INTERVAL_MS=30000
@@ -592,6 +624,9 @@ php scripts/generate-postman-collection.php
 - Không log PII / mật khẩu.
 - PDF tài liệu số: không lộ URL public khi disk `local`.
 - `resource_type`: `textbook` | `reference` | `digital`.
+- **Production:** `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=true` (HTTPS), `API_ALLOWED_DOMAINS` ghi đúng domain, `API_HIDE_BROWSER_ACCESS=true` (ẩn `/api/*` khi mở trực tiếp trên trình duyệt).
+- Header: CSP, `X-Frame-Options`, CSRF (web + Sanctum SPA), rate limit (`auth`/`api`/`refresh`).
+- Tin tức HTML: lọc XSS server (`SafeHtml`) + client (`DOMPurify` trước `v-html`).
 
 ---
 

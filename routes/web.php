@@ -61,7 +61,7 @@ Route::prefix('dich-vu')->name('reader.services.')->group(function () {
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
-    Route::post('login', [BackendAuthController::class, 'login']);
+    Route::post('login', [BackendAuthController::class, 'login'])->middleware('throttle:auth');
     Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
     Route::get('verify-otp', [RegisteredUserController::class, 'verifyOtpPage'])->name('verify-otp');
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');

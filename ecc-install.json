@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/affaan-m/ECC/main/schemas/ecc-install.schema.json",
+  "target": "cursor",
+  "profile": null,
+  "modules": ["rules-core", "agents-core", "commands-core"],
+  "with": ["framework:laravel"],
+  "without": ["baseline:hooks", "baseline:workflow"],
+  "skills": [
+    "search-first",
+    "laravel-patterns",
+    "laravel-security",
+    "laravel-tdd",
+    "laravel-verification",
+    "e2e-testing",
+    "tdd-workflow",
+    "verification-loop",
+    "frontend-patterns",
+    "ui-to-vue",
+    "documentation-lookup",
+    "utc-elibrary"
+  ],
+  "languages": ["php", "typescript"],
+  "notes": "UTC-eLibrary: sau khi chạy installer, giữ rules common+php+typescript và skills đã lọc trong docs/ai/ecc/README.md"
+}

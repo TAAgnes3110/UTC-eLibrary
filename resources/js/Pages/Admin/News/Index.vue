@@ -19,6 +19,7 @@ import { newsPostsApi } from '@/api/newsPosts';
 import { extractApiPaginator } from '@/utils/adminPagination';
 import { useImageFallback } from '@/composables/useImageFallback';
 import { resetFileInput } from '@/utils/resetFileInput';
+import { sanitizeHtml } from '@/utils/sanitizeHtml';
 
 const rows = ref([]);
 const loading = ref(false);
@@ -35,6 +36,10 @@ const showRowThumbnailPreviewModal = ref(false);
 const rowThumbnailPreview = ref(null);
 const rowToDelete = ref(null);
 const detailRow = ref(null);
+const detailSanitizedHtml = computed(() => {
+    const raw = String(detailRow.value?.content || '').trim();
+    return raw ? sanitizeHtml(raw) : '<p>Không có nội dung.</p>';
+});
 const selectedIds = ref([]);
 const pagination = ref({ current_page: 1, last_page: 1, per_page: 15, total: 0 });
 const showFilterPanel = ref(false);
@@ -894,7 +899,7 @@ async function onInlineImageSelected(event) {
                                 Ngày đăng: {{ detailRow.published_at ? new Date(detailRow.published_at).toLocaleString('vi-VN') : '—' }}
                             </p>
                         </div>
-                        <div class="prose prose-sm max-w-none dark:prose-invert prose-img:rounded-md" v-html="detailRow.content || '<p>Không có nội dung.</p>'"></div>
+                        <div class="prose prose-sm max-w-none dark:prose-invert prose-img:rounded-md" v-html="detailSanitizedHtml"></div>
                     </div>
                 </div>
             </div>

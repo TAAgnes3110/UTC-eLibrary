@@ -72,6 +72,12 @@ Route::get('health', function () {
         $ok = $ok && $checks['redis'] === true;
     }
 
+    if (config('security.api.minimal_health', false)) {
+        return response()->json([
+            'status' => $ok ? 'ok' : 'degraded',
+        ], $ok ? 200 : 503);
+    }
+
     return response()->json([
         'status' => $ok ? 'ok' : 'degraded',
         'checks' => $checks,

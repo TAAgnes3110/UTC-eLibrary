@@ -3,9 +3,19 @@
 namespace App\Http\Requests;
 
 use App\Models\NewsPost;
+use App\Support\SafeHtml;
 
 class NewsPostRequest extends BaseRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('content')) {
+            $this->merge([
+                'content' => SafeHtml::sanitize($this->input('content')),
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         $statuses = implode(',', NewsPost::statuses());

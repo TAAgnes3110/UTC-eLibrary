@@ -5,6 +5,8 @@ use App\Http\Middleware\CheckRoleOrPermission;
 use App\Http\Middleware\EnsureFrontendRequestsAreStateful;
 use App\Http\Middleware\Init;
 use App\Http\Middleware\LogApiRequests;
+use App\Http\Middleware\RestrictApiBrowserAccess;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\QueryException;
@@ -32,6 +34,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'init' => Init::class,
             'role_or_permission' => CheckRoleOrPermission::class,
             'log.api' => LogApiRequests::class,
+        ]);
+        $middleware->append(SecurityHeaders::class);
+        $middleware->api(prepend: [
+            RestrictApiBrowserAccess::class,
         ]);
         $middleware->api(append: [
             'throttle:api',

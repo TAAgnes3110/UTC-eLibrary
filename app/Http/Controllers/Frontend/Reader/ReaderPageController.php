@@ -67,7 +67,7 @@ class ReaderPageController extends Controller
             'id' => $post->id,
             'slug' => $post->slug,
             'title' => $post->title,
-            'content' => $post->content,
+            'content' => FileHelpers::rewriteAbsoluteMediaUrlsInHtml((string) $post->content),
             'excerpt' => mb_substr($plainText, 0, 240),
             'type' => $post->type,
             'thumbnail_url' => $post->thumbnail_path

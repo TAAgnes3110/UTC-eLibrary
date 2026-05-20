@@ -238,6 +238,67 @@ final class FileHelpers
         return $storage->url((string) $path);
     }
 
+    /**
+     * URL media trên public disk — dùng đường dẫn gốc (/upload/...) để không phụ thuộc APP_URL.
+     */
+    public static function rootRelativeMediaUrl(?string $path, ?string $disk = null): ?string
+    {
+        if ($path === null || trim($path) === '') {
+            return null;
+        }
+
+        $normalizedPath = ltrim(trim($path), '/');
+        $disk = $disk ?? self::mediaDisk();
+        $driver = (string) config("filesystems.disks.{$disk}.driver", 'local');
+
+        if ($driver === 'local' && $disk === 'public') {
+            return '/'.$normalizedPath;
+        }
+
+        return self::absoluteMediaUrl($normalizedPath, $disk);
+    }
+
+    public static function absoluteMediaUrl(?string $path, ?string $disk = null): ?string
+    {
+        if ($path === null || trim($path) === '') {
+            return null;
+        }
+
+        /** @var FilesystemAdapter $storage */
+        $storage = Storage::disk($disk ?? self::mediaDisk());
+
+        return $storage->url(ltrim(trim($path), '/'));
+    }
+
+    /**
+     * Sửa link media cũ bị ghi cứng localhost/APP_URL trong HTML tin tức.
+     */
+    public static function rewriteAbsoluteMediaUrlsInHtml(string $html): string
+    {
+        if ($html === '') {
+            return $html;
+        }
+
+        $rewritten = preg_replace_callback(
+            '/\b(href|src)=("|\')(https?:\/\/[^"\']+)(\2)/i',
+            static function (array $matches): string {
+                $path = parse_url($matches[3], PHP_URL_PATH);
+                if (! is_string($path) || $path === '') {
+                    return $matches[0];
+                }
+
+                if (! preg_match('#^/(upload|storage|images|utc-elibrary)/#', $path)) {
+                    return $matches[0];
+                }
+
+                return $matches[1].'='.$matches[2].$path.$matches[2];
+            },
+            $html
+        );
+
+        return is_string($rewritten) ? $rewritten : $html;
+    }
+
     public static function mediaDefaultUrl(string $key): ?string
     {
         $value = config("media.defaults.{$key}");

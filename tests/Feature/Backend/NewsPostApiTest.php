@@ -185,4 +185,53 @@ class NewsPostApiTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['attachments']);
     }
+
+    public function test_news_attachment_links_use_root_relative_urls(): void
+    {
+        config([
+            'app.url' => 'http://localhost:8000',
+            'filesystems.media_disk' => 'public',
+        ]);
+        Storage::fake('public');
+        [, $adminToken] = $this->createAdminUserAndToken();
+
+        $response = $this->post('/api/v1/news-posts', [
+            'title' => 'Tin có đính kèm',
+            'content' => 'Nội dung',
+            'status' => NewsPost::STATUS_ACTIVE,
+            'attachments' => [UploadedFile::fake()->create('notice.pdf', 200, 'application/pdf')],
+        ], $this->apiTokenHeaders($adminToken));
+
+        $response->assertCreated();
+        $content = (string) $response->json('data.content');
+        $this->assertStringNotContainsString('localhost:8000', $content);
+        $this->assertStringContainsString('href="/utc-elibrary/', $content);
+    }
+
+    public function test_public_news_rewrites_legacy_localhost_attachment_links(): void
+    {
+        Storage::fake($this->mediaDisk());
+        [, $adminToken] = $this->createAdminUserAndToken();
+
+        $create = $this->post('/api/v1/news-posts', [
+            'title' => 'Tin cũ có link localhost',
+            'content' => 'Nội dung',
+            'status' => NewsPost::STATUS_ACTIVE,
+            'attachments' => [UploadedFile::fake()->create('legacy.pdf', 120, 'application/pdf')],
+        ], $this->apiTokenHeaders($adminToken));
+        $create->assertCreated();
+
+        $post = NewsPost::query()->latest('id')->firstOrFail();
+        $post->update([
+            'content' => '<p>Nội dung</p><p><a href="http://localhost:8000/upload/news/attachments/legacy.pdf">legacy.pdf</a></p>',
+        ]);
+
+        $slug = (string) $post->slug;
+        $publicShow = $this->getJson("/api/v1/news-posts/{$slug}");
+        $publicShow->assertOk();
+
+        $content = (string) $publicShow->json('data.content');
+        $this->assertStringNotContainsString('localhost:8000', $content);
+        $this->assertStringContainsString('href="/upload/news/attachments/legacy.pdf"', $content);
+    }
 }

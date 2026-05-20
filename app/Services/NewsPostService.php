@@ -10,7 +10,6 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class NewsPostService
@@ -443,9 +442,7 @@ class NewsPostService
         $itemsHtml = '';
         foreach ($post->attachments as $attachment) {
             $disk = (string) ($attachment->storage_disk ?: $this->mediaDisk());
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
-            $storage = Storage::disk($disk);
-            $url = $storage->url((string) $attachment->file_path);
+            $url = FileHelpers::rootRelativeMediaUrl((string) $attachment->file_path, $disk) ?? '#';
             $name = e((string) $attachment->original_name);
             $itemsHtml .= "<li><a href=\"{$url}\" target=\"_blank\" rel=\"noopener noreferrer\">{$name}</a></li>";
         }

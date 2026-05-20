@@ -10,6 +10,8 @@ use App\Http\Requests\NewsPostRequest;
 use App\Http\Resources\NewsPostListResource;
 use App\Models\NewsPost;
 use App\Services\NewsPostService;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -136,7 +138,7 @@ class NewsPostController extends Controller
         $path = $this->newsPostService->uploadContentImage($validated['image']);
 
         $disk = (string) config('filesystems.media_disk', 'public');
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+        /** @var FilesystemAdapter $storage */
         $storage = Storage::disk($disk);
 
         return ApiResponse::success([
@@ -196,14 +198,14 @@ class NewsPostController extends Controller
         }
 
         $mediaDisk = (string) config('filesystems.media_disk', 'public');
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        /** @var FilesystemAdapter $mediaStorage */
         $mediaStorage = Storage::disk($mediaDisk);
 
         return [
             'id' => $post->id,
             'slug' => $post->slug,
             'title' => $post->title,
-            'content' => $post->content,
+            'content' => FileHelpers::rewriteAbsoluteMediaUrlsInHtml((string) $post->content),
             'status' => $post->status,
             'type' => $post->type,
             'thumbnail_path' => $post->thumbnail_path,
@@ -222,7 +224,7 @@ class NewsPostController extends Controller
         ];
     }
 
-    private function listPayload(\Illuminate\Contracts\Pagination\LengthAwarePaginator $items): array
+    private function listPayload(LengthAwarePaginator $items): array
     {
         return [
             'data' => NewsPostListResource::collection($items->items())->resolve(),

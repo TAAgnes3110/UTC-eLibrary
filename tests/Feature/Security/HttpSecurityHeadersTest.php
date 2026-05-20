@@ -20,6 +20,7 @@ class HttpSecurityHeadersTest extends TestCase
         $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
         $this->assertNotEmpty($response->headers->get('Content-Security-Policy'));
+        $this->assertStringContainsString('api.iconify.design', (string) $response->headers->get('Content-Security-Policy'));
     }
 
     #[Test]

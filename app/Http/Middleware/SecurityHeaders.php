@@ -44,6 +44,8 @@ class SecurityHeaders
             return "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
         }
 
+        $connectSrc = array_merge(["'self'"], config('security.headers.csp_connect_src', []));
+
         $directives = [
             "default-src 'self'",
             "base-uri 'self'",
@@ -54,7 +56,7 @@ class SecurityHeaders
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
-            "connect-src 'self'",
+            'connect-src '.implode(' ', $connectSrc),
             "media-src 'self' blob:",
         ];
 

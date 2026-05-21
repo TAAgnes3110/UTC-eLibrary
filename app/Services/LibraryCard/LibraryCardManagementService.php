@@ -80,8 +80,9 @@ class LibraryCardManagementService
 
         if ($managementListOnly) {
             $query->whereIn('workflow_status', [
-                LibraryCard::WORKFLOW_ACTIVE,
+                LibraryCard::WORKFLOW_PENDING_PAYMENT,
                 LibraryCard::WORKFLOW_PENDING_PICKUP,
+                LibraryCard::WORKFLOW_ACTIVE,
             ]);
         }
 
@@ -147,7 +148,6 @@ class LibraryCardManagementService
 
         $allowedWorkflows = [
             LibraryCard::WORKFLOW_ACTIVE,
-            LibraryCard::WORKFLOW_PENDING_PICKUP,
         ];
 
         if (! in_array((string) $card->workflow_status, $allowedWorkflows, true)) {
@@ -297,7 +297,6 @@ class LibraryCardManagementService
         'holder_type',
         'card_number',
         'notes',
-        'workflow_status',
         'issue_date',
         'expiry_date',
         'revoked_at',
@@ -379,7 +378,8 @@ class LibraryCardManagementService
     }
 
     /**
-     * Duyệt hồ sơ chờ xác nhận → thẻ hoạt động (không qua thanh toán trực tuyến).
+     * Duyệt hồ sơ chờ xác nhận → chờ thanh toán (chưa thu phí) hoặc chờ lấy thẻ (đã thu phí / cấp tại quầy).
+     * Chưa ghi ngày hiệu lực — kích hoạt khi {@see confirmPickupAndActivate()}.
      */
     public function approvePendingReviewAndActivate(LibraryCard $card, ?User $reviewer): LibraryCard
     {
@@ -391,19 +391,52 @@ class LibraryCardManagementService
                 ]);
             }
 
-            $today = Carbon::today();
-            $params = $card->params ?? [];
-            unset($params['payment_notice_sent_at'], $params['payment_due_at']);
+            $card->loadMissing('payment');
 
+            if ($this->cardHasRecordedPayment($card)) {
+                $card->workflow_status = LibraryCard::WORKFLOW_PENDING_PICKUP;
+                $card->status = LibraryCardStatus::PENDING;
+                $card->issue_date = null;
+                $card->expiry_date = null;
+                $params = $card->params ?? [];
+                unset($params['payment_notice_sent_at'], $params['payment_due_at']);
+                $card->params = $params;
+
+                if ($reviewer !== null) {
+                    $card->reviewed_by = $reviewer->id;
+                    $card->reviewed_at = now();
+                }
+
+                $card->save();
+
+                return $card->fresh();
+            }
+
+            return $this->markPendingPaymentAfterPaymentNotice($card, Carbon::now(), $reviewer);
+        });
+    }
+
+    /**
+     * Thủ thư xác nhận bạn đọc đã nhận thẻ vật lý → kích hoạt (workflow active, ngày hiệu lực 1 năm).
+     */
+    public function confirmPickupAndActivate(LibraryCard $card, ?User $staff): LibraryCard
+    {
+        return DB::transaction(function () use ($card, $staff) {
+            $card = LibraryCard::query()->whereKey($card->getKey())->lockForUpdate()->firstOrFail();
+            if ($card->workflow_status !== LibraryCard::WORKFLOW_PENDING_PICKUP) {
+                throw ValidationException::withMessages([
+                    'workflow_status' => [__('Chỉ xác nhận khi hồ sơ đang chờ lấy thẻ.')],
+                ]);
+            }
+
+            $today = Carbon::today();
             $card->workflow_status = LibraryCard::WORKFLOW_ACTIVE;
             $card->status = LibraryCardStatus::ACTIVE;
             $card->issue_date = $today;
             $card->expiry_date = $today->copy()->addYear();
-            $card->params = $params;
 
-            if ($reviewer !== null) {
-                $card->reviewed_by = $reviewer->id;
-                $card->reviewed_at = now();
+            if ($staff !== null) {
+                $card->issued_by = $staff->id;
             }
 
             $card->save();
@@ -450,6 +483,9 @@ class LibraryCardManagementService
             $params['payment_due_at'] = $noticeSentAt->copy()->addDays(self::PAYMENT_DUE_DAYS)->toIso8601String();
 
             $card->workflow_status = LibraryCard::WORKFLOW_PENDING_PAYMENT;
+            $card->status = LibraryCardStatus::PENDING;
+            $card->issue_date = null;
+            $card->expiry_date = null;
             $card->params = $params;
 
             if ($reviewer !== null) {
@@ -471,6 +507,7 @@ class LibraryCardManagementService
     public function updateLibraryCard(LibraryCard $card, array $data): LibraryCard
     {
         return DB::transaction(function () use ($card, $data) {
+            unset($data['workflow_status']);
             $card = $card->fresh();
             $allowed = array_flip(self::UPDATABLE_ATTRIBUTES);
 
@@ -500,9 +537,15 @@ class LibraryCardManagementService
                 $card->period_id = null;
                 $card->class_code = null;
             }
+            if ($ht === LibraryCard::HOLDER_TYPE_TEACHER) {
+                $card->period_id = null;
+                $card->class_code = null;
+            }
             if (in_array($ht, [LibraryCard::HOLDER_TYPE_STUDENT, LibraryCard::HOLDER_TYPE_TEACHER], true)) {
                 $card->external_organization = null;
             }
+
+            $this->syncWorkflowAndCardStatus($card);
 
             $card->save();
 
@@ -555,23 +598,14 @@ class LibraryCardManagementService
 
     public function setWorkflowStatus(LibraryCard $card, string $workflowStatus): LibraryCard
     {
-        $allowed = [
-            LibraryCard::WORKFLOW_DRAFT,
-            LibraryCard::WORKFLOW_PENDING_PAYMENT,
-            LibraryCard::WORKFLOW_PENDING_REVIEW,
-            LibraryCard::WORKFLOW_PENDING_PICKUP,
-            LibraryCard::WORKFLOW_ACTIVE,
-            LibraryCard::WORKFLOW_REJECTED,
-            LibraryCard::WORKFLOW_CANCELLED,
-            LibraryCard::WORKFLOW_EXPIRED,
-            LibraryCard::WORKFLOW_REVOKED,
-        ];
-        if (! in_array($workflowStatus, $allowed, true)) {
+        $normalized = LibraryCard::normalizeWorkflowStatus($workflowStatus);
+        if (! in_array($normalized, LibraryCard::workflowValues(), true)) {
             throw ValidationException::withMessages([
                 'workflow_status' => [__('Trạng thái quy trình không hợp lệ.')],
             ]);
         }
-        $card->workflow_status = $workflowStatus;
+        $card->workflow_status = $normalized;
+        $this->syncWorkflowAndCardStatus($card);
         $card->save();
 
         return $this->returnAfterRejectedOrCancelledTrash($card);
@@ -606,6 +640,125 @@ class LibraryCardManagementService
                 'user_id' => [__('Người dùng đã có hồ sơ thẻ trong hệ thống.')],
             ]);
         }
+    }
+
+    /**
+     * Cấp thẻ tại quầy (đã thu phí): chờ lấy thẻ — chưa ghi hiệu lực cho đến khi xác nhận giao thẻ.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function applyPaidAtCounterPendingPickup(array $payload): array
+    {
+        $payload['workflow_status'] = LibraryCard::WORKFLOW_PENDING_PICKUP;
+        $payload['status'] = LibraryCardStatus::PENDING;
+        $payload['issue_date'] = null;
+        $payload['expiry_date'] = null;
+
+        return $payload;
+    }
+
+    /**
+     * Đồng bộ trạng thái thẻ (Hoạt động/Chờ/…) với bước quy trình — tránh lệch như « Hoạt động » + « Chờ lấy thẻ ».
+     */
+    private function syncWorkflowAndCardStatus(LibraryCard $card): void
+    {
+        $rawWs = $card->workflow_status;
+        $rawWs = $rawWs instanceof \BackedEnum ? $rawWs->value : (string) $rawWs;
+        $ws = LibraryCard::normalizeWorkflowStatus($rawWs);
+        if ($ws !== $rawWs) {
+            $card->workflow_status = $ws;
+        }
+        $status = $card->status instanceof LibraryCardStatus
+            ? $card->status
+            : LibraryCardStatus::tryFrom((int) $card->status);
+
+        if ($ws === LibraryCard::WORKFLOW_ACTIVE) {
+            if ($status !== LibraryCardStatus::LOCKED) {
+                $card->status = LibraryCardStatus::ACTIVE;
+            }
+            if ($card->issue_date === null || $card->expiry_date === null) {
+                $today = Carbon::today();
+                if ($card->issue_date === null) {
+                    $card->issue_date = $today;
+                }
+                if ($card->expiry_date === null) {
+                    $card->expiry_date = $today->copy()->addYear();
+                }
+            }
+
+            return;
+        }
+
+        if (in_array($ws, [
+            LibraryCard::WORKFLOW_PENDING_REVIEW,
+            LibraryCard::WORKFLOW_PENDING_PAYMENT,
+            LibraryCard::WORKFLOW_PENDING_PICKUP,
+        ], true)) {
+            if ($status !== LibraryCardStatus::LOCKED) {
+                $card->status = LibraryCardStatus::PENDING;
+            }
+            $card->issue_date = null;
+            $card->expiry_date = null;
+        }
+    }
+
+    private function cardHasRecordedPayment(LibraryCard $card): bool
+    {
+        $payment = $card->relationLoaded('payment') ? $card->payment : $card->payment()->first();
+        if ($payment !== null && (string) $payment->payment_status === LibraryCard::PAYMENT_PAID) {
+            return true;
+        }
+
+        return (bool) data_get($card->params, 'counter_registration.paid_at_counter');
+    }
+
+    /**
+     * Đồng bộ hồ sơ tài khoản bạn đọc theo dữ liệu cấp thẻ tại quầy (đổi loại thẻ / khoa / lớp…).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function syncLinkedUserFromStaffCounterIssue(User $user, string $holderType, array $data): User
+    {
+        $role = match ($holderType) {
+            LibraryCard::HOLDER_TYPE_STUDENT => RoleType::STUDENT,
+            LibraryCard::HOLDER_TYPE_TEACHER => RoleType::TEACHER,
+            default => RoleType::MEMBER,
+        };
+
+        $updates = [
+            'name' => trim((string) ($data['full_name'] ?? $user->name)),
+            'email' => trim((string) ($data['email'] ?? $user->email)),
+            'phone' => trim((string) ($data['phone'] ?? $user->phone)),
+            'address' => trim((string) ($data['address'] ?? $user->address ?? '')),
+            'user_type' => $role,
+        ];
+
+        if (Helpers::filled($data['date_of_birth'] ?? null)) {
+            $updates['date_of_birth'] = $data['date_of_birth'];
+        }
+
+        if ($role === RoleType::STUDENT) {
+            $aff = StudentTeacherRegistrationHelper::assertAndExtractStudentAffiliation($data);
+            $updates['faculty_id'] = $aff['faculty_id'];
+            $updates['period_id'] = $aff['period_id'];
+            $updates['class_code'] = $aff['class_code'];
+            $updates['department_id'] = StudentTeacherRegistrationHelper::optionalDepartmentId($data);
+        } elseif ($role === RoleType::TEACHER) {
+            $updates['faculty_id'] = StudentTeacherRegistrationHelper::assertAndExtractTeacherFacultyId($data);
+            $updates['period_id'] = null;
+            $updates['class_code'] = null;
+            $updates['department_id'] = StudentTeacherRegistrationHelper::optionalDepartmentId($data);
+        } else {
+            $updates['faculty_id'] = null;
+            $updates['period_id'] = null;
+            $updates['class_code'] = null;
+            $updates['department_id'] = null;
+        }
+
+        $user->update($updates);
+
+        return $user->fresh();
     }
 
     /**

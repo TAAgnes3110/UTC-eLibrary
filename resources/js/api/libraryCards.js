@@ -59,6 +59,9 @@ export const libraryCardsApi = {
     approveReview(id) {
         return client.post(`/library-cards/${id}/approve-review`).then((r) => r.data);
     },
+    confirmPickup(id) {
+        return client.post(`/library-cards/${id}/confirm-pickup`).then((r) => r.data);
+    },
     rejectReview(id, payload = {}) {
         return client.post(`/library-cards/${id}/reject-review`, payload).then((r) => r.data);
     },

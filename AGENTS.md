@@ -7,6 +7,7 @@ Dự án thư viện số **Đại học Giao thông Vận tải (UTC)**. Stack:
 1. `docs/ai/context-utc-library.md` — nghiệp vụ mượn/trả, thẻ, tài liệu số
 2. `.cursor/rules/utc-elibrary-core.mdc` — quy tắc cốt lõi (luôn áp dụng)
 3. Skill `.cursor/skills/utc-elibrary/SKILL.md` — search-first trong repo
+4. `docs/ai/uml-usecase-activity-chuan.md` — chuẩn UML use case / activity / đồ án (khi vẽ biểu đồ)
 
 ## ECC (Everything Claude Code)
 

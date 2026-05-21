@@ -7,6 +7,7 @@ import { libraryCardsApi } from '@/api/libraryCards'
 import { extractLaravelValidationErrors } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
+import { workflowLabel as workflowStatusLabel, statusLabel } from '@/config/libraryCardUi'
 
 const props = defineProps({
     auth_required: { type: Boolean, default: false },
@@ -108,24 +109,32 @@ const canCancelCardRequest = computed(() => {
     return ws === 'pending_review' || ws === 'pending_payment'
 })
 
-const workflowLabel = computed(() => {
-    const v = props.card?.workflow_status
-    if (v === 'pending_review') return 'Chờ duyệt'
-    if (v === 'pending_pickup') return 'Chờ lấy thẻ'
-    if (v === 'active') return 'Đang hoạt động'
-    if (v === 'rejected') return 'Đã từ chối'
-    if (v === 'pending_payment') return 'Chờ thanh toán'
-    return v || '—'
-})
+const workflowDisplay = computed(() => workflowStatusLabel(props.card?.workflow_status))
 
 const cardStatusLabel = computed(() => {
-    const v = Number(props.card?.status)
-    if (v === 1) return 'Hoạt động'
-    if (v === 2) return 'Hết hạn'
-    if (v === 3) return 'Khóa'
-    if (v === 4) return 'Chờ xử lý'
-    return '—'
+    const ws = props.card?.workflow_status
+    if (ws && ws !== 'active') {
+        return workflowStatusLabel(ws)
+    }
+    return statusLabel(props.card?.status)
 })
+
+function validityDisplay(card) {
+    const ws = card?.workflow_status
+    if (ws === 'active') {
+        if (card?.issue_date && card?.expiry_date) {
+            return `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}`
+        }
+        return 'Chưa ghi ngày hiệu lực — liên hệ thủ thư để xác nhận đã giao thẻ'
+    }
+    if (ws === 'pending_pickup') return 'Chờ nhận thẻ tại quầy (chưa có ngày hiệu lực)'
+    if (ws === 'pending_payment') return 'Chờ thanh toán lệ phí'
+    if (ws === 'pending_review') return 'Chờ duyệt hồ sơ'
+    if (card?.issue_date || card?.expiry_date) {
+        return `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}`
+    }
+    return '—'
+}
 const cardOwnerName = computed(() => String(props.card?.full_name || profileName.value || 'Bạn đọc'))
 const cardPhotoUrl = computed(() => props.card?.photo_url || state.avatarPreview || null)
 const cardHolderType = computed(() => String(props.card?.holder_type || '').trim().toLowerCase())
@@ -157,9 +166,9 @@ const cardDetailItems = computed(() => {
 
     items.push(
         { label: 'Trạng thái', value: cardStatusLabel.value },
-        { label: 'Quy trình', value: workflowLabel.value },
+        { label: 'Quy trình', value: workflowDisplay.value },
         { label: 'Ngày gửi yêu cầu', value: formatDateTime(card.created_at) },
-        { label: 'Hiệu lực', value: `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}` },
+        { label: 'Hiệu lực', value: validityDisplay(card) },
     )
 
     return items

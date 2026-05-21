@@ -9,6 +9,7 @@ use App\Models\Faculty;
 use App\Models\LibraryCard;
 use App\Models\Period;
 use App\Models\User;
+use App\Services\LibraryCard\LibraryCardManagementService;
 use App\Services\LibraryCard\LibraryCardService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
@@ -20,7 +21,7 @@ class LibraryCardApproveForPaymentTest extends TestCase
     use ActsAsApiUser;
     use RefreshDatabase;
 
-    public function test_librarian_approve_activates_card_and_sends_pickup_reminder_mail(): void
+    public function test_librarian_approve_without_payment_sets_pending_payment(): void
     {
         Mail::fake();
 
@@ -52,15 +53,96 @@ class LibraryCardApproveForPaymentTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonPath('status', 'success');
 
+        Mail::assertNothingSent();
+
+        $card->refresh();
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_PAYMENT, $card->workflow_status);
+        $this->assertSame(LibraryCardStatus::PENDING, $card->status);
+        $this->assertNull($card->issue_date);
+        $this->assertNull($card->expiry_date);
+        $this->assertNotEmpty(data_get($card->params, 'payment_due_at'));
+        $this->assertSame($librarian->id, $card->reviewed_by);
+    }
+
+    public function test_librarian_approve_with_payment_sets_pending_pickup_and_sends_mail(): void
+    {
+        Mail::fake();
+
+        $faculty = Faculty::query()->create(['code' => 'FAP', 'name' => 'AP', 'is_active' => true]);
+        $period = Period::query()->create(['code' => 'PAP', 'name' => 'PAP', 'is_active' => true]);
+        $reader = User::factory()->create([
+            'user_type' => RoleType::STUDENT,
+            'avatar' => 'avatars/paid.jpg',
+            'email' => 'reader-paid@example.com',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'LP',
+        ]);
+
+        $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'LP',
+        ]);
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_REVIEW, $card->workflow_status);
+
+        app(LibraryCardManagementService::class)->recordWalkInPayment($card->fresh(), [
+            'payment_amount' => 50_000,
+            'payment_method' => 'cash',
+            'receipt_number' => 'RC-AP',
+        ]);
+
+        [, $token] = $this->createLibrarianUserAndToken();
+
+        $this->postJson(
+            "/api/v1/library-cards/{$card->id}/approve-review",
+            [],
+            $this->apiTokenHeaders($token)
+        )->assertStatus(200);
+
         Mail::assertSent(LibraryCardPickupReminderMail::class);
+
+        $card->refresh();
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_PICKUP, $card->workflow_status);
+        $this->assertSame(LibraryCardStatus::PENDING, $card->status);
+        $this->assertNull($card->issue_date);
+    }
+
+    public function test_librarian_confirm_pickup_activates_card(): void
+    {
+        $faculty = Faculty::query()->create(['code' => 'FCP', 'name' => 'CP', 'is_active' => true]);
+        $period = Period::query()->create(['code' => 'PCP', 'name' => 'PCP', 'is_active' => true]);
+        $reader = User::factory()->create([
+            'user_type' => RoleType::STUDENT,
+            'avatar' => 'avatars/cp.jpg',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'CP1',
+        ]);
+
+        $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'CP1',
+            'paid_at_counter' => true,
+            'payment_amount' => 50_000,
+            'payment_method' => 'cash',
+        ]);
+        $card->update(['workflow_status' => LibraryCard::WORKFLOW_PENDING_PICKUP]);
+
+        [, $token] = $this->createLibrarianUserAndToken();
+
+        $this->postJson(
+            "/api/v1/library-cards/{$card->id}/confirm-pickup",
+            [],
+            $this->apiTokenHeaders($token)
+        )->assertStatus(200)->assertJsonPath('status', 'success');
 
         $card->refresh();
         $this->assertSame(LibraryCard::WORKFLOW_ACTIVE, $card->workflow_status);
         $this->assertSame(LibraryCardStatus::ACTIVE, $card->status);
         $this->assertNotNull($card->issue_date);
         $this->assertNotNull($card->expiry_date);
-        $this->assertNull(data_get($card->params, 'payment_due_at'));
-        $this->assertSame($librarian->id, $card->reviewed_by);
     }
 
     public function test_approve_fails_when_not_pending_review(): void

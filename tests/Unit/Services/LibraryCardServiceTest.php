@@ -329,9 +329,58 @@ class LibraryCardServiceTest extends TestCase
 
         $this->assertSame($reader->id, $card->user_id);
         $this->assertSame(LibraryCard::WORKFLOW_PENDING_PICKUP, $card->workflow_status);
+        $this->assertSame(LibraryCardStatus::PENDING, $card->status);
+        $this->assertNull($card->issue_date);
+        $this->assertNull($card->expiry_date);
         $this->assertNotNull($card->payment);
         $this->assertSame(LibraryCard::PAYMENT_PAID, $card->payment->payment_status);
         $this->assertSame('staff_counter', data_get($card->params, 'registration.source'));
+    }
+
+    public function test_staff_issued_teacher_syncs_user_and_clears_student_fields_on_card(): void
+    {
+        $faculty = Faculty::query()->create([
+            'code' => 'FGV',
+            'name' => 'Khoa GV',
+            'is_active' => true,
+        ]);
+        $period = Period::query()->create([
+            'code' => 'PGV',
+            'name' => 'Niên khóa cũ',
+            'is_active' => true,
+        ]);
+        $reader = User::factory()->create([
+            'user_type' => RoleType::STUDENT,
+            'code' => 'GV-'.uniqid(),
+            'email' => 'gv_'.uniqid().'@test.local',
+            'name' => 'Sinh viên cũ',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'D20-OLD',
+        ]);
+
+        $card = app(LibraryCardService::class)->create([
+            'holder_type' => LibraryCard::HOLDER_TYPE_TEACHER,
+            'user_id' => $reader->id,
+            'code' => $reader->code,
+            'full_name' => 'Nguyễn Văn GV',
+            'email' => $reader->email,
+            'phone' => '0909000111',
+            'address' => 'TP.HCM',
+            'date_of_birth' => '1985-03-10',
+            'photo_path' => 'photos/gv.jpg',
+            'faculty_id' => $faculty->id,
+        ]);
+
+        $reader->refresh();
+        $this->assertSame(RoleType::TEACHER, $reader->user_type);
+        $this->assertSame('Nguyễn Văn GV', $reader->name);
+        $this->assertSame($faculty->id, $reader->faculty_id);
+        $this->assertNull($reader->period_id);
+        $this->assertNull($reader->class_code);
+        $this->assertNull($card->period_id);
+        $this->assertNull($card->class_code);
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_PICKUP, $card->workflow_status);
     }
 
     public function test_staff_issued_second_card_for_same_user_raises_validation(): void
@@ -393,7 +442,7 @@ class LibraryCardServiceTest extends TestCase
         $this->assertNotEmpty(data_get($updated->params, 'payment_notice_sent_at'));
     }
 
-    public function test_approve_pending_review_activates_and_records_reviewer(): void
+    public function test_approve_pending_review_sets_pending_payment_and_records_reviewer(): void
     {
         Mail::fake();
 
@@ -416,9 +465,51 @@ class LibraryCardServiceTest extends TestCase
 
         Mail::assertNothingSent();
 
-        $this->assertSame(LibraryCard::WORKFLOW_ACTIVE, $updated->workflow_status);
-        $this->assertSame(LibraryCardStatus::ACTIVE, $updated->status);
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_PAYMENT, $updated->workflow_status);
+        $this->assertSame(LibraryCardStatus::PENDING, $updated->status);
+        $this->assertNull($updated->issue_date);
         $this->assertSame($librarian->id, $updated->reviewed_by);
         $this->assertNotNull($updated->reviewed_at);
+    }
+
+    public function test_normalize_legacy_workflow_status(): void
+    {
+        $this->assertSame(
+            LibraryCard::WORKFLOW_PENDING_REVIEW,
+            LibraryCard::normalizeWorkflowStatus(LibraryCard::WORKFLOW_DRAFT)
+        );
+        $this->assertSame(
+            LibraryCard::WORKFLOW_ACTIVE,
+            LibraryCard::normalizeWorkflowStatus(LibraryCard::WORKFLOW_REVOKED)
+        );
+        $this->assertSame(
+            LibraryCard::WORKFLOW_PENDING_PICKUP,
+            LibraryCard::normalizeWorkflowStatus('pending_pickup')
+        );
+    }
+
+    public function test_confirm_pickup_activates_card(): void
+    {
+        $faculty = Faculty::query()->create(['code' => 'FCU', 'name' => 'CU', 'is_active' => true]);
+        $period = Period::query()->create(['code' => 'PCU', 'name' => 'CU', 'is_active' => true]);
+        $reader = User::factory()->create(['user_type' => RoleType::STUDENT, 'avatar' => 'x.jpg']);
+        $staff = User::factory()->create(['user_type' => RoleType::LIBRARIAN]);
+
+        $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'CU1',
+            'paid_at_counter' => true,
+            'payment_amount' => 30_000,
+            'payment_method' => 'cash',
+        ]);
+
+        $activated = app(LibraryCardService::class)->confirmPickupAndActivate($card->fresh(), $staff);
+
+        $this->assertSame(LibraryCard::WORKFLOW_ACTIVE, $activated->workflow_status);
+        $this->assertSame(LibraryCardStatus::ACTIVE, $activated->status);
+        $this->assertNotNull($activated->issue_date);
+        $this->assertNotNull($activated->expiry_date);
+        $this->assertSame($staff->id, $activated->issued_by);
     }
 }

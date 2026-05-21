@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
-import { LIBRARY_CARD_STATUS, workflowQuyTrinhAdminLabel, holderLabel, statusLabel } from '@/config/libraryCardUi';
+import { LIBRARY_CARD_STATUS, workflowLabel, holderLabel, statusLabel } from '@/config/libraryCardUi';
 import { useImageFallback } from '@/composables/useImageFallback';
 
 const props = defineProps({
@@ -49,7 +49,7 @@ const tableMinWidthClass = computed(() => {
     return 'min-w-[900px]';
 });
 
-const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject', 'detail']);
+const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject', 'detail', 'confirm-pickup']);
 
 const previewCard = ref(null);
 const showPreviewModal = ref(false);
@@ -195,7 +195,7 @@ function formatDateTime(value) {
                             </span>
                         </td>
                         <td v-if="showWorkflow" class="px-3 py-3 align-middle whitespace-nowrap">
-                            <span class="text-[12px] text-slate-600 dark:text-slate-300">{{ workflowQuyTrinhAdminLabel(row.workflow_status) }}</span>
+                            <span class="text-[12px] text-slate-600 dark:text-slate-300">{{ workflowLabel(row.workflow_status) }}</span>
                         </td>
                         <td v-if="showCardStatus" class="px-3 py-3 align-middle">
                             <span
@@ -242,6 +242,15 @@ function formatDateTime(value) {
                                     </button>
                                 </template>
                                 <template v-else>
+                                <button
+                                    v-if="row.workflow_status === 'pending_pickup'"
+                                    type="button"
+                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
+                                    title="Xác nhận đã giao thẻ — kích hoạt hiệu lực"
+                                    @click="emit('confirm-pickup', row)"
+                                >
+                                    <Icon icon="lucide:package-check" class="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                     v-if="showApprove && row.workflow_status === 'pending_review'"
                                     type="button"

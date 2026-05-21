@@ -31,7 +31,14 @@ class LibraryCardStaffController extends Controller
                 $request->user()
             );
 
-            $this->libraryCardNotificationDispatcher->notifyReaderCardApproved($card);
+            $ws = (string) $card->workflow_status;
+            if ($ws === LibraryCard::WORKFLOW_PENDING_PICKUP) {
+                $this->libraryCardNotificationDispatcher->notifyReaderCardApproved($card);
+            }
+
+            $message = $ws === LibraryCard::WORKFLOW_PENDING_PAYMENT
+                ? __('Đã duyệt hồ sơ. Bạn đọc cần thanh toán lệ phí trước khi nhận thẻ.')
+                : __('Đã duyệt hồ sơ. Bạn đọc chờ lấy thẻ tại quầy.');
 
             return ApiResponse::success(
                 new LibraryCardResource($card->loadMissing([
@@ -41,7 +48,31 @@ class LibraryCardStaffController extends Controller
                     'department',
                     'user',
                 ])),
-                __('Đã duyệt và kích hoạt thẻ.'),
+                $message,
+                200
+            );
+        } catch (ValidationException $e) {
+            return ApiResponse::validationError($e);
+        }
+    }
+
+    public function confirmPickup(LibraryCardApproveReviewRequest $request, LibraryCard $library_card): JsonResponse
+    {
+        try {
+            $card = $this->libraryCardService->confirmPickupAndActivate(
+                $library_card,
+                $request->user()
+            );
+
+            return ApiResponse::success(
+                new LibraryCardResource($card->loadMissing([
+                    'payment.collector',
+                    'period',
+                    'faculty',
+                    'department',
+                    'user',
+                ])),
+                __('Đã xác nhận giao thẻ — thẻ đang hiệu lực.'),
                 200
             );
         } catch (ValidationException $e) {

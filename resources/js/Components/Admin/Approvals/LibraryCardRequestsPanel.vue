@@ -8,7 +8,7 @@ import LibraryCardsTable from '@/Components/Admin/LibraryCards/LibraryCardsTable
 import { libraryCardsApi } from '@/api/libraryCards';
 import { toast } from '@/store/toast';
 import { useLibraryCardsAdminPage } from '@/composables/admin/useLibraryCardsAdminPage';
-import { HOLDER_LABELS } from '@/config/libraryCardUi';
+import { HOLDER_LABELS, workflowLabel } from '@/config/libraryCardUi';
 
 const props = defineProps({
     faculties: { type: Array, default: () => [] },
@@ -181,7 +181,7 @@ async function confirmReject() {
                         <div class="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
                             <p><span class="text-slate-400">Mã thẻ:</span> {{ detailRow.card_number || '—' }}</p>
                             <p><span class="text-slate-400">Loại thẻ:</span> {{ HOLDER_LABELS[detailRow.holder_type] || detailRow.holder_type || '—' }}</p>
-                            <p><span class="text-slate-400">Quy trình:</span> {{ detailRow.workflow_status || '—' }}</p>
+                            <p><span class="text-slate-400">Quy trình:</span> {{ workflowLabel(detailRow.workflow_status) || '—' }}</p>
                         </div>
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40">
@@ -191,6 +191,25 @@ async function confirmReject() {
                             <p><span class="text-slate-400">Email:</span> {{ detailRow.email || '—' }}</p>
                             <p><span class="text-slate-400">SĐT:</span> {{ detailRow.phone || '—' }}</p>
                             <p><span class="text-slate-400">Mã định danh:</span> {{ detailRow.code || '—' }}</p>
+                        </div>
+                    </div>
+                    <div
+                        v-if="detailRow.holder_type === 'student' || detailRow.holder_type === 'teacher' || detailRow.holder_type === 'external'"
+                        class="rounded-lg border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-700 dark:bg-slate-800/40 md:col-span-2"
+                    >
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Thông tin theo loại thẻ</p>
+                        <div class="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+                            <template v-if="detailRow.holder_type === 'student'">
+                                <p><span class="text-slate-400">Khoa:</span> {{ detailRow.faculty?.name || '—' }}</p>
+                                <p><span class="text-slate-400">Niên khóa:</span> {{ detailRow.period?.name || '—' }}</p>
+                                <p><span class="text-slate-400">Lớp:</span> {{ detailRow.class_code || '—' }}</p>
+                            </template>
+                            <template v-else-if="detailRow.holder_type === 'teacher'">
+                                <p><span class="text-slate-400">Khoa:</span> {{ detailRow.faculty?.name || '—' }}</p>
+                            </template>
+                            <template v-else-if="detailRow.holder_type === 'external'">
+                                <p><span class="text-slate-400">Đơn vị / tổ chức:</span> {{ detailRow.external_organization || '—' }}</p>
+                            </template>
                         </div>
                     </div>
                     <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900 md:col-span-2">

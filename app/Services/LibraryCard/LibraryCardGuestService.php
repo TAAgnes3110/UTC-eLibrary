@@ -31,6 +31,9 @@ class LibraryCardGuestService
             $linkedUser = $this->resolveLinkedUserForStaff($data);
             $paidAtCounter = $this->resolvePaidAtCounter($data, $holderType, $linkedUser !== null);
             $payload = $this->buildPayloadForGuest($holderType, $data, $linkedUser, $paidAtCounter);
+            if ($linkedUser !== null) {
+                $this->management->syncLinkedUserFromStaffCounterIssue($linkedUser, $holderType, $data);
+            }
             $card = LibraryCard::query()->create($payload);
 
             if ($holderType === LibraryCard::HOLDER_TYPE_EXTERNAL) {
@@ -115,14 +118,18 @@ class LibraryCardGuestService
 
         if ($holderType === LibraryCard::HOLDER_TYPE_STUDENT) {
             $payload = array_merge($payload, $this->management->studentAffiliationPayload($data));
-            $payload['workflow_status'] = $paidAtCounter
-                ? LibraryCard::WORKFLOW_PENDING_PICKUP
-                : LibraryCard::WORKFLOW_PENDING_REVIEW;
+            if ($paidAtCounter) {
+                $payload = $this->management->applyPaidAtCounterPendingPickup($payload);
+            } else {
+                $payload['workflow_status'] = LibraryCard::WORKFLOW_PENDING_REVIEW;
+            }
         } elseif ($holderType === LibraryCard::HOLDER_TYPE_TEACHER) {
             $payload = array_merge($payload, $this->management->teacherAffiliationPayload($data));
-            $payload['workflow_status'] = $paidAtCounter
-                ? LibraryCard::WORKFLOW_PENDING_PICKUP
-                : LibraryCard::WORKFLOW_PENDING_REVIEW;
+            if ($paidAtCounter) {
+                $payload = $this->management->applyPaidAtCounterPendingPickup($payload);
+            } else {
+                $payload['workflow_status'] = LibraryCard::WORKFLOW_PENDING_REVIEW;
+            }
         } else {
             $payload['workflow_status'] = LibraryCard::WORKFLOW_ACTIVE;
             $payload['status'] = LibraryCardStatus::ACTIVE;

@@ -216,10 +216,11 @@ export const readerCardProcedurePageStrings = {
     workflowTitle: "Các trạng thái hồ sơ trên eLibrary",
     workflowStatuses: [
         { key: "pending_review", label: "Chờ duyệt", tone: "amber", desc: "Thủ thư đang xem xét hồ sơ; có thể duyệt hoặc từ chối kèm ghi chú." },
-        { key: "pending_payment", label: "Chờ thanh toán", tone: "orange", desc: "Cần hoàn tất lệ phí theo hướng dẫn trước khi chuyển bước tiếp." },
-        { key: "pending_pickup", label: "Chờ lấy thẻ", tone: "blue", desc: "Đã xử lý tại quầy; độc giả đến nhận thẻ vật lý." },
-        { key: "active", label: "Đang hiệu lực", tone: "emerald", desc: "Thẻ dùng được cho mượn/trả và dịch vụ theo chính sách loại thẻ." },
+        { key: "pending_payment", label: "Chờ thanh toán", tone: "orange", desc: "Đã duyệt — cần thanh toán lệ phí trước khi đến quầy nhận thẻ." },
+        { key: "pending_pickup", label: "Chờ lấy thẻ", tone: "blue", desc: "Đã thu phí / đã duyệt — đến quầy nhận thẻ vật lý; thủ thư xác nhận giao thẻ trên hệ thống." },
+        { key: "active", label: "Đang hiệu lực", tone: "emerald", desc: "Đã nhận thẻ — có ngày hiệu lực; dùng mượn/trả theo chính sách loại thẻ." },
         { key: "rejected", label: "Đã từ chối", tone: "rose", desc: "Hồ sơ không đạt; xem ghi chú và liên hệ thư viện nếu cần làm lại." },
+        { key: "cancelled", label: "Đã hủy", tone: "slate", desc: "Bạn đọc đã hủy yêu cầu trước khi hoàn tất." },
     ],
     section1Title: "Loại thẻ trong hệ thống",
     section1Items: [

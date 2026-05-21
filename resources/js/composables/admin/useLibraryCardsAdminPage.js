@@ -235,18 +235,18 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         saveLoading.value = true;
         clearFormErrors();
         try {
+            const holderType = form.value.holder_type;
             const payload = {
                 full_name: form.value.full_name,
                 email: form.value.email,
                 phone: form.value.phone,
                 address: form.value.address,
                 date_of_birth: form.value.date_of_birth || null,
-                holder_type: form.value.holder_type,
+                holder_type: holderType,
                 status: form.value.status,
-                workflow_status: form.value.workflow_status,
-                faculty_id: form.value.faculty_id,
-                period_id: form.value.period_id,
-                class_code: form.value.class_code || null,
+                faculty_id: holderType === 'external' ? null : form.value.faculty_id,
+                period_id: holderType === 'student' ? form.value.period_id : null,
+                class_code: holderType === 'student' ? form.value.class_code || null : null,
                 external_organization: form.value.external_organization?.trim() || null,
                 notes: form.value.notes || null,
             };
@@ -457,11 +457,27 @@ export function useLibraryCardsAdminPage(props, options = {}) {
 
     async function onApprove(row) {
         try {
-            await libraryCardsApi.approveReview(row.id);
-            toast.success('Đã duyệt và kích hoạt thẻ.', { title: 'Thành công' });
+            const res = await libraryCardsApi.approveReview(row.id);
+            const msg = res?.messages || res?.message || 'Đã duyệt hồ sơ.';
+            toast.success(typeof msg === 'string' ? msg : 'Đã duyệt hồ sơ.', { title: 'Thành công' });
             await loadCards();
         } catch (e) {
             const msg = e?.response?.data?.messages || e?.response?.data?.message || 'Không duyệt được.';
+            toast.error(msg, { title: 'Lỗi' });
+        }
+    }
+
+    async function onConfirmPickup(row) {
+        if (typeof window !== 'undefined' && !window.confirm(`Xác nhận đã giao thẻ cho « ${row.full_name || row.card_number} »? Thẻ sẽ chuyển sang hiệu lực.`)) {
+            return;
+        }
+        try {
+            const res = await libraryCardsApi.confirmPickup(row.id);
+            const msg = res?.messages || res?.message || 'Đã xác nhận giao thẻ.';
+            toast.success(typeof msg === 'string' ? msg : 'Đã xác nhận giao thẻ.', { title: 'Thành công' });
+            await loadCards();
+        } catch (e) {
+            const msg = e?.response?.data?.messages || e?.response?.data?.message || 'Không xác nhận được.';
             toast.error(msg, { title: 'Lỗi' });
         }
     }
@@ -641,6 +657,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         closeLockModal,
         confirmLockStatus,
         onApprove,
+        onConfirmPickup,
         onApproveSelected,
         onReject,
         onRejectSelected,

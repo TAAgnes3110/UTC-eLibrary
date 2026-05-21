@@ -135,6 +135,20 @@ export function useLibraryCardCounterPage(props) {
         resetCounterPhotoInput();
     }
 
+    watch(
+        () => form.value.holder_type,
+        (ht) => {
+            if (ht === LibraryCard.HOLDER_TEACHER) {
+                form.value.period_id = '';
+                form.value.class_code = '';
+            } else if (ht === LibraryCard.HOLDER_EXTERNAL) {
+                form.value.faculty_id = '';
+                form.value.period_id = '';
+                form.value.class_code = '';
+            }
+        }
+    );
+
     let searchTimer = null;
     watch(userSearch, (q) => {
         clearTimeout(searchTimer);
@@ -244,12 +258,6 @@ export function useLibraryCardCounterPage(props) {
                 fd.append('class_code', String(f.class_code).trim());
             } else if (f.holder_type === LibraryCard.HOLDER_TEACHER) {
                 fd.append('faculty_id', String(f.faculty_id));
-                if (f.period_id) {
-                    fd.append('period_id', String(f.period_id));
-                }
-                if (f.class_code) {
-                    fd.append('class_code', String(f.class_code));
-                }
             } else {
                 if (f.external_organization) {
                     fd.append('external_organization', String(f.external_organization).trim());

@@ -12,8 +12,8 @@ use App\Http\Requests\LibraryCardRequest;
 use App\Http\Resources\LibraryCardResource;
 use App\Models\LibraryCard;
 use App\Services\LibraryCard\LibraryCardService;
-use App\Services\Notifications\LibraryCardNotificationDispatcher;
 use App\Services\LoanPoliciesService;
+use App\Services\Notifications\LibraryCardNotificationDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -126,17 +126,7 @@ class LibraryCardController extends Controller
         $candidates = is_array($raw)
             ? $raw
             : array_map('trim', explode(',', (string) $raw));
-        $allowed = [
-            LibraryCard::WORKFLOW_DRAFT,
-            LibraryCard::WORKFLOW_PENDING_PAYMENT,
-            LibraryCard::WORKFLOW_PENDING_REVIEW,
-            LibraryCard::WORKFLOW_PENDING_PICKUP,
-            LibraryCard::WORKFLOW_ACTIVE,
-            LibraryCard::WORKFLOW_REJECTED,
-            LibraryCard::WORKFLOW_CANCELLED,
-            LibraryCard::WORKFLOW_EXPIRED,
-            LibraryCard::WORKFLOW_REVOKED,
-        ];
+        $allowed = LibraryCard::workflowValuesForFilter();
         $filtered = array_values(array_intersect($candidates, $allowed));
 
         return $filtered === [] ? null : $filtered;
@@ -213,7 +203,7 @@ class LibraryCardController extends Controller
     public function store(LibraryCardRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $isStaffCounterIssue = !empty($data['user_id']);
+        $isStaffCounterIssue = ! empty($data['user_id']);
         if ($request->hasFile('photo')) {
             $dir = trim(UploadDirectory::forTable('library_cards'), '/');
             $data['photo_path'] = $request->file('photo')->store(
@@ -224,7 +214,7 @@ class LibraryCardController extends Controller
         unset($data['photo']);
         $card = $this->libraryCardService->create($data);
         $this->libraryCardNotificationDispatcher->notifyStaffOnNewCardApplication($card);
-        if ($isStaffCounterIssue) {
+        if ($isStaffCounterIssue && $card->workflow_status === LibraryCard::WORKFLOW_PENDING_PICKUP) {
             $this->libraryCardNotificationDispatcher->notifyReaderCardPickupReminder($card, 3);
         }
         $card->loadMissing(['payment.collector', 'period', 'faculty', 'department', 'user']);

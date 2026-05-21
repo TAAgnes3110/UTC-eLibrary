@@ -298,6 +298,7 @@ Route::prefix('v1')->group(function () {
                 Route::delete('force', [LibraryCardController::class, 'forceDeleteMany']);
                 Route::delete('force/{id}', [LibraryCardController::class, 'forceDelete']);
                 Route::post('{library_card}/approve-review', [LibraryCardStaffController::class, 'approveReview']);
+                Route::post('{library_card}/confirm-pickup', [LibraryCardStaffController::class, 'confirmPickup']);
                 Route::post('{library_card}/reject-review', [LibraryCardStaffController::class, 'rejectReview']);
                 Route::post('{library_card}/photo', [LibraryCardController::class, 'updatePhoto']);
                 Route::get('/', [LibraryCardController::class, 'index']);

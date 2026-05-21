@@ -23,29 +23,45 @@ export function holderLabel(key) {
 /** @deprecated dùng holderLabel — cùng nội dung « loại thẻ » */
 export const cardTypeLabel = holderLabel;
 
-/** Badge trạng thái — cùng phong cách pill như bảng Kho (Hoạt động = emerald solid) */
+/** Trạng thái thẻ (cột status) — khớp {@link App\Enums\LibraryCardStatus} */
 export const LIBRARY_CARD_STATUS = {
     1: { label: 'Hoạt động', class: 'bg-emerald-500 dark:bg-emerald-600 text-white' },
     2: { label: 'Hết hạn', class: 'bg-slate-500 dark:bg-slate-600 text-white' },
     3: { label: 'Khóa', class: 'bg-rose-500 dark:bg-rose-600 text-white' },
-    4: { label: 'Chờ', class: 'bg-amber-500 dark:bg-amber-600 text-white' },
+    4: { label: 'Chờ xử lý', class: 'bg-amber-500 dark:bg-amber-600 text-white' },
 };
 
+/** Lọc trạng thái thẻ (admin — Quản lý thẻ) */
+export const LIBRARY_CARD_STATUS_FILTER_OPTIONS = [
+    { value: '', label: 'Trạng thái thẻ' },
+    { value: '1', label: 'Hoạt động' },
+    { value: '2', label: 'Hết hạn' },
+    { value: '3', label: 'Khóa' },
+    { value: '4', label: 'Chờ xử lý' },
+];
+
+/** Quy trình cấp thẻ — chỉ các bước nghiệp vụ */
 export const WORKFLOW_LABELS = {
-    draft: 'Nháp',
-    pending_payment: 'Chờ thanh toán',
     pending_review: 'Chờ duyệt',
-    /** Không dùng cụm « chờ nhận thẻ » — bản ghi cũ vẫn hiển thị ngắn gọn */
-    pending_pickup: 'Tại quầy',
+    pending_payment: 'Chờ thanh toán',
+    pending_pickup: 'Chờ lấy thẻ',
     active: 'Đang hiệu lực',
-    rejected: 'Từ chối',
+    rejected: 'Đã từ chối',
     cancelled: 'Đã hủy',
-    expired: 'Hết hạn (quy trình)',
-    revoked: 'Thu hồi',
+};
+
+/** Nhãn đọc DB legacy (không dùng cho thao tác mới) */
+const WORKFLOW_LEGACY_LABELS = {
+    draft: 'Chờ duyệt',
+    expired: 'Đang hiệu lực',
+    revoked: 'Đang hiệu lực',
 };
 
 export function workflowLabel(key) {
-    return WORKFLOW_LABELS[key] ?? key ?? '—';
+    if (key == null || key === '') {
+        return '—';
+    }
+    return WORKFLOW_LABELS[key] ?? WORKFLOW_LEGACY_LABELS[key] ?? key ?? '—';
 }
 
 export function statusLabel(value) {
@@ -53,27 +69,29 @@ export function statusLabel(value) {
     return LIBRARY_CARD_STATUS[n]?.label ?? '—';
 }
 
-/** Nhóm nội bộ → 2 nhãn quy trình chính (admin) */
-const WORKFLOW_BUCKET_AWAITING_REVIEW = ['draft', 'pending_review'];
-const WORKFLOW_BUCKET_COMPLETED = ['pending_pickup', 'active', 'expired', 'revoked'];
+/** Gợi ý bước tiếp theo (admin / độc giả). */
+export const WORKFLOW_HINTS = {
+    pending_review: 'Hồ sơ đang chờ thủ thư duyệt tại mục « Duyệt yêu cầu ».',
+    pending_payment: 'Đã duyệt — bạn đọc cần thanh toán lệ phí trước khi nhận thẻ.',
+    pending_pickup: 'Đã thu phí / đã duyệt — chờ bạn đọc đến quầy nhận thẻ; thủ thư bấm « Xác nhận đã giao thẻ ».',
+    active: 'Đã giao thẻ — có ngày hiệu lực, dùng cho mượn/trả theo chính sách.',
+    rejected: 'Hồ sơ bị từ chối (đã đưa vào thùng rác).',
+    cancelled: 'Bạn đọc đã hủy yêu cầu.',
+    draft: 'Dữ liệu cũ — hệ thống coi như « Chờ duyệt ».',
+    expired: 'Dữ liệu cũ — hết hạn ghi trên trạng thái thẻ, không phải quy trình.',
+    revoked: 'Dữ liệu cũ — thẻ bị khóa, không phải bước quy trình.',
+};
 
-/**
- * Cột « Quy trình » (admin): « Chờ duyệt » / « Hoàn thành » (legacy pending_payment vẫn gom « Chờ duyệt »).
- * @param {string|undefined|null} key
- */
-export function workflowQuyTrinhAdminLabel(key) {
-    if (key == null || key === '') {
-        return '—';
-    }
-    if (key === 'pending_payment') {
-        return 'Chờ duyệt';
-    }
-    if (WORKFLOW_BUCKET_AWAITING_REVIEW.includes(key)) {
-        return 'Chờ duyệt';
-    }
-    if (WORKFLOW_BUCKET_COMPLETED.includes(key)) {
-        return 'Hoàn thành';
-    }
-    return WORKFLOW_LABELS[key] ?? key ?? '—';
+export function workflowHint(key) {
+    return WORKFLOW_HINTS[key] ?? '';
 }
 
+/** Quy trình đang xử lý (chưa kết thúc / chưa hủy) */
+export const WORKFLOW_IN_PROGRESS = [
+    'pending_review',
+    'pending_payment',
+    'pending_pickup',
+];
+
+/** Thẻ đủ điều kiện hiển thị tại « Quản lý thẻ » (đã qua duyệt hoặc đang lưu hành) */
+export const WORKFLOW_MANAGEMENT_LIST = ['pending_payment', 'pending_pickup', 'active'];

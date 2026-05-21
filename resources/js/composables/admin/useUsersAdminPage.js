@@ -201,6 +201,9 @@ export function useUsersAdminPage(props) {
         phone: '',
         code: '',
         role: 'MEMBER',
+        gender: '',
+        date_of_birth: '',
+        address: '',
         faculty_id: null,
         period_id: null,
         faculty_lookup: '',
@@ -324,6 +327,9 @@ export function useUsersAdminPage(props) {
         form.clearErrors();
         clearUserFormErrors();
         form.role = 'MEMBER';
+        form.gender = '';
+        form.date_of_birth = '';
+        form.address = '';
         form.faculty_id = null;
         form.period_id = null;
         form.faculty_lookup = '';
@@ -344,6 +350,9 @@ export function useUsersAdminPage(props) {
         form.phone = user.phone || '';
         form.code = user.code;
         form.role = user.role;
+        form.gender = user.gender || '';
+        form.date_of_birth = user.date_of_birth ? String(user.date_of_birth).slice(0, 10) : '';
+        form.address = user.address || '';
         form.faculty_id = user.faculty_id ?? null;
         form.period_id = user.period_id ?? null;
         {
@@ -407,6 +416,9 @@ export function useUsersAdminPage(props) {
             phone: form.phone || null,
             code: form.code,
             role: form.role,
+            gender: form.gender || null,
+            date_of_birth: form.date_of_birth || null,
+            address: String(form.address ?? '').trim() || null,
             is_active: form.is_active,
             faculty_id: facultyId != null ? Number(facultyId) : null,
             period_id: periodId != null ? Number(periodId) : null,

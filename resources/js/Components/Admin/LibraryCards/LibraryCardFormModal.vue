@@ -2,7 +2,7 @@
 import { watch, ref, computed } from 'vue';
 import { Icon } from '@iconify/vue';
 import { LibraryCard } from '@/config/libraryCardConstants';
-import { HOLDER_LABELS, WORKFLOW_LABELS } from '@/config/libraryCardUi';
+import { HOLDER_LABELS, workflowLabel, workflowHint } from '@/config/libraryCardUi';
 import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth';
 
 const maxDateOfBirth = maxDateOfBirthForInput();
@@ -28,22 +28,11 @@ const holderTypes = [
     { value: LibraryCard.HOLDER_EXTERNAL, label: HOLDER_LABELS.external },
 ];
 
-/** Không chọn « Từ chối » / « Đã hủy » ở đây — backend sẽ xóa mềm; có thể thêm vào khi bản ghi đang ở trạng thái đó (legacy). */
-const workflowOptionsAll = [
-    { value: 'draft', label: WORKFLOW_LABELS.draft },
-    { value: 'pending_payment', label: WORKFLOW_LABELS.pending_payment },
-    { value: 'pending_review', label: WORKFLOW_LABELS.pending_review },
-    { value: 'pending_pickup', label: WORKFLOW_LABELS.pending_pickup },
-    { value: 'active', label: WORKFLOW_LABELS.active },
-    { value: 'expired', label: WORKFLOW_LABELS.expired },
-    { value: 'revoked', label: WORKFLOW_LABELS.revoked },
-];
-
 const statusOptions = [
     { value: 1, label: 'Hoạt động' },
     { value: 2, label: 'Hết hạn' },
     { value: 3, label: 'Khóa' },
-    { value: 4, label: 'Chờ' },
+    { value: 4, label: 'Chờ xử lý' },
 ];
 
 const panelRef = ref(null);
@@ -55,19 +44,14 @@ const isStudent = computed(() => props.form.holder_type === LibraryCard.HOLDER_S
 const isTeacher = computed(() => props.form.holder_type === LibraryCard.HOLDER_TEACHER);
 const isExternal = computed(() => props.form.holder_type === LibraryCard.HOLDER_EXTERNAL);
 
-/** Không đưa « pending_pickup » vào danh sách chọn mới; vẫn hiện nếu bản ghi đang ở trạng thái đó. Từ chối/đã hủy chỉ khi legacy. */
-const workflowOptions = computed(() => {
-    const list = workflowOptionsAll.filter((o) => o.value !== 'pending_pickup');
-    if (props.form.workflow_status === 'pending_pickup') {
-        list.push({ value: 'pending_pickup', label: WORKFLOW_LABELS.pending_pickup });
-    }
-    if (props.form.workflow_status === 'rejected') {
-        list.push({ value: 'rejected', label: WORKFLOW_LABELS.rejected });
-    }
-    if (props.form.workflow_status === 'cancelled') {
-        list.push({ value: 'cancelled', label: WORKFLOW_LABELS.cancelled });
-    }
-    return list;
+const workflowDisplay = computed(() => workflowLabel(props.form.workflow_status));
+const workflowHelp = computed(() => workflowHint(props.form.workflow_status));
+
+const cardStatusLocked = computed(() => props.form.workflow_status !== 'active');
+
+const cardStatusDisplay = computed(() => {
+    const n = Number(props.form.status);
+    return statusOptions.find((s) => s.value === n)?.label ?? '—';
 });
 
 watch(
@@ -77,6 +61,20 @@ watch(
             document.body.style.overflow = 'hidden';
         } else if (typeof document !== 'undefined') {
             document.body.style.overflow = '';
+        }
+    }
+);
+
+watch(
+    () => props.form.holder_type,
+    (ht) => {
+        if (ht === LibraryCard.HOLDER_TEACHER) {
+            props.form.period_id = null;
+            props.form.class_code = '';
+        } else if (ht === LibraryCard.HOLDER_EXTERNAL) {
+            props.form.faculty_id = null;
+            props.form.period_id = null;
+            props.form.class_code = '';
         }
     }
 );
@@ -153,17 +151,27 @@ function onSubmit() {
                         </div>
                         <div v-if="!hideCardStatus">
                             <label class="text-xs font-semibold text-slate-500">Trạng thái thẻ</label>
-                            <select v-model.number="form.status" class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9">
+                            <select
+                                v-if="!cardStatusLocked"
+                                v-model.number="form.status"
+                                class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9"
+                            >
                                 <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
                             </select>
+                            <p v-else class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ cardStatusDisplay }}</p>
+                            <p v-if="cardStatusLocked" class="mt-1 text-[11px] text-slate-500">Tự đồng bộ theo quy trình — dùng « Xác nhận đã giao thẻ » để chuyển Hoạt động.</p>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="text-xs font-semibold text-slate-500">Quy trình</label>
-                        <select v-model="form.workflow_status" class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9">
-                            <option v-for="w in workflowOptions" :key="w.value" :value="w.value">{{ w.label }}</option>
-                        </select>
+                    <div class="sm:col-span-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3">
+                        <p class="text-xs font-semibold text-slate-500">Quy trình (hệ thống)</p>
+                        <p class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ workflowDisplay }}</p>
+                        <p v-if="workflowHelp" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {{ workflowHelp }}
+                        </p>
+                        <p class="mt-2 text-[11px] text-amber-800 dark:text-amber-200/90">
+                            Duyệt / chờ thanh toán / xác nhận giao thẻ: dùng nút trên bảng hoặc mục « Duyệt yêu cầu » — không đổi quy trình thủ công tại đây.
+                        </p>
                     </div>
 
                     <div v-if="isStudent" class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3 space-y-3">
@@ -196,7 +204,7 @@ function onSubmit() {
 
                     <div v-else-if="isTeacher" class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3 space-y-3">
                         <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Theo loại thẻ: giảng viên</p>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Bắt buộc: khoa. Niên khóa / lớp ghi nếu có.</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400">Bắt buộc: khoa. Không áp dụng niên khóa / lớp.</p>
                         <div>
                             <label class="text-xs font-semibold text-slate-500">Khoa *</label>
                             <select v-model.number="form.faculty_id" class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9" @change="clearFieldError('faculty_id')">
@@ -204,20 +212,6 @@ function onSubmit() {
                                 <option v-for="f in facultiesList" :key="f.id" :value="f.id">{{ f.code }} — {{ f.name }}</option>
                             </select>
                             <p v-if="fieldErrors.faculty_id" class="text-xs text-rose-600 mt-0.5">{{ fieldErrors.faculty_id }}</p>
-                        </div>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="text-xs font-semibold text-slate-500">Niên khóa</label>
-                                <select v-model.number="form.period_id" class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9">
-                                    <option :value="null">—</option>
-                                    <option v-for="p in periodsList" :key="p.id" :value="p.id">{{ p.name }}</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="text-xs font-semibold text-slate-500">Lớp / mã lớp</label>
-                                <input v-model="form.class_code" type="text" class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9" @input="clearFieldError('class_code')" />
-                                <p v-if="fieldErrors.class_code" class="text-xs text-rose-600 mt-0.5">{{ fieldErrors.class_code }}</p>
-                            </div>
                         </div>
                     </div>
 

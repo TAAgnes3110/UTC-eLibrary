@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Helpers\FileHelpers;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -16,7 +17,7 @@ class UserListResource extends JsonResource
     {
         $avatar = $this->avatar;
         $mediaDisk = (string) config('filesystems.media_disk', 'public');
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
+        /** @var FilesystemAdapter $mediaStorage */
         $mediaStorage = Storage::disk($mediaDisk);
         if (! empty($avatar) && ! str_starts_with((string) $avatar, 'http')) {
             $avatar = $mediaStorage->url((string) $avatar);
@@ -36,6 +37,12 @@ class UserListResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
+            'gender' => $this->gender,
+            'address' => $this->address,
+            'date_of_birth' => $this->date_of_birth?->format('Y-m-d'),
+            'faculty_id' => $this->faculty_id,
+            'period_id' => $this->period_id,
+            'class_code' => $this->class_code,
             'user_type' => $userType,
             'role' => $userType,
             'status' => $status,
@@ -46,4 +53,3 @@ class UserListResource extends JsonResource
         ];
     }
 }
-

@@ -162,7 +162,7 @@ class LibraryCardSecurityTest extends TestCase
             'phone' => '0912345678',
             'address' => 'Hà Nội',
             'date_of_birth' => '2000-01-01',
-            'workflow_status' => LibraryCard::WORKFLOW_DRAFT,
+            'workflow_status' => LibraryCard::WORKFLOW_PENDING_REVIEW,
         ]);
 
         $this->getJson("/api/v1/library-cards/{$card->id}", $this->auth($token))

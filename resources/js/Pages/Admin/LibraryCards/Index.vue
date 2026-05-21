@@ -15,6 +15,7 @@ import { ADMIN_ICONS } from '@/config/adminIcons';
 import LibraryCardFormModal from '@/Components/Admin/LibraryCards/LibraryCardFormModal.vue';
 import LibraryCardLockConfirmModal from '@/Components/Admin/LibraryCards/LibraryCardLockConfirmModal.vue';
 import { useLibraryCardsAdminPage } from '@/composables/admin/useLibraryCardsAdminPage';
+import { LIBRARY_CARD_STATUS_FILTER_OPTIONS } from '@/config/libraryCardUi';
 
 const props = defineProps({
     faculties: { type: Array, default: () => [] },
@@ -88,11 +89,13 @@ function goCounter() {
                         </div>
                         <div class="relative">
                             <select v-model="lc.filterValues.status" class="admin-filter-select !h-10 !rounded-xl text-left w-[154px] max-w-full pr-8">
-                                <option value="">Trạng thái</option>
-                                <option value="1">Hoạt động</option>
-                                <option value="2">Hết hạn</option>
-                                <option value="3">Khóa</option>
-                                <option value="4">Chờ</option>
+                                <option
+                                    v-for="opt in LIBRARY_CARD_STATUS_FILTER_OPTIONS"
+                                    :key="opt.value === '' ? 'all' : opt.value"
+                                    :value="opt.value"
+                                >
+                                    {{ opt.label }}
+                                </option>
                             </select>
                             <Icon
                                 icon="lucide:chevron-down"
@@ -121,7 +124,7 @@ function goCounter() {
                 :loading-fallback="lc.loadingFallback"
                 :is-all-selected="lc.isAllSelected"
                 :has-selection="lc.hasSelection"
-                :show-workflow="false"
+                :show-workflow="true"
                 :show-approve="false"
                 @toggle-all="lc.toggleSelectAll"
                 @toggle="lc.toggleSelect"
@@ -129,6 +132,7 @@ function goCounter() {
                 @delete="lc.openDeleteOne"
                 @photo="lc.openPhotoModal"
                 @lock="lc.openLockModal"
+                @confirm-pickup="lc.onConfirmPickup"
             />
 
             <AdminPaginationBar

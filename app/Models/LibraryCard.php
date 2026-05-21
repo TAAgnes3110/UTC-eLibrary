@@ -19,6 +19,7 @@ class LibraryCard extends BaseModel
 
     public const HOLDER_TYPE_EXTERNAL = 'external';
 
+    /** @deprecated Chỉ còn trên DB cũ — chuẩn hóa sang {@see WORKFLOW_PENDING_REVIEW} khi lưu */
     public const WORKFLOW_DRAFT = 'draft';
 
     public const WORKFLOW_PENDING_PAYMENT = 'pending_payment';
@@ -33,9 +34,58 @@ class LibraryCard extends BaseModel
 
     public const WORKFLOW_CANCELLED = 'cancelled';
 
+    /** @deprecated Dùng {@see LibraryCardStatus::EXPIRED} — không gán quy trình mới */
     public const WORKFLOW_EXPIRED = 'expired';
 
+    /** @deprecated Dùng khóa thẻ ({@see LibraryCardStatus::LOCKED}) — không gán quy trình mới */
     public const WORKFLOW_REVOKED = 'revoked';
+
+    /** Quy trình cấp thẻ — giá trị hợp lệ trong nghiệp vụ hiện tại */
+    public const WORKFLOWS_IN_USE = [
+        self::WORKFLOW_PENDING_REVIEW,
+        self::WORKFLOW_PENDING_PAYMENT,
+        self::WORKFLOW_PENDING_PICKUP,
+        self::WORKFLOW_ACTIVE,
+        self::WORKFLOW_REJECTED,
+        self::WORKFLOW_CANCELLED,
+    ];
+
+    /**
+     * @return list<string>
+     */
+    public static function workflowValues(): array
+    {
+        return self::WORKFLOWS_IN_USE;
+    }
+
+    /**
+     * Giá trị cho lọc API (gồm legacy đọc từ DB cũ).
+     *
+     * @return list<string>
+     */
+    public static function workflowValuesForFilter(): array
+    {
+        return [
+            ...self::WORKFLOWS_IN_USE,
+            self::WORKFLOW_DRAFT,
+            self::WORKFLOW_EXPIRED,
+            self::WORKFLOW_REVOKED,
+        ];
+    }
+
+    /**
+     * Chuẩn hóa giá trị quy trình legacy trên bản ghi cũ.
+     */
+    public static function normalizeWorkflowStatus(?string $workflowStatus): string
+    {
+        $ws = trim((string) $workflowStatus);
+
+        return match ($ws) {
+            self::WORKFLOW_DRAFT => self::WORKFLOW_PENDING_REVIEW,
+            self::WORKFLOW_EXPIRED, self::WORKFLOW_REVOKED => self::WORKFLOW_ACTIVE,
+            default => in_array($ws, self::workflowValues(), true) ? $ws : self::WORKFLOW_PENDING_REVIEW,
+        };
+    }
 
     public const PAYMENT_PENDING = 'pending';
 

@@ -59,6 +59,11 @@ class LibraryCardService
         return $this->management->approvePendingReviewAndActivate($card, $reviewer);
     }
 
+    public function confirmPickupAndActivate(LibraryCard $card, ?User $staff): LibraryCard
+    {
+        return $this->management->confirmPickupAndActivate($card, $staff);
+    }
+
     public function rejectPendingReview(LibraryCard $card, ?string $notes, ?User $reviewer): LibraryCard
     {
         return $this->management->rejectPendingReview($card, $notes, $reviewer);

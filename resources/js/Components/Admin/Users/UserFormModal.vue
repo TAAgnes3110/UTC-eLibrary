@@ -4,6 +4,16 @@ import { Icon } from '@iconify/vue';
 import { Button } from '@/Components/ui/button';
 import { Input } from '@/Components/ui/input';
 import { facultyDisplayLabel, periodDisplayLabel } from '@/utils/lookupMatch';
+import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth';
+
+const maxDateOfBirth = maxDateOfBirthForInput();
+const minDateOfBirth = minDateOfBirthForInput();
+
+const GENDER_OPTIONS = [
+    { value: 'male', label: 'Nam' },
+    { value: 'female', label: 'Nữ' },
+    { value: 'other', label: 'Khác' },
+];
 
 const props = defineProps({
     show: { type: Boolean, required: true },
@@ -115,6 +125,48 @@ const lookupInputClass =
                             @update:model-value="clearFieldError('phone')"
                         />
                         <p v-if="fieldErrors.phone" class="text-xs text-red-500 font-medium mt-1">{{ fieldErrors.phone }}</p>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Giới tính</label>
+                        <select
+                            v-model="form.gender"
+                            :class="[selectBaseClass, errClass('gender')]"
+                            @change="clearFieldError('gender')"
+                        >
+                            <option value="">— Chọn —</option>
+                            <option v-for="g in GENDER_OPTIONS" :key="g.value" :value="g.value">{{ g.label }}</option>
+                        </select>
+                        <p v-if="fieldErrors.gender" class="text-xs text-red-500 font-medium mt-1">{{ fieldErrors.gender }}</p>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Ngày sinh</label>
+                        <Input
+                            v-model="form.date_of_birth"
+                            type="date"
+                            :max="maxDateOfBirth"
+                            :min="minDateOfBirth"
+                            class="h-10 rounded-lg dark:bg-slate-800"
+                            :class="errClass('date_of_birth')"
+                            @update:model-value="clearFieldError('date_of_birth')"
+                        />
+                        <p v-if="fieldErrors.date_of_birth" class="text-xs text-red-500 font-medium mt-1">
+                            {{ fieldErrors.date_of_birth }}
+                        </p>
+                    </div>
+
+                    <div class="sm:col-span-2 space-y-1.5">
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Địa chỉ</label>
+                        <textarea
+                            v-model="form.address"
+                            rows="2"
+                            class="w-full min-h-[80px] px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-y"
+                            :class="errClass('address')"
+                            placeholder="Số nhà, phường/xã, quận/huyện, tỉnh/thành phố"
+                            @input="clearFieldError('address')"
+                        />
+                        <p v-if="fieldErrors.address" class="text-xs text-red-500 font-medium mt-1">{{ fieldErrors.address }}</p>
                     </div>
 
                     <div class="space-y-1.5">

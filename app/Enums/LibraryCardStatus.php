@@ -15,10 +15,10 @@ enum LibraryCardStatus: int
     public function label(): string
     {
         return match ($this) {
-            self::ACTIVE => 'Đang hiệu lực',
+            self::ACTIVE => 'Hoạt động',
             self::EXPIRED => 'Hết hạn',
             self::LOCKED => 'Khóa',
-            self::PENDING => 'Chờ duyệt',
+            self::PENDING => 'Chờ xử lý',
         };
     }
 

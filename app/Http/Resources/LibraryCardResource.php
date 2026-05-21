@@ -15,6 +15,10 @@ class LibraryCardResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        if ($this->resource->ensureActiveValidityDates()) {
+            $this->resource->refresh();
+        }
+
         $payment = $this->payment;
         $mediaDisk = (string) config('filesystems.media_disk', 'public');
         /** @var FilesystemAdapter $mediaStorage */

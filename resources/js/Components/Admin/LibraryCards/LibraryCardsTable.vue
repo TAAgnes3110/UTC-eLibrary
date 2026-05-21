@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { Icon } from '@iconify/vue';
 import { LIBRARY_CARD_STATUS, workflowLabel, holderLabel, statusLabel } from '@/config/libraryCardUi';
+import { libraryCardWorkflowOrValidityCell } from '@/utils/libraryCardValidity';
 import { useImageFallback } from '@/composables/useImageFallback';
 
 const props = defineProps({
@@ -41,12 +42,12 @@ const tableMinWidthClass = computed(() => {
         return 'min-w-[840px]';
     }
     if (props.showWorkflow && props.showCardStatus) {
-        return 'min-w-[1040px]';
+        return 'min-w-[960px]';
     }
     if (props.showWorkflow || props.showCardStatus) {
-        return 'min-w-[980px]';
+        return 'min-w-[920px]';
     }
-    return 'min-w-[900px]';
+    return 'min-w-[880px]';
 });
 
 const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject', 'detail', 'confirm-pickup']);
@@ -121,7 +122,7 @@ function formatDateTime(value) {
                             v-if="showWorkflow"
                             class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
                         >
-                            Quy trình
+                            Hiệu lực / Quy trình
                         </th>
                         <th
                             v-if="showCardStatus"
@@ -194,8 +195,10 @@ function formatDateTime(value) {
                                 {{ formatDateTime(row.created_at) }}
                             </span>
                         </td>
-                        <td v-if="showWorkflow" class="px-3 py-3 align-middle whitespace-nowrap">
-                            <span class="text-[12px] text-slate-600 dark:text-slate-300">{{ workflowLabel(row.workflow_status) }}</span>
+                        <td v-if="showWorkflow" class="px-3 py-3 align-middle max-w-[200px]">
+                            <span class="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums leading-snug">
+                                {{ libraryCardWorkflowOrValidityCell(row, workflowLabel) }}
+                            </span>
                         </td>
                         <td v-if="showCardStatus" class="px-3 py-3 align-middle">
                             <span

@@ -131,8 +131,11 @@ class LibraryCardGuestService
                 $payload['workflow_status'] = LibraryCard::WORKFLOW_PENDING_REVIEW;
             }
         } else {
+            $today = now()->startOfDay();
             $payload['workflow_status'] = LibraryCard::WORKFLOW_ACTIVE;
             $payload['status'] = LibraryCardStatus::ACTIVE;
+            $payload['issue_date'] = $today->toDateString();
+            $payload['expiry_date'] = $today->copy()->addYear()->toDateString();
             if (Helpers::filled($data['external_organization'] ?? null)) {
                 $payload['external_organization'] = trim((string) $data['external_organization']);
             }

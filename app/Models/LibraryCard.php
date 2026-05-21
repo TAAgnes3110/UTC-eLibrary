@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\LibraryCardStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -215,5 +216,40 @@ class LibraryCard extends BaseModel
     public function payment(): HasOne
     {
         return $this->hasOne(LibraryCardPayment::class);
+    }
+
+    /**
+     * Ghi issue_date / expiry_date cho thẻ đang active nhưng thiếu ngày (dữ liệu cũ hoặc cấp nhanh).
+     * Mốc: reviewed_at (duyệt / xác nhận) → created_at (tạo hồ sơ).
+     */
+    public function ensureActiveValidityDates(): bool
+    {
+        $ws = self::normalizeWorkflowStatus(
+            $this->workflow_status instanceof \BackedEnum
+                ? $this->workflow_status->value
+                : (string) $this->workflow_status
+        );
+        if ($ws !== self::WORKFLOW_ACTIVE) {
+            return false;
+        }
+        if ($this->issue_date !== null && $this->expiry_date !== null) {
+            return false;
+        }
+
+        $anchor = $this->reviewed_at ?? $this->created_at ?? now();
+        $issueBase = Carbon::parse($anchor)->startOfDay();
+        if ($this->issue_date === null) {
+            $this->issue_date = $issueBase;
+        }
+        if ($this->expiry_date === null) {
+            $issue = $this->issue_date instanceof Carbon
+                ? $this->issue_date
+                : Carbon::parse($this->issue_date)->startOfDay();
+            $this->expiry_date = $issue->copy()->addYear();
+        }
+
+        $this->saveQuietly();
+
+        return true;
     }
 }

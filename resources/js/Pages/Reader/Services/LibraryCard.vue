@@ -8,6 +8,7 @@ import { extractLaravelValidationErrors } from '@/utils/laravelApiError'
 import { toast } from '@/store/toast'
 import { useImageFallback } from '@/composables/useImageFallback'
 import { workflowLabel as workflowStatusLabel, statusLabel } from '@/config/libraryCardUi'
+import { libraryCardValidityText } from '@/utils/libraryCardValidity'
 
 const props = defineProps({
     auth_required: { type: Boolean, default: false },
@@ -120,20 +121,7 @@ const cardStatusLabel = computed(() => {
 })
 
 function validityDisplay(card) {
-    const ws = card?.workflow_status
-    if (ws === 'active') {
-        if (card?.issue_date && card?.expiry_date) {
-            return `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}`
-        }
-        return 'Chưa ghi ngày hiệu lực — liên hệ thủ thư để xác nhận đã giao thẻ'
-    }
-    if (ws === 'pending_pickup') return 'Chờ nhận thẻ tại quầy (chưa có ngày hiệu lực)'
-    if (ws === 'pending_payment') return 'Chờ thanh toán lệ phí'
-    if (ws === 'pending_review') return 'Chờ duyệt hồ sơ'
-    if (card?.issue_date || card?.expiry_date) {
-        return `${formatDate(card.issue_date)} — ${formatDate(card.expiry_date)}`
-    }
-    return '—'
+    return libraryCardValidityText(card)
 }
 const cardOwnerName = computed(() => String(props.card?.full_name || profileName.value || 'Bạn đọc'))
 const cardPhotoUrl = computed(() => props.card?.photo_url || state.avatarPreview || null)
@@ -167,19 +155,16 @@ const cardDetailItems = computed(() => {
     items.push(
         { label: 'Trạng thái', value: cardStatusLabel.value },
         { label: 'Quy trình', value: workflowDisplay.value },
-        { label: 'Ngày gửi yêu cầu', value: formatDateTime(card.created_at) },
-        { label: 'Hiệu lực', value: validityDisplay(card) },
+        { label: 'Hiệu lực', value: validityDisplay(card), emphasize: true },
     )
+
+    const ws = card.workflow_status
+    if (ws !== 'active') {
+        items.push({ label: 'Ngày gửi yêu cầu', value: formatDateTime(card.created_at) })
+    }
 
     return items
 })
-
-function formatDate(value) {
-    if (!value) return '—'
-    const d = new Date(value)
-    if (Number.isNaN(d.getTime())) return '—'
-    return d.toLocaleDateString('vi-VN')
-}
 
 function formatDateTime(value) {
     if (!value) return '—'
@@ -392,10 +377,20 @@ function notifyReissueActiveLibraryCard() {
                                 <div class="min-w-0 flex-1">
                                     <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-blue-100/90">{{ cardHolderTypeLabel }}</p>
                                     <p class="mt-1 truncate text-xl font-black sm:text-2xl">{{ card.card_number || '—' }}</p>
-                                    <div class="mt-5 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                                        <div v-for="item in cardDetailItems" :key="item.label" class="min-w-0">
-                                            <p class="text-[11px] uppercase tracking-wider text-blue-100/80">{{ item.label }}</p>
-                                            <p class="truncate font-semibold">{{ item.value }}</p>
+                                    <div class="mt-4 grid gap-x-4 gap-y-2.5 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                                        <div
+                                            v-for="item in cardDetailItems"
+                                            :key="item.label"
+                                            class="min-w-0"
+                                            :class="item.emphasize ? 'sm:col-span-2 lg:col-span-1' : ''"
+                                        >
+                                            <p class="text-[10px] uppercase tracking-wider text-blue-100/80">{{ item.label }}</p>
+                                            <p
+                                                class="font-semibold leading-snug"
+                                                :class="item.emphasize ? 'tabular-nums whitespace-nowrap' : 'truncate'"
+                                            >
+                                                {{ item.value }}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

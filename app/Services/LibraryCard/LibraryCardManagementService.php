@@ -67,6 +67,7 @@ class LibraryCardManagementService
                 'revoked_reason',
                 'notes',
                 'created_at',
+                'reviewed_at',
                 'params',
             ])
             ->with([
@@ -126,7 +127,14 @@ class LibraryCardManagementService
             $query->orderByDesc('created_at')->orderByDesc('id');
         }
 
-        return $query->paginate($perPage)->withQueryString();
+        $paginator = $query->paginate($perPage)->withQueryString();
+        foreach ($paginator->items() as $card) {
+            if ($card instanceof LibraryCard) {
+                $card->ensureActiveValidityDates();
+            }
+        }
+
+        return $paginator;
     }
 
     /**
@@ -220,6 +228,7 @@ class LibraryCardManagementService
                 'revoked_reason',
                 'notes',
                 'created_at',
+                'reviewed_at',
                 'params',
             ])
             ->with([
@@ -678,12 +687,16 @@ class LibraryCardManagementService
                 $card->status = LibraryCardStatus::ACTIVE;
             }
             if ($card->issue_date === null || $card->expiry_date === null) {
-                $today = Carbon::today();
+                $anchor = $card->reviewed_at ?? $card->created_at ?? Carbon::now();
+                $issueBase = Carbon::parse($anchor)->startOfDay();
                 if ($card->issue_date === null) {
-                    $card->issue_date = $today;
+                    $card->issue_date = $issueBase;
                 }
                 if ($card->expiry_date === null) {
-                    $card->expiry_date = $today->copy()->addYear();
+                    $issue = $card->issue_date instanceof Carbon
+                        ? $card->issue_date
+                        : Carbon::parse($card->issue_date)->startOfDay();
+                    $card->expiry_date = $issue->copy()->addYear();
                 }
             }
 

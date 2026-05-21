@@ -52,9 +52,6 @@ Thumbs.db
 /database/database.sqlite
 /database/dumps/
 
-# Script sinh / sửa UML–Mermaid (đồ án) — tạm thời không đưa lên repo
-/database/scripts/
-
 # Local env overrides
 .env.local
 .env.*.local

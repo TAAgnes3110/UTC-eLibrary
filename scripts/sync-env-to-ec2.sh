@@ -40,11 +40,28 @@ fi
 REMOTE="${EC2_USER}@${EC2_HOST}"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
+# Git Bash (MSYS): không đổi /home/ubuntu/... → E:/Git/home/ubuntu/...
+run_ssh() {
+    if [[ -n "${MSYSTEM:-}" ]]; then
+        MSYS_NO_PATHCONV=1 ssh "$@"
+    else
+        ssh "$@"
+    fi
+}
+
+run_scp() {
+    if [[ -n "${MSYSTEM:-}" ]]; then
+        MSYS_NO_PATHCONV=1 scp "$@"
+    else
+        scp "$@"
+    fi
+}
+
 echo "==> [sync-env] Backup .env trên server → .env.backup.${STAMP}"
-ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${EC2_APP_PATH}' && test -f .env && cp .env .env.backup.${STAMP} || true"
+run_ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${EC2_APP_PATH}' && test -f .env && cp .env .env.backup.${STAMP} || true"
 
 echo "==> [sync-env] Upload .env → ${EC2_APP_PATH}/.env"
-scp "${SCP_OPTS[@]}" .env "${REMOTE}:${EC2_APP_PATH}/.env"
+run_scp "${SCP_OPTS[@]}" .env "${REMOTE}:${EC2_APP_PATH}/.env"
 
 if [[ "${SYNC_ENV_SKIP_APPLY:-0}" == "1" ]]; then
     echo "==> [sync-env] Bỏ qua áp dụng (SYNC_ENV_SKIP_APPLY=1). Trên server chạy: bash scripts/ec2-apply-env.sh"
@@ -52,20 +69,18 @@ if [[ "${SYNC_ENV_SKIP_APPLY:-0}" == "1" ]]; then
 fi
 
 echo "==> [sync-env] Áp dụng trên server (config:clear + recreate container)"
-ssh "${SSH_OPTS[@]}" "${REMOTE}" bash -s -- "${EC2_APP_PATH}" <<'REMOTE_APPLY'
+run_ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${EC2_APP_PATH}' && bash -c '
 set -euo pipefail
-APP_PATH="$1"
-cd "$APP_PATH"
-COMPOSE_FILE="${EC2_COMPOSE_FILE:-docker-compose.ec2.yml}"
+COMPOSE_FILE=\"\${EC2_COMPOSE_FILE:-docker-compose.ec2.yml}\"
 if [[ -f scripts/ec2-apply-env.sh ]]; then
   bash scripts/ec2-apply-env.sh
 else
-  echo "==> [env] ec2-apply-env.sh chưa có — chạy docker trực tiếp (git pull sau để dùng script)"
-  docker compose -f "${COMPOSE_FILE}" up -d --force-recreate app scheduler queue
-  docker compose -f "${COMPOSE_FILE}" exec -T app php artisan config:clear --no-interaction
-  docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-interaction
-  docker compose -f "${COMPOSE_FILE}" ps
+  echo \"==> [env] ec2-apply-env.sh chưa có — chạy docker trực tiếp\"
+  docker compose -f \"\${COMPOSE_FILE}\" up -d --force-recreate app scheduler queue
+  docker compose -f \"\${COMPOSE_FILE}\" exec -T app php artisan config:clear --no-interaction
+  docker compose -f \"\${COMPOSE_FILE}\" exec -T app php artisan optimize:clear --no-interaction
+  docker compose -f \"\${COMPOSE_FILE}\" ps
 fi
-REMOTE_APPLY
+'"
 
 echo "==> [sync-env] Xong."

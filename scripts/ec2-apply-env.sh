@@ -26,4 +26,5 @@ docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-
 echo "==> [env] Container:"
 docker compose -f "${COMPOSE_FILE}" ps
 
-echo "==> [env] Xong. Kiểm tra https://$(grep -E '^APP_URL=' .env | head -1 | cut -d= -f2- | tr -d "\"'" | sed 's#/$##')"
+APP_URL_DISPLAY="$(grep -E '^APP_URL=' .env | head -1 | cut -d= -f2- | tr -d "\"'" | sed 's#/$##')"
+echo "==> [env] Xong. Kiểm tra ${APP_URL_DISPLAY}"

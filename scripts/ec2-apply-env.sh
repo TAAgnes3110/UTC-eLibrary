@@ -21,6 +21,9 @@ docker compose -f "${COMPOSE_FILE}" exec -T app php artisan config:clear --no-in
 docker compose -f "${COMPOSE_FILE}" up -d --force-recreate app scheduler queue
 
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan config:clear --no-interaction
+# Xóa route cache cũ trước optimize:clear (tránh lỗi routes-v7.php sau recreate container).
+docker compose -f "${COMPOSE_FILE}" exec -T app sh -c 'rm -f bootstrap/cache/routes-*.php' 2>/dev/null || true
+docker compose -f "${COMPOSE_FILE}" exec -T app php artisan route:clear --no-interaction 2>/dev/null || true
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-interaction
 
 echo "==> [env] Container:"

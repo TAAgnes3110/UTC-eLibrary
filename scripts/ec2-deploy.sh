@@ -46,6 +46,8 @@ DB_USERNAME="${DB_USERNAME:-utc}"
 echo "==> [deploy] Artisan migrate (bỏ qua bảng/cột đã có từ DB import)"
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan migrate:existing-schema --force --no-interaction
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan config:clear --no-interaction
+docker compose -f "${COMPOSE_FILE}" exec -T app sh -c 'rm -f bootstrap/cache/routes-*.php' 2>/dev/null || true
+docker compose -f "${COMPOSE_FILE}" exec -T app php artisan route:clear --no-interaction 2>/dev/null || true
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-interaction
 
 echo "==> [deploy] Trạng thái container"

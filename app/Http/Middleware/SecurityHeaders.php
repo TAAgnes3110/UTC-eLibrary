@@ -45,6 +45,7 @@ class SecurityHeaders
         }
 
         $connectSrc = array_merge(["'self'"], config('security.headers.csp_connect_src', []));
+        $scriptSrc = array_merge(["'self'", "'unsafe-inline'"], config('security.headers.csp_script_src', []));
 
         $directives = [
             "default-src 'self'",
@@ -52,7 +53,8 @@ class SecurityHeaders
             "form-action 'self'",
             "frame-ancestors 'self'",
             "object-src 'none'",
-            "script-src 'self' 'unsafe-inline'",
+            'script-src '.implode(' ', $scriptSrc),
+            'script-src-elem '.implode(' ', $scriptSrc),
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",

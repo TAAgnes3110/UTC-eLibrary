@@ -33,11 +33,37 @@ const documentTitle = computed(() => {
     return name || bookTitle || S.defaultTitle
 })
 
+const normalizePreviewPageImageUrl = (row) => {
+    const pageNo = Number(row?.page ?? 0)
+    const raw = row?.image_url ? String(row.image_url).trim() : ''
+    if (!raw || pageNo < 1) {
+        return ''
+    }
+
+    if (/^https?:\/\//i.test(raw)) {
+        return raw
+    }
+
+    if (/^\d+\.png$/i.test(raw)) {
+        return `/tra-cuu-sach/${props.book.id}/tai-lieu/${props.asset.id}/xem-truoc/trang/${pageNo}.png`
+    }
+
+    if (raw.startsWith('/')) {
+        return raw
+    }
+
+    if (raw.startsWith('tra-cuu-sach/')) {
+        return `/${raw}`
+    }
+
+    return raw
+}
+
 const previewPages = computed(() =>
     (props.pages || [])
         .map((row) => ({
             page: Number(row?.page ?? 0),
-            image_url: row?.image_url ? String(row.image_url) : '',
+            image_url: normalizePreviewPageImageUrl(row),
         }))
         .filter((row) => row.page > 0 && row.image_url)
 )

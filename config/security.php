@@ -16,6 +16,10 @@ return [
             'SECURITY_CSP_CONNECT_SRC',
             'https://api.iconify.design,https://api.unisvg.com,https://api.simplesvg.com'
         ))))),
+        'csp_script_src' => array_values(array_filter(array_map('trim', explode(',', (string) env(
+            'SECURITY_CSP_SCRIPT_SRC',
+            ''
+        ))))),
     ],
 
     /*

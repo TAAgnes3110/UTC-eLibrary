@@ -344,7 +344,7 @@ UTC-eLibrary/
 ├── deploy/
 │   └── nginx-host-certbot.conf    # Nginx host → Docker :8080
 ├── readme/assets/               # SVG ERD, kiến trúc, screenshot README
-│   ├── erd-*.svg
+│   ├── erd-database.png           # ERD MySQL tổng quan
 │   └── screenshots/01-*.png …
 ├── .cursor/                     # Rules, agents, skills, commands (ECC + UTC)
 ├── docs/ai/                     # Ngữ cảnh nghiệp vụ & hướng dẫn ECC
@@ -401,73 +401,22 @@ Trả `200` khi DB + cache OK.
 
 ## ERD cơ sở dữ liệu
 
-Sơ đồ chia theo **miền nghiệp vụ** (MySQL) — dễ đọc hơn một `erDiagram` khổng lồ. Chi tiết cột: `database/migrations/`.
-
-| Miền | Mô tả ngắn |
-|------|------------|
-| **Người dùng & thẻ** | Khoa/bộ môn, tài khoản, đợt cấp thẻ, chính sách mượn |
-| **Danh mục & kho** | Đầu mục sách, bản sao, phân loại, tủ/kệ, tác giả/NXB |
-| **Mượn — trả** | Phiếu mượn, dòng chi tiết, yêu cầu mượn/gia hạn |
-| **Tài liệu số & TT** | PDF, paywall, nộp duyệt, giỏ/đơn, SePay |
-
-### 1. Người dùng & thẻ thư viện
+Sơ đồ **tổng quan MySQL** (một ảnh duy nhất — khớp schema hiện tại). Chi tiết cột: `database/migrations/`.
 
 <p align="center">
-  <img src="readme/assets/erd-identity.svg" alt="ERD người dùng và thẻ" width="920"/>
+  <img src="readme/assets/erd-database.png" alt="ERD cơ sở dữ liệu UTC eLibrary" width="100%"/>
 </p>
 
-### 2. Danh mục & kho vật lý
+**Các nhóm chính trên sơ đồ:**
 
-<p align="center">
-  <img src="readme/assets/erd-catalog.svg" alt="ERD danh mục sách" width="920"/>
-</p>
+| Nhóm | Bảng tiêu biểu |
+|------|----------------|
+| **Người dùng & tổ chức** | `faculties`, `departments`, `users`, `library_cards` |
+| **Danh mục & kho** | `classifications`, `books`, `book_copies`, `digital_assets`, `digital_asset_paywall_settings` |
+| **Mượn — trả** | `loan_borrow_requests`, `loan_borrow_request_items`, `loans`, `loan_items` |
+| **Giỏ & thanh toán** | `carts`, `cart_items`, `orders`, `order_items`, `payment_transactions` |
 
-### 3. Mượn — trả sách in
-
-<p align="center">
-  <img src="readme/assets/erd-loans.svg" alt="ERD phiếu mượn" width="920"/>
-</p>
-
-### 4. Tài liệu số & thanh toán
-
-<p align="center">
-  <img src="readme/assets/erd-digital.svg" alt="ERD tài liệu số" width="920"/>
-</p>
-
-### Sơ đồ quan hệ tổng quan (rút gọn)
-
-```mermaid
-flowchart TB
-    subgraph Identity["👤 Người dùng"]
-        U[users] --> LC[library_cards]
-        F[faculties] --> D[departments] --> U
-    end
-    subgraph Catalog["📚 Danh mục"]
-        B[books] --> BC[book_copies]
-        B --> DA[digital_assets]
-    end
-    subgraph Loans["📋 Mượn trả"]
-        LC --> L[loans] --> LI[loan_items] --> BC
-    end
-    subgraph Digital["💳 Số & TT"]
-        DA --> PW[paywall_settings]
-        U --> C[carts] --> O[orders] --> PT[payment_transactions]
-        U --> SUB[digital_document_submissions]
-    end
-    Identity --> Loans
-    Catalog --> Loans
-    Catalog --> Digital
-```
-
-### Nhóm bảng phụ trợ
-
-| Nhóm | Bảng |
-|------|------|
-| **RBAC** | `roles`, `permissions`, `model_has_roles`, … (Spatie) |
-| **Auth** | `email_otp`, `personal_access_tokens` |
-| **Tin tức** | `news_posts`, `news_post_categories`, … |
-| **Hệ thống** | `library_settings`, `site_contents`, `jobs`, `cache` |
-| **Lưu** | `saved_books`, `user_profile_update_requests` |
+**Bảng phụ trợ** (không vẽ đầy đủ trên ERD): RBAC Spatie (`roles`, `permissions`, …), `email_otp`, `news_posts`, `library_settings`, `jobs`, `cache`, …
 
 ---
 

@@ -1,14 +1,3 @@
-#!/usr/bin/env bash
-# Đẩy .env local lên EC2 và áp dụng (backup bản cũ trên server).
-# Chạy từ máy dev (Git Bash / WSL / macOS):
-#
-#   export EC2_HOST=3.0.56.220
-#   export EC2_USER=ubuntu
-#   export EC2_SSH_KEY=~/.ssh/your-key.pem
-#   export EC2_APP_PATH=/home/ubuntu/utc-elibrary
-#   bash scripts/sync-env-to-ec2.sh
-#
-# Tùy chọn: SYNC_ENV_SKIP_APPLY=1 — chỉ upload, không recreate container.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -33,35 +22,29 @@ fi
 SSH_OPTS=(-p "${EC2_SSH_PORT}" -o StrictHostKeyChecking=accept-new)
 SCP_OPTS=(-P "${EC2_SSH_PORT}" -o StrictHostKeyChecking=accept-new)
 if [[ -n "${EC2_SSH_KEY}" ]]; then
-    SSH_OPTS+=(-i "${EC2_SSH_KEY}")
-    SCP_OPTS+=(-i "${EC2_SSH_KEY}")
+    SSH_KEY_FOR_OPENSSH="${EC2_SSH_KEY}"
+    # Git Bash: OpenSSH cần đường dẫn Windows cho -i; MSYS_NO_PATHCONV làm hỏng cả key lẫn remote path.
+    if [[ -n "${MSYSTEM:-}" ]] && command -v cygpath >/dev/null 2>&1; then
+        SSH_KEY_FOR_OPENSSH="$(cygpath -w "${EC2_SSH_KEY}")"
+    fi
+    SSH_OPTS+=(-i "${SSH_KEY_FOR_OPENSSH}")
+    SCP_OPTS+=(-i "${SSH_KEY_FOR_OPENSSH}")
 fi
 
 REMOTE="${EC2_USER}@${EC2_HOST}"
+# MSYS: //home/... không bị đổi thành E:/Git/home/... khi truyền cho ssh/scp remote.
+REMOTE_APP_PATH="${EC2_APP_PATH}"
+if [[ -n "${MSYSTEM:-}" ]]; then
+    REMOTE_APP_PATH="//${EC2_APP_PATH#/}"
+fi
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 
-# Git Bash (MSYS): không đổi /home/ubuntu/... → E:/Git/home/ubuntu/...
-run_ssh() {
-    if [[ -n "${MSYSTEM:-}" ]]; then
-        MSYS_NO_PATHCONV=1 ssh "$@"
-    else
-        ssh "$@"
-    fi
-}
-
-run_scp() {
-    if [[ -n "${MSYSTEM:-}" ]]; then
-        MSYS_NO_PATHCONV=1 scp "$@"
-    else
-        scp "$@"
-    fi
-}
-
 echo "==> [sync-env] Backup .env trên server → .env.backup.${STAMP}"
-run_ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${EC2_APP_PATH}' && test -f .env && cp .env .env.backup.${STAMP} || true"
+ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${REMOTE_APP_PATH}' && test -f .env && cp .env .env.backup.${STAMP} || true"
 
 echo "==> [sync-env] Upload .env → ${EC2_APP_PATH}/.env"
-run_scp "${SCP_OPTS[@]}" .env "${REMOTE}:${EC2_APP_PATH}/.env"
+scp "${SCP_OPTS[@]}" .env "${REMOTE}:${REMOTE_APP_PATH}/.env"
 
 if [[ "${SYNC_ENV_SKIP_APPLY:-0}" == "1" ]]; then
     echo "==> [sync-env] Bỏ qua áp dụng (SYNC_ENV_SKIP_APPLY=1). Trên server chạy: bash scripts/ec2-apply-env.sh"
@@ -69,7 +52,7 @@ if [[ "${SYNC_ENV_SKIP_APPLY:-0}" == "1" ]]; then
 fi
 
 echo "==> [sync-env] Áp dụng trên server (config:clear + recreate container)"
-run_ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${EC2_APP_PATH}' && bash -c '
+ssh "${SSH_OPTS[@]}" "${REMOTE}" "cd '${REMOTE_APP_PATH}' && bash -c '
 set -euo pipefail
 COMPOSE_FILE=\"\${EC2_COMPOSE_FILE:-docker-compose.ec2.yml}\"
 if [[ -f scripts/ec2-apply-env.sh ]]; then

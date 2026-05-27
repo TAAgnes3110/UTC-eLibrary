@@ -1,14 +1,26 @@
 # UTC eLibrary
 
 <p align="center">
-  <strong>Hệ thống quản lý thư viện số — Đại học Giao thông Vận tải (UTC)</strong><br>
-  Laravel 12 · Vue 3 (Inertia) · MySQL · Redis
+  <strong>Hệ thống quản lý thư viện số — Đại học Giao thông Vận tải (UTC)</strong>
 </p>
 
 <p align="center">
-  <a href="http://3.0.56.220/"><strong>🌐 Demo trực tuyến</strong></a> ·
-  <code>http://3.0.56.220/</code> (độc giả) ·
-  <a href="http://3.0.56.220/admin"><code>/admin</code></a> (quản trị)
+  <img src="https://img.shields.io/badge/Laravel-12-FF2D20?logo=laravel&logoColor=white" alt="Laravel 12"/>
+  <img src="https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white" alt="Vue 3"/>
+  <img src="https://img.shields.io/badge/Inertia-2-9553E9" alt="Inertia"/>
+  <img src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white" alt="MySQL 8"/>
+  <img src="https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white" alt="Redis"/>
+  <img src="https://img.shields.io/badge/Docker-EC2-2496ED?logo=docker&logoColor=white" alt="Docker"/>
+</p>
+
+<p align="center">
+  <a href="http://3.0.56.220/"><strong>Demo (IP)</strong></a> ·
+  <a href="http://kiet.mmoall.com/"><strong>Demo (domain)</strong></a> ·
+  <a href="http://3.0.56.220/admin"><code>/admin</code></a>
+</p>
+
+<p align="center">
+  <sub>Ưu tiên <code>http://</code> cho IP và domain (HTTPS cần Certbot hoặc Cloudflare SSL đúng chế độ).</sub>
 </p>
 
 <p align="center">
@@ -34,6 +46,7 @@
 13. [Biến môi trường](#biến-môi-trường)
 14. [Kiểm tra chất lượng](#kiểm-tra-chất-lượng)
 15. [Ghi chú bảo mật](#ghi-chú-bảo-mật)
+16. [Xử lý sự cố deploy](#xử-lý-sự-cố-deploy)
 
 ---
 
@@ -323,9 +336,13 @@ UTC-eLibrary/
 ├── routes/api.php               # /api/v1
 ├── database/migrations/
 ├── scripts/
-│   ├── ec2-deploy.sh
-│   ├── ec2-prepare-build.sh
+│   ├── ec2-deploy.sh              # Deploy đầy đủ trên EC2
+│   ├── ec2-prepare-build.sh       # Composer + Vite trước docker build
+│   ├── ec2-apply-env.sh           # Áp dụng .env (recreate container)
+│   ├── sync-env-to-ec2.sh         # Đẩy .env từ máy dev (Git Bash)
 │   └── generate-postman-collection.php
+├── deploy/
+│   └── nginx-host-certbot.conf    # Nginx host → Docker :8080
 ├── readme/assets/               # SVG ERD, kiến trúc, screenshot README
 │   ├── erd-*.svg
 │   └── screenshots/01-*.png …
@@ -353,7 +370,7 @@ UTC-eLibrary/
 
 | File | Mô tả |
 |------|--------|
-| `UTC-eLibrary.postman_collection.json` | **195+ request**, sinh từ `php artisan route:list` |
+| `UTC-eLibrary.postman_collection.json` | **197 request** / **21 folder**, sinh từ `php artisan route:list` |
 | `scripts/generate-postman-collection.php` | Tái sinh collection khi thêm route |
 
 **Cách dùng:**
@@ -501,7 +518,49 @@ Hooks ECC (nếu bật): có thể giảm mức bằng biến môi trường `EC
 
 ## Deploy EC2 (Docker)
 
-Trên server (ví dụ `~/utc-elibrary`):
+Kiến trúc production:
+
+```text
+Internet → Nginx (host :80/:443) → Docker app (:8080 → :80) → MySQL / Redis
+```
+
+| Thành phần | Vai trò |
+|------------|---------|
+| **Nginx (host)** | Nhận HTTP/HTTPS từ internet, proxy `127.0.0.1:8080` |
+| **Docker `app`** | Laravel + Vue build (`APP_PORT=8080`) |
+| **`scheduler` / `queue`** | Job nền (thông báo, preview PDF, SePay…) |
+
+### Cheat sheet — chạy gì, ở đâu?
+
+| Mục tiêu | Ở đâu | Lệnh |
+|----------|--------|------|
+| Deploy code mới | **EC2** | `cd ~/utc-elibrary && git pull origin main && bash scripts/ec2-deploy.sh` |
+| Chỉ áp dụng `.env` | **EC2** | `cd ~/utc-elibrary && bash scripts/ec2-apply-env.sh` |
+| Đẩy `.env` từ máy | **Windows Git Bash** | `bash scripts/sync-env-to-ec2.sh` (xem bên dưới) |
+| Xem `.env` server | **EC2** | `grep -E '^(APP_URL|APP_PORT)=' ~/utc-elibrary/.env` |
+| Tắt job nền (không sửa code) | **EC2** | `docker compose -f docker-compose.ec2.yml stop scheduler queue` |
+
+> Trên EC2 (`ubuntu@ip-...`) **không** chạy `ssh -i /d/AWS/...` — bạn đã ở trên server rồi.
+
+### Lần đầu — checklist AWS + Nginx
+
+1. **Security Group** inbound: **80**, **443** (`0.0.0.0/0`), SSH **22** (IP bạn).
+2. Trên EC2: `APP_PORT=8080` trong `.env`, deploy app (mục dưới).
+3. Cài Nginx host:
+
+```bash
+cd ~/utc-elibrary
+sudo apt install -y nginx
+sudo cp deploy/nginx-host-certbot.conf /etc/nginx/sites-available/utc-elibrary
+sudo ln -sf /etc/nginx/sites-available/utc-elibrary /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx
+```
+
+4. Kiểm tra: `curl -sI http://127.0.0.1 | head -3` → `HTTP/1.1 200`.
+5. HTTPS (tùy chọn): `sudo certbot --nginx -d kiet.mmoall.com` → `SESSION_SECURE_COOKIE=true` → `bash scripts/ec2-apply-env.sh`.
+
+### Deploy code trên EC2
 
 ```bash
 cd ~/utc-elibrary
@@ -509,58 +568,65 @@ git pull origin main
 bash scripts/ec2-deploy.sh
 ```
 
-Script: pull → `ec2-prepare-build.sh` → `docker compose build app` → `up -d` → `migrate:existing-schema` → clear cache.
+Luồng script: `git pull` → `ec2-prepare-build.sh` (Composer + `npm run build`) → `docker compose build` → `up -d` → migrate → clear cache.
 
-### Vận hành nền (Docker — cấu hình một lần trong `.env`)
+### Đồng bộ `.env` từ Windows (Git Bash)
 
-`docker-compose.ec2.yml` đã chạy sẵn:
+`.env` **không** commit Git.
 
-| Container | Lệnh | Mục đích |
-|-----------|------|----------|
-| `scheduler` | `php artisan schedule:work` | Nhắc sắp đến hạn, đồng bộ quá hạn, hết hạn đơn SePay, … |
-| `queue` | `php artisan queue:work` | Preview PDF / job nền khi `DIGITAL_PREVIEW_DISPATCH_SYNC=false` |
+```bash
+cd /d/UTC-eLibrary
+git pull origin main
+chmod 400 /d/AWS/utc-elibrary.pem
 
-**Không cần** thêm crontab `* * * * * php artisan schedule:run` trên EC2 Docker.
+export EC2_HOST=3.0.56.220
+export EC2_USER=ubuntu
+export EC2_SSH_KEY=/d/AWS/utc-elibrary.pem
+export EC2_APP_PATH=/home/ubuntu/utc-elibrary
 
-Sau khi sửa `.env` (giờ chạy, số ngày báo trước, chu kỳ poll UI):
+ssh -i "$EC2_SSH_KEY" "$EC2_USER@$EC2_HOST" "echo OK"
+bash scripts/sync-env-to-ec2.sh
+```
+
+Deploy code sau khi đổi env (tùy chọn):
+
+```bash
+ssh -i "$EC2_SSH_KEY" "$EC2_USER@$EC2_HOST" "cd /home/ubuntu/utc-elibrary && git pull origin main && bash scripts/ec2-deploy.sh"
+```
+
+### Vận hành nền (scheduler + queue)
+
+| Container | Mục đích |
+|-----------|----------|
+| `scheduler` | `schedule:work` — nhắc hạn mượn, đồng bộ quá hạn, hết hạn đơn SePay |
+| `queue` | `queue:work` — preview PDF khi `DIGITAL_PREVIEW_DISPATCH_SYNC=false` |
+
+Sau khi sửa `.env` liên quan lịch/thông báo:
 
 ```bash
 docker compose -f docker-compose.ec2.yml exec app php artisan config:clear
 docker compose -f docker-compose.ec2.yml up -d scheduler queue
 ```
 
-Kiểm tra container: `docker compose -f docker-compose.ec2.yml ps` (phải thấy `scheduler`, `queue` **Up**).
+**Tắt job nền** (web vẫn chạy, không đổi code/DB):
 
-**Bare-metal (không Docker):** crontab `* * * * * cd /path/to/UTC-eLibrary && php artisan schedule:run` và process supervisor cho `php artisan queue:work`.
+```bash
+docker compose -f docker-compose.ec2.yml stop scheduler queue
+docker compose -f docker-compose.ec2.yml rm -f scheduler queue
+```
+
+Bật lại: `docker compose -f docker-compose.ec2.yml up -d scheduler queue`
 
 ### DB import từ backup SQL
-
-Khi bảng đã có nhưng thiếu dòng trong `migrations`:
 
 ```bash
 docker compose -f docker-compose.ec2.yml exec app php artisan migrate:existing-schema --force
 ```
 
-### Sau deploy
+### Sau mỗi deploy
 
-- **Ctrl+F5** trình duyệt (JS mới trong image).
-- Chỉ `git pull` **không đủ** — phải build lại image.
-
-### Đồng bộ `.env` từ máy dev lên EC2
-
-`.env` **không** lên Git. Sau khi sửa local, chạy từ thư mục gốc repo (Git Bash / WSL):
-
-```bash
-export EC2_HOST=3.0.56.220
-export EC2_USER=ubuntu
-export EC2_SSH_KEY=~/.ssh/your-key.pem
-export EC2_APP_PATH=/home/ubuntu/utc-elibrary
-bash scripts/sync-env-to-ec2.sh
-```
-
-Script: backup `.env` cũ trên server → `scp` file local → `config:clear` + recreate `app` / `scheduler` / `queue`.
-
-Chỉ áp dụng lại env trên server (đã có `.env` mới): `bash scripts/ec2-apply-env.sh`.
+- **Ctrl+F5** trình duyệt (asset Vite mới).
+- Chỉ `git pull` **không đủ** — cần `ec2-deploy.sh` (build image).
 
 ---
 
@@ -593,27 +659,31 @@ File: `.github/workflows/deploy-ec2.yml`
 | `LOAN_DUE_SOON_DAYS_BEFORE` | Báo trước N ngày (mặc định `2`) |
 | `SCHEDULE_LOANS_*_AT` | Giờ chạy `loans:sync-overdue` / `loans:notify-due-soon` |
 
-### EC2 (HTTP, ví dụ)
+### EC2 production (ví dụ)
 
 ```env
 DEPLOY_PROFILE=vps
-APP_URL=http://<IP-EC2>
-SESSION_SECURE_COOKIE=false
-SESSION_DOMAIN=
-SANCTUM_STATEFUL_DOMAINS=<IP-EC2>,localhost,127.0.0.1
-API_ALLOWED_DOMAINS=http://<IP-EC2>,<IP-EC2>
+APP_URL=https://kiet.mmoall.com
+APP_PORT=8080
+BASE_URL=https://kiet.mmoall.com
+SESSION_SECURE_COOKIE=true
+SANCTUM_STATEFUL_DOMAINS=kiet.mmoall.com,3.0.56.220,localhost,127.0.0.1
+API_ALLOWED_DOMAINS=https://kiet.mmoall.com,http://kiet.mmoall.com,3.0.56.220
 API_HIDE_BROWSER_ACCESS=true
 API_MINIMAL_HEALTH=true
 SECURITY_HEADERS=true
-DIGITAL_PREVIEW_DISPATCH_SYNC=true
+DB_HOST=mysql
+REDIS_HOST=redis
 QUEUE_CONNECTION=redis
-NOTIFICATION_UI_POLL_INTERVAL_MS=30000
-LOAN_DUE_SOON_DAYS_BEFORE=2
-SCHEDULE_LOANS_SYNC_OVERDUE_AT=06:05
-SCHEDULE_LOANS_NOTIFY_DUE_SOON_AT=07:00
 ```
 
-**Admin / tài liệu số:** `/admin` dùng cookie session. Lỗi 401 khi Lưu → F5, đăng nhập lại; kiểm tra `SESSION_SECURE_COOKIE=false` trên HTTP.
+| Biến | Ghi chú |
+|------|---------|
+| `APP_PORT=8080` | Docker map `8080:80`; Nginx host proxy vào đây |
+| `SESSION_SECURE_COOKIE` | `false` nếu chỉ HTTP; `true` sau HTTPS (Certbot / Cloudflare Full) |
+| `API_HIDE_BROWSER_ACCESS=true` | Gõ `/api/v1/...` trên thanh địa chỉ → 404 (SPA vẫn gọi bình thường) |
+
+**Admin:** `/admin` là SPA + cookie session — **không** ẩn URL; bảo vệ bằng đăng nhập + RBAC.
 
 ---
 
@@ -636,16 +706,44 @@ php scripts/generate-postman-collection.php
 
 ## Ghi chú bảo mật
 
-- Không commit `.env`, key, credentials.
+- Không commit `.env`, `.pem`, key, credentials (`*.pem` đã nằm trong `.gitignore`).
 - Không log PII / mật khẩu.
 - PDF tài liệu số: không lộ URL public khi disk `local`.
-- `resource_type`: `textbook` | `reference` | `digital`.
-- **Production:** `APP_DEBUG=false`, `SESSION_SECURE_COOKIE=true` (HTTPS), `API_ALLOWED_DOMAINS` ghi đúng domain, `API_HIDE_BROWSER_ACCESS=true` (ẩn `/api/*` khi mở trực tiếp trên trình duyệt).
-- Header: CSP, `X-Frame-Options`, CSRF (web + Sanctum SPA), rate limit (`auth`/`api`/`refresh`).
-- Tin tức HTML: lọc XSS server (`SafeHtml`) + client (`DOMPurify` trước `v-html`).
+- **Production:** `APP_DEBUG=false`, `API_HIDE_BROWSER_ACCESS=true`, `API_ALLOWED_DOMAINS` khớp domain thật.
+- **HTTPS:** `SESSION_SECURE_COOKIE=true` khi user truy cập qua `https://`.
+- Header: CSP, `X-Frame-Options`, CSRF (web + Sanctum SPA), rate limit (`auth` / `api` / `refresh`).
+- Tin tức HTML: lọc XSS server (`SafeHtml`) + client (`DOMPurify`).
+
+| Đường dẫn | “Ẩn” URL? | Bảo vệ |
+|-----------|-----------|--------|
+| `/api/v1/*` | Một phần (404 khi mở tay trên browser) | JWT + `domain` header + RBAC |
+| `/admin/*` | Không (SPA cần route) | Session + role admin/thủ thư |
+
+---
+
+## Xử lý sự cố deploy
+
+| Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
+|-------------|------------------------|------------|
+| `3.0.56.220` **connection refused** | Security Group chưa mở **80/443** | AWS → Inbound rules |
+| Cloudflare **521** + `http://` OK | Origin chưa có **443** hoặc SSL mode sai | Certbot trên EC2 **hoặc** Cloudflare **Flexible** |
+| `https://domain` 521, `http://domain` OK | Cloudflare gọi HTTPS origin, EC2 chỉ HTTP | SSL → **Flexible** (tạm) hoặc cài cert |
+| `curl 127.0.0.1` OK, IP ngoài refused | Firewall / SG | Mở 80, 443; `sudo ufw allow 80/tcp` |
+| `sync-env` lỗi key trên Git Bash | Quyền `.pem` / path MSYS | `chmod 400 /d/AWS/utc-elibrary.pem`; dùng script mới nhất |
+| `routes-v7.php` sau apply env | Cache route cũ | `bash scripts/ec2-apply-env.sh` (đã xử lý trong script) |
+
+**Chẩn đoán nhanh trên EC2:**
+
+```bash
+docker compose -f docker-compose.ec2.yml ps
+curl -sI http://127.0.0.1:8080 | head -2
+curl -sI http://127.0.0.1 | head -2
+sudo systemctl is-active nginx
+```
 
 ---
 
 <p align="center">
-  <sub>Đại học Giao thông Vận tải (UTC) · MIT-compatible OSS components</sub>
+  <strong>Đại học Giao thông Vận tải (UTC)</strong><br>
+  <sub>Laravel 12 · Vue 3 · Inertia · Docker EC2 · <a href="AGENTS.md">AGENTS.md</a></sub>
 </p>

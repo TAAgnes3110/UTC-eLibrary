@@ -27,13 +27,15 @@ $collection = [
             . "1. Chạy `POST /api/v1/auth/login` (folder Auth) — token lưu vào biến `token`.\n"
             . "2. Header `domain` = `{{DOMAIN}}` (mặc định trùng BASE_URL).\n"
             . "3. API cần đăng nhập: middleware `init` — gửi `Authorization: Bearer {{token}}`.\n"
-            . "4. Admin Inertia dùng cookie session; collection này kiểm thử **API JWT**.\n",
+            . "4. Admin Inertia dùng cookie session; collection này kiểm thử **API JWT**.\n"
+            . "5. Demo EC2: đổi `BASE_URL` = `{{BASE_URL_PROD}}` hoặc `http://kiet.mmoall.com`.\n",
         '_postman_id' => '7b3a2c31-9c64-4e6c-b3c0-6e6d4c3b2b10',
         'schema' => 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
     ],
     'variable' => [
         ['key' => 'BASE_URL', 'value' => 'http://localhost:8000'],
         ['key' => 'DOMAIN', 'value' => 'http://localhost:8000'],
+        ['key' => 'BASE_URL_PROD', 'value' => 'http://kiet.mmoall.com'],
         ['key' => 'token', 'value' => ''],
         ['key' => 'book_id', 'value' => '1'],
         ['key' => 'loan_id', 'value' => '1'],
@@ -143,7 +145,7 @@ function folderKeyForUri(string $uri): string
     if ($uri === 'api/health') {
         return '00 — Health';
     }
-    if (str_starts_with($uri, 'api/v1/auth')) {
+    if (preg_match('#^api/v1/auth(?:/|$)#', $uri)) {
         return '00 — Auth';
     }
     if (str_starts_with($uri, 'api/v1/me/')) {

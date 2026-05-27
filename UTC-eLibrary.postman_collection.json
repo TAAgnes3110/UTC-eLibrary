@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "UTC-eLibrary API",
-        "description": "Collection tự sinh từ routes Laravel.\n\n**Chuẩn bị:**\n1. Chạy `POST /api/v1/auth/login` (folder Auth) — token lưu vào biến `token`.\n2. Header `domain` = `{{DOMAIN}}` (mặc định trùng BASE_URL).\n3. API cần đăng nhập: middleware `init` — gửi `Authorization: Bearer {{token}}`.\n4. Admin Inertia dùng cookie session; collection này kiểm thử **API JWT**.\n",
+        "description": "Collection tự sinh từ routes Laravel.\n\n**Chuẩn bị:**\n1. Chạy `POST /api/v1/auth/login` (folder Auth) — token lưu vào biến `token`.\n2. Header `domain` = `{{DOMAIN}}` (mặc định trùng BASE_URL).\n3. API cần đăng nhập: middleware `init` — gửi `Authorization: Bearer {{token}}`.\n4. Admin Inertia dùng cookie session; collection này kiểm thử **API JWT**.\n5. Demo EC2: đổi `BASE_URL` = `{{BASE_URL_PROD}}` hoặc `http://kiet.mmoall.com`.\n",
         "_postman_id": "7b3a2c31-9c64-4e6c-b3c0-6e6d4c3b2b10",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
@@ -13,6 +13,10 @@
         {
             "key": "DOMAIN",
             "value": "http://localhost:8000"
+        },
+        {
+            "key": "BASE_URL_PROD",
+            "value": "http://kiet.mmoall.com"
         },
         {
             "key": "token",
@@ -74,26 +78,6 @@
             "name": "00 — Auth",
             "item": [
                 {
-                    "name": "DELETE api/v1/authors/{author}",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{BASE_URL}}/api/v1/authors/{author}",
-                            "host": [
-                                "{{BASE_URL}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "authors",
-                                "{author}"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
                     "name": "GET api/v1/auth/user",
                     "request": {
                         "method": "GET",
@@ -108,25 +92,6 @@
                                 "v1",
                                 "auth",
                                 "user"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "GET api/v1/authors",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{BASE_URL}}/api/v1/authors",
-                            "host": [
-                                "{{BASE_URL}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "authors"
                             ]
                         }
                     },
@@ -408,73 +373,6 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n    \"email\": \"test@st.utc.edu.vn\",\n    \"otp\": \"000000\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "POST api/v1/authors",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{BASE_URL}}/api/v1/authors",
-                            "host": [
-                                "{{BASE_URL}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "authors"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "PUT api/v1/authors/{author}",
-                    "request": {
-                        "method": "PUT",
-                        "header": [
-                            {
-                                "key": "Content-Type",
-                                "value": "application/json"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{BASE_URL}}/api/v1/authors/{author}",
-                            "host": [
-                                "{{BASE_URL}}"
-                            ],
-                            "path": [
-                                "api",
-                                "v1",
-                                "authors",
-                                "{author}"
-                            ]
-                        },
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -2103,6 +2001,117 @@
             ]
         },
         {
+            "name": "10 — Staff / Authors",
+            "item": [
+                {
+                    "name": "DELETE api/v1/authors/{author}",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{BASE_URL}}/api/v1/authors/{author}",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "authors",
+                                "{author}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET api/v1/authors",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{BASE_URL}}/api/v1/authors",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "authors"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "POST api/v1/authors",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{BASE_URL}}/api/v1/authors",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "authors"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "PUT api/v1/authors/{author}",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{BASE_URL}}/api/v1/authors/{author}",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "authors",
+                                "{author}"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
             "name": "10 — Staff / Books",
             "item": [
                 {
@@ -2370,6 +2379,27 @@
                                 "v1",
                                 "books",
                                 "{{book_id}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "GET api/v1/books/{book}/borrow-availability",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{BASE_URL}}/api/v1/books/{book}/borrow-availability",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "books",
+                                "{{book_id}}",
+                                "borrow-availability"
                             ]
                         }
                     },
@@ -3554,6 +3584,41 @@
                                 "library-cards",
                                 "{{library_card_id}}",
                                 "approve-review"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "POST api/v1/library-cards/{library_card}/confirm-pickup",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{BASE_URL}}/api/v1/library-cards/{library_card}/confirm-pickup",
+                            "host": [
+                                "{{BASE_URL}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "library-cards",
+                                "{{library_card_id}}",
+                                "confirm-pickup"
                             ]
                         },
                         "body": {

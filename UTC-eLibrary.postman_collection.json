@@ -1,7 +1,7 @@
 {
     "info": {
         "name": "UTC-eLibrary API",
-        "description": "Collection tự sinh từ routes Laravel.\n\n**Chuẩn bị:**\n1. Chạy `POST /api/v1/auth/login` (folder Auth) — token lưu vào biến `token`.\n2. Header `domain` = `{{DOMAIN}}` (mặc định trùng BASE_URL).\n3. API cần đăng nhập: middleware `init` — gửi `Authorization: Bearer {{token}}`.\n4. Admin Inertia dùng cookie session; collection này kiểm thử **API JWT**.\n5. Demo EC2: đổi `BASE_URL` = `{{BASE_URL_PROD}}` hoặc `http://kiet.mmoall.com`.\n",
+        "description": "Collection tự sinh từ routes Laravel.\n\n**Chuẩn bị:**\n1. Chạy `POST /api/v1/auth/login` (folder Auth) — token lưu vào biến `token`.\n2. Header `domain` = `{{DOMAIN}}` (mặc định trùng BASE_URL).\n3. API cần đăng nhập: middleware `init` — gửi `Authorization: Bearer {{token}}`.\n4. Admin Inertia dùng cookie session; collection này kiểm thử **API JWT**.\n5. Production: đặt `BASE_URL` / `DOMAIN` = URL deploy thật (không commit domain vào repo).\n",
         "_postman_id": "7b3a2c31-9c64-4e6c-b3c0-6e6d4c3b2b10",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
@@ -16,7 +16,7 @@
         },
         {
             "key": "BASE_URL_PROD",
-            "value": "http://kiet.mmoall.com"
+            "value": "https://your-domain.example"
         },
         {
             "key": "token",

@@ -7,7 +7,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const BASE = process.env.SCREENSHOT_BASE_URL || 'http://3.0.56.220';
+const BASE = process.env.SCREENSHOT_BASE_URL || 'http://localhost:8000';
 const OUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../readme/assets/screenshots');
 const ADMIN_EMAIL = process.env.SCREENSHOT_ADMIN_EMAIL || 'admin@utc.edu.vn';
 const ADMIN_PASSWORD = process.env.SCREENSHOT_ADMIN_PASSWORD || 'password';

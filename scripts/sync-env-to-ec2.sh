@@ -10,7 +10,7 @@ EC2_SSH_PORT="${EC2_SSH_PORT:-22}"
 EC2_SSH_KEY="${EC2_SSH_KEY:-}"
 
 if [[ -z "${EC2_HOST}" ]]; then
-    echo "Thiếu EC2_HOST (ví dụ: export EC2_HOST=3.0.56.220)" >&2
+    echo "Thiếu EC2_HOST (ví dụ: export EC2_HOST=<EC2_PUBLIC_IP>)" >&2
     exit 1
 fi
 

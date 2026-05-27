@@ -14,13 +14,14 @@
 </p>
 
 <p align="center">
-  <a href="http://3.0.56.220/"><strong>Demo (IP)</strong></a> ·
-  <a href="http://kiet.mmoall.com/"><strong>Demo (domain)</strong></a> ·
-  <a href="http://3.0.56.220/admin"><code>/admin</code></a>
+  <strong>Demo production:</strong>
+  <code>http://&lt;EC2_PUBLIC_IP&gt;/</code> ·
+  <code>https://&lt;your-domain&gt;/</code> ·
+  <code>/admin</code>
 </p>
 
 <p align="center">
-  <sub>Ưu tiên <code>http://</code> cho IP và domain (HTTPS cần Certbot hoặc Cloudflare SSL đúng chế độ).</sub>
+  <sub>Thay <code>&lt;EC2_PUBLIC_IP&gt;</code> và <code>&lt;your-domain&gt;</code> bằng giá trị thật trong <code>.env</code> (không commit).</sub>
 </p>
 
 <p align="center">
@@ -99,7 +100,7 @@ UTC eLibrary phục vụ:
   <img src="readme/assets/loan-flow.svg" alt="Luồng mượn sách" width="720"/>
 </p>
 
-### Giao diện (screenshot từ [demo EC2](http://3.0.56.220/))
+### Giao diện (screenshot môi trường production)
 
 Ảnh **full-page**, viewport **máy tính 1920×1080** (Chrome desktop, dark mode) — mỗi trang **một hàng**, `width="100%"`. Tái chụp: `node scripts/capture-readme-screenshots.mjs`.
 
@@ -210,7 +211,7 @@ UTC eLibrary phục vụ:
 
 **Trang chủ** — `/`
 
-<p align="center"><a href="http://3.0.56.220/"><img src="readme/assets/screenshots/01-home.png" alt="Trang chủ" width="100%"/></a></p>
+<p align="center"><img src="readme/assets/screenshots/01-home.png" alt="Trang chủ" width="100%"/></p>
 
 **Đăng nhập** — `/login`
 
@@ -489,7 +490,7 @@ Internet → Nginx (host :80/:443) → Docker app (:8080 → :80) → MySQL / Re
 | Xem `.env` server | **EC2** | `grep -E '^(APP_URL|APP_PORT)=' ~/utc-elibrary/.env` |
 | Tắt job nền (không sửa code) | **EC2** | `docker compose -f docker-compose.ec2.yml stop scheduler queue` |
 
-> Trên EC2 (`ubuntu@ip-...`) **không** chạy `ssh -i /d/AWS/...` — bạn đã ở trên server rồi.
+> Trên EC2 (`ubuntu@ip-...`) **không** chạy lệnh `ssh` từ Windows nữa — bạn đã ở trên server rồi.
 
 ### Lần đầu — checklist AWS + Nginx
 
@@ -507,7 +508,7 @@ sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx
 ```
 
 4. Kiểm tra: `curl -sI http://127.0.0.1 | head -3` → `HTTP/1.1 200`.
-5. HTTPS (tùy chọn): `sudo certbot --nginx -d kiet.mmoall.com` → `SESSION_SECURE_COOKIE=true` → `bash scripts/ec2-apply-env.sh`.
+5. HTTPS (tùy chọn): `sudo certbot --nginx -d <your-domain>` → `SESSION_SECURE_COOKIE=true` → `bash scripts/ec2-apply-env.sh`.
 
 ### Deploy code trên EC2
 
@@ -526,11 +527,11 @@ Luồng script: `git pull` → `ec2-prepare-build.sh` (Composer + `npm run build
 ```bash
 cd /d/UTC-eLibrary
 git pull origin main
-chmod 400 /d/AWS/utc-elibrary.pem
+chmod 400 ~/.ssh/your-key.pem
 
-export EC2_HOST=3.0.56.220
+export EC2_HOST=<EC2_PUBLIC_IP>
 export EC2_USER=ubuntu
-export EC2_SSH_KEY=/d/AWS/utc-elibrary.pem
+export EC2_SSH_KEY=~/.ssh/your-key.pem
 export EC2_APP_PATH=/home/ubuntu/utc-elibrary
 
 ssh -i "$EC2_SSH_KEY" "$EC2_USER@$EC2_HOST" "echo OK"
@@ -608,16 +609,16 @@ File: `.github/workflows/deploy-ec2.yml`
 | `LOAN_DUE_SOON_DAYS_BEFORE` | Báo trước N ngày (mặc định `2`) |
 | `SCHEDULE_LOANS_*_AT` | Giờ chạy `loans:sync-overdue` / `loans:notify-due-soon` |
 
-### EC2 production (ví dụ)
+### EC2 production (ví dụ — thay placeholder bằng giá trị thật trong `.env` local, không commit)
 
 ```env
 DEPLOY_PROFILE=vps
-APP_URL=https://kiet.mmoall.com
+APP_URL=https://<your-domain>
 APP_PORT=8080
-BASE_URL=https://kiet.mmoall.com
+BASE_URL=https://<your-domain>
 SESSION_SECURE_COOKIE=true
-SANCTUM_STATEFUL_DOMAINS=kiet.mmoall.com,3.0.56.220,localhost,127.0.0.1
-API_ALLOWED_DOMAINS=https://kiet.mmoall.com,http://kiet.mmoall.com,3.0.56.220
+SANCTUM_STATEFUL_DOMAINS=<your-domain>,<EC2_PUBLIC_IP>,localhost,127.0.0.1
+API_ALLOWED_DOMAINS=https://<your-domain>,http://<your-domain>,<EC2_PUBLIC_IP>
 API_HIDE_BROWSER_ACCESS=true
 API_MINIMAL_HEALTH=true
 SECURITY_HEADERS=true
@@ -674,11 +675,11 @@ php scripts/generate-postman-collection.php
 
 | Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
 |-------------|------------------------|------------|
-| `3.0.56.220` **connection refused** | Security Group chưa mở **80/443** | AWS → Inbound rules |
+| IP public **connection refused** | Security Group chưa mở **80/443** | AWS → Inbound rules |
 | Cloudflare **521** + `http://` OK | Origin chưa có **443** hoặc SSL mode sai | Certbot trên EC2 **hoặc** Cloudflare **Flexible** |
 | `https://domain` 521, `http://domain` OK | Cloudflare gọi HTTPS origin, EC2 chỉ HTTP | SSL → **Flexible** (tạm) hoặc cài cert |
 | `curl 127.0.0.1` OK, IP ngoài refused | Firewall / SG | Mở 80, 443; `sudo ufw allow 80/tcp` |
-| `sync-env` lỗi key trên Git Bash | Quyền `.pem` / path MSYS | `chmod 400 /d/AWS/utc-elibrary.pem`; dùng script mới nhất |
+| `sync-env` lỗi key trên Git Bash | Quyền `.pem` / path MSYS | `chmod 400 ~/.ssh/your-key.pem`; dùng script mới nhất |
 | `routes-v7.php` sau apply env | Cache route cũ | `bash scripts/ec2-apply-env.sh` (đã xử lý trong script) |
 
 **Chẩn đoán nhanh trên EC2:**

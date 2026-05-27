@@ -546,6 +546,22 @@ docker compose -f docker-compose.ec2.yml exec app php artisan migrate:existing-s
 - **Ctrl+F5** trình duyệt (JS mới trong image).
 - Chỉ `git pull` **không đủ** — phải build lại image.
 
+### Đồng bộ `.env` từ máy dev lên EC2
+
+`.env` **không** lên Git. Sau khi sửa local, chạy từ thư mục gốc repo (Git Bash / WSL):
+
+```bash
+export EC2_HOST=3.0.56.220
+export EC2_USER=ubuntu
+export EC2_SSH_KEY=~/.ssh/your-key.pem
+export EC2_APP_PATH=/home/ubuntu/utc-elibrary
+bash scripts/sync-env-to-ec2.sh
+```
+
+Script: backup `.env` cũ trên server → `scp` file local → `config:clear` + recreate `app` / `scheduler` / `queue`.
+
+Chỉ áp dụng lại env trên server (đã có `.env` mới): `bash scripts/ec2-apply-env.sh`.
+
 ---
 
 ## CI/CD

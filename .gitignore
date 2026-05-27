@@ -18,6 +18,8 @@ LPT1
 .env
 .env.backup
 .env.production
+.pem/
+*.pem
 .phpactor.json
 .phpunit.result.cache
 /.fleet

@@ -9,7 +9,7 @@ import { meBorrowRequestsApi } from '@/api/meBorrowRequests'
 import { useImageFallback } from '@/composables/useImageFallback'
 import { digitalPurchaseCartApi } from '@/api/digitalPurchaseCart'
 import {
-    READER_BORROW_CART_KEY as CART_KEY,
+    buildReaderBorrowCartStorageKey,
     buildDigitalBuyNowRow,
     notifyReaderCartUpdated,
     stashDigitalBuyNowRow,
@@ -21,6 +21,8 @@ import ReaderRelatedBooksSection from '@/Components/Reader/ReaderRelatedBooksSec
 
 const page = usePage()
 const isAuthed = computed(() => !!page.props.auth?.user)
+const currentUserId = computed(() => Number(page.props.auth?.user?.id || 0))
+const borrowCartStorageKey = computed(() => buildReaderBorrowCartStorageKey(page.props.auth?.user?.id))
 const isDigitalBook = computed(() => String(props.book?.resource_type || '') === 'digital')
 
 const digitalStats = computed(() => (props.digital_stats && typeof props.digital_stats === 'object' ? props.digital_stats : null))
@@ -198,7 +200,7 @@ async function buyDigitalAssetNow(asset, bookRow) {
             toast.error('Không mở được thanh toán.', { title: 'Thanh toán' })
             return
         }
-        stashDigitalBuyNowRow(row)
+        stashDigitalBuyNowRow(row, currentUserId.value)
         const qs = new URLSearchParams({ buy_asset: String(assetId) })
         try {
             router.visit(`${route('reader.services.digital-payment')}?${qs}`)
@@ -545,8 +547,13 @@ function addToBorrowCart() {
     }
     const qty = Math.max(1, Math.min(Number(props.availability?.available || 1), Number(borrowQty.value || 1)))
     const maxAvailable = Math.max(1, Number(props.availability?.available || 1))
+    const storageKey = borrowCartStorageKey.value
+    if (!storageKey) {
+        toast.error('Không thể xác định giỏ sách của tài khoản hiện tại.', { title: 'Giỏ sách' })
+        return
+    }
     try {
-        const current = JSON.parse(localStorage.getItem(CART_KEY) || '[]')
+        const current = JSON.parse(localStorage.getItem(storageKey) || '[]')
         const items = Array.isArray(current) ? current : []
         const idx = items.findIndex((x) => Number(x.book_id) === Number(props.book.id))
         if (idx >= 0) {
@@ -557,14 +564,14 @@ function addToBorrowCart() {
                 return
             }
             items[idx].quantity = nextQty
-            localStorage.setItem(CART_KEY, JSON.stringify(items))
+            localStorage.setItem(storageKey, JSON.stringify(items))
             notifyReaderCartUpdated('borrow')
             toast.success('Đã thêm sách vào mục mượn trong giỏ sách.', { title: 'Giỏ sách' })
             return
         } else {
             items.push({ book_id: Number(props.book.id), quantity: qty })
         }
-        localStorage.setItem(CART_KEY, JSON.stringify(items))
+        localStorage.setItem(storageKey, JSON.stringify(items))
         notifyReaderCartUpdated('borrow')
         toast.success('Đã thêm sách vào mục mượn trong giỏ sách.', { title: 'Giỏ sách' })
     } catch {

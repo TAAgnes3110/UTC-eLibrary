@@ -7,6 +7,9 @@ export const booksApi = {
     get(id) {
         return client.get(`/books/${id}`).then((r) => r.data);
     },
+    borrowAvailability(id, params = {}) {
+        return client.get(`/books/${id}/borrow-availability`, { params }).then((r) => r.data);
+    },
     create(payload) {
         return client.post('/books', payload).then((r) => r.data);
     },

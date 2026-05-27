@@ -48,12 +48,7 @@ export async function callWithSessionFallback(requestFn, sessionRequestFn) {
             throw error;
         }
 
-        try {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-        } catch {
-            //
-        }
+        clearClientApiCredentials();
 
         return sessionRequestFn();
     }

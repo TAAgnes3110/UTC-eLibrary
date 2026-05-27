@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { loansApi } from '@/api/loans';
 import { libraryCardsApi } from '@/api/libraryCards';
@@ -8,6 +8,13 @@ import { booksApi } from '@/api/books';
 import { toast } from '@/store/toast';
 import { extractApiPaginator } from '@/utils/adminPagination';
 import { bookResourceTypeLabel } from '@/utils/bookResourceTypeLabel';
+import {
+    clearBorrowRequestPrefill,
+    readBorrowRequestPrefill,
+} from '@/utils/adminBorrowRequestPrefill';
+
+const page = usePage();
+const staffUserId = computed(() => Number(page.props.auth?.user?.id || 0));
 
 const saving = ref(false);
 const cardLookupLoading = ref(false);
@@ -22,7 +29,6 @@ const limits = ref(null);
 const currentBorrowed = ref(null);
 const dueDateError = ref('');
 const borrowRequestPrefill = ref(null);
-const BORROW_REQUEST_PREFILL_KEY = 'loanBorrowRequestApprovalPrefill';
 
 const form = reactive({
     card_number_input: '',
@@ -71,23 +77,44 @@ function createEmptyLine() {
     };
 }
 
+async function refreshApprovingLineStocks() {
+    const requestId = Number(borrowRequestPrefill.value?.request_id || 0);
+    if (!requestId) {
+        return;
+    }
+    for (let i = 0; i < form.lines.length; i += 1) {
+        const line = form.lines[i];
+        if (!line?.book_id) {
+            continue;
+        }
+        try {
+            const payload = await booksApi.borrowAvailability(line.book_id, {
+                exclude_borrow_request_id: requestId,
+            });
+            const stats = payload?.data ?? payload;
+            const available = Number(stats?.available ?? 0);
+            if (Number.isFinite(available)) {
+                line.stock = Math.max(0, available);
+                validateLineQuantity(i);
+            }
+        } catch {
+            /* Giữ giá trị prefill nếu API lỗi. */
+        }
+    }
+}
+
 function loadBorrowRequestPrefillFromSession() {
     const queryRequestId = String(new URLSearchParams(window.location.search).get('from_borrow_request') || '').trim();
     if (!queryRequestId) {
         borrowRequestPrefill.value = null;
         return;
     }
+    const parsed = readBorrowRequestPrefill(staffUserId.value, queryRequestId);
+    if (!parsed) {
+        toast.warn('Không tìm thấy dữ liệu yêu cầu mượn để tự điền (hoặc đã hết hạn). Vui lòng mở lại từ màn Duyệt yêu cầu.');
+        return;
+    }
     try {
-        const raw = window.sessionStorage.getItem(BORROW_REQUEST_PREFILL_KEY);
-        if (!raw) {
-            toast.warn('Không tìm thấy dữ liệu yêu cầu mượn để tự điền. Vui lòng mở lại từ màn Duyệt yêu cầu.');
-            return;
-        }
-        const parsed = JSON.parse(raw);
-        if (!parsed || String(parsed.request_id || '') !== queryRequestId) {
-            toast.warn('Dữ liệu tự điền không khớp yêu cầu đang mở. Vui lòng thao tác lại từ màn Duyệt yêu cầu.');
-            return;
-        }
         borrowRequestPrefill.value = parsed;
         form.card_number_input = parsed.card_number || '';
         form.library_card_id = String(parsed.library_card_id || '');
@@ -113,7 +140,7 @@ function loadBorrowRequestPrefillFromSession() {
             book_id: String(it.book_id || ''),
             bookTitle: it.book_title || '',
             bookQuery: it.book_title || it.book_code || '',
-            stock: Number(it.available_for_borrow ?? it.book_total_quantity ?? 0),
+            stock: Number(it.available_for_approval ?? it.available_for_borrow ?? it.book_total_quantity ?? 0),
             resource_type: it.resource_type || '',
             quantity: Number(it.quantity || 1),
             condition_on_loan: 'tot',
@@ -121,6 +148,7 @@ function loadBorrowRequestPrefillFromSession() {
         if (!form.lines.length) {
             form.lines = [createEmptyLine()];
         }
+        void refreshApprovingLineStocks();
     } catch {
         toast.warn('Không đọc được dữ liệu tự điền từ yêu cầu mượn.');
     }
@@ -160,8 +188,8 @@ function validateDueDate() {
     if (!form.due_date || !form.loan_date) {
         return;
     }
-    if (form.due_date <= form.loan_date) {
-        dueDateError.value = 'Ngày hẹn trả phải sau ngày mượn.';
+    if (form.due_date < form.loan_date) {
+        dueDateError.value = 'Ngày hẹn trả không được trước ngày mượn.';
     }
 }
 
@@ -412,18 +440,26 @@ async function runBookSearch(index) {
     }
 }
 
-function selectBook(index, book) {
+async function selectBook(index, book) {
     const line = form.lines[index];
     if (!line || !book) {
         return;
     }
     line.book_id = String(book.id);
     line.bookTitle = book.title || '';
-    line.stock = book.quantity ?? 0;
     line.resource_type = book.resource_type || '';
     line.access_mode = book.access_mode || '';
     line.bookQuery = line.bookTitle;
     line.searchResults = [];
+    const requestId = Number(borrowRequestPrefill.value?.request_id || 0);
+    try {
+        const params = requestId > 0 ? { exclude_borrow_request_id: requestId } : {};
+        const payload = await booksApi.borrowAvailability(book.id, params);
+        const stats = payload?.data ?? payload;
+        line.stock = Math.max(0, Number(stats?.available ?? book.quantity ?? 0));
+    } catch {
+        line.stock = Math.max(0, Number(book.quantity ?? 0));
+    }
     validateLineQuantity(index);
 }
 
@@ -544,7 +580,7 @@ async function saveLoan() {
                 return;
             }
             await loansApi.approveBorrowRequest(requestId, approvalPayload);
-            window.sessionStorage.removeItem(BORROW_REQUEST_PREFILL_KEY);
+            clearBorrowRequestPrefill(staffUserId.value);
             toast.success('Đã duyệt yêu cầu và tạo phiếu mượn.', { title: 'Thành công' });
             router.visit(route('admin.loans.borrow-requests'));
             return;
@@ -727,6 +763,7 @@ onBeforeUnmount(() => clearCardTimers());
                             v-model="form.due_date"
                             type="date"
                             class="admin-filter-input w-full"
+                            :min="form.loan_date || undefined"
                             @blur="validateDueDate"
                             @change="validateDueDate"
                         />

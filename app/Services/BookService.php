@@ -533,13 +533,12 @@ class BookService
      *
      * @return array{total: int, available: int, borrowed: int}
      */
-    public function readerCopyStats(Book $book): array
+    /**
+     * @param  int|null  $excludeBorrowRequestId  Bỏ qua giữ chỗ của yêu cầu này (khi thủ thư đang duyệt phiếu).
+     */
+    public function readerCopyStats(Book $book, ?int $excludeBorrowRequestId = null): array
     {
-        $reservedPending = (int) LoanBorrowRequestItem::query()
-            ->join('loan_borrow_requests as req', 'loan_borrow_request_items.borrow_request_id', '=', 'req.id')
-            ->where('loan_borrow_request_items.book_id', (int) $book->id)
-            ->where('req.status', LoanBorrowRequest::STATUS_PENDING)
-            ->sum('loan_borrow_request_items.quantity');
+        $reservedPending = $this->sumReservedPendingForBook((int) $book->id, $excludeBorrowRequestId);
 
         $total = (int) $book->copies()->count();
         if ($total === 0) {
@@ -573,6 +572,21 @@ class BookService
             'borrowed' => $borrowed,
             'reserved_pending' => $reservedPending,
         ];
+    }
+
+    /** Số lượng đang giữ bởi yêu cầu mượn pending (có thể loại trừ một yêu cầu đang duyệt). */
+    public function sumReservedPendingForBook(int $bookId, ?int $excludeBorrowRequestId = null): int
+    {
+        $query = LoanBorrowRequestItem::query()
+            ->join('loan_borrow_requests as req', 'loan_borrow_request_items.borrow_request_id', '=', 'req.id')
+            ->where('loan_borrow_request_items.book_id', $bookId)
+            ->where('req.status', LoanBorrowRequest::STATUS_PENDING);
+
+        if ($excludeBorrowRequestId !== null && $excludeBorrowRequestId > 0) {
+            $query->where('req.id', '!=', $excludeBorrowRequestId);
+        }
+
+        return (int) $query->sum('loan_borrow_request_items.quantity');
     }
 
     /**

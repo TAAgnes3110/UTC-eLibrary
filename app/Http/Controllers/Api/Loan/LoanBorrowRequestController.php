@@ -148,17 +148,23 @@ class LoanBorrowRequestController extends Controller
                 'loan_code' => $r->approvedLoan->loan_code,
                 'status' => $r->approvedLoan->status,
             ] : null,
-            'items' => $r->items->map(fn (LoanBorrowRequestItem $item): array => $this->mapBorrowRequestItem($item))->values()->all(),
+            'items' => $r->items->map(
+                fn (LoanBorrowRequestItem $item): array => $this->mapBorrowRequestItem($item, (int) $r->id)
+            )->values()->all(),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function mapBorrowRequestItem(LoanBorrowRequestItem $item): array
+    private function mapBorrowRequestItem(LoanBorrowRequestItem $item, ?int $borrowRequestId = null): array
     {
         $book = $item->book;
+        $excludeRequestId = $borrowRequestId ?? (int) $item->borrow_request_id;
         $stats = $book ? $this->bookService->readerCopyStats($book) : ['available' => 0];
+        $statsForApproval = $book && $excludeRequestId > 0
+            ? $this->bookService->readerCopyStats($book, $excludeRequestId)
+            : $stats;
 
         return [
             'id' => $item->id,
@@ -171,6 +177,7 @@ class LoanBorrowRequestController extends Controller
             'cabinet' => $book?->cabinet,
             'book_total_quantity' => $book?->quantity,
             'available_for_borrow' => (int) ($stats['available'] ?? 0),
+            'available_for_approval' => (int) ($statsForApproval['available'] ?? 0),
             'quantity' => $item->quantity,
             'condition_on_loan' => $item->condition_on_loan?->value ?? $item->condition_on_loan,
             'notes' => $item->notes,

@@ -9,7 +9,8 @@ import { useImageFallback } from '@/composables/useImageFallback'
 import { digitalAssetsApi } from '@/api/digitalAssets'
 import { digitalPurchaseCartApi } from '@/api/digitalPurchaseCart'
 import {
-    READER_BORROW_CART_KEY as CART_KEY,
+    buildReaderBorrowCartStorageKey,
+    isReaderBorrowCartStorageKey,
     READER_DIGITAL_PURCHASE_CART_KEY,
     clearDigitalBuyNowSession,
     readDigitalBuyNowRow,
@@ -18,6 +19,8 @@ import {
 } from '@/config/readerCartKeys'
 
 const page = usePage()
+const borrowCartStorageKey = computed(() => buildReaderBorrowCartStorageKey(page.props.auth?.user?.id))
+const currentUserId = computed(() => Number(page.props.auth?.user?.id || 0))
 
 const props = defineProps({
     borrow_permissions: { type: Object, default: null },
@@ -116,12 +119,16 @@ function normalizeBorrowRequestErrorText(raw) {
 
 // ── Borrow cart ──
 function loadCartRaw() {
-    try { const raw = JSON.parse(localStorage.getItem(CART_KEY) || '[]'); return Array.isArray(raw) ? raw : [] } catch { return [] }
+    const storageKey = borrowCartStorageKey.value
+    if (!storageKey) return []
+    try { const raw = JSON.parse(localStorage.getItem(storageKey) || '[]'); return Array.isArray(raw) ? raw : [] } catch { return [] }
 }
 /** `silent`: không dispatch `reader-cart-updated` — tránh vòng refreshPreview ↔ notify khiến số lượng nhảy / gọi API lặp */
 function saveCartRaw(items, options = {}) {
+    const storageKey = borrowCartStorageKey.value
+    if (!storageKey) return
     const silent = Boolean(options.silent)
-    localStorage.setItem(CART_KEY, JSON.stringify(items))
+    localStorage.setItem(storageKey, JSON.stringify(items))
     if (!silent) notifyReaderCartUpdated('borrow')
 }
 function syncQtyToStorage(options = {}) {
@@ -287,7 +294,9 @@ const digitalRows = ref([])
 const digitalLoading = ref(false)
 const digitalLoadError = ref('')
 /** Một lần: đưa giỏ tài liệu số cũ (localStorage) lên server rồi xóa local. */
-const LEGACY_DIGITAL_CART_MIGRATED_KEY = 'reader_digital_purchase_cart_migrated_db_v1'
+const legacyDigitalCartMigratedKey = computed(
+    () => `reader_digital_purchase_cart_migrated_db_v1_u_${currentUserId.value || 0}`,
+)
 /** Chọn tài liệu trong giỏ trước khi vào màn thanh toán đầy đủ */
 const purchaseCartPhase = ref(props.payment_checkout_only ? 'checkout' : 'pick')
 const selectedDigitalAssetIds = ref([])
@@ -371,7 +380,7 @@ function hydrateDigitalCartFromProps() {
 function clearDigitalBuyNowMode() {
     digitalBuyNowMode.value = false
     digitalBuyNowRow.value = null
-    clearDigitalBuyNowSession()
+    clearDigitalBuyNowSession(currentUserId.value)
 }
 function activateDigitalBuyNowRow(row) {
     if (!row?.digital_asset_id) return false
@@ -381,7 +390,7 @@ function activateDigitalBuyNowRow(row) {
     return true
 }
 function restoreDigitalBuyNowCheckoutSession() {
-    const row = readDigitalBuyNowRow()
+    const row = readDigitalBuyNowRow(null, currentUserId.value)
     if (!row) return false
     activateDigitalBuyNowRow(row)
     purchaseCartPhase.value = 'checkout'
@@ -390,7 +399,7 @@ function restoreDigitalBuyNowCheckoutSession() {
 /** Giỏ hàng thường: không khôi phục «mua ngay» — chỉ xóa session còn sót. */
 function discardStaleBuyNowOnRegularCart() {
     if (props.payment_checkout_only) return
-    const hadBuyNow = digitalBuyNowMode.value || readDigitalBuyNowRow()
+    const hadBuyNow = digitalBuyNowMode.value || readDigitalBuyNowRow(null, currentUserId.value)
     if (!hadBuyNow) return
     clearDigitalBuyNowMode()
     if (!paymentOrder.value?.public_id && checkoutStep.value <= 1) {
@@ -443,12 +452,12 @@ async function tryApplyDigitalBuyNowCheckout() {
     if (!wantCheckout) return false
     if (!Number.isInteger(buyAssetId) || buyAssetId <= 0) {
         if (!props.payment_checkout_only) return false
-        const fallback = readDigitalBuyNowRow()
+        const fallback = readDigitalBuyNowRow(null, currentUserId.value)
         if (!fallback?.digital_asset_id) return false
         buyAssetId = Number(fallback.digital_asset_id)
     }
 
-    const rawRow = readDigitalBuyNowRow(buyAssetId)
+    const rawRow = readDigitalBuyNowRow(buyAssetId, currentUserId.value)
     if (!rawRow) {
         toast.warn('Không mở được thanh toán. Vui lòng thử lại từ trang tra cứu sách.', { title: 'Thanh toán' })
         return false
@@ -534,52 +543,17 @@ async function tryResumePendingDigitalOrder() {
     }
 }
 
-const LEGACY_DIGITAL_MIGRATE_CONCURRENCY = 6
-
 async function migrateLegacyLocalDigitalCartOnce() {
     if (typeof localStorage === 'undefined') return
-    if (localStorage.getItem(LEGACY_DIGITAL_CART_MIGRATED_KEY)) return
-    let rawItems = []
+    const migratedKey = legacyDigitalCartMigratedKey.value
+    if (!migratedKey || localStorage.getItem(migratedKey)) return
+    // Legacy local cart không có thông tin owner nên có nguy cơ dính dữ liệu giữa tài khoản.
+    // Ưu tiên an toàn: chỉ dọn key cũ, không tự động migrate lên giỏ DB.
     try {
-        const raw = localStorage.getItem(READER_DIGITAL_PURCHASE_CART_KEY)
-        const parsed = raw ? JSON.parse(raw) : null
-        rawItems = Array.isArray(parsed?.items) ? parsed.items : []
+        localStorage.removeItem(READER_DIGITAL_PURCHASE_CART_KEY)
+        localStorage.setItem(migratedKey, '1')
     } catch {
-        rawItems = []
-    }
-    if (rawItems.length === 0) {
-        localStorage.setItem(LEGACY_DIGITAL_CART_MIGRATED_KEY, '1')
-        return
-    }
-    const payloads = []
-    for (const row of rawItems) {
-        const id = Number(row?.digital_asset_id)
-        if (!Number.isInteger(id) || id <= 0) continue
-        payloads.push({
-            digital_asset_id: id,
-            book_id: Number(row?.book_id) > 0 ? Number(row.book_id) : undefined,
-            book_title: typeof row?.book_title === 'string' ? row.book_title : undefined,
-            file_name: typeof row?.file_name === 'string' ? row.file_name : (typeof row?.original_name === 'string' ? row.original_name : undefined),
-            cover_image: typeof row?.cover_image === 'string' ? row.cover_image : undefined,
-        })
-    }
-    if (payloads.length === 0) {
-        localStorage.setItem(LEGACY_DIGITAL_CART_MIGRATED_KEY, '1')
-        return
-    }
-    try {
-        for (let i = 0; i < payloads.length; i += LEGACY_DIGITAL_MIGRATE_CONCURRENCY) {
-            const chunk = payloads.slice(i, i + LEGACY_DIGITAL_MIGRATE_CONCURRENCY)
-            await Promise.all(chunk.map((body) => digitalPurchaseCartApi.addItem(body)))
-        }
-        try {
-            localStorage.removeItem(READER_DIGITAL_PURCHASE_CART_KEY)
-        } catch {
-            /* ignore */
-        }
-        localStorage.setItem(LEGACY_DIGITAL_CART_MIGRATED_KEY, '1')
-    } catch {
-        /* Giữ localStorage nếu API lỗi — thử lại khi tải giỏ sau. */
+        /* ignore */
     }
 }
 async function fetchDigitalCart(options = {}) {
@@ -801,7 +775,7 @@ function redirectAfterDigitalOrderCancelled() {
     checkoutStep.value = 1
     purchaseCartPhase.value = 'pick'
     clearDigitalBuyNowMode()
-    clearDigitalBuyNowSession()
+    clearDigitalBuyNowSession(currentUserId.value)
     closeDigitalCancelOrderDialog()
     router.visit(catalogBrowseUrl())
 }
@@ -878,7 +852,7 @@ function startPaymentPolling() {
 }
 
 function onWindowStorage(event) {
-    if (!event.key || event.key === CART_KEY) refreshPreview()
+    if (event?.key && isReaderBorrowCartStorageKey(event.key)) refreshPreview()
 }
 function onReaderCartUpdated(e) {
     const src = e?.detail?.source

@@ -18,10 +18,16 @@ import { useImageFallback } from '@/composables/useImageFallback'
 import { clearClientApiCredentials } from '@/utils/apiAuthStorage'
 import { clearStaffWorkQueueSessionHint } from '@/utils/staffWorkQueueHint'
 import { digitalPurchaseCartApi } from '@/api/digitalPurchaseCart'
-import { READER_BORROW_CART_KEY, READER_CART_UPDATED_EVENT } from '@/config/readerCartKeys'
+import {
+    buildReaderBorrowCartStorageKey,
+    clearLegacyReaderBorrowCartStorage,
+    isReaderBorrowCartStorageKey,
+    READER_CART_UPDATED_EVENT,
+} from '@/config/readerCartKeys'
 
 const page = usePage()
 const user = computed(() => page.props.auth?.user)
+const borrowCartStorageKey = computed(() => buildReaderBorrowCartStorageKey(user.value?.id))
 /** Nhân viên thư viện / quản trị — vào admin; độc giả — về trang reader. */
 const isStaff = computed(() => page.props.auth?.is_staff === true)
 const mobileOpen = ref(false)
@@ -43,8 +49,13 @@ const {
 const hasNotifications = computed(() => Array.isArray(notifications.value) && notifications.value.length > 0)
 
 const syncBorrowCartCount = () => {
+    const storageKey = borrowCartStorageKey.value
+    if (!storageKey) {
+        borrowCartCount.value = 0
+        return
+    }
     try {
-        const raw = JSON.parse(localStorage.getItem(READER_BORROW_CART_KEY) || '[]')
+        const raw = JSON.parse(localStorage.getItem(storageKey) || '[]')
         const items = Array.isArray(raw) ? raw : []
         borrowCartCount.value = items.filter((x) => Number(x?.book_id) > 0).length
     } catch {
@@ -82,7 +93,7 @@ const syncAllBookCartCounts = () => {
 }
 
 const onStorage = (event) => {
-    if (!event?.key || event.key === READER_BORROW_CART_KEY) {
+    if (event?.key && isReaderBorrowCartStorageKey(event.key)) {
         syncBorrowCartCount()
     }
 }
@@ -92,6 +103,8 @@ const onReaderCartUpdated = () => {
 }
 
 onMounted(() => {
+    // Dọn key giỏ cũ dùng chung mọi tài khoản (legacy), chỉ giữ key theo user.
+    clearLegacyReaderBorrowCartStorage()
     syncBorrowCartCount()
     void syncDigitalCartCount()
     window.addEventListener('storage', onStorage)

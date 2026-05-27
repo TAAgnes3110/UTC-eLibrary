@@ -1,6 +1,6 @@
 <script setup>
 import { Icon } from '@iconify/vue';
-import { router } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref, watch } from 'vue';
 import AdminFilterPanel from '@/Components/Admin/Shared/AdminFilterPanel.vue';
 import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue';
@@ -12,6 +12,10 @@ import { extractApiPaginator } from '@/utils/adminPagination';
 import { toast } from '@/store/toast';
 import { bookResourceTypeLabel } from '@/utils/bookResourceTypeLabel';
 import { useImageFallback } from '@/composables/useImageFallback';
+import { stashBorrowRequestPrefill } from '@/utils/adminBorrowRequestPrefill';
+
+const inertiaPage = usePage();
+const staffUserId = computed(() => Number(inertiaPage.props.auth?.user?.id || 0));
 
 const rows = ref([]);
 const loading = ref(false);
@@ -228,9 +232,10 @@ async function approveRow(row) {
             warehouse_code: it.warehouse_code || '',
             book_total_quantity: it.book_total_quantity ?? null,
             available_for_borrow: it.available_for_borrow ?? null,
+            available_for_approval: it.available_for_approval ?? null,
         })),
     };
-    window.sessionStorage.setItem('loanBorrowRequestApprovalPrefill', JSON.stringify(payload));
+    stashBorrowRequestPrefill(staffUserId.value, payload);
     router.visit(route('admin.loans.create', { from_borrow_request: row.id }));
 }
 

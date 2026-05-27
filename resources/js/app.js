@@ -6,7 +6,7 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
-import { clearClientApiCredentials } from '@/utils/apiAuthStorage';
+import { clearClientApiCredentials, setCurrentAuthUserId } from '@/utils/apiAuthStorage';
 import { ensureSanctumCsrfCookie } from '@/utils/apiCsrf';
 import { syncApiTokenFromSession } from '@/utils/syncApiTokenFromSession';
 
@@ -15,6 +15,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 function syncApiAuthFromInertiaPage(page) {
     const user = page?.props?.auth?.user ?? null;
     if (user?.id) {
+        setCurrentAuthUserId(user.id);
         void ensureSanctumCsrfCookie().then(() => {
             const path = typeof window !== 'undefined' ? window.location.pathname : '';
             // Admin Inertia: không ghi JWT vào localStorage (token hết hạn → 401 khi upload).

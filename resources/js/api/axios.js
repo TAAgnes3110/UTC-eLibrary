@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { ensureSanctumCsrfCookie, getApiCsrfHeaders } from '@/utils/apiCsrf';
+import { clearLegacyAuthStorage, getStoredApiToken } from '@/utils/apiAuthStorage';
 
 function isApiDebugEnabled() {
     if (typeof window === 'undefined') return false;
@@ -71,15 +72,13 @@ client.interceptors.request.use(
         // Trang admin Inertia: luôn dùng cookie session — JWT localStorage hay gây 401/429.
         if (isAdminSpa && !config.forceBearerAuth) {
             config.skipBearerAuth = true;
-            try {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
-            } catch {
-                //
-            }
         }
 
-        const token = localStorage.getItem('token');
+        if (isAdminSpa) {
+            clearLegacyAuthStorage();
+        }
+
+        const token = getStoredApiToken();
         if (!config.skipBearerAuth && token) {
             config.headers.Authorization = `Bearer ${token}`;
         } else if (config.skipBearerAuth && config.headers && typeof config.headers === 'object') {

@@ -1,5 +1,10 @@
 import axios from 'axios';
 import { ensureSanctumCsrfCookie, getApiCsrfHeaders } from '@/utils/apiCsrf';
+import {
+    getCurrentAuthUserId,
+    getStoredApiToken,
+    setClientApiCredentials,
+} from '@/utils/apiAuthStorage';
 
 const SESSION_TOKEN_COOLDOWN_MS = 60_000;
 let sessionTokenInFlight = null;
@@ -12,12 +17,13 @@ export function extractApiTokenFromResponse(data) {
 /**
  * Cấp JWT từ session Inertia — có cooldown để tránh 429 (throttle refresh).
  */
-export async function fetchSessionApiToken({ force = false } = {}) {
+export async function fetchSessionApiToken({ force = false, userId = null } = {}) {
     if (typeof window === 'undefined') {
         return null;
     }
 
-    const existing = localStorage.getItem('token');
+    const uid = Number(userId) || getCurrentAuthUserId();
+    const existing = getStoredApiToken(uid);
     if (!force && existing && Date.now() - lastSessionTokenAt < SESSION_TOKEN_COOLDOWN_MS) {
         return existing;
     }
@@ -39,8 +45,8 @@ export async function fetchSessionApiToken({ force = false } = {}) {
                 },
             });
             const token = extractApiTokenFromResponse(res.data);
-            if (token) {
-                localStorage.setItem('token', token);
+            if (token && uid) {
+                setClientApiCredentials({ userId: uid, token });
             }
             lastSessionTokenAt = Date.now();
             return token;
@@ -58,12 +64,13 @@ let refreshInFlight = null;
 let lastRefreshAt = 0;
 const REFRESH_COOLDOWN_MS = 60_000;
 
-export async function refreshStoredApiToken() {
+export async function refreshStoredApiToken(userId = null) {
     if (typeof window === 'undefined') {
         return null;
     }
 
-    const oldToken = localStorage.getItem('token');
+    const uid = Number(userId) || getCurrentAuthUserId();
+    const oldToken = getStoredApiToken(uid);
     if (!oldToken) {
         return null;
     }
@@ -83,8 +90,8 @@ export async function refreshStoredApiToken() {
                 headers: { Authorization: `Bearer ${oldToken}` },
             });
             const token = extractApiTokenFromResponse(res.data);
-            if (token) {
-                localStorage.setItem('token', token);
+            if (token && uid) {
+                setClientApiCredentials({ userId: uid, token });
             }
             lastRefreshAt = Date.now();
             return token;
@@ -100,9 +107,10 @@ export async function refreshStoredApiToken() {
 
 /** Chỉ lấy token khi chưa có — tránh spam session-token trước mỗi Lưu. */
 export async function ensureApiToken() {
-    if (typeof window !== 'undefined' && localStorage.getItem('token')) {
-        return localStorage.getItem('token');
+    const existing = getStoredApiToken();
+    if (existing) {
+        return existing;
     }
 
-    return fetchSessionApiToken({ force: true });
+    return fetchSessionApiToken({ force: true, userId: getCurrentAuthUserId() });
 }

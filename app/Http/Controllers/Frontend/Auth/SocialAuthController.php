@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Socialite\Contracts\User as SocialiteUserContract;
 use Laravel\Socialite\Facades\Socialite;
 
 class SocialAuthController extends Controller
@@ -29,33 +30,35 @@ class SocialAuthController extends Controller
                 ->with('status', 'Lỗi kết nối tài khoản Microsoft: '.$e->getMessage());
         }
 
-        $email = trim((string) $microsoftUser->getEmail());
-        if ($email === '') {
+        $profile = $this->resolveMicrosoftProfile($microsoftUser);
+        if ($profile['email'] === '') {
             return redirect()
                 ->route('login')
                 ->with('status', 'Không lấy được email từ tài khoản Microsoft. Vui lòng cấp quyền email hoặc dùng đăng nhập email/mật khẩu.');
         }
 
-        $name = (string) ($microsoftUser->getName() ?: Str::before($email, '@'));
         $msId = (string) $microsoftUser->getId();
-        $userType = $this->resolveUserType($email);
-        $code = $this->resolveUserCode($email, $msId);
-        $cohort = $userType === RoleType::STUDENT
-            ? $this->extractCohortFromStudentCode($code)
-            : null;
+        $code = $this->resolveUserCode($profile['email'], $msId);
 
-        $user = User::query()->where('email', $email)->first();
+        $user = User::query()->where('email', $profile['email'])->first();
         if (! $user) {
             $user = User::query()->create([
-                'name' => $name,
-                'email' => $email,
+                'name' => $profile['name'],
+                'email' => $profile['email'],
                 'code' => $code,
                 'password' => Hash::make($msId),
                 'email_verified_at' => now(),
-                'user_type' => $userType,
-                'avatar' => $microsoftUser->getAvatar(),
-                'cohort' => $cohort,
+                'user_type' => RoleType::MEMBER,
+                'avatar' => $profile['avatar'],
             ]);
+        } else {
+            $updates = array_filter([
+                'name' => $profile['name'] !== '' ? $profile['name'] : null,
+                'avatar' => $profile['avatar'],
+            ], fn ($value) => $value !== null && $value !== '');
+            if ($updates !== []) {
+                $user->update($updates);
+            }
         }
 
         Auth::login($user);
@@ -70,17 +73,60 @@ class SocialAuthController extends Controller
     }
 
     /**
-     * Mặc định bạn đọc (MEMBER). Chỉ gán STUDENT khi email thuộc miền sinh viên UTC.
+     * Lấy email, tên hiển thị từ Microsoft Graph (/me).
+     * Ưu tiên mail thật; fallback userPrincipalName khi hợp lệ.
+     *
+     * @return array{email: string, name: string, avatar: ?string}
      */
-    private function resolveUserType(string $email): RoleType
+    private function resolveMicrosoftProfile(SocialiteUserContract $microsoftUser): array
     {
-        $domain = strtolower(Str::after($email, '@'));
+        $raw = $this->microsoftUserRaw($microsoftUser);
 
-        if ($domain === 'st.utc.edu.vn') {
-            return RoleType::STUDENT;
+        $email = $this->normalizeMicrosoftEmail(
+            (string) ($raw['mail'] ?? ''),
+            (string) ($microsoftUser->getEmail() ?? ''),
+            (string) ($raw['userPrincipalName'] ?? '')
+        );
+
+        $name = trim((string) ($raw['displayName'] ?? $microsoftUser->getName() ?? ''));
+        if ($name === '' && $email !== '') {
+            $name = Str::before($email, '@');
         }
 
-        return RoleType::MEMBER;
+        return [
+            'email' => $email,
+            'name' => $name,
+            'avatar' => $microsoftUser->getAvatar(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function microsoftUserRaw(SocialiteUserContract $microsoftUser): array
+    {
+        try {
+            $raw = $microsoftUser->getRaw();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return is_array($raw) ? $raw : [];
+    }
+
+    private function normalizeMicrosoftEmail(string ...$candidates): string
+    {
+        foreach ($candidates as $candidate) {
+            $candidate = strtolower(trim($candidate));
+            if ($candidate === '' || str_contains($candidate, '#ext#')) {
+                continue;
+            }
+            if (filter_var($candidate, FILTER_VALIDATE_EMAIL)) {
+                return $candidate;
+            }
+        }
+
+        return '';
     }
 
     private function resolveUserCode(string $email, string $msId): string
@@ -117,21 +163,6 @@ class SocialAuthController extends Controller
         $username = explode('@', $email)[0] ?? '';
         if (preg_match('/^[a-zA-Z]*(\d+)$/', $username, $matches)) {
             return $matches[1];
-        }
-
-        return null;
-    }
-
-    /**
-     * Lấy khóa học từ mã sinh viên UTC: 3 chữ số đầu là "223", 2 chữ số tiếp theo là khóa.
-     */
-    private function extractCohortFromStudentCode(?string $code): ?string
-    {
-        if ($code === null || strlen($code) < 5) {
-            return null;
-        }
-        if (str_starts_with($code, '223')) {
-            return 'K'.substr($code, 3, 2);
         }
 
         return null;

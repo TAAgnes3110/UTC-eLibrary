@@ -4,6 +4,7 @@ import { postWebLogin } from '@/api/webSessionLogin';
 import { applyLaravelErrorsToInertiaForm } from '@/utils/inertiaFormErrors';
 import { isLibraryStaffUserType } from '@/utils/readerAuth';
 import { toast } from '@/store/toast';
+import { setClientApiCredentials } from '@/utils/apiAuthStorage';
 
 export function useLoginPage(options = {}) {
     const showPassword = ref(false);
@@ -30,11 +31,13 @@ export function useLoginPage(options = {}) {
 
                 // Có backend trả session login thành công nhưng không kèm token trong body.
                 // Vẫn cho điều hướng theo user/session để tránh chặn đăng nhập.
-                if (token) {
-                    localStorage.setItem('token', token);
-                }
-                if (userPayload) {
-                    localStorage.setItem('user', JSON.stringify(userPayload));
+                const userId = Number(userPayload?.id);
+                if (userId > 0 && (token || userPayload)) {
+                    setClientApiCredentials({
+                        userId,
+                        token: token || null,
+                        user: userPayload || null,
+                    });
                 }
                 if (token || userPayload || loginSuccess) {
                     form.reset('password');

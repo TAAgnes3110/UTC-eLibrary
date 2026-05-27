@@ -41,7 +41,7 @@ class LoanRequest extends FormRequest
             'due_date' => [
                 $isUpdate ? 'sometimes' : 'required',
                 'date',
-                'after:loan_date',
+                'after_or_equal:loan_date',
             ],
             'return_date' => [
                 'sometimes',
@@ -124,7 +124,7 @@ class LoanRequest extends FormRequest
 
             'due_date.required' => 'Vui lòng nhập ngày hẹn trả.',
             'due_date.date' => 'Ngày hẹn trả không đúng định dạng ngày.',
-            'due_date.after' => 'Ngày hẹn trả phải sau ngày mượn.',
+            'due_date.after_or_equal' => 'Ngày hẹn trả không được trước ngày mượn.',
 
             'return_date.date' => 'Ngày trả không đúng định dạng ngày.',
             'return_date.after_or_equal' => 'Ngày trả không được trước ngày mượn.',

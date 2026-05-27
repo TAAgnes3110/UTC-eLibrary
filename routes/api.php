@@ -323,6 +323,7 @@ Route::prefix('v1')->group(function () {
                 Route::get('/{book}/digital-assets/{digital_asset}/download', [DigitalAssetController::class, 'download'])
                     ->name('api.v1.books.digital-assets.download');
                 Route::delete('/{book}/digital-assets/{digital_asset}', [DigitalAssetController::class, 'destroy']);
+                Route::get('/{book}/borrow-availability', [BookController::class, 'borrowAvailability']);
                 Route::get('/{book}', [BookController::class, 'show']);
                 Route::put('/{book}/digital', [BookController::class, 'updateDigital']);
                 Route::post('/{book}/digital', [BookController::class, 'updateDigital']);

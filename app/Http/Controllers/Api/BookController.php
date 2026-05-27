@@ -154,6 +154,24 @@ class BookController extends Controller
     }
 
     /**
+     * Khả dụng mượn theo nghiệp vụ giữ chỗ (dùng khi thủ thư tạo/duyệt phiếu).
+     */
+    public function borrowAvailability(Request $request, Book $book): JsonResponse
+    {
+        $validated = $request->validate([
+            'exclude_borrow_request_id' => ['nullable', 'integer', 'exists:loan_borrow_requests,id'],
+        ]);
+
+        $excludeId = isset($validated['exclude_borrow_request_id'])
+            ? (int) $validated['exclude_borrow_request_id']
+            : null;
+
+        return ApiResponse::success(
+            $this->bookService->readerCopyStats($book, $excludeId > 0 ? $excludeId : null)
+        );
+    }
+
+    /**
      * Xóa mềm một sách.
      */
     public function destroy(Book $book): JsonResponse

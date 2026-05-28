@@ -117,11 +117,11 @@ class DigitalAssetPreviewDisplayService
 
             $pages[] = [
                 'page' => $pageNo,
-                'image_url' => route('reader.catalog.digital-preview-page-image', [
+                'image_url' => url(route('reader.catalog.digital-preview-page-image', [
                     'book' => $book->id,
                     'digital_asset' => $asset->id,
                     'page' => $pageNo,
-                ], false),
+                ], false)),
             ];
         }
 
@@ -151,6 +151,13 @@ class DigitalAssetPreviewDisplayService
 
         $diskName = (string) ($asset->storage_disk ?: FileHelpers::digitalAssetsDisk());
         if (! Storage::disk($diskName)->exists($relative)) {
+            Log::warning('digital_asset.preview_page_image_missing', [
+                'digital_asset_id' => $asset->id,
+                'book_id' => $book->id,
+                'page' => $page,
+                'disk' => $diskName,
+                'path' => $relative,
+            ]);
             abort(404);
         }
 
@@ -214,6 +221,7 @@ class DigitalAssetPreviewDisplayService
 
                 $relative = UploadDirectory::digitalAssetPreviewPageImage((int) $asset->book_id, (int) $asset->id, $i + 1);
                 Storage::disk($diskName)->put($relative, $im->getImageBlob());
+                $this->ensureStorageFileWorldReadable($diskName, $relative);
                 $im->clear();
                 $im->destroy();
 
@@ -269,6 +277,7 @@ class DigitalAssetPreviewDisplayService
                 }
                 $relative = UploadDirectory::digitalAssetPreviewPageImage((int) $asset->book_id, (int) $asset->id, $index);
                 Storage::disk($diskName)->put($relative, (string) file_get_contents($file));
+                $this->ensureStorageFileWorldReadable($diskName, $relative);
                 $pages[] = ['page' => $index, 'path' => $relative];
                 $index++;
             }
@@ -283,6 +292,22 @@ class DigitalAssetPreviewDisplayService
                 @unlink($f);
             }
             @rmdir($tmpDir);
+        }
+    }
+
+    private function ensureStorageFileWorldReadable(string $diskName, string $relative): void
+    {
+        if ($diskName !== 'local') {
+            return;
+        }
+
+        try {
+            $absolute = Storage::disk($diskName)->path($relative);
+            if (is_file($absolute)) {
+                @chmod($absolute, 0644);
+            }
+        } catch (Throwable) {
+            //
         }
     }
 

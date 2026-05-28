@@ -33,39 +33,27 @@ const documentTitle = computed(() => {
     return name || bookTitle || S.defaultTitle
 })
 
-const normalizePreviewPageImageUrl = (row) => {
-    const pageNo = Number(row?.page ?? 0)
-    const raw = row?.image_url ? String(row.image_url).trim() : ''
-    if (!raw || pageNo < 1) {
+/** URL ảnh preview — luôn build từ book/asset/page (tránh 404 do src tương đối 1.png). */
+const previewPageImageUrl = (pageNo) => {
+    const page = Number(pageNo ?? 0)
+    if (page < 1) {
         return ''
     }
 
-    if (/^https?:\/\//i.test(raw)) {
-        return raw
-    }
-
-    if (/^\d+\.png$/i.test(raw)) {
-        return `/tra-cuu-sach/${props.book.id}/tai-lieu/${props.asset.id}/xem-truoc/trang/${pageNo}.png`
-    }
-
-    if (raw.startsWith('/')) {
-        return raw
-    }
-
-    if (raw.startsWith('tra-cuu-sach/')) {
-        return `/${raw}`
-    }
-
-    return raw
+    return `/tra-cuu-sach/${props.book.id}/tai-lieu/${props.asset.id}/xem-truoc/trang/${page}.png`
 }
 
 const previewPages = computed(() =>
     (props.pages || [])
-        .map((row) => ({
-            page: Number(row?.page ?? 0),
-            image_url: normalizePreviewPageImageUrl(row),
-        }))
-        .filter((row) => row.page > 0 && row.image_url)
+        .map((row) => {
+            const page = Number(row?.page ?? 0)
+
+            return {
+                page,
+                image_url: previewPageImageUrl(page),
+            }
+        })
+        .filter((row) => row.page > 0)
 )
 </script>
 

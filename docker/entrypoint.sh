@@ -18,7 +18,7 @@ if [ -f artisan ]; then
 
     if [ -n "${APP_KEY:-}" ] && [ "${APP_ENV:-local}" = "production" ]; then
         php artisan config:cache --no-interaction || true
-        php artisan route:cache --no-interaction || true
+        php artisan route:clear --no-interaction || true
         php artisan view:cache --no-interaction || true
     fi
 fi

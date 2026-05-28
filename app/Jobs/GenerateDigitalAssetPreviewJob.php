@@ -66,6 +66,8 @@ class GenerateDigitalAssetPreviewJob implements ShouldBeUnique, ShouldQueue
 
         Log::warning('digital_asset.preview_job_failed', [
             'digital_asset_id' => $asset->id,
+            'byte_size' => (int) ($asset->byte_size ?? 0),
+            'preview_status' => (string) ($asset->preview_status ?? ''),
         ]);
 
         $previewService->markPreviewStatus($asset, DigitalAssetPreviewStatus::Failed);

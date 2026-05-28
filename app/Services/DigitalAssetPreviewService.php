@@ -169,6 +169,7 @@ class DigitalAssetPreviewService
         } catch (Throwable $e) {
             Log::warning('digital_asset.preview_generate_failed', [
                 'digital_asset_id' => $asset->id,
+                'byte_size' => (int) ($asset->byte_size ?? 0),
                 'message' => $e->getMessage(),
             ]);
             $this->markPreviewStatus($asset, DigitalAssetPreviewStatus::Failed);
@@ -278,7 +279,7 @@ class DigitalAssetPreviewService
         $pageCount = $this->resolveSourcePageCount($sourceAbsolute, $binary);
         $lastPage = min($maxPages, max(1, $pageCount));
 
-        $result = Process::timeout(180)->run([
+        $result = Process::timeout($this->pdfProcessTimeout())->run([
             $binary,
             '--empty',
             '--pages',
@@ -305,7 +306,7 @@ class DigitalAssetPreviewService
         $pageCount = $this->resolveSourcePageCount($sourceAbsolute);
         $lastPage = min($maxPages, max(1, $pageCount));
 
-        $result = Process::timeout(180)->run([
+        $result = Process::timeout($this->pdfProcessTimeout())->run([
             $binary,
             '-sDEVICE=pdfwrite',
             '-dNOPAUSE',
@@ -357,7 +358,7 @@ class DigitalAssetPreviewService
     {
         $qpdfBinary ??= $this->resolveQpdfBinary();
         if ($qpdfBinary !== null) {
-            $result = Process::timeout(60)->run([$qpdfBinary, '--show-npages', $sourceAbsolute]);
+            $result = Process::timeout($this->pdfPageCountTimeout())->run([$qpdfBinary, '--show-npages', $sourceAbsolute]);
             if ($this->qpdfRunSucceeded($result)) {
                 $count = (int) trim($result->output());
                 if ($count > 0) {
@@ -477,6 +478,16 @@ class DigitalAssetPreviewService
         }
 
         return true;
+    }
+
+    private function pdfProcessTimeout(): int
+    {
+        return max(60, (int) config('services.pdf_preview.process_timeout', 180));
+    }
+
+    private function pdfPageCountTimeout(): int
+    {
+        return max(30, (int) config('services.pdf_preview.page_count_timeout', 120));
     }
 
     private function discoverQpdfInstallPath(): ?string

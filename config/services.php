@@ -62,6 +62,9 @@ return [
         'qpdf_binary' => env('QPDF_BINARY'),
         'ghostscript_binary' => env('GHOSTSCRIPT_BINARY'),
         'pdftoppm_binary' => env('PDFTOPPM_BINARY'),
+        /** qpdf / Ghostscript / pdftoppm — PDF lớn trên VPS nên 600+ */
+        'process_timeout' => (int) env('PDF_PREVIEW_PROCESS_TIMEOUT', 180),
+        'page_count_timeout' => (int) env('PDF_PREVIEW_PAGE_COUNT_TIMEOUT', 120),
     ],
 
 ];

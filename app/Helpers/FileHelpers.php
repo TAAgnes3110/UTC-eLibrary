@@ -159,7 +159,32 @@ final class FileHelpers
         if ($tmp === false) {
             throw new \RuntimeException('Cannot create temp file');
         }
-        file_put_contents($tmp, $adapter->get($relativePath));
+
+        $stream = $adapter->readStream($relativePath);
+        if ($stream === false) {
+            @unlink($tmp);
+
+            throw new \RuntimeException('Cannot read storage stream');
+        }
+
+        $out = fopen($tmp, 'wb');
+        if ($out === false) {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+            @unlink($tmp);
+
+            throw new \RuntimeException('Cannot open temp file for write');
+        }
+
+        try {
+            stream_copy_to_stream($stream, $out);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+            fclose($out);
+        }
 
         return [$tmp, true];
     }

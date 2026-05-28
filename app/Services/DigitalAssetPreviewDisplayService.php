@@ -246,7 +246,7 @@ class DigitalAssetPreviewDisplayService
 
         try {
             $prefix = $tmpDir.'/page';
-            $result = Process::timeout(180)->run([
+            $result = Process::timeout(max(60, (int) config('services.pdf_preview.process_timeout', 180)))->run([
                 $binary,
                 '-png',
                 '-f', '1',

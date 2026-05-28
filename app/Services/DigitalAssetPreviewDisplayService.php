@@ -315,9 +315,6 @@ class DigitalAssetPreviewDisplayService
             if (is_file($absolute)) {
                 @chmod($absolute, 0644);
             }
-
-            // Khi artisan chạy bằng root, thư mục có thể bị tạo 0700 => php-fpm (www-data) đọc fail.
-            // Mở quyền traverse/read cho cây thư mục private chứa preview ảnh.
             $storageRoot = rtrim(str_replace('\\', '/', storage_path('app/private')), '/');
             $dir = dirname($absolute);
             while ($dir !== '' && is_dir($dir)) {

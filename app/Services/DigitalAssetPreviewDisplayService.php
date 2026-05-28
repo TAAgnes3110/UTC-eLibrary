@@ -150,18 +150,28 @@ class DigitalAssetPreviewDisplayService
         }
 
         $diskName = (string) ($asset->storage_disk ?: FileHelpers::digitalAssetsDisk());
-        if (! Storage::disk($diskName)->exists($relative)) {
-            Log::warning('digital_asset.preview_page_image_missing', [
+        try {
+            if (! Storage::disk($diskName)->exists($relative)) {
+                Log::warning('digital_asset.preview_page_image_missing', [
+                    'digital_asset_id' => $asset->id,
+                    'book_id' => $book->id,
+                    'page' => $page,
+                    'disk' => $diskName,
+                    'path' => $relative,
+                ]);
+                abort(404);
+            }
+        } catch (Throwable $e) {
+            Log::warning('digital_asset.preview_page_image_storage_error', [
                 'digital_asset_id' => $asset->id,
                 'book_id' => $book->id,
                 'page' => $page,
                 'disk' => $diskName,
                 'path' => $relative,
+                'message' => $e->getMessage(),
             ]);
             abort(404);
         }
-
-        $byteSize = Storage::disk($diskName)->size($relative);
 
         return response()->stream(
             function () use ($diskName, $relative): void {
@@ -180,7 +190,6 @@ class DigitalAssetPreviewDisplayService
             200,
             [
                 'Content-Type' => 'image/png',
-                'Content-Length' => $byteSize !== false ? (string) $byteSize : null,
                 'Content-Disposition' => 'inline',
                 'Cache-Control' => 'public, max-age=86400',
                 'X-Content-Type-Options' => 'nosniff',

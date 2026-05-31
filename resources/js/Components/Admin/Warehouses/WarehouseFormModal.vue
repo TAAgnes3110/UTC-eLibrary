@@ -42,14 +42,15 @@ function errClass(key) {
                         {{ fieldErrors.general }}
                     </p>
                     <div class="space-y-1.5">
-                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mã kho <span class="text-rose-500">*</span></label>
+                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Mã kho</label>
                         <Input
                             v-model="form.code"
                             class="h-10 rounded-lg font-mono dark:bg-slate-800"
                             :class="errClass('code')"
-                            placeholder="Ví dụ: TV-TT-UTC"
+                            placeholder="Để trống để hệ thống tự tạo"
                             @update:model-value="clearFieldError('code')"
                         />
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Bạn có thể tự nhập hoặc để trống để hệ thống tạo mã kho tự động.</p>
                         <p v-if="fieldErrors.code" class="text-xs text-red-500 font-medium">{{ fieldErrors.code }}</p>
                     </div>
                     <div class="space-y-1.5">

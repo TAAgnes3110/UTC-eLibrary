@@ -99,4 +99,23 @@ class AdminApiTest extends TestCase
 
         $response->assertStatus(200)->assertJsonStructure(['status', 'data']);
     }
+
+    public function test_warehouse_store_auto_generates_code_when_missing(): void
+    {
+        [, $token] = $this->createAdminUserAndToken();
+
+        $response = $this->postJson('/api/v1/warehouses', [
+            'name' => 'Kho tự động mã',
+            'is_active' => true,
+        ], $this->apiTokenHeaders($token));
+
+        $response->assertStatus(201)
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.name', 'Kho tự động mã')
+            ->assertJsonPath('data.is_active', true);
+
+        $code = (string) $response->json('data.code');
+        $this->assertNotSame('', $code);
+        $this->assertStringStartsWith('KHO-AUTO-', $code);
+    }
 }

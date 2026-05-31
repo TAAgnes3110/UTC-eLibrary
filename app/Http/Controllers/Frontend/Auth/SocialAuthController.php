@@ -38,7 +38,7 @@ class SocialAuthController extends Controller
         }
 
         $msId = (string) $microsoftUser->getId();
-        $code = $this->resolveUserCode($profile['email'], $msId);
+        $code = $this->resolveUserCode($msId);
 
         $user = User::query()->where('email', $profile['email'])->first();
         if (! $user) {
@@ -74,7 +74,7 @@ class SocialAuthController extends Controller
 
     /**
      * Lấy email, tên hiển thị từ Microsoft Graph (/me).
-     * Ưu tiên mail thật; fallback userPrincipalName khi hợp lệ.
+     * Không ràng buộc domain — ưu tiên mail thật, fallback userPrincipalName khi hợp lệ.
      *
      * @return array{email: string, name: string, avatar: ?string}
      */
@@ -129,13 +129,9 @@ class SocialAuthController extends Controller
         return '';
     }
 
-    private function resolveUserCode(string $email, string $msId): string
+    /** Mã định danh nội bộ — sinh từ Microsoft object id, không parse email/domain. */
+    private function resolveUserCode(string $msId): string
     {
-        $fromEmail = $this->extractCodeFromEmail($email);
-        if ($fromEmail !== null && strlen($fromEmail) >= 9 && strlen($fromEmail) <= 12) {
-            return $this->ensureUniqueCode($fromEmail);
-        }
-
         $digits = preg_replace('/\D/', '', $msId) ?? '';
         if (strlen($digits) >= 9) {
             return $this->ensureUniqueCode(substr($digits, 0, 12));
@@ -156,15 +152,5 @@ class SocialAuthController extends Controller
         }
 
         return $code;
-    }
-
-    private function extractCodeFromEmail(string $email): ?string
-    {
-        $username = explode('@', $email)[0] ?? '';
-        if (preg_match('/^[a-zA-Z]*(\d+)$/', $username, $matches)) {
-            return $matches[1];
-        }
-
-        return null;
     }
 }

@@ -16,6 +16,7 @@ use App\Support\WarehouseBookIdentifiers;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 final class BookImport
 {
@@ -92,7 +93,7 @@ final class BookImport
 
     public const PAGES_ALIASES = ['số trang', 'so trang', 'pages'];
 
-    public const BOOK_SIZE_ALIASES = ['khổ sách', 'kho sach', 'book_size'];
+    public const BOOK_SIZE_ALIASES = ['khổ sách', 'book_size'];
 
     public const PRICE_ALIASES = ['giá tiền', 'gia tien', 'price'];
 
@@ -116,128 +117,124 @@ final class BookImport
 
     public static function import(UploadedFile $file): array
     {
-        $result = FileHelpers::readExcel($file, 1, 0);
-        $rows = $result['rows'];
+        [$rows, $mainSheetIndex] = self::readMainBookRows($file);
+        $classificationRows = self::readOptionalSheetRows($file, $mainSheetIndex + 1);
+        $warehouseRows = self::readOptionalSheetRows($file, $mainSheetIndex + 2);
+        $cabinetRows = self::readOptionalSheetRows($file, $mainSheetIndex + 3);
 
         $success = 0;
         $skipped = 0;
         $errors = [];
+        $currentRowNumber = null;
+        $autoWarehouse = null;
 
-        foreach ($rows as $row) {
-            try {
-                $registrationNumber = FileHelpers::getValueByAliases($row, self::REGISTRATION_NUMBER_ALIASES);
-                $title = FileHelpers::getValueByAliases($row, self::TITLE_ALIASES);
-                $authorsRaw = FileHelpers::getValueByAliases($row, self::AUTHORS_ALIASES);
-                $publishersRaw = FileHelpers::getValueByAliases($row, self::PUBLISHERS_ALIASES);
-                $resourceType = self::normalizeResourceType(
-                    FileHelpers::getValueByAliases($row, self::RESOURCE_TYPE_ALIASES)
-                );
-                $warehouseCode = FileHelpers::getValueByAliases($row, self::WAREHOUSE_CODE_ALIASES);
-                $classificationCode = self::normalizeClassificationCode(
-                    FileHelpers::getValueByAliases($row, self::CLASSIFICATION_CODE_ALIASES)
-                );
+        try {
+            DB::transaction(function () use (
+                $rows,
+                $classificationRows,
+                $warehouseRows,
+                $cabinetRows,
+                &$success,
+                &$errors,
+                &$currentRowNumber,
+                &$autoWarehouse
+            ): void {
+                self::syncClassificationsFromSheet($classificationRows);
+                self::syncWarehousesFromSheet($warehouseRows);
+                self::syncCabinetsFromSheet($cabinetRows);
 
-                $quantity = (int) (FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::QUANTITY_ALIASES)) ?? 0);
+                foreach ($rows as $row) {
+                    $currentRowNumber = (int) ($row['_row_number'] ?? 0) ?: null;
+                    $registrationNumber = FileHelpers::getValueByAliases($row, self::REGISTRATION_NUMBER_ALIASES);
+                    $bookCodeFromExcel = FileHelpers::getValueByAliases($row, self::BOOK_CODE_ALIASES);
+                    $title = FileHelpers::getValueByAliases($row, self::TITLE_ALIASES);
+                    $authorsRaw = FileHelpers::getValueByAliases($row, self::AUTHORS_ALIASES);
+                    $publishersRaw = FileHelpers::getValueByAliases($row, self::PUBLISHERS_ALIASES);
+                    $resourceType = self::normalizeResourceType(
+                        FileHelpers::getValueByAliases($row, self::RESOURCE_TYPE_ALIASES)
+                    );
+                    $warehouseCode = FileHelpers::getValueByAliases($row, self::WAREHOUSE_CODE_ALIASES);
+                    $classificationCode = self::normalizeClassificationCode(
+                        FileHelpers::getValueByAliases($row, self::CLASSIFICATION_CODE_ALIASES)
+                    );
 
-                $missing = [];
-                if (! $warehouseCode) {
-                    $missing[] = 'Kho sách (*)';
-                }
-                if ($quantity <= 0) {
-                    $missing[] = 'Số lượng (*) (phải > 0)';
-                }
-                if (! empty($missing)) {
-                    $errors[] = [
-                        'row' => $row['_row_number'] ?? null,
-                        'message' => 'Thiếu/không hợp lệ: '.implode('; ', $missing).'.',
-                    ];
-                    $skipped++;
+                    $quantity = (int) (FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::QUANTITY_ALIASES)) ?? 0);
 
-                    continue;
-                }
-
-                $classification = null;
-                if ($classificationCode) {
-                    $classification = Classification::query()->where('code', $classificationCode)->first();
-                    if (! $classification) {
-                        $errors[] = [
-                            'row' => $row['_row_number'] ?? null,
-                            'message' => "Phân loại sách không tồn tại: \"{$classificationCode}\".",
-                        ];
-                        $skipped++;
-
-                        continue;
+                    $missing = [];
+                    if ($quantity <= 0) {
+                        $missing[] = 'Số lượng (*) (phải > 0)';
                     }
-                }
+                    if (! empty($missing)) {
+                        self::abortImport(
+                            $errors,
+                            $row['_row_number'] ?? null,
+                            'Thiếu/không hợp lệ: '.implode('; ', $missing).'.'
+                        );
+                    }
 
-                $warehouse = Warehouse::query()->where('code', $warehouseCode)->first();
-                if (! $warehouse) {
-                    $errors[] = [
-                        'row' => $row['_row_number'] ?? null,
-                        'message' => "Kho sách không tồn tại: \"{$warehouseCode}\".",
+                    $classification = null;
+                    if ($classificationCode) {
+                        $classification = Classification::query()->where('code', $classificationCode)->first();
+                        if (! $classification) {
+                            $classification = Classification::query()->create([
+                                'code' => $classificationCode,
+                                'name' => 'Phân loại '.$classificationCode,
+                            ]);
+                        }
+                    }
+
+                    $warehouse = self::resolveWarehouseForImport($warehouseCode, $autoWarehouse);
+
+                    $publishedYear = FileHelpers::parseYear(FileHelpers::getValueByAliases($row, self::PUBLISHED_YEAR_ALIASES));
+                    $pages = FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::PAGES_ALIASES));
+                    $bookSize = FileHelpers::getValueByAliases($row, self::BOOK_SIZE_ALIASES);
+                    $price = FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::PRICE_ALIASES));
+                    $cabinet = FileHelpers::getValueByAliases($row, self::CABINET_ALIASES);
+                    $summary = FileHelpers::getValueByAliases($row, self::SUMMARY_ALIASES);
+                    $notes = FileHelpers::getValueByAliases($row, self::NOTES_ALIASES);
+
+                    $book = null;
+                    if ($registrationNumber) {
+                        $book = Book::query()->where('registration_number', $registrationNumber)->first();
+                    }
+                    if (! $book && ! $title) {
+                        self::abortImport(
+                            $errors,
+                            $row['_row_number'] ?? null,
+                            'Thiếu/không hợp lệ: Tên sách (*) (bắt buộc khi thêm mới).'
+                        );
+                    }
+                    $registrationNumber = $registrationNumber ?: WarehouseBookIdentifiers::nextRegistrationNumber($warehouse);
+                    $bookCode = $book?->book_code
+                        ?: ($bookCodeFromExcel ?: WarehouseBookIdentifiers::nextBookCode($warehouse));
+                    $payload = [
+                        'registration_number' => $registrationNumber,
+                        'book_code' => $bookCode,
+                        'title' => $title,
+                        'published_year' => $publishedYear,
+                        'pages' => $pages !== null ? (int) $pages : null,
+                        'book_size' => $bookSize,
+                        'price' => $price !== null ? (int) $price : null,
+                        'quantity' => $quantity,
+                        'classification_id' => $classification?->id,
+                        'warehouse_id' => $warehouse->id,
+                        'cabinet' => $cabinet,
+                        'summary' => $summary,
+                        'notes' => $notes,
                     ];
-                    $skipped++;
+                    if ($resourceType !== null) {
+                        $payload['resource_type'] = $resourceType;
+                    }
 
-                    continue;
-                }
+                    $storageError = self::ensureStorageLocationForPayload($payload, $warehouse, $classification);
+                    if ($storageError !== null) {
+                        self::abortImport($errors, $row['_row_number'] ?? null, $storageError);
+                    }
 
-                $publishedYear = FileHelpers::parseYear(FileHelpers::getValueByAliases($row, self::PUBLISHED_YEAR_ALIASES));
-                $pages = FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::PAGES_ALIASES));
-                $bookSize = FileHelpers::getValueByAliases($row, self::BOOK_SIZE_ALIASES);
-                $price = FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::PRICE_ALIASES));
-                $cabinet = FileHelpers::getValueByAliases($row, self::CABINET_ALIASES);
-                $summary = FileHelpers::getValueByAliases($row, self::SUMMARY_ALIASES);
-                $notes = FileHelpers::getValueByAliases($row, self::NOTES_ALIASES);
-
-                $book = null;
-                if ($registrationNumber) {
-                    $book = Book::query()->where('registration_number', $registrationNumber)->first();
-                }
-                if (! $book && ! $title) {
-                    $errors[] = [
-                        'row' => $row['_row_number'] ?? null,
-                        'message' => 'Thiếu/không hợp lệ: Tên sách (*) (bắt buộc khi thêm mới).',
-                    ];
-                    $skipped++;
-
-                    continue;
-                }
-                $registrationNumber = $registrationNumber ?: WarehouseBookIdentifiers::nextRegistrationNumber($warehouse);
-                $bookCode = $book?->book_code ?: WarehouseBookIdentifiers::nextBookCode($warehouse);
-                $payload = [
-                    'registration_number' => $registrationNumber,
-                    'book_code' => $bookCode,
-                    'title' => $title,
-                    'published_year' => $publishedYear,
-                    'pages' => $pages !== null ? (int) $pages : null,
-                    'book_size' => $bookSize,
-                    'price' => $price !== null ? (int) $price : null,
-                    'quantity' => $quantity,
-                    'classification_id' => $classification?->id,
-                    'warehouse_id' => $warehouse->id,
-                    'cabinet' => $cabinet,
-                    'summary' => $summary,
-                    'notes' => $notes,
-                ];
-                if ($resourceType !== null) {
-                    $payload['resource_type'] = $resourceType;
-                }
-
-                $storageError = self::ensureStorageLocationForPayload($payload, $warehouse, $classification);
-                if ($storageError !== null) {
-                    $errors[] = [
-                        'row' => $row['_row_number'] ?? null,
-                        'message' => $storageError,
-                    ];
-                    $skipped++;
-
-                    continue;
-                }
-
-                DB::transaction(function () use (&$book, $payload, $authorsRaw, $publishersRaw) {
                     if ($book) {
                         // Có mã sách rồi thì cập nhật số lượng (và metadata nếu được nhập).
-                        $book->fill($payload);
+                        $updatePayload = array_filter($payload, static fn ($v) => $v !== null);
+                        $book->fill($updatePayload);
                         $book->save();
                     } else {
                         $book = Book::create($payload);
@@ -245,18 +242,253 @@ final class BookImport
 
                     self::syncAuthors($book, $authorsRaw);
                     self::syncPublishers($book, $publishersRaw);
-                });
 
-                $success++;
-            } catch (\Throwable $e) {
+                    $success++;
+                }
+            });
+        } catch (Throwable $e) {
+            if ($e->getMessage() !== 'BOOK_IMPORT_ABORT') {
                 $errors[] = [
-                    'row' => $row['_row_number'] ?? null,
+                    'row' => $currentRowNumber,
                     'message' => $e->getMessage(),
                 ];
             }
+
+            $success = 0;
+            $skipped = max(0, count($rows) - count($errors));
         }
 
         return FileHelpers::buildImportResult($success, $skipped, $errors);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function readOptionalSheetRows(UploadedFile $file, int $sheetIndex): array
+    {
+        try {
+            $sheet = FileHelpers::readExcel($file, 2, $sheetIndex);
+            if (($sheet['rows'] ?? []) === []) {
+                $sheet = FileHelpers::readExcel($file, 1, $sheetIndex);
+            }
+
+            return $sheet['rows'] ?? [];
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return array{0: list<array<string,mixed>>, 1: int}
+     */
+    private static function readMainBookRows(UploadedFile $file): array
+    {
+        foreach ([0, 1] as $index) {
+            foreach ([1, 2] as $headerRow) {
+                try {
+                    $sheet = FileHelpers::readExcel($file, $headerRow, $index);
+                    $headers = array_map(static fn ($v) => (string) $v, $sheet['headers'] ?? []);
+                    $hasTitle = in_array('tên sách (*)', $headers, true) || in_array('tên sách', $headers, true);
+                    $hasQuantity = in_array('số lượng (*)', $headers, true) || in_array('số lượng', $headers, true);
+                    if ($hasTitle && $hasQuantity) {
+                        return [$sheet['rows'] ?? [], $index];
+                    }
+                } catch (Throwable) {
+                    // thử layout khác
+                }
+            }
+        }
+
+        $fallback = FileHelpers::readExcel($file, 1, 0);
+
+        return [$fallback['rows'] ?? [], 0];
+    }
+
+    private static function syncClassificationsFromSheet(array $rows): void
+    {
+        foreach ($rows as $row) {
+            $code = trim((string) (FileHelpers::getValueByAliases($row, ['mã', 'ma', 'code']) ?? ''));
+            $name = trim((string) (FileHelpers::getValueByAliases($row, ['tên', 'ten', 'name']) ?? ''));
+            if ($code === '') {
+                continue;
+            }
+            if ($name === '') {
+                throw new \RuntimeException(sprintf(
+                    'Sheet2_PhanLoaiSach dòng %s: thiếu tên phân loại cho mã "%s".',
+                    (string) ($row['_row_number'] ?? '?'),
+                    $code
+                ));
+            }
+
+            Classification::query()->updateOrCreate(
+                ['code' => $code],
+                ['name' => $name]
+            );
+        }
+    }
+
+    private static function syncWarehousesFromSheet(array $rows): void
+    {
+        foreach ($rows as $row) {
+            $code = trim((string) (FileHelpers::getValueByAliases($row, ['mã', 'ma', 'code']) ?? ''));
+            $name = trim((string) (FileHelpers::getValueByAliases($row, ['tên', 'ten', 'name']) ?? ''));
+            if ($code === '') {
+                continue;
+            }
+            if ($name === '') {
+                throw new \RuntimeException(sprintf(
+                    'Sheet3_KhoSach dòng %s: thiếu tên kho cho mã "%s".',
+                    (string) ($row['_row_number'] ?? '?'),
+                    $code
+                ));
+            }
+
+            $warehouse = Warehouse::query()->withTrashed()->where('code', $code)->first();
+            if (! $warehouse) {
+                Warehouse::query()->create([
+                    'code' => $code,
+                    'name' => $name,
+                    'is_active' => true,
+                ]);
+
+                continue;
+            }
+
+            if ($warehouse->trashed()) {
+                $warehouse->restore();
+            }
+            $warehouse->name = $name;
+            $warehouse->is_active = true;
+            $warehouse->save();
+        }
+    }
+
+    private static function syncCabinetsFromSheet(array $rows): void
+    {
+        foreach ($rows as $row) {
+            $cabinetCode = trim((string) (FileHelpers::getValueByAliases($row, ['mã tủ', 'ma tu', 'code']) ?? ''));
+            $cabinetName = trim((string) (FileHelpers::getValueByAliases($row, ['tên tủ', 'ten tu', 'name']) ?? ''));
+            $warehouseCode = trim((string) (FileHelpers::getValueByAliases($row, ['mã kho', 'ma kho', 'warehouse_code']) ?? ''));
+            $classificationCode = trim((string) (FileHelpers::getValueByAliases($row, ['mã phân loại', 'ma phan loai', 'classification_code']) ?? ''));
+
+            if ($cabinetCode === '' && $cabinetName === '' && $warehouseCode === '' && $classificationCode === '') {
+                continue;
+            }
+
+            if ($warehouseCode === '' || $classificationCode === '') {
+                throw new \RuntimeException(sprintf(
+                    'Sheet4_TuSach dòng %s: cần đủ "Mã kho" và "Mã phân loại".',
+                    (string) ($row['_row_number'] ?? '?')
+                ));
+            }
+
+            $warehouse = Warehouse::query()->where('code', $warehouseCode)->first();
+            $classification = Classification::query()->where('code', $classificationCode)->first();
+            if (! $warehouse || ! $classification) {
+                throw new \RuntimeException(sprintf(
+                    'Sheet4_TuSach dòng %s: không tìm thấy kho "%s" hoặc phân loại "%s".',
+                    (string) ($row['_row_number'] ?? '?'),
+                    $warehouseCode,
+                    $classificationCode
+                ));
+            }
+
+            $resolvedCode = $cabinetCode !== '' ? $cabinetCode : self::generateStorageCabinetCode($warehouse);
+            $resolvedName = $cabinetName !== ''
+                ? $cabinetName
+                : trim(sprintf('Tủ %s - %s', $classification->code, $classification->name));
+
+            $cabinet = StorageCabinet::query()
+                ->withTrashed()
+                ->where('warehouse_id', $warehouse->id)
+                ->where('classification_id', $classification->id)
+                ->where('code', $resolvedCode)
+                ->first();
+
+            if (! $cabinet) {
+                StorageCabinet::query()->create([
+                    'warehouse_id' => (int) $warehouse->id,
+                    'classification_id' => (int) $classification->id,
+                    'code' => $resolvedCode,
+                    'name' => mb_substr($resolvedName, 0, 160),
+                    'is_active' => true,
+                    'current_quantity' => 0,
+                    'params' => [],
+                ]);
+
+                continue;
+            }
+
+            if ($cabinet->trashed()) {
+                $cabinet->restore();
+            }
+            $cabinet->name = mb_substr($resolvedName, 0, 160);
+            $cabinet->is_active = true;
+            $cabinet->save();
+        }
+    }
+
+    private static function abortImport(array &$errors, int|string|null $row, string $message): void
+    {
+        $errors[] = ['row' => $row, 'message' => $message];
+        throw new \RuntimeException('BOOK_IMPORT_ABORT');
+    }
+
+    private static function resolveWarehouseForImport(?string $warehouseCode, ?Warehouse &$autoWarehouse = null): Warehouse
+    {
+        $warehouseCode = trim((string) $warehouseCode);
+        if ($warehouseCode !== '') {
+            $warehouse = Warehouse::query()->withTrashed()->where('code', $warehouseCode)->first();
+            if ($warehouse instanceof Warehouse) {
+                if ($warehouse->trashed()) {
+                    $warehouse->restore();
+                }
+                if (! $warehouse->is_active) {
+                    $warehouse->is_active = true;
+                    $warehouse->save();
+                }
+
+                return $warehouse;
+            }
+
+            return Warehouse::query()->create([
+                'code' => $warehouseCode,
+                'name' => 'Kho '.$warehouseCode,
+                'is_active' => true,
+            ]);
+        }
+
+        if ($autoWarehouse instanceof Warehouse) {
+            return $autoWarehouse;
+        }
+
+        $autoCode = self::nextAutoWarehouseCode();
+        $autoWarehouse = Warehouse::query()->create([
+            'code' => $autoCode,
+            'name' => 'Kho nhập Excel '.$autoCode,
+            'is_active' => true,
+        ]);
+
+        return $autoWarehouse;
+    }
+
+    private static function nextAutoWarehouseCode(): string
+    {
+        $prefix = 'KHO-IMP-';
+        $max = 0;
+        $codes = Warehouse::query()
+            ->withTrashed()
+            ->where('code', 'like', $prefix.'%')
+            ->pluck('code');
+
+        foreach ($codes as $code) {
+            $suffix = substr((string) $code, strlen($prefix));
+            if ($suffix !== '' && ctype_digit($suffix)) {
+                $max = max($max, (int) $suffix);
+            }
+        }
+
+        return $prefix.str_pad((string) ($max + 1), 4, '0', STR_PAD_LEFT);
     }
 
     private static function syncAuthors(Book $book, ?string $authorsRaw): void
@@ -363,6 +595,7 @@ final class BookImport
 
         $existingCabinet = trim((string) ($payload['cabinet'] ?? ''));
         $payload['cabinet'] = $existingCabinet !== '' ? $existingCabinet : (string) $cabinet->name;
+
         return null;
     }
 

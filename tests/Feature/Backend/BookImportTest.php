@@ -142,4 +142,163 @@ class BookImportTest extends TestCase
 
         $this->assertDatabaseHas('books', ['title' => 'Sách qua API import']);
     }
+
+    public function test_import_uses_warehouse_code_from_excel_when_provided(): void
+    {
+        $now = now();
+        $classificationId = DB::table('classifications')->insertGetId([
+            'code' => 'PL-WH1',
+            'name' => 'Kho theo mã excel',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('warehouses')->insertGetId([
+            'code' => 'KHO-EXCEL',
+            'name' => 'Kho nhập từ mã excel',
+            'is_active' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $classification = Classification::query()->findOrFail($classificationId);
+
+        $spreadsheet = FileHelpers::createWorkbook([
+            [
+                'title' => 'Sheet1_Sach',
+                'headers' => ['Phân loại sách (*)', 'Tên sách (*)', 'Kho sách (*)', 'Số lượng (*)', 'Mã sách'],
+                'rows' => [[
+                    "{$classification->code} - {$classification->name}",
+                    'Sách dùng kho từ excel',
+                    'KHO-EXCEL',
+                    '1',
+                    'MS-EXCEL-001',
+                ]],
+            ],
+        ]);
+        $path = storage_path('framework/testing/book-import-wh-code.xlsx');
+        (new Xlsx($spreadsheet))->save($path);
+
+        $file = new UploadedFile(
+            $path,
+            'book-import-wh-code.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $result = BookImport::import($file);
+
+        $this->assertSame('success', $result['status']);
+        $this->assertSame(1, $result['summary']['success']);
+        $this->assertDatabaseHas('books', [
+            'title' => 'Sách dùng kho từ excel',
+            'book_code' => 'MS-EXCEL-001',
+        ]);
+        $this->assertDatabaseHas('warehouses', ['code' => 'KHO-EXCEL']);
+    }
+
+    public function test_import_auto_creates_warehouse_when_warehouse_code_is_missing(): void
+    {
+        $now = now();
+        $classificationId = DB::table('classifications')->insertGetId([
+            'code' => 'PL-WH2',
+            'name' => 'Kho auto',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $classification = Classification::query()->findOrFail($classificationId);
+
+        $spreadsheet = FileHelpers::createWorkbook([
+            [
+                'title' => 'Sheet1_Sach',
+                'headers' => ['Phân loại sách (*)', 'Tên sách (*)', 'Kho sách (*)', 'Số lượng (*)'],
+                'rows' => [[
+                    "{$classification->code} - {$classification->name}",
+                    'Sách kho tự tạo',
+                    '',
+                    '2',
+                ]],
+            ],
+        ]);
+        $path = storage_path('framework/testing/book-import-auto-wh.xlsx');
+        (new Xlsx($spreadsheet))->save($path);
+
+        $file = new UploadedFile(
+            $path,
+            'book-import-auto-wh.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $result = BookImport::import($file);
+
+        $this->assertSame('success', $result['status']);
+        $this->assertSame(1, $result['summary']['success']);
+        $book = Book::query()->where('title', 'Sách kho tự tạo')->first();
+        $this->assertNotNull($book);
+        $this->assertNotNull($book->warehouse_id);
+        $this->assertDatabaseHas('warehouses', [
+            'id' => $book->warehouse_id,
+            'is_active' => 1,
+        ]);
+    }
+
+    public function test_import_rolls_back_all_rows_when_any_row_fails(): void
+    {
+        $now = now();
+        $classificationId = DB::table('classifications')->insertGetId([
+            'code' => 'PL-ROLLBACK',
+            'name' => 'Phân loại rollback',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('warehouses')->insertGetId([
+            'code' => 'KHO-ROLLBACK',
+            'name' => 'Kho rollback',
+            'is_active' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $classification = Classification::query()->findOrFail($classificationId);
+
+        $spreadsheet = FileHelpers::createWorkbook([
+            [
+                'title' => 'Sheet1_Sach',
+                'headers' => ['Phân loại sách (*)', 'Tên sách (*)', 'Kho sách (*)', 'Số lượng (*)'],
+                'rows' => [
+                    [
+                        "{$classification->code} - {$classification->name}",
+                        'Sách hợp lệ nhưng phải rollback',
+                        'KHO-ROLLBACK',
+                        '1',
+                    ],
+                    [
+                        "{$classification->code} - {$classification->name}",
+                        'Sách gây lỗi',
+                        'KHO-ROLLBACK',
+                        '0',
+                    ],
+                ],
+            ],
+        ]);
+        $path = storage_path('framework/testing/book-import-rollback.xlsx');
+        (new Xlsx($spreadsheet))->save($path);
+
+        $file = new UploadedFile(
+            $path,
+            'book-import-rollback.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $result = BookImport::import($file);
+
+        $this->assertSame('error', $result['status']);
+        $this->assertSame(0, $result['summary']['success']);
+        $this->assertGreaterThan(0, $result['summary']['errors']);
+        $this->assertDatabaseMissing('books', ['title' => 'Sách hợp lệ nhưng phải rollback']);
+        $this->assertDatabaseMissing('books', ['title' => 'Sách gây lỗi']);
+    }
 }

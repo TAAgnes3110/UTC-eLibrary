@@ -29,27 +29,49 @@ class MicrosoftSocialAuthTest extends TestCase
         ]);
     }
 
-    public function test_microsoft_login_creates_member_for_st_utc_email(): void
+    public function test_microsoft_login_creates_member_for_work_school_email_without_email_based_code(): void
     {
         $this->mockMicrosoftUser(
-            '223630694@st.utc.edu.vn',
-            'SV UTC',
-            'ms-utc-1',
+            'reader@contoso.com',
+            'Reader Contoso',
+            'ms-contoso-1',
             raw: [
-                'id' => 'ms-utc-1',
-                'displayName' => 'SV UTC',
-                'mail' => '223630694@st.utc.edu.vn',
-                'userPrincipalName' => '223630694@st.utc.edu.vn',
+                'id' => 'ms-contoso-1',
+                'displayName' => 'Reader Contoso',
+                'mail' => 'reader@contoso.com',
+                'userPrincipalName' => 'reader@contoso.com',
             ]
         );
 
         $this->get('/auth/microsoft/callback')->assertRedirect(route('reader.home'));
 
-        $user = User::query()->where('email', '223630694@st.utc.edu.vn')->first();
+        $user = User::query()->where('email', 'reader@contoso.com')->first();
         $this->assertNotNull($user);
         $this->assertSame(RoleType::MEMBER->value, $user->user_type instanceof RoleType ? $user->user_type->value : $user->user_type);
-        $this->assertSame('223630694', $user->code);
+        $this->assertNotSame('', (string) $user->code);
+        $this->assertMatchesRegularExpression('/^\d{9,12}$/', (string) $user->code);
         $this->assertNull($user->cohort);
+    }
+
+    public function test_microsoft_login_does_not_derive_code_from_email_username_digits(): void
+    {
+        $this->mockMicrosoftUser(
+            '223630694@example.org',
+            'Digits In Email',
+            'ms-digits-1',
+            raw: [
+                'id' => 'ms-digits-1',
+                'displayName' => 'Digits In Email',
+                'mail' => '223630694@example.org',
+                'userPrincipalName' => '223630694@example.org',
+            ]
+        );
+
+        $this->get('/auth/microsoft/callback')->assertRedirect(route('reader.home'));
+
+        $user = User::query()->where('email', '223630694@example.org')->first();
+        $this->assertNotNull($user);
+        $this->assertNotSame('223630694', $user->code);
     }
 
     public function test_microsoft_login_prefers_mail_over_user_principal_name(): void

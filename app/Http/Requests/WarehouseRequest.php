@@ -13,7 +13,8 @@ class WarehouseRequest extends BaseRequest
 
         return [
             'code' => [
-                $isUpdate ? 'sometimes' : 'required',
+                $isUpdate ? 'sometimes' : 'nullable',
+                'nullable',
                 'string',
                 'max:255',
                 Rule::unique('warehouses', 'code')->ignore($id),
@@ -33,7 +34,7 @@ class WarehouseRequest extends BaseRequest
     public function messages(): array
     {
         return [
-            'code.required' => 'Mã kho không được để trống',
+            'code.nullable' => 'Mã kho không hợp lệ',
             'code.string' => 'Mã kho phải là chuỗi',
             'code.max' => 'Mã kho không được vượt quá 255 ký tự',
             'code.unique' => 'Mã kho đã tồn tại trong hệ thống',

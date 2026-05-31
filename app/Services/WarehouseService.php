@@ -8,7 +8,6 @@ use App\Models\Warehouse;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator as PaginationLengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WarehouseService
@@ -20,6 +19,13 @@ class WarehouseService
      */
     public function create(array $data): Warehouse
     {
+        $code = strtoupper(trim((string) ($data['code'] ?? '')));
+        if ($code === '') {
+            $data['code'] = $this->nextAutoWarehouseCode();
+        } else {
+            $data['code'] = $code;
+        }
+
         $warehouse = Warehouse::create($data);
         MasterDataService::clearCache();
 
@@ -32,10 +38,37 @@ class WarehouseService
     public function update(Warehouse $warehouse, array $data): Warehouse
     {
         unset($data['id']);
+        if (array_key_exists('code', $data)) {
+            $newCode = strtoupper(trim((string) ($data['code'] ?? '')));
+            if ($newCode === '') {
+                unset($data['code']);
+            } else {
+                $data['code'] = $newCode;
+            }
+        }
         $warehouse->update($data);
         MasterDataService::clearCache();
 
         return $warehouse;
+    }
+
+    private function nextAutoWarehouseCode(): string
+    {
+        $prefix = 'KHO-AUTO-';
+        $max = 0;
+        $codes = Warehouse::query()
+            ->withTrashed()
+            ->where('code', 'like', $prefix.'%')
+            ->pluck('code');
+
+        foreach ($codes as $code) {
+            $suffix = substr((string) $code, strlen($prefix));
+            if ($suffix !== '' && ctype_digit($suffix)) {
+                $max = max($max, (int) $suffix);
+            }
+        }
+
+        return $prefix.str_pad((string) ($max + 1), 4, '0', STR_PAD_LEFT);
     }
 
     /**

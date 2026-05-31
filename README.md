@@ -37,17 +37,19 @@
 3. [Ảnh minh họa & sơ đồ](#ảnh-minh-họa--sơ-đồ)
 4. [Cài đặt local](#cài-đặt-local)
 5. [Tài khoản demo](#tài-khoản-demo)
-6. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
-7. [API & Postman](#api--postman)
-8. [ERD cơ sở dữ liệu](#erd-cơ-sở-dữ-liệu)
-9. [Nghiệp vụ UTC (tóm tắt)](#nghiệp-vụ-utc-tóm-tắt)
-10. [AI / ECC (Cursor)](#ai--ecc-cursor)
-11. [Deploy EC2 (Docker)](#deploy-ec2-docker)
-12. [CI/CD](#cicd)
-13. [Biến môi trường](#biến-môi-trường)
-14. [Kiểm tra chất lượng](#kiểm-tra-chất-lượng)
-15. [Ghi chú bảo mật](#ghi-chú-bảo-mật)
-16. [Xử lý sự cố deploy](#xử-lý-sự-cố-deploy)
+6. [Đăng nhập & xác thực](#đăng-nhập--xác-thực)
+7. [Nhập/xuất Excel (admin)](#nhậpxuất-excel-admin)
+8. [Cấu trúc thư mục](#cấu-trúc-thư-mục)
+9. [API & Postman](#api--postman)
+10. [ERD cơ sở dữ liệu](#erd-cơ-sở-dữ-liệu)
+11. [Nghiệp vụ UTC (tóm tắt)](#nghiệp-vụ-utc-tóm-tắt)
+12. [AI / ECC (Cursor)](#ai--ecc-cursor)
+13. [Deploy EC2 (Docker)](#deploy-ec2-docker)
+14. [CI/CD](#cicd)
+15. [Biến môi trường](#biến-môi-trường)
+16. [Kiểm tra chất lượng](#kiểm-tra-chất-lượng)
+17. [Ghi chú bảo mật](#ghi-chú-bảo-mật)
+18. [Xử lý sự cố deploy](#xử-lý-sự-cố-deploy)
 
 ---
 
@@ -68,20 +70,21 @@ UTC eLibrary phục vụ:
 ## Tính năng
 
 ### Độc giả
-- Tra cứu sách in & tài liệu số (đồ án, luận văn)
-- Đăng ký / đăng nhập OTP, quên mật khẩu
+- Tra cứu sách in & tài liệu số (đồ án, luận văn), xem trước PDF, tải sau thanh toán
+- **Đăng nhập:** email/mã định danh + mật khẩu, **Microsoft** (OAuth Azure), hoặc đăng ký OTP
 - Làm thẻ thư viện (sinh viên, giảng viên, khách)
 - Gửi yêu cầu mượn, xem phiếu mượn, gia hạn
 - Nộp đồ án/luận văn để duyệt
-- Giỏ mua quyền tải PDF, thanh toán SePay
-- Thông báo trong app
+- Giỏ mượn sách in + giỏ mua quyền tải PDF, thanh toán SePay (VietQR)
+- Thông báo trong app (poll UI)
 
 ### Admin / thủ thư
-- CRUD sách in, **tài liệu số** (upload PDF atomic)
-- Kho, phân loại, tủ/kệ, chính sách mượn (`loan_policies`)
+- CRUD sách in, **tài liệu số** (upload PDF atomic, preview queue)
+- **Nhập/xuất Excel:** sách (mẫu 5 sheet), kho, phân loại; xuất phiếu mượn, thẻ, user
+- Kho, tủ/kệ, phân loại — mã kho có thể để trống để hệ thống tự sinh
 - Phiếu mượn/trả, duyệt yêu cầu mượn/gia hạn
 - Quản lý thẻ, user, RBAC (Spatie)
-- Duyệt submission tài liệu số
+- Duyệt submission tài liệu số, thùng rác (soft delete) trên nhiều module
 - Tin tức, cấu hình thư viện & giá paywall
 
 ---
@@ -213,7 +216,7 @@ UTC eLibrary phục vụ:
 
 <p align="center"><img src="readme/assets/screenshots/01-home.png" alt="Trang chủ" width="100%"/></p>
 
-**Đăng nhập** — `/login`
+**Đăng nhập** — `/login` (email/mật khẩu + **Đăng nhập với Microsoft**)
 
 <p align="center"><img src="readme/assets/screenshots/02-login.png" alt="Đăng nhập" width="100%"/></p>
 
@@ -242,20 +245,30 @@ sequenceDiagram
     API-->>A: 201/200 BookResource
 ```
 
-### Luồng auth (API vs Admin SPA)
+### Luồng auth (web reader + API)
 
 ```mermaid
-flowchart LR
+flowchart TB
+    subgraph Web["Trang web /login"]
+        E[Email hoặc mã + mật khẩu]
+        M[Đăng nhập Microsoft]
+        O[Đăng ký OTP / quên mật khẩu]
+    end
+    subgraph MS["Azure AD / Microsoft"]
+        M --> AZ[OAuth callback /auth/microsoft/callback]
+    end
+    AZ --> S[Session Laravel + Sanctum]
+    E --> S
     subgraph API["API client / Postman"]
         L[POST /auth/login] --> T[JWT token]
         T --> R[Gọi API + Bearer + domain]
     end
-    subgraph Admin["Trang /admin"]
-        W[Cookie session Sanctum] --> S[POST/PUT không Bearer]
-    end
+    S --> RH[reader.home hoặc admin.dashboard]
 ```
 
-> **Lưu ý:** Trang `/admin` **không** dùng JWT trong `localStorage`. Mọi request axios tới `/admin` dùng cookie session (`skipBearerAuth`).
+> **Microsoft:** hỗ trợ mọi tài khoản Microsoft (`AZURE_TENANT_ID=common`). User mới qua Microsoft được gán `MEMBER`; tài khoản staff đã có trong DB vẫn vào `/admin` theo role cũ. Chi tiết: [Đăng nhập & xác thực](#đăng-nhập--xác-thực).
+
+> **Admin SPA:** Trang `/admin` **không** dùng JWT trong `localStorage`. Request axios tới `/admin` dùng cookie session (`skipBearerAuth`).
 
 ---
 
@@ -300,9 +313,110 @@ Mở: **http://localhost:8000**
 | URL | Mô tả |
 |-----|--------|
 | `/` | Cổng độc giả |
+| `/login` | Đăng nhập (email/mật khẩu + Microsoft) |
 | `/admin` | Quản trị |
 | `/api/health` | Health check |
 | `/api/v1/...` | REST API |
+
+### Docker (local, tùy chọn)
+
+```bash
+cp .env.docker.example .env
+# Sửa APP_URL, DB_PASSWORD trong .env nếu cần
+docker compose up -d --build
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
+```
+
+Mở theo `APP_URL` / `APP_PORT` trong `.env` (mặc định port 80).
+
+### Microsoft OAuth (tùy chọn)
+
+Laravel dùng **OAuth server-side** (Socialite + `client_secret`) — cấu hình Azure phải khớp **cả Portal lẫn `.env`**.
+
+#### Bước 1 — Azure Portal
+
+[App registrations](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) → app **UTC-eLibrary** (hoặc tạo mới).
+
+| Mục | Giá trị bắt buộc |
+|-----|------------------|
+| **Supported account types** | **Accounts in any organizational directory and personal Microsoft accounts** |
+| **Redirect URI — platform Web** | `https://<domain>/auth/microsoft/callback` |
+| **Redirect URI — SPA** | **Để trống** (không đặt callback ở SPA) |
+| **Client secret** | Tạo trong **Certificates & secrets** (copy ngay — chỉ hiện 1 lần) |
+| **API permissions** | Microsoft Graph → delegated: `openid`, `profile`, `email`, `User.Read` → Grant admin consent |
+
+**Manifest kiểm tra nhanh** (Azure → **Manifest**):
+
+```json
+"signInAudience": "AzureADandPersonalMicrosoftAccount",
+"web": {
+  "redirectUris": [
+    "https://kiet.mmoall.com/auth/microsoft/callback"
+  ]
+},
+"spa": {
+  "redirectUris": []
+}
+```
+
+| Sai (hay gặp) | Đúng |
+|---------------|------|
+| `web.redirectUris: []` + URI nằm trong `spa` | URI chỉ nằm trong **`web`** |
+| `signInAudience: AzureADMultipleOrgs` | `AzureADandPersonalMicrosoftAccount` |
+| `AZURE_CLIENT_ID` khác `appId` trên Portal | Trùng `appId` (Application ID) |
+
+> **`AZURE_TENANT_ID=common`** chỉ chọn endpoint `login.microsoftonline.com/common/...`. **Không thay** được Supported account types trên Portal — hai cấu hình độc lập.
+
+> **Email @gmail.com** không phải tài khoản Microsoft. Test bằng `@outlook.com` / `@hotmail.com` / email trường (`@st.utc.edu.vn`, …).
+
+#### Bước 2 — `.env`
+
+```env
+APP_URL=https://kiet.mmoall.com
+
+AZURE_CLIENT_ID=10d77e69-ecf6-4d21-90d2-fc7b7d6aefbb
+AZURE_CLIENT_SECRET=<client-secret-từ-Portal>
+AZURE_REDIRECT_URI=https://kiet.mmoall.com/auth/microsoft/callback
+AZURE_TENANT_ID=common
+```
+
+- `AZURE_REDIRECT_URI` = **URL tuyệt đối**, trùng khít **Web** redirect trên Azure (scheme + domain + path).
+- Local: `APP_URL=http://localhost:8000` và `AZURE_REDIRECT_URI="${APP_URL}/auth/microsoft/callback"`.
+
+#### Bước 3 — Áp dụng trên EC2
+
+```bash
+cd ~/utc-elibrary
+nano .env                    # sửa AZURE_* + APP_URL
+bash scripts/ec2-apply-env.sh
+```
+
+Kiểm tra container đọc đúng config:
+
+```bash
+docker compose -f docker-compose.ec2.yml exec app php artisan tinker --execute="print_r(config('services.azure'));"
+```
+
+Đẩy `.env` từ máy dev (Git Bash):
+
+```bash
+export EC2_HOST=<IP_EC2>
+export EC2_USER=ubuntu
+export EC2_SSH_KEY=~/.ssh/your-key.pem
+bash scripts/sync-env-to-ec2.sh
+```
+
+Để trống `AZURE_CLIENT_ID` → nút Microsoft trên `/login` vẫn hiện nhưng callback lỗi.
+
+#### Lỗi thường gặp
+
+| Thông báo | Nguyên nhân | Cách sửa |
+|-----------|-------------|----------|
+| *Tài khoản cá nhân không được phép* | `signInAudience` chỉ organizational | Portal → Supported account types → **+ personal Microsoft accounts** |
+| Redirect / `invalid_client` | URI trong **SPA** thay vì **Web** | Chuyển URI sang platform **Web**, xóa khỏi SPA |
+| Callback 404 / sai domain | `AZURE_REDIRECT_URI` ≠ Portal hoặc ≠ `APP_URL` | Khớp 3 chỗ: Portal Web URI, `.env`, route `/auth/microsoft/callback` |
+| Đăng nhập Gmail fail | Gmail ≠ Microsoft account | Dùng Outlook/Hotmail hoặc tài khoản Microsoft đã liên kết email |
 
 ### Queue & preview PDF (tùy chọn local)
 
@@ -323,6 +437,54 @@ php artisan queue:work
 | Thủ thư | `librarian@utc.edu.vn` | `password` |
 | Sinh viên | `student@st.utc.edu.vn` | `password` |
 
+> Mật khẩu mặc định từ seeder (`APP_PASSWORD_DEFAULT` / `SEEDER_DEFAULT_PASSWORD` trong `.env`). Đăng nhập Microsoft tạo user `MEMBER` mới nếu email chưa tồn tại.
+
+---
+
+## Đăng nhập & xác thực
+
+| Kênh | Route / API | Ghi chú |
+|------|-------------|---------|
+| Web — email/mã + mật khẩu | `POST /login` → session | Hỗ trợ ghi nhớ, throttle `auth` |
+| Web — Microsoft | `GET /auth/microsoft` → callback | Socialite + Microsoft Graph; không ràng buộc domain email |
+| Web — đăng ký | `/register` → OTP `/verify-otp` | Sinh viên / giáo viên / thành viên |
+| API — JWT | `POST /api/v1/auth/login` | Header `domain`; refresh token |
+| Admin SPA | Cookie Sanctum | Không Bearer JWT trên `/admin` |
+
+**Luồng Microsoft (`SocialAuthController`):**
+
+1. `GET /auth/microsoft` → Azure OAuth (`login.microsoftonline.com/common/...`).
+2. Callback `GET /auth/microsoft/callback` → lấy email từ Graph (`mail` / `userPrincipalName`).
+3. User mới → `MEMBER`, mã định danh từ Microsoft object id (không parse email/domain).
+4. Session → `reader.home` hoặc `admin.dashboard` nếu đã có role staff.
+
+Cấu hình Azure + `.env`: xem [Microsoft OAuth](#microsoft-oauth-tùy-chọn).
+
+## Nhập/xuất Excel (admin)
+
+Giao diện: modal **`AdminFileModal`** (kéo-thả, tải mẫu) trên các trang admin tương ứng.
+
+| Module | Tải mẫu | Nhập | Xuất |
+|--------|---------|------|------|
+| **Sách** (in / giáo trình / tham khảo / số) | `GET /api/v1/books/import-template` | `POST /api/v1/books/import` | `GET /api/v1/books/export` |
+| **Kho sách** | `GET /api/v1/warehouses/import-template` | `POST /api/v1/warehouses/import` | `GET /api/v1/warehouses/export` |
+| **Phân loại** | `GET /api/v1/classifications/import-template` | — | `GET /api/v1/classifications/export` |
+| **Phiếu mượn** | — | — | `GET /api/v1/loans/export` |
+| **Thẻ thư viện** | — | — | `GET /api/v1/library-cards/export` |
+| **User** | — | — | `GET /api/v1/users/export` |
+
+**File mẫu sách** (`BookImportTemplateExport`) gồm 5 sheet:
+
+| Sheet | Nội dung |
+|-------|----------|
+| `Sheet0_HuongDan` | Hướng dẫn, màu cột bắt buộc/tùy chọn |
+| `Sheet1_Sach` | Dữ liệu nhập (dropdown phân loại, kho, tủ) |
+| `Sheet2_PhanLoaiSach` | Danh mục phân loại (có thể bổ sung trước khi import) |
+| `Sheet3_KhoSach` | Danh mục kho |
+| `Sheet4_TuSach` | Danh mục tủ/kệ |
+
+**Quy tắc import sách:** all-or-nothing — một dòng lỗi → rollback toàn bộ. Kho/mã sách có thể để trống để hệ thống tự sinh. Logic: `App\Imports\BookImport`, test: `tests/Feature/Backend/BookImportTest.php`.
+
 ---
 
 ## Cấu trúc thư mục
@@ -330,30 +492,36 @@ php artisan queue:work
 ```
 UTC-eLibrary/
 ├── app/
-│   ├── Http/Controllers/Api/    # REST API
-│   ├── Services/                # Nghiệp vụ (Loan, Book, DigitalAsset…)
+│   ├── Http/Controllers/Api/         # REST API
+│   ├── Http/Controllers/Frontend/Auth/  # Login web, Microsoft OAuth
+│   ├── Exports/ / Imports/           # Excel mẫu & nhập liệu
+│   ├── Services/                     # Nghiệp vụ (Loan, Book, DigitalAsset…)
 │   └── Models/
 ├── resources/js/                # Vue 3 + Inertia
 ├── routes/api.php               # /api/v1
 ├── database/migrations/
 ├── scripts/
-│   ├── ec2-deploy.sh              # Deploy đầy đủ trên EC2
-│   ├── ec2-prepare-build.sh       # Composer + Vite trước docker build
-│   ├── ec2-apply-env.sh           # Áp dụng .env (recreate container)
-│   ├── sync-env-to-ec2.sh         # Đẩy .env từ máy dev (Git Bash)
+│   ├── ec2-deploy.sh                # Deploy đầy đủ trên EC2
+│   ├── ec2-prepare-build.sh         # Composer + Vite trước docker build
+│   ├── ec2-apply-env.sh             # Áp dụng .env (recreate container)
+│   ├── sync-env-to-ec2.sh           # Đẩy .env từ máy dev (Git Bash)
+│   ├── release-quick.sh             # Release nhanh: --code / --env / --all
+│   ├── capture-readme-screenshots.mjs
+│   ├── bench-admin-apis.sh          # npm run bench:admin-apis
 │   └── generate-postman-collection.php
-├── deploy/
-│   └── nginx-host-certbot.conf    # Nginx host → Docker :8080
-├── readme/assets/               # SVG ERD, kiến trúc, screenshot README
-│   ├── erd-database.png           # ERD MySQL tổng quan
-│   └── screenshots/01-*.png …
+├── readme/
+│   ├── deploy-runbook.md            # Runbook vận hành EC2 (chi tiết)
+│   └── assets/                      # SVG, ERD, screenshot README
 ├── .cursor/                     # Rules, agents, skills, commands (ECC + UTC)
 ├── docs/ai/                     # Ngữ cảnh nghiệp vụ & hướng dẫn ECC
 ├── AGENTS.md                    # Hướng dẫn agent (Cursor / Codex)
 ├── ecc-install.json             # Cấu hình cài ECC
 ├── UTC-eLibrary.postman_collection.json
-├── docker-compose.ec2.yml
-└── Dockerfile.ec2
+├── deploy/
+│   └── nginx-host-certbot.conf    # Nginx host → Docker :8080
+├── docker-compose.yml             # Stack local (app + mysql + redis + queue)
+├── docker-compose.ec2.yml         # Production EC2
+└── Dockerfile / Dockerfile.ec2
 ```
 
 **Không commit:** `.env`, `vendor/`, `node_modules/`, `public/build/`, `playwright-report/`, `test-results/`, `dist/`.
@@ -371,7 +539,7 @@ UTC-eLibrary/
 
 | File | Mô tả |
 |------|--------|
-| `UTC-eLibrary.postman_collection.json` | **197 request** / **21 folder**, sinh từ `php artisan route:list` |
+| `UTC-eLibrary.postman_collection.json` | ~100 request API, sinh từ `php artisan route:list` |
 | `scripts/generate-postman-collection.php` | Tái sinh collection khi thêm route |
 
 **Cách dùng:**
@@ -468,6 +636,8 @@ Hooks ECC (nếu bật): có thể giảm mức bằng biến môi trường `EC
 
 ## Deploy EC2 (Docker)
 
+> Runbook chi tiết: [`readme/deploy-runbook.md`](readme/deploy-runbook.md) · Release nhanh: `bash scripts/release-quick.sh [--code|--env|--all] [--smoke]`
+
 Kiến trúc production:
 
 ```text
@@ -485,6 +655,7 @@ Internet → Nginx (host :80/:443) → Docker app (:8080 → :80) → MySQL / Re
 | Mục tiêu | Ở đâu | Lệnh |
 |----------|--------|------|
 | Deploy code mới | **EC2** | `cd ~/utc-elibrary && git pull origin main && bash scripts/ec2-deploy.sh` |
+| Release nhanh (code + env) | **EC2** | `bash scripts/release-quick.sh --all --smoke` |
 | Chỉ áp dụng `.env` | **EC2** | `cd ~/utc-elibrary && bash scripts/ec2-apply-env.sh` |
 | Đẩy `.env` từ máy | **Windows Git Bash** | `bash scripts/sync-env-to-ec2.sh` (xem bên dưới) |
 | Xem `.env` server | **EC2** | `grep -E '^(APP_URL|APP_PORT)=' ~/utc-elibrary/.env` |
@@ -567,11 +738,15 @@ docker compose -f docker-compose.ec2.yml rm -f scheduler queue
 
 Bật lại: `docker compose -f docker-compose.ec2.yml up -d scheduler queue`
 
-### DB import từ backup SQL
+### DB trên EC2 (schema có sẵn)
+
+Khi import DB cũ hoặc khởi tạo từ dump:
 
 ```bash
 docker compose -f docker-compose.ec2.yml exec app php artisan migrate:existing-schema --force
 ```
+
+Dev local mới: `php artisan migrate --seed`.
 
 ### Sau mỗi deploy
 
@@ -608,6 +783,11 @@ File: `.github/workflows/deploy-ec2.yml`
 | `NOTIFICATION_UI_POLL_INTERVAL_MS` | Poll UI thông báo (ms), mặc định `30000` |
 | `LOAN_DUE_SOON_DAYS_BEFORE` | Báo trước N ngày (mặc định `2`) |
 | `SCHEDULE_LOANS_*_AT` | Giờ chạy `loans:sync-overdue` / `loans:notify-due-soon` |
+| `AZURE_CLIENT_ID` | Application (client) ID trên Azure — trùng `appId` trong Manifest |
+| `AZURE_CLIENT_SECRET` | Client secret (Certificates & secrets) |
+| `AZURE_TENANT_ID` | `common` — endpoint OAuth; **không** thay Supported account types trên Portal |
+| `AZURE_REDIRECT_URI` | URL tuyệt đối Web callback — **platform Web**, không SPA |
+| `SEPAY_*` | Thanh toán tài liệu số (VietQR) |
 
 ### EC2 production (ví dụ — thay placeholder bằng giá trị thật trong `.env` local, không commit)
 
@@ -644,6 +824,7 @@ npm run build
 php artisan route:list
 php artisan test
 vendor/bin/pint
+npm run bench:admin-apis   # tùy chọn — benchmark API admin
 ```
 
 Tái sinh Postman sau khi đổi route:
@@ -662,6 +843,7 @@ php scripts/generate-postman-collection.php
 - **Production:** `APP_DEBUG=false`, `API_HIDE_BROWSER_ACCESS=true`, `API_ALLOWED_DOMAINS` khớp domain thật.
 - **HTTPS:** `SESSION_SECURE_COOKIE=true` khi user truy cập qua `https://`.
 - Header: CSP, `X-Frame-Options`, CSRF (web + Sanctum SPA), rate limit (`auth` / `api` / `refresh`).
+- **Microsoft OAuth:** không lưu mật khẩu Microsoft; user mới dùng hash từ MS object id — khuyến nghị chỉ đăng nhập qua Microsoft, không dùng mật khẩu local.
 - Tin tức HTML: lọc XSS server (`SafeHtml`) + client (`DOMPurify`).
 
 | Đường dẫn | “Ẩn” URL? | Bảo vệ |
@@ -680,6 +862,10 @@ php scripts/generate-postman-collection.php
 | `https://domain` 521, `http://domain` OK | Cloudflare gọi HTTPS origin, EC2 chỉ HTTP | SSL → **Flexible** (tạm) hoặc cài cert |
 | `curl 127.0.0.1` OK, IP ngoài refused | Firewall / SG | Mở 80, 443; `sudo ufw allow 80/tcp` |
 | `sync-env` lỗi key trên Git Bash | Quyền `.pem` / path MSYS | `chmod 400 ~/.ssh/your-key.pem`; dùng script mới nhất |
+| Microsoft: *tài khoản cá nhân không được phép* | `signInAudience` chỉ organizational | Portal → **+ personal Microsoft accounts**; Manifest `AzureADandPersonalMicrosoftAccount` |
+| Microsoft redirect / token lỗi | Redirect URI trong **SPA** thay vì **Web** | Chuyển URI sang **Web** platform; `spa.redirectUris` để `[]` |
+| Microsoft callback sai URL | `AZURE_REDIRECT_URI` / `APP_URL` ≠ Portal | Khớp 3 chỗ; `bash scripts/ec2-apply-env.sh` |
+| Microsoft + Gmail | Gmail không phải tài khoản MS | Test `@outlook.com` / `@hotmail.com` |
 | `routes-v7.php` sau apply env | Cache route cũ | `bash scripts/ec2-apply-env.sh` (đã xử lý trong script) |
 
 **Chẩn đoán nhanh trên EC2:**

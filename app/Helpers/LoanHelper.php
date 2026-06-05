@@ -78,10 +78,7 @@ class LoanHelper
         $manualFineAmount = is_array($linePayload) && array_key_exists('fine_amount', $linePayload)
             ? (float) $linePayload['fine_amount']
             : (float) ($data['fine_amount'] ?? 0);
-        $hasExplicitDamagePercent = is_array($linePayload) && array_key_exists('damage_percent', $linePayload);
-        $fineAmount = $hasExplicitDamagePercent
-            ? $calculatedFineAmount
-            : max($manualFineAmount, $calculatedFineAmount);
+        $fineAmount = max($manualFineAmount, $calculatedFineAmount);
 
         return [
             'condition_on_return' => $conditionOnReturn,

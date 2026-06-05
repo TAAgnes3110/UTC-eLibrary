@@ -5,11 +5,7 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { fetchAdminApiGet, fetchAdminApiPost } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { formatVnd } from '@/utils/index';
-import {
-    calculateReturnLineFine,
-    damagePercentRequired,
-    formatDamageFineRule,
-} from '@/utils/loanReturnFine';
+import { calculateReturnLineFine, damagePercentRequired } from '@/utils/loanReturnFine';
 
 const props = defineProps({
     loanId: { type: Number, required: true },
@@ -29,13 +25,6 @@ const conditions = [
     { value: 'mat', label: 'Sách bị mất' },
 ];
 
-const finePolicyHint = computed(() => {
-    if (!loan.value?.fine_policy) {
-        return 'Tiền phạt tự tính theo chính sách loại thẻ và giá sách.';
-    }
-    return formatDamageFineRule(loan.value.fine_policy);
-});
-
 const totalFine = computed(() =>
     Object.values(form.returns).reduce((sum, row) => sum + Number(row?.fine_amount || 0), 0)
 );
@@ -50,6 +39,11 @@ function daysBorrowed(loanDate, returnDate) {
 
 const borrowedDays = computed(() => daysBorrowed(loan.value?.loan_date, form.return_date));
 
+function resolveBookPrice(item) {
+    const fromApi = Number(item?.book_price);
+    return Number.isFinite(fromApi) && fromApi >= 0 ? fromApi : 0;
+}
+
 function recalculateLineFine(itemId) {
     const item = (loan.value?.loan_items || []).find((row) => row.id === itemId);
     const row = form.returns[itemId];
@@ -62,7 +56,7 @@ function recalculateLineFine(itemId) {
         returnDate: form.return_date,
         conditionOnReturn: row.condition_on_return,
         damagePercent: row.damage_percent,
-        bookPrice: item.book_price,
+        bookPrice: resolveBookPrice(item),
         quantity: item.quantity,
         finePolicy: loan.value?.fine_policy,
     });
@@ -77,14 +71,22 @@ function onConditionChange(itemId, condition) {
     if (!row) {
         return;
     }
-    if (condition === 'hong') {
-        if (row.damage_percent == null || row.damage_percent === '') {
-            row.damage_percent = '';
-        }
-    } else {
-        row.damage_percent = null;
+    if (condition === 'tot') {
+        row.damage_percent = 0;
+    } else if (condition === 'hong') {
+        row.damage_percent = row.damage_percent === 0 ? '' : (row.damage_percent ?? '');
+    } else if (condition === 'mat') {
+        row.damage_percent = 100;
     }
     recalculateLineFine(itemId);
+}
+
+function truncateNote(text, maxLen = 28) {
+    const s = String(text ?? '').trim();
+    if (!s) {
+        return '';
+    }
+    return s.length > maxLen ? `${s.slice(0, maxLen)}…` : s;
 }
 
 function buildReturnPayload() {
@@ -118,7 +120,7 @@ function validateReturnForm() {
         }
         const pct = Number(row.damage_percent);
         if (!Number.isFinite(pct) || pct < 1 || pct > 100) {
-            toast.warn(`Vui lòng nhập % hư hỏng (1–100) cho «${item.book_title || 'sách'}».`);
+            toast.warn(`Vui lòng nhập hư hỏng (1–100) cho «${item.book_title || 'sách'}».`);
             return false;
         }
     }
@@ -141,11 +143,12 @@ async function loadDetail() {
 
         form.returns = {};
         (loan.value?.loan_items || []).forEach((item) => {
+            const condition = item.condition_on_loan || 'tot';
             form.returns[item.id] = {
-                condition_on_return: item.condition_on_loan || 'tot',
-                damage_percent: null,
+                condition_on_return: condition,
+                damage_percent: condition === 'mat' ? 100 : condition === 'hong' ? '' : 0,
                 fine_amount: 0,
-                notes: item.notes || '',
+                notes: '',
             };
         });
         recalculateAllFines();
@@ -221,42 +224,40 @@ onMounted(loadDetail);
             </div>
 
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200/70 dark:border-slate-800 overflow-x-auto">
-                <div class="p-4 space-y-1">
+                <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
                     <div class="font-bold">Danh sách sách trả</div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-3xl">
-                        {{ finePolicyHint }}
-                        Mất sách tính 100% mức phạt quy định (hệ số giá + phí xử lý). Có thể cộng phạt quá hạn.
-                    </p>
                 </div>
-                <table class="min-w-full text-sm">
+                <table class="min-w-full text-sm return-books-table">
                     <thead class="bg-slate-50 dark:bg-slate-800/60">
                         <tr>
-                            <th class="px-4 py-2 text-left">STT</th>
-                            <th class="px-4 py-2 text-left">Tên sách</th>
-                            <th class="px-4 py-2 text-left whitespace-nowrap">Giá sách (đ)</th>
-                            <th class="px-4 py-2 text-left">Tình trạng khi mượn</th>
-                            <th class="px-4 py-2 text-left">Tình trạng khi trả</th>
-                            <th class="px-4 py-2 text-left">% hư hỏng</th>
-                            <th class="px-4 py-2 text-left">Tiền phạt (đ)</th>
-                            <th class="px-4 py-2 text-left">Ghi chú</th>
+                            <th class="px-4 py-3 text-center w-14">STT</th>
+                            <th class="px-4 py-3 text-left min-w-[12rem]">Tên sách</th>
+                            <th class="px-4 py-3 text-left whitespace-nowrap">Tình trạng khi mượn</th>
+                            <th class="px-4 py-3 text-left whitespace-nowrap">Tình trạng khi trả</th>
+                            <th class="px-4 py-3 text-center whitespace-nowrap w-28">Hư hỏng (%)</th>
+                            <th class="px-4 py-3 text-right whitespace-nowrap w-36">Tiền phạt (đ)</th>
+                            <th class="px-4 py-3 text-left w-40">Ghi chú</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr
                             v-for="(item, idx) in loan.loan_items || []"
                             :key="item.id"
-                            class="border-t border-slate-100 dark:border-slate-800 align-top"
+                            class="border-t border-slate-100 dark:border-slate-800"
                         >
-                            <td class="px-4 py-2">{{ idx + 1 }}</td>
-                            <td class="px-4 py-2">{{ item.book_title || '-' }}</td>
-                            <td class="px-4 py-2 whitespace-nowrap">
-                                {{ item.book_price != null ? formatVnd(item.book_price) : '—' }}
+                            <td class="px-4 py-3 text-center tabular-nums text-slate-600 dark:text-slate-300">
+                                {{ idx + 1 }}
                             </td>
-                            <td class="px-4 py-2">{{ item.condition_on_loan_label || item.condition_on_loan || '-' }}</td>
-                            <td class="px-4 py-2">
+                            <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100 leading-snug">
+                                {{ item.book_title || '-' }}
+                            </td>
+                            <td class="px-4 py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                                {{ item.condition_on_loan_label || item.condition_on_loan || '-' }}
+                            </td>
+                            <td class="px-4 py-3">
                                 <select
                                     v-model="form.returns[item.id].condition_on_return"
-                                    class="admin-filter-select w-52 min-h-[44px]"
+                                    class="admin-filter-select w-full max-w-[13rem] min-h-[44px]"
                                     @change="onConditionChange(item.id, form.returns[item.id].condition_on_return)"
                                 >
                                     <option v-for="opt in conditions" :key="opt.value" :value="opt.value">
@@ -264,63 +265,60 @@ onMounted(loadDetail);
                                     </option>
                                 </select>
                             </td>
-                            <td class="px-4 py-2">
-                                <div v-if="form.returns[item.id].condition_on_return === 'hong'" class="space-y-1">
-                                    <input
-                                        v-model.number="form.returns[item.id].damage_percent"
-                                        type="number"
-                                        min="1"
-                                        max="100"
-                                        placeholder="1–100"
-                                        class="admin-filter-input w-24 min-h-[44px]"
-                                    />
-                                    <span class="text-xs text-slate-500">%</span>
-                                </div>
+                            <td class="px-4 py-3 text-center">
+                                <input
+                                    v-if="form.returns[item.id].condition_on_return === 'hong'"
+                                    v-model.number="form.returns[item.id].damage_percent"
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    placeholder="1–100"
+                                    class="admin-filter-input w-20 min-h-[44px] mx-auto text-center"
+                                />
                                 <span
-                                    v-else-if="form.returns[item.id].condition_on_return === 'mat'"
-                                    class="text-slate-600 dark:text-slate-300"
+                                    v-else
+                                    class="inline-flex min-h-[44px] min-w-[3rem] items-center justify-center tabular-nums font-medium text-slate-700 dark:text-slate-200"
                                 >
-                                    100%
+                                    {{ form.returns[item.id].condition_on_return === 'mat' ? 100 : 0 }}
                                 </span>
-                                <span v-else class="text-slate-400">—</span>
                             </td>
-                            <td class="px-4 py-2">
-                                <div class="space-y-1">
-                                    <input
-                                        :value="form.returns[item.id].fine_amount"
-                                        type="number"
-                                        min="0"
-                                        readonly
-                                        class="admin-filter-input w-36 min-h-[44px] bg-slate-50 dark:bg-slate-800/80"
-                                    />
-                                    <p class="text-xs font-medium text-rose-700 dark:text-rose-300 whitespace-nowrap">
-                                        {{ formatVnd(form.returns[item.id].fine_amount) }}
-                                    </p>
-                                </div>
+                            <td class="px-4 py-3 text-right">
+                                <input
+                                    :value="formatVnd(form.returns[item.id].fine_amount)"
+                                    type="text"
+                                    readonly
+                                    tabindex="-1"
+                                    class="admin-filter-input w-full min-h-[44px] bg-slate-50 dark:bg-slate-800/80 font-semibold tabular-nums text-right"
+                                />
                             </td>
-                            <td class="px-4 py-2">
+                            <td class="px-4 py-3">
                                 <input
                                     v-model="form.returns[item.id].notes"
                                     type="text"
-                                    class="admin-filter-input w-56 min-h-[44px]"
-                                    placeholder="Ghi chú..."
+                                    class="admin-filter-input w-full min-h-[44px] truncate"
+                                    :title="item.notes || form.returns[item.id].notes || ''"
+                                    :placeholder="truncateNote(item.notes) || 'Ghi chú...'"
                                 />
                             </td>
                         </tr>
                     </tbody>
-                    <tfoot
-                        v-if="(loan.loan_items || []).length"
-                        class="border-t border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40"
-                    >
-                        <tr>
-                            <td colspan="6" class="px-4 py-2 text-right font-semibold">Tổng tiền phạt</td>
-                            <td class="px-4 py-2 font-bold text-rose-700 dark:text-rose-300 whitespace-nowrap">
-                                {{ formatVnd(totalFine) }}
-                            </td>
-                            <td />
-                        </tr>
-                    </tfoot>
                 </table>
+                <div
+                    v-if="(loan.loan_items || []).length"
+                    class="flex items-center justify-end gap-3 px-4 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/50"
+                >
+                    <span class="text-sm font-medium text-slate-600 dark:text-slate-300 shrink-0">
+                        Tổng tiền phạt
+                    </span>
+                    <div
+                        class="inline-flex items-center justify-end gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-5 py-3 min-h-[44px] shadow-sm shrink-0"
+                    >
+                        <span class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">VND</span>
+                        <span class="text-xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {{ formatVnd(totalFine) }}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <div class="flex items-center gap-2">
@@ -344,3 +342,10 @@ onMounted(loadDetail);
         </div>
     </AdminLayout>
 </template>
+
+<style scoped>
+.return-books-table th,
+.return-books-table td {
+    vertical-align: middle;
+}
+</style>

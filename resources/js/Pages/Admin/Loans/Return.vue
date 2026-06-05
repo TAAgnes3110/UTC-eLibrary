@@ -40,8 +40,21 @@ function daysBorrowed(loanDate, returnDate) {
 const borrowedDays = computed(() => daysBorrowed(loan.value?.loan_date, form.return_date));
 
 function resolveBookPrice(item) {
-    const fromApi = Number(item?.book_price);
-    return Number.isFinite(fromApi) && fromApi >= 0 ? fromApi : 0;
+    const row = form.returns[item?.id];
+    const raw = row?.book_price_override ?? item?.book_price ?? item?.book?.price;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function needsBookPrice(item) {
+    const row = form.returns[item?.id];
+    if (!row) {
+        return false;
+    }
+    if (!['hong', 'mat'].includes(row.condition_on_return)) {
+        return false;
+    }
+    return resolveBookPrice(item) <= 0;
 }
 
 function recalculateLineFine(itemId) {
@@ -123,6 +136,21 @@ function validateReturnForm() {
             toast.warn(`Vui lòng nhập hư hỏng (1–100) cho «${item.book_title || 'sách'}».`);
             return false;
         }
+        if (resolveBookPrice(item) <= 0) {
+            toast.warn(`Vui lòng nhập giá bìa cho «${item.book_title || 'sách'}» để tính phạt hư hỏng.`);
+            return false;
+        }
+    }
+
+    for (const item of loan.value?.loan_items || []) {
+        const row = form.returns[item.id];
+        if (!row || row.condition_on_return !== 'mat') {
+            continue;
+        }
+        if (resolveBookPrice(item) <= 0) {
+            toast.warn(`Vui lòng nhập giá bìa cho «${item.book_title || 'sách'}» để tính phạt mất sách.`);
+            return false;
+        }
     }
 
     return true;
@@ -147,6 +175,7 @@ async function loadDetail() {
             form.returns[item.id] = {
                 condition_on_return: condition,
                 damage_percent: condition === 'mat' ? 100 : condition === 'hong' ? '' : 0,
+                book_price_override: null,
                 fine_amount: 0,
                 notes: '',
             };
@@ -266,21 +295,35 @@ onMounted(loadDetail);
                                 </select>
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <input
-                                    v-if="form.returns[item.id].condition_on_return === 'hong'"
-                                    v-model.number="form.returns[item.id].damage_percent"
-                                    type="number"
-                                    min="1"
-                                    max="100"
-                                    placeholder="1–100"
-                                    class="admin-filter-input w-20 min-h-[44px] mx-auto text-center"
-                                />
-                                <span
-                                    v-else
-                                    class="inline-flex min-h-[44px] min-w-[3rem] items-center justify-center tabular-nums font-medium text-slate-700 dark:text-slate-200"
-                                >
-                                    {{ form.returns[item.id].condition_on_return === 'mat' ? 100 : 0 }}
-                                </span>
+                                <div class="inline-flex flex-col items-center gap-1">
+                                    <input
+                                        v-if="form.returns[item.id].condition_on_return === 'hong'"
+                                        v-model.number="form.returns[item.id].damage_percent"
+                                        type="number"
+                                        min="1"
+                                        max="100"
+                                        placeholder="1–100"
+                                        class="admin-filter-input w-20 min-h-[44px] text-center"
+                                        @input="recalculateLineFine(item.id)"
+                                    />
+                                    <span
+                                        v-else
+                                        class="inline-flex min-h-[44px] min-w-[3rem] items-center justify-center tabular-nums font-medium text-slate-700 dark:text-slate-200"
+                                    >
+                                        {{ form.returns[item.id].condition_on_return === 'mat' ? 100 : 0 }}
+                                    </span>
+                                    <input
+                                        v-if="needsBookPrice(item)"
+                                        v-model.number="form.returns[item.id].book_price_override"
+                                        type="number"
+                                        min="1"
+                                        step="1000"
+                                        placeholder="Giá bìa"
+                                        title="Sách chưa có giá trong hệ thống — nhập giá bìa để tính phạt"
+                                        class="admin-filter-input w-28 min-h-[36px] text-xs text-center"
+                                        @input="recalculateLineFine(item.id)"
+                                    />
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <input

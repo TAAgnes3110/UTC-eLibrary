@@ -5,6 +5,8 @@ namespace App\Http\Resources;
 use App\Enums\LoanStatus;
 use App\Enums\LoanType;
 use App\Helpers\LoanHelper;
+use App\Models\LoanPolicy;
+use App\Services\LoanPoliciesService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -45,26 +47,26 @@ class LoanResource extends JsonResource
             'fine_policy' => $this->when(
                 $this->shouldIncludeFinePolicy($request),
                 function () {
-                    try {
-                        $helper = app(LoanHelper::class);
-                        $policy = $helper->resolvePolicyForCard($this->libraryCard);
-
-                        return $helper->finePolicySnapshot($policy);
-                    } catch (\Throwable) {
+                    $card = $this->libraryCard;
+                    if ($card === null) {
                         return null;
                     }
+                    $policy = app(LoanPoliciesService::class)->resolvePolicyForCard($card);
+                    if (! $policy instanceof LoanPolicy) {
+                        return null;
+                    }
+
+                    return app(LoanHelper::class)->finePolicySnapshot($policy);
                 }
             ),
         ];
     }
 
-    /** Chỉ trả fine_policy ở chi tiết phiếu — list index không cần và tránh 500 khi thiếu policy. */
+    /** Chỉ trả fine_policy ở chi tiết phiếu (có items) — list index không load items. */
     private function shouldIncludeFinePolicy(Request $request): bool
     {
-        if (! $this->relationLoaded('libraryCard') || $this->libraryCard === null) {
-            return false;
-        }
-
-        return (bool) preg_match('#^api/v1/loans/\d+$#', $request->path());
+        return $this->relationLoaded('libraryCard')
+            && $this->libraryCard !== null
+            && $this->relationLoaded('items');
     }
 }

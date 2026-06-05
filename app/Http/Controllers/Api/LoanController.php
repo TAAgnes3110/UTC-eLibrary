@@ -231,7 +231,11 @@ class LoanController extends Controller
 
     public function show(Loan $loan): JsonResponse
     {
-        $loan->load(['libraryCard:id,card_number,full_name,holder_type', 'createdBy:id,name', 'items.book:id,title,price']);
+        $loan->load([
+            'libraryCard:id,card_number,full_name,holder_type',
+            'createdBy:id,name',
+            'items.book:id,title,price',
+        ]);
 
         return ApiResponse::success(new LoanResource($loan));
     }

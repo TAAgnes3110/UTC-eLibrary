@@ -26,11 +26,24 @@ class LoanItemResource extends JsonResource
             'condition_on_return' => $this->condition_on_return,
             'condition_on_return_label' => $this->condition_on_return?->label(),
             'damage_percent' => $this->damage_percent,
-            'book_price' => $this->book?->price !== null ? (float) $this->book->price : null,
+            'book_price' => $this->resolveBookPriceForApi(),
+            'book' => $this->whenLoaded('book', fn () => [
+                'id' => $this->book?->id,
+                'price' => $this->book?->price !== null ? (float) $this->book->price : null,
+            ]),
             'fine_amount' => $this->fine_amount,
             'fine_rule_hint' => $this->fineRuleHint(),
             'notes' => $this->notes,
         ];
+    }
+
+    private function resolveBookPriceForApi(): ?float
+    {
+        if ($this->relationLoaded('book') && $this->book !== null && $this->book->price !== null) {
+            return (float) $this->book->price;
+        }
+
+        return null;
     }
 
     private function fineRuleHint(): ?string

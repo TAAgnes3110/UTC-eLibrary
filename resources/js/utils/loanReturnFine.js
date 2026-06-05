@@ -78,12 +78,15 @@ export function calculateConditionFine({ conditionOnReturn, damagePercent, bookP
 
     if (conditionOnReturn === 'hong') {
         const severity = resolveDamageSeverityPercent(conditionOnReturn, damagePercent);
-        if (severity === null) {
+        if (severity === null || price <= 0) {
             return 0;
         }
         return price * (severity / 100) * qty;
     }
     if (conditionOnReturn === 'mat') {
+        if (price <= 0) {
+            return 0;
+        }
         return (price * policy.loss_fine_multiplier + policy.replacement_processing_fee) * qty;
     }
 

@@ -40,21 +40,24 @@ function daysBorrowed(loanDate, returnDate) {
 const borrowedDays = computed(() => daysBorrowed(loan.value?.loan_date, form.return_date));
 
 function resolveBookPrice(item) {
-    const row = form.returns[item?.id];
-    const raw = row?.book_price_override ?? item?.book_price ?? item?.book?.price;
-    const n = Number(raw);
+    const n = Number(item?.book_price ?? item?.book?.price);
     return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function needsBookPrice(item) {
-    const row = form.returns[item?.id];
-    if (!row) {
-        return false;
+const damageFineTimers = new Map();
+
+function onDamagePercentInput(itemId) {
+    const existing = damageFineTimers.get(itemId);
+    if (existing) {
+        clearTimeout(existing);
     }
-    if (!['hong', 'mat'].includes(row.condition_on_return)) {
-        return false;
-    }
-    return resolveBookPrice(item) <= 0;
+    damageFineTimers.set(
+        itemId,
+        setTimeout(() => {
+            damageFineTimers.delete(itemId);
+            recalculateLineFine(itemId);
+        }, 300)
+    );
 }
 
 function recalculateLineFine(itemId) {
@@ -137,7 +140,9 @@ function validateReturnForm() {
             return false;
         }
         if (resolveBookPrice(item) <= 0) {
-            toast.warn(`Vui lòng nhập giá bìa cho «${item.book_title || 'sách'}» để tính phạt hư hỏng.`);
+            toast.warn(
+                `Sách «${item.book_title || 'sách'}» chưa có giá bìa trong hệ thống. Cập nhật giá tại Quản lý sách rồi thử lại.`
+            );
             return false;
         }
     }
@@ -148,7 +153,9 @@ function validateReturnForm() {
             continue;
         }
         if (resolveBookPrice(item) <= 0) {
-            toast.warn(`Vui lòng nhập giá bìa cho «${item.book_title || 'sách'}» để tính phạt mất sách.`);
+            toast.warn(
+                `Sách «${item.book_title || 'sách'}» chưa có giá bìa trong hệ thống. Cập nhật giá tại Quản lý sách rồi thử lại.`
+            );
             return false;
         }
     }
@@ -163,11 +170,33 @@ function resolveReturnErrorMessage(error) {
     return error?.response?.data?.messages || error?.message || 'Không xử lý trả sách được.';
 }
 
+async function enrichMissingBookPrices(items) {
+    const tasks = (items || [])
+        .filter((item) => item?.book_id && resolveBookPrice(item) <= 0)
+        .map(async (item) => {
+            try {
+                const res = await fetchAdminApiGet(`/books/${item.book_id}`);
+                const price = Number(res?.data?.price);
+                if (Number.isFinite(price) && price > 0) {
+                    item.book_price = price;
+                    item.book = { ...(item.book || {}), id: item.book_id, price };
+                }
+            } catch {
+                // Không chặn trả sách — validate sẽ báo nếu vẫn thiếu giá.
+            }
+        });
+
+    if (tasks.length) {
+        await Promise.all(tasks);
+    }
+}
+
 async function loadDetail() {
     loading.value = true;
     try {
         const res = await fetchAdminApiGet(`/loans/${props.loanId}`);
         loan.value = res?.data ?? null;
+        await enrichMissingBookPrices(loan.value?.loan_items);
 
         form.returns = {};
         (loan.value?.loan_items || []).forEach((item) => {
@@ -175,7 +204,6 @@ async function loadDetail() {
             form.returns[item.id] = {
                 condition_on_return: condition,
                 damage_percent: condition === 'mat' ? 100 : condition === 'hong' ? '' : 0,
-                book_price_override: null,
                 fine_amount: 0,
                 notes: '',
             };
@@ -210,12 +238,6 @@ async function submitReturn() {
 }
 
 watch(() => form.return_date, recalculateAllFines);
-
-watch(
-    () => form.returns,
-    () => recalculateAllFines(),
-    { deep: true }
-);
 
 onMounted(loadDetail);
 </script>
@@ -295,35 +317,22 @@ onMounted(loadDetail);
                                 </select>
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <div class="inline-flex flex-col items-center gap-1">
-                                    <input
-                                        v-if="form.returns[item.id].condition_on_return === 'hong'"
-                                        v-model.number="form.returns[item.id].damage_percent"
-                                        type="number"
-                                        min="1"
-                                        max="100"
-                                        placeholder="1–100"
-                                        class="admin-filter-input w-20 min-h-[44px] text-center"
-                                        @input="recalculateLineFine(item.id)"
-                                    />
-                                    <span
-                                        v-else
-                                        class="inline-flex min-h-[44px] min-w-[3rem] items-center justify-center tabular-nums font-medium text-slate-700 dark:text-slate-200"
-                                    >
-                                        {{ form.returns[item.id].condition_on_return === 'mat' ? 100 : 0 }}
-                                    </span>
-                                    <input
-                                        v-if="needsBookPrice(item)"
-                                        v-model.number="form.returns[item.id].book_price_override"
-                                        type="number"
-                                        min="1"
-                                        step="1000"
-                                        placeholder="Giá bìa"
-                                        title="Sách chưa có giá trong hệ thống — nhập giá bìa để tính phạt"
-                                        class="admin-filter-input w-28 min-h-[36px] text-xs text-center"
-                                        @input="recalculateLineFine(item.id)"
-                                    />
-                                </div>
+                                <input
+                                    v-if="form.returns[item.id].condition_on_return === 'hong'"
+                                    v-model.number="form.returns[item.id].damage_percent"
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    placeholder="1–100"
+                                    class="admin-filter-input w-20 min-h-[44px] mx-auto text-center"
+                                    @input="onDamagePercentInput(item.id)"
+                                />
+                                <span
+                                    v-else
+                                    class="inline-flex min-h-[44px] min-w-[3rem] items-center justify-center tabular-nums font-medium text-slate-700 dark:text-slate-200"
+                                >
+                                    {{ form.returns[item.id].condition_on_return === 'mat' ? 100 : 0 }}
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <input

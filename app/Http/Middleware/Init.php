@@ -74,9 +74,15 @@ class Init
 
             $currentPerson = $user;
             $currentUser = new CurrentUser($user);
-            $currentCustomer = Cache::remember('init:customer_first', 3600, function () {
-                return Customer::query()->select(['id', 'code', 'name'])->first();
-            }) ?? (object) ['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
+            try {
+                $currentCustomer = Cache::remember('init:customer_first', 3600, function () {
+                    return Customer::query()->select(['id', 'code', 'name'])->first();
+                }) ?? (object) ['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
+            } catch (\Throwable $e) {
+                report($e);
+                $currentCustomer = Customer::query()->select(['id', 'code', 'name'])->first()
+                    ?? (object) ['id' => 0, 'code' => 'UTC', 'name' => 'UTC Library'];
+            }
             $role_prefix = 'UTC_LIBRARY_';
             $currentSystem = (object) [
                 'system' => 'LIBRARY',
@@ -84,7 +90,14 @@ class Init
             ];
 
             return $next($request);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            report($e);
+
+            // Đã có session/JWT nhưng lỗi hạ tầng (cache/DB/...) -> không trả 401 gây hiểu nhầm.
+            if ($user) {
+                return ApiResponse::error(__('Không thể khởi tạo hệ thống. Vui lòng thử lại sau.'), 500);
+            }
+
             return ApiResponse::error(__('Lỗi xác thực.'), 401);
         }
     }

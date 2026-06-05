@@ -119,5 +119,5 @@ export function damagePercentRequired(conditionOnReturn) {
 export function formatDamageFineRule(finePolicy) {
     const policy = normalizePolicy(finePolicy);
     const pct = Math.round(policy.damage_fine_percent * 1000) / 10;
-    return `Phạt hư hỏng tối đa ${pct}% giá sách; nhập % mức hư để tính tỷ lệ.`;
+    return `Phạt hư hỏng: tối đa ${pct}% giá bìa/cuốn (khi hư 100%); nhập % mức hư thực tế khi trả sách.`;
 }

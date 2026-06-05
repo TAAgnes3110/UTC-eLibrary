@@ -2,6 +2,11 @@ import { ref, computed, onMounted } from 'vue';
 import { loanPoliciesApi } from '@/api/loanPolicies';
 import { toast } from '@/store/toast';
 import { extractLaravelValidationErrors } from '@/utils/laravelApiError';
+import {
+    DEFAULT_DAMAGE_FINE_PERCENT_DISPLAY,
+    damageFinePercentDisplayToRate,
+    damageFineRateToPercentDisplay,
+} from '@/utils/loanPolicyDamageFine';
 
 export const USER_TYPE_LABELS = {
     STUDENT: 'Sinh viên',
@@ -28,6 +33,8 @@ function emptyForm() {
         allow_onsite: true,
         max_textbooks: '',
         max_reference: '',
+        /** % giá bìa khi hư 100% (hiển thị; lưu API dạng hệ số 0–1) */
+        damage_fine_percent_pct: DEFAULT_DAMAGE_FINE_PERCENT_DISPLAY,
         /** Bản sao params từ server để merge khi PUT */
         _paramsBase: {},
     };
@@ -53,6 +60,7 @@ function rowToForm(row) {
         allow_onsite: row.allow_onsite !== false,
         max_textbooks: row.params?.max_textbooks ?? '',
         max_reference: row.params?.max_reference ?? '',
+        damage_fine_percent_pct: damageFineRateToPercentDisplay(row.params?.damage_fine_percent),
         _paramsBase: row.params && typeof row.params === 'object' ? { ...row.params } : {},
     };
 }
@@ -144,23 +152,34 @@ export function useLibrarySettingsPage() {
     }
 
     function buildParamsPayload(form) {
-        if (form.user_type === 'MEMBER') {
-            return null;
-        }
         const p = { ...(form._paramsBase || {}) };
         delete p.max_loan_days;
-        const mt = form.max_textbooks;
-        const mr = form.max_reference;
-        if (mt !== '' && mt !== null && mt !== undefined) {
-            p.max_textbooks = clampInt0(mt);
-        } else {
+
+        if (form.user_type === 'MEMBER') {
             delete p.max_textbooks;
-        }
-        if (mr !== '' && mr !== null && mr !== undefined) {
-            p.max_reference = clampInt0(mr);
-        } else {
             delete p.max_reference;
+        } else {
+            const mt = form.max_textbooks;
+            const mr = form.max_reference;
+            if (mt !== '' && mt !== null && mt !== undefined) {
+                p.max_textbooks = clampInt0(mt);
+            } else {
+                delete p.max_textbooks;
+            }
+            if (mr !== '' && mr !== null && mr !== undefined) {
+                p.max_reference = clampInt0(mr);
+            } else {
+                delete p.max_reference;
+            }
         }
+
+        const damagePct = form.damage_fine_percent_pct;
+        if (damagePct !== '' && damagePct !== null && damagePct !== undefined) {
+            p.damage_fine_percent = damageFinePercentDisplayToRate(damagePct);
+        } else {
+            delete p.damage_fine_percent;
+        }
+
         return Object.keys(p).length ? p : null;
     }
 

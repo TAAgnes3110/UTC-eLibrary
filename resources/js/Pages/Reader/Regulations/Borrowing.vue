@@ -4,6 +4,7 @@ import { Head, Link } from '@inertiajs/vue3'
 import { Icon } from '@iconify/vue'
 import ReaderLayout from '@/Layouts/ReaderLayout.vue'
 import { readerAboutPageStrings as A, readerRegulationsBorrowingPageStrings as R } from '@/config/readerStrings'
+import { formatDamageFinePolicyShort } from '@/utils/loanPolicyDamageFine'
 
 const props = defineProps({
     loanPolicies: { type: Array, default: () => [] },
@@ -185,6 +186,12 @@ const badgeYesNo = (v) =>
                                         scope="col"
                                         class="px-2 py-3 text-center text-[11px] font-semibold leading-tight text-slate-500 dark:text-slate-400"
                                     >
+                                        {{ R.colDamageFine }}
+                                    </th>
+                                    <th
+                                        scope="col"
+                                        class="px-2 py-3 text-center text-[11px] font-semibold leading-tight text-slate-500 dark:text-slate-400"
+                                    >
                                         {{ R.colMaxTextbooks }}
                                     </th>
                                     <th
@@ -239,6 +246,16 @@ const badgeYesNo = (v) =>
                                         >
                                             <Icon icon="lucide:coins" class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
                                             {{ formatFine(p.overdue_fine_per_day) }}
+                                        </span>
+                                        <span v-else class="text-slate-400 dark:text-slate-500">—</span>
+                                    </td>
+                                    <td class="px-2 py-3 text-center align-middle">
+                                        <span
+                                            v-if="formatDamageFinePolicyShort(p.params?.damage_fine_percent)"
+                                            class="inline-flex items-center justify-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-900 dark:bg-rose-950/40 dark:text-rose-200"
+                                        >
+                                            <Icon icon="lucide:book-x" class="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden="true" />
+                                            {{ formatDamageFinePolicyShort(p.params?.damage_fine_percent) }}
                                         </span>
                                         <span v-else class="text-slate-400 dark:text-slate-500">—</span>
                                     </td>

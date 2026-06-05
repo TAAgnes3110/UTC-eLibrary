@@ -22,6 +22,7 @@ trait SeedsLoanPolicies
                 'params' => [
                     'max_textbooks' => 10,
                     'max_reference' => 2,
+                    'damage_fine_percent' => 0.1,
                 ],
             ],
             [
@@ -37,6 +38,7 @@ trait SeedsLoanPolicies
                 'params' => [
                     'max_textbooks' => 7,
                     'max_reference' => 3,
+                    'damage_fine_percent' => 0.1,
                 ],
             ],
             [
@@ -52,6 +54,7 @@ trait SeedsLoanPolicies
                 'params' => [
                     'max_textbooks' => 5,
                     'max_reference' => 5,
+                    'damage_fine_percent' => 0.1,
                 ],
             ],
         ];

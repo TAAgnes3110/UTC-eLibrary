@@ -280,6 +280,9 @@ class LoanPoliciesService
                 }
                 $p[$key] = max(0, (int) $p[$key]);
             }
+            if (array_key_exists('damage_fine_percent', $p)) {
+                $p['damage_fine_percent'] = min(1.0, max(0.0, (float) $p['damage_fine_percent']));
+            }
             $policy->params = $p;
         }
     }

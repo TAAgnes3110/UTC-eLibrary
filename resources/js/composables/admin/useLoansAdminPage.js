@@ -2,7 +2,12 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { router } from '@inertiajs/vue3';
 import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
 import { loansApi } from '@/api/loans';
-import { callWithSessionFallback, ensureAdminWebSession, sessionApiPost } from '@/utils/adminApiAuth';
+import {
+    callWithSessionFallback,
+    ensureAdminWebSession,
+    sessionApiGet,
+    sessionApiPost,
+} from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { extractApiPaginator } from '@/utils/adminPagination';
 
@@ -97,14 +102,18 @@ export function useLoansAdminPage() {
         loading.value = true;
         try {
             const kw = filterValues.value.searchKeyword?.trim() || '';
-            const res = await loansApi.list({
+            const params = {
                 search: kw || undefined,
                 search_in: buildSearchInParam(),
                 status: filterValues.value.status || undefined,
                 sort: filterValues.value.sort || undefined,
                 page: loansPageNum.value,
                 per_page: LOANS_PER_PAGE,
-            });
+            };
+            const res = await callWithSessionFallback(
+                () => loansApi.list(params),
+                () => sessionApiGet('/loans', { params })
+            );
             const { items, meta } = extractApiPaginator(res, LOANS_PER_PAGE);
             if (requestSerial !== loansRequestSerial) return;
             rows.value = items;
@@ -125,7 +134,11 @@ export function useLoansAdminPage() {
                 per_page: LOANS_PER_PAGE,
                 total: 0,
             };
-            toast.error(e?.response?.data?.messages || 'Không tải được danh sách phiếu mượn.', { title: 'Lỗi' });
+            const msg =
+                e?.response?.status === 401
+                    ? 'Phiên đăng nhập không hợp lệ. Tải lại trang (F5), đăng nhập lại rồi thử.'
+                    : e?.response?.data?.messages || e?.message || 'Không tải được danh sách phiếu mượn.';
+            toast.error(msg, { title: 'Lỗi' });
         } finally {
             if (requestSerial === loansRequestSerial) {
                 loading.value = false;
@@ -386,7 +399,14 @@ export function useLoansAdminPage() {
         }
     }
 
-    onMounted(() => loadLoans(false));
+    onMounted(async () => {
+        try {
+            await ensureAdminWebSession();
+        } catch {
+            // loadLoans sẽ báo lỗi 401 rõ hơn nếu session thật sự hết hạn
+        }
+        await loadLoans(false);
+    });
     onBeforeUnmount(() => {
         if (loansReloadDebounce) clearTimeout(loansReloadDebounce);
         loansRequestSerial++;

@@ -8,6 +8,8 @@ import {
     canTogglePaidAtCounter,
     counterFeeAmountForHolder,
     defaultPaidAtCounter,
+    isExternalHolder,
+    isTeacherHolder,
     resolveCounterWorkflowPreview,
 } from '@/config/libraryCardCounterRules';
 import { resetFileInput } from '@/utils/resetFileInput';

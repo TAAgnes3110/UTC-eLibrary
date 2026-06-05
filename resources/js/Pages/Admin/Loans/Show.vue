@@ -3,6 +3,11 @@ import { computed, onMounted, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { loansApi } from '@/api/loans';
+import {
+    callWithSessionFallback,
+    ensureAdminWebSession,
+    sessionApiGet,
+} from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { formatDate, formatVnd } from '@/utils/index';
 
@@ -26,13 +31,24 @@ function returnConditionLabel(item) {
     return item?.condition_on_return_label || item?.condition_on_return || '—';
 }
 
+function resolveLoanErrorMessage(error) {
+    if (error?.response?.status === 401) {
+        return 'Phiên đăng nhập không hợp lệ. Tải lại trang (F5), đăng nhập lại rồi thử.';
+    }
+    return error?.response?.data?.messages || error?.message || 'Không tải được chi tiết phiếu mượn.';
+}
+
 async function loadDetail() {
     loading.value = true;
     try {
-        const res = await loansApi.get(props.loanId);
+        await ensureAdminWebSession();
+        const res = await callWithSessionFallback(
+            () => loansApi.get(props.loanId),
+            () => sessionApiGet(`/loans/${props.loanId}`)
+        );
         loan.value = extractLoan(res);
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không tải được chi tiết phiếu mượn.', { title: 'Lỗi' });
+        toast.error(resolveLoanErrorMessage(e), { title: 'Lỗi' });
     } finally {
         loading.value = false;
     }

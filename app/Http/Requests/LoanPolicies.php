@@ -82,6 +82,7 @@ class LoanPolicies extends BaseRequest
             ],
             'params.max_textbooks' => ['sometimes', 'integer', 'min:0'],
             'params.max_reference' => ['sometimes', 'integer', 'min:0'],
+            'params.damage_fine_percent' => ['sometimes', 'numeric', 'min:0', 'max:1'],
         ];
     }
 
@@ -126,6 +127,9 @@ class LoanPolicies extends BaseRequest
             'params.max_textbooks.min' => __('params.max_textbooks không được âm'),
             'params.max_reference.integer' => __('params.max_reference phải là số nguyên'),
             'params.max_reference.min' => __('params.max_reference không được âm'),
+            'params.damage_fine_percent.numeric' => __('Phạt hư hỏng phải là số (hệ số 0–1, ví dụ 0,1 = 10% giá bìa).'),
+            'params.damage_fine_percent.min' => __('Phạt hư hỏng không được âm.'),
+            'params.damage_fine_percent.max' => __('Phạt hư hỏng tối đa 100% giá bìa (hệ số 1).'),
         ];
     }
 }

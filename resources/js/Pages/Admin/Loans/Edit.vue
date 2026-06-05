@@ -3,6 +3,12 @@ import { onMounted, reactive, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { loansApi } from '@/api/loans';
+import {
+    callWithSessionFallback,
+    ensureAdminWebSession,
+    sessionApiGet,
+    sessionApiPut,
+} from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 
 const props = defineProps({
@@ -16,14 +22,25 @@ const form = reactive({
     due_date: '',
 });
 
+function resolveLoanErrorMessage(error) {
+    if (error?.response?.status === 401) {
+        return 'Phiên đăng nhập không hợp lệ. Tải lại trang (F5), đăng nhập lại rồi thử.';
+    }
+    return error?.response?.data?.messages || error?.message || 'Không tải được dữ liệu phiếu.';
+}
+
 async function loadDetail() {
     loading.value = true;
     try {
-        const res = await loansApi.get(props.loanId);
+        await ensureAdminWebSession();
+        const res = await callWithSessionFallback(
+            () => loansApi.get(props.loanId),
+            () => sessionApiGet(`/loans/${props.loanId}`)
+        );
         loan.value = res?.data ?? null;
         form.due_date = loan.value?.due_date ? String(loan.value.due_date).slice(0, 10) : '';
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không tải được dữ liệu phiếu.', { title: 'Lỗi' });
+        toast.error(resolveLoanErrorMessage(e), { title: 'Lỗi' });
     } finally {
         loading.value = false;
     }
@@ -36,11 +53,15 @@ async function saveDueDate() {
     }
     saving.value = true;
     try {
-        await loansApi.update(props.loanId, { due_date: form.due_date });
+        await ensureAdminWebSession();
+        await callWithSessionFallback(
+            () => loansApi.update(props.loanId, { due_date: form.due_date }),
+            () => sessionApiPut(`/loans/${props.loanId}`, { due_date: form.due_date })
+        );
         toast.success('Cập nhật ngày hẹn trả thành công.', { title: 'Thành công' });
         router.visit(route('admin.loans.show', props.loanId));
     } catch (e) {
-        toast.error(e?.response?.data?.messages || 'Không cập nhật được phiếu.', { title: 'Lỗi' });
+        toast.error(resolveLoanErrorMessage(e), { title: 'Lỗi' });
     } finally {
         saving.value = false;
     }

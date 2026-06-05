@@ -68,7 +68,8 @@ const vc = computed(() => variantClasses[props.variant] ?? variantClasses.studen
                         <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Tối đa sách</th>
                         <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Hạn (ngày)</th>
                         <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Gia hạn</th>
-                        <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Phạt/ngày</th>
+                        <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Phạt trễ (đ/ngày/cuốn)</th>
+                        <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Phạt hư (% giá/cuốn)</th>
                         <th v-if="showTextbookLimits" class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">GT / TLTK</th>
                         <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Về nhà</th>
                         <th class="px-3 py-2.5 font-semibold text-center whitespace-nowrap">Tại chỗ</th>
@@ -77,10 +78,10 @@ const vc = computed(() => variantClasses[props.variant] ?? variantClasses.studen
                 </thead>
                 <tbody>
                     <tr v-if="loading">
-                        <td :colspan="showTextbookLimits ? 10 : 9" class="px-3 py-8 text-center text-slate-500">Đang tải…</td>
+                        <td :colspan="showTextbookLimits ? 11 : 10" class="px-3 py-8 text-center text-slate-500">Đang tải…</td>
                     </tr>
                     <tr v-else-if="!rows.length">
-                        <td :colspan="showTextbookLimits ? 10 : 9" class="px-3 py-8 text-center text-slate-500">
+                        <td :colspan="showTextbookLimits ? 11 : 10" class="px-3 py-8 text-center text-slate-500">
                             <slot name="empty">Chưa có dòng cấu hình cho nhóm này.</slot>
                         </td>
                     </tr>
@@ -95,6 +96,13 @@ const vc = computed(() => variantClasses[props.variant] ?? variantClasses.studen
                         <td class="px-3 py-2.5 text-center tabular-nums">{{ row.max_days }}</td>
                         <td class="px-3 py-2.5 text-center tabular-nums">{{ row.max_renewals }}</td>
                         <td class="px-3 py-2.5 text-center tabular-nums text-xs">{{ row.overdue_fine_per_day }}</td>
+                        <td class="px-3 py-2.5 text-center tabular-nums text-xs whitespace-nowrap">
+                            {{
+                                row.params?.damage_fine_percent != null
+                                    ? `${Math.round(Number(row.params.damage_fine_percent) * 1000) / 10}%`
+                                    : '—'
+                            }}
+                        </td>
                         <td v-if="showTextbookLimits" class="px-3 py-2.5 text-center text-xs text-slate-600 dark:text-slate-400">
                             <template v-if="row.params && (row.params.max_textbooks != null || row.params.max_reference != null)">
                                 {{ row.params.max_textbooks ?? '—' }} / {{ row.params.max_reference ?? '—' }}

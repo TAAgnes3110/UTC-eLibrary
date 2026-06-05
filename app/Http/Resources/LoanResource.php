@@ -43,14 +43,28 @@ class LoanResource extends JsonResource
             'loan_items' => LoanItemResource::collection($this->whenLoaded('items')),
             'sum_fine_amount' => $this->when($this->relationLoaded('items'), (float) $items->sum('fine_amount')),
             'fine_policy' => $this->when(
-                $this->relationLoaded('libraryCard') && $this->libraryCard !== null,
+                $this->shouldIncludeFinePolicy($request),
                 function () {
-                    $helper = app(LoanHelper::class);
-                    $policy = $helper->resolvePolicyForCard($this->libraryCard);
+                    try {
+                        $helper = app(LoanHelper::class);
+                        $policy = $helper->resolvePolicyForCard($this->libraryCard);
 
-                    return $helper->finePolicySnapshot($policy);
+                        return $helper->finePolicySnapshot($policy);
+                    } catch (\Throwable) {
+                        return null;
+                    }
                 }
             ),
         ];
+    }
+
+    /** Chỉ trả fine_policy ở chi tiết phiếu — list index không cần và tránh 500 khi thiếu policy. */
+    private function shouldIncludeFinePolicy(Request $request): bool
+    {
+        if (! $this->relationLoaded('libraryCard') || $this->libraryCard === null) {
+            return false;
+        }
+
+        return (bool) preg_match('#^api/v1/loans/\d+$#', $request->path());
     }
 }

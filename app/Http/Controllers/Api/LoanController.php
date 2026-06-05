@@ -41,7 +41,7 @@ class LoanController extends Controller
         $perPage = min(max((int) $request->input('per_page', 20), 1), 100);
 
         $query = Loan::query()
-            ->with(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title'])
+            ->with(['libraryCard:id,card_number,full_name', 'createdBy:id,name'])
             ->when(isset($validated['search']) && trim((string) $validated['search']) !== '', function ($query) use ($validated, $searchColumns) {
                 $search = trim((string) $validated['search']);
                 $effectiveSearchColumns = ! empty($searchColumns)

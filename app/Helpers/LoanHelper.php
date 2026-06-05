@@ -55,7 +55,7 @@ class LoanHelper
      *
      * @param  array<string, mixed>  $data
      * @param  array<string, mixed>|null  $linePayload
-     * @return array{condition_on_return:?string,fine_amount:float}
+     * @return array{condition_on_return:?string,damage_percent:?int,fine_amount:float}
      */
     public function buildReturnItemPayload(
         array $data,
@@ -67,15 +67,77 @@ class LoanHelper
         $conditionOnReturn = is_array($linePayload) && array_key_exists('condition_on_return', $linePayload)
             ? $this->normalizeCondition($linePayload['condition_on_return'])
             : $this->normalizeCondition($data['condition_on_return'] ?? null);
+        $damageSeverityPercent = $this->resolveDamageSeverityPercent($conditionOnReturn, $linePayload);
+        $calculatedFineAmount = $this->calculateFineAmount(
+            $loan,
+            $item,
+            $policy,
+            $conditionOnReturn,
+            $damageSeverityPercent
+        );
         $manualFineAmount = is_array($linePayload) && array_key_exists('fine_amount', $linePayload)
             ? (float) $linePayload['fine_amount']
             : (float) ($data['fine_amount'] ?? 0);
-        $calculatedFineAmount = $this->calculateFineAmount($loan, $item, $policy, $conditionOnReturn);
+        $hasExplicitDamagePercent = is_array($linePayload) && array_key_exists('damage_percent', $linePayload);
+        $fineAmount = $hasExplicitDamagePercent
+            ? $calculatedFineAmount
+            : max($manualFineAmount, $calculatedFineAmount);
 
         return [
             'condition_on_return' => $conditionOnReturn,
-            'fine_amount' => max(0, max($manualFineAmount, $calculatedFineAmount)),
+            'damage_percent' => $damageSeverityPercent,
+            'fine_amount' => max(0, round($fineAmount, 2)),
         ];
+    }
+
+    /**
+     * Snapshot chính sách phạt cho màn trả sách (FE tự tính).
+     *
+     * @return array<string, float|string>
+     */
+    public function finePolicySnapshot(LoanPolicy $policy): array
+    {
+        $params = is_array($policy->params) ? $policy->params : [];
+
+        return [
+            'damage_fine_percent' => max(0, (float) ($params['damage_fine_percent'] ?? 0.1)),
+            'loss_fine_multiplier' => max(1, (float) ($params['loss_fine_multiplier'] ?? 2)),
+            'replacement_processing_fee' => max(0, (float) ($params['replacement_processing_fee'] ?? 10000)),
+            'overdue_fine_per_day' => max(0, (float) ($policy->overdue_fine_per_day ?? 0)),
+            'late_return_fine_mode' => $this->librarySettings->getLateReturnFineMode(),
+            'late_return_fine_percent_of_book' => $this->librarySettings->getLateReturnFinePercentOfBook(),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $linePayload
+     */
+    private function resolveDamageSeverityPercent(?string $conditionOnReturn, ?array $linePayload): ?int
+    {
+        if ($conditionOnReturn === LoanItemCondition::LOST->value) {
+            return 100;
+        }
+        if ($conditionOnReturn !== LoanItemCondition::DAMAGED->value) {
+            return null;
+        }
+        if (! is_array($linePayload) || ! array_key_exists('damage_percent', $linePayload)) {
+            return 100;
+        }
+
+        return $this->normalizeDamageSeverityPercent($linePayload['damage_percent']);
+    }
+
+    public function normalizeDamageSeverityPercent(mixed $value): int
+    {
+        if ($value === null || $value === '') {
+            throw new RuntimeException('Vui lòng nhập % hư hỏng (1–100) khi sách hư hỏng.');
+        }
+        $n = (int) round((float) $value);
+        if ($n < 1 || $n > 100) {
+            throw new RuntimeException('% hư hỏng phải từ 1 đến 100.');
+        }
+
+        return $n;
     }
 
     /**
@@ -396,10 +458,28 @@ class LoanHelper
     /**
      * Tính tiền phạt cho một dòng mượn:
      * - Phạt trễ hạn theo ngày.
-     * - Phạt hư hỏng theo phần trăm giá.
-     * - Phạt mất sách theo hệ số giá + phí xử lý.
+     * - Hư hỏng: (giá sách × % phạt quy định) × (% mức hư / 100).
+     * - Mất sách: (giá × hệ số + phí xử lý) — tương đương 100%.
      */
-    private function calculateFineAmount(Loan $loan, LoanItem $item, LoanPolicy $policy, ?string $conditionOnReturn): float
+    private function calculateFineAmount(
+        Loan $loan,
+        LoanItem $item,
+        LoanPolicy $policy,
+        ?string $conditionOnReturn,
+        ?int $damageSeverityPercent = null
+    ): float {
+        $overdueFine = $this->calculateOverdueFine($loan, $item, $policy);
+        $conditionFine = $this->calculateConditionFine(
+            $item,
+            $policy,
+            $conditionOnReturn,
+            $damageSeverityPercent
+        );
+
+        return round($overdueFine + $conditionFine, 2);
+    }
+
+    private function calculateOverdueFine(Loan $loan, LoanItem $item, LoanPolicy $policy): float
     {
         $overdueFinePerDay = max(0, (float) ($policy->overdue_fine_per_day ?? 0));
         $overdueDays = 0;
@@ -411,23 +491,36 @@ class LoanHelper
         $lateMode = $this->librarySettings->getLateReturnFineMode();
         if ($lateMode === LibrarySetting::LOAN_LATE_RETURN_FINE_MODE_PERCENT_BOOK_PRICE_DAILY) {
             $pct = $this->librarySettings->getLateReturnFinePercentOfBook() / 100.0;
-            $overdueFine = $overdueDays * ($bookPrice * $pct) * (int) $item->quantity;
-        } else {
-            $overdueFine = $overdueDays * $overdueFinePerDay * (int) $item->quantity;
+
+            return $overdueDays * ($bookPrice * $pct) * (int) $item->quantity;
         }
 
+        return $overdueDays * $overdueFinePerDay * (int) $item->quantity;
+    }
+
+    private function calculateConditionFine(
+        LoanItem $item,
+        LoanPolicy $policy,
+        ?string $conditionOnReturn,
+        ?int $damageSeverityPercent
+    ): float {
+        $bookPrice = max(0, (float) ($item->book?->price ?? 0));
+        $quantity = (int) $item->quantity;
         $params = is_array($policy->params) ? $policy->params : [];
-        $damagePercent = max(0, (float) ($params['damage_fine_percent'] ?? 0.3));
+        $damageRate = max(0, (float) ($params['damage_fine_percent'] ?? 0.1));
         $lossMultiplier = max(1, (float) ($params['loss_fine_multiplier'] ?? 2));
         $processingFee = max(0, (float) ($params['replacement_processing_fee'] ?? 10000));
 
-        $conditionFine = 0.0;
         if ($conditionOnReturn === LoanItemCondition::DAMAGED->value) {
-            $conditionFine = $bookPrice * $damagePercent * (int) $item->quantity;
-        } elseif ($conditionOnReturn === LoanItemCondition::LOST->value) {
-            $conditionFine = (($bookPrice * $lossMultiplier) + $processingFee) * (int) $item->quantity;
+            $severity = min(100, max(1, $damageSeverityPercent ?? 100));
+            $fullDamageFine = $bookPrice * $damageRate * $quantity;
+
+            return $fullDamageFine * ($severity / 100);
+        }
+        if ($conditionOnReturn === LoanItemCondition::LOST->value) {
+            return (($bookPrice * $lossMultiplier) + $processingFee) * $quantity;
         }
 
-        return round($overdueFine + $conditionFine, 2);
+        return 0.0;
     }
 }

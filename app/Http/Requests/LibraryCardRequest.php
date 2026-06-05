@@ -36,6 +36,9 @@ class LibraryCardRequest extends BaseRequest
         if ($this->isMethod('POST') && ! $existing && ! $this->is('api/v1/library-cards/guest-register')) {
             $uid = $this->input('user_id');
             $ht = (string) $this->input('holder_type');
+            if (LibraryCard::holderTypeIsFeeExempt($ht)) {
+                $this->merge(['payment_amount' => 0, 'paid_at_counter' => true]);
+            }
             if ($uid !== null && $uid !== '' && in_array($ht, [
                 LibraryCard::HOLDER_TYPE_STUDENT,
                 LibraryCard::HOLDER_TYPE_TEACHER,

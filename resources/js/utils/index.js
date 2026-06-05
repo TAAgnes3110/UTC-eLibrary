@@ -17,3 +17,13 @@ export function formatDate(value, format = 'DD/MM/YYYY') {
     const year = d.getFullYear();
     return format.replace('DD', day).replace('MM', month).replace('YYYY', year);
 }
+
+/** Định dạng tiền VND cho UI (vi-VN). */
+export function formatVnd(value) {
+    const n = Number(value ?? 0);
+    if (!Number.isFinite(n)) {
+        return '0 đ';
+    }
+
+    return `${Math.round(n).toLocaleString('vi-VN')} đ`;
+}

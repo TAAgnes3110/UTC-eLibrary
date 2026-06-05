@@ -381,6 +381,59 @@ class LibraryCardServiceTest extends TestCase
         $this->assertNull($card->period_id);
         $this->assertNull($card->class_code);
         $this->assertSame(LibraryCard::WORKFLOW_PENDING_PICKUP, $card->workflow_status);
+        $this->assertSame(0.0, (float) $card->payment->payment_amount);
+    }
+
+    public function test_teacher_without_account_always_pending_pickup_and_fee_exempt(): void
+    {
+        $faculty = Faculty::query()->create([
+            'code' => 'FGV2',
+            'name' => 'Khoa GV2',
+            'is_active' => true,
+        ]);
+
+        $card = app(LibraryCardService::class)->create([
+            'holder_type' => LibraryCard::HOLDER_TYPE_TEACHER,
+            'code' => 'GV-NOACC-'.uniqid(),
+            'full_name' => 'GV chưa có TK',
+            'email' => 'gv_noacc_'.uniqid().'@test.local',
+            'phone' => '0909111222',
+            'address' => 'Hà Nội',
+            'date_of_birth' => '1980-06-01',
+            'photo_path' => 'photos/gv2.jpg',
+            'faculty_id' => $faculty->id,
+            'paid_at_counter' => false,
+            'payment_amount' => 40_000,
+        ]);
+
+        $this->assertNull($card->user_id);
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_PICKUP, $card->workflow_status);
+        $this->assertNotNull($card->payment);
+        $this->assertSame(0.0, (float) $card->payment->payment_amount);
+        $this->assertTrue(data_get($card->params, 'counter_registration.fee_exempt'));
+    }
+
+    public function test_teacher_online_approve_skips_pending_payment(): void
+    {
+        Mail::fake();
+
+        $faculty = Faculty::query()->create(['code' => 'FGA', 'name' => 'GA', 'is_active' => true]);
+        $reader = User::factory()->create([
+            'user_type' => RoleType::TEACHER,
+            'avatar' => 'avatars/gv.jpg',
+            'email' => 'teacher-approve@example.com',
+            'faculty_id' => $faculty->id,
+        ]);
+        $librarian = User::factory()->create(['user_type' => RoleType::LIBRARIAN]);
+
+        $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
+            'faculty_id' => $faculty->id,
+        ]);
+
+        $updated = app(LibraryCardService::class)->approvePendingReviewAndActivate($card->fresh(), $librarian);
+
+        $this->assertSame(LibraryCard::WORKFLOW_PENDING_PICKUP, $updated->workflow_status);
+        $this->assertNull(data_get($updated->params, 'payment_due_at'));
     }
 
     public function test_staff_issued_second_card_for_same_user_raises_validation(): void

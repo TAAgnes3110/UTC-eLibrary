@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ensureSanctumCsrfCookie, getApiCsrfHeaders } from '@/utils/apiCsrf';
+import { ensureSanctumCsrfCookie, getApiCsrfHeaders, resetSanctumCsrfCookieCache } from '@/utils/apiCsrf';
 import { clearLegacyAuthStorage, getStoredApiToken } from '@/utils/apiAuthStorage';
 
 function isApiDebugEnabled() {
@@ -177,7 +177,13 @@ client.interceptors.response.use(
         }
 
         try {
-            await ensureSanctumCsrfCookie();
+            resetSanctumCsrfCookieCache();
+            if (isAdminSpa) {
+                const { ensureAdminWebSession } = await import('@/utils/adminApiAuth');
+                await ensureAdminWebSession();
+            } else {
+                await ensureSanctumCsrfCookie({ force: true });
+            }
             if (originalRequest.headers && typeof originalRequest.headers === 'object') {
                 Object.assign(originalRequest.headers, getApiCsrfHeaders());
             }

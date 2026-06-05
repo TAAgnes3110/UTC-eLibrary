@@ -231,7 +231,7 @@ class LoanController extends Controller
 
     public function show(Loan $loan): JsonResponse
     {
-        $loan->load(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
+        $loan->load(['libraryCard:id,card_number,full_name,holder_type', 'createdBy:id,name', 'items.book:id,title,price']);
 
         return ApiResponse::success(new LoanResource($loan));
     }
@@ -275,6 +275,7 @@ class LoanController extends Controller
             'fine_amount' => ['nullable', 'numeric', 'min:0'],
             'returns' => ['nullable', 'array'],
             'returns.*.condition_on_return' => ['nullable', 'string'],
+            'returns.*.damage_percent' => ['nullable', 'integer', 'min:1', 'max:100'],
             'returns.*.fine_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
         $loan = $this->loanService->processReturnBook($validated, $loan);

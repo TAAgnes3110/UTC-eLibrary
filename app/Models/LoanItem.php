@@ -15,6 +15,7 @@ class LoanItem extends BaseModel
         'quantity',
         'condition_on_loan',
         'condition_on_return',
+        'damage_percent',
         'fine_amount',
         'notes',
     ];
@@ -23,6 +24,7 @@ class LoanItem extends BaseModel
         'quantity' => 'integer',
         'condition_on_loan' => LoanItemCondition::class,
         'condition_on_return' => LoanItemCondition::class,
+        'damage_percent' => 'integer',
         'fine_amount' => 'decimal:2',
     ];
 

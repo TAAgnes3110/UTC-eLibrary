@@ -3,14 +3,22 @@ import { libraryCardsApi } from '@/api/libraryCards';
 import { usersApi } from '@/api/users';
 import { toast } from '@/store/toast';
 import { LibraryCard } from '@/config/libraryCardConstants';
+import {
+    buildCounterPaymentPayload,
+    canTogglePaidAtCounter,
+    counterFeeAmountForHolder,
+    defaultPaidAtCounter,
+    resolveCounterWorkflowPreview,
+} from '@/config/libraryCardCounterRules';
 import { resetFileInput } from '@/utils/resetFileInput';
 
-/** Mặc định phí cấp thẻ tại quầy (VNĐ) */
-const DEFAULT_COUNTER_PAYMENT_AMOUNT = 40000;
+function emptyForm(flowMode = 'without_account') {
+    const holderType = flowMode === 'without_account'
+        ? LibraryCard.HOLDER_EXTERNAL
+        : LibraryCard.HOLDER_STUDENT;
 
-function emptyForm() {
     return {
-        holder_type: LibraryCard.HOLDER_EXTERNAL,
+        holder_type: holderType,
         user_id: '',
         code: '',
         full_name: '',
@@ -22,8 +30,8 @@ function emptyForm() {
         period_id: '',
         class_code: '',
         external_organization: '',
-        paid_at_counter: true,
-        payment_amount: DEFAULT_COUNTER_PAYMENT_AMOUNT,
+        paid_at_counter: defaultPaidAtCounter(holderType, flowMode),
+        payment_amount: counterFeeAmountForHolder(holderType),
         payment_method: 'walk_in',
         receipt_number: '',
         photoFile: null,
@@ -101,6 +109,31 @@ function buildDuplicateFriendlyMessage(error) {
     return String(data?.messages || data?.message || 'Dữ liệu không hợp lệ.');
 }
 
+function successMessageForWorkflow(preview) {
+    if (preview.key === 'active') {
+        return 'Đã tạo và kích hoạt thẻ bạn đọc ngoài.';
+    }
+    if (preview.key === 'pending_pickup') {
+        return 'Đã tạo hồ sơ — trạng thái « Chờ lấy thẻ ». Xác nhận giao thẻ khi bạn đọc đến quầy.';
+    }
+
+    return 'Đã tạo hồ sơ — trạng thái « Chờ duyệt ». Duyệt tại mục Duyệt yêu cầu.';
+}
+
+function applyHolderTypeSideEffects(form, holderType, flowMode) {
+    form.payment_amount = counterFeeAmountForHolder(holderType);
+    form.paid_at_counter = defaultPaidAtCounter(holderType, flowMode);
+
+    if (holderType === LibraryCard.HOLDER_TEACHER) {
+        form.period_id = '';
+        form.class_code = '';
+    } else if (holderType === LibraryCard.HOLDER_EXTERNAL) {
+        form.faculty_id = '';
+        form.period_id = '';
+        form.class_code = '';
+    }
+}
+
 /**
  * Cấp thẻ tại quầy — 2 luồng: đã có tài khoản / chưa có tài khoản.
  * @param {object} props faculties, periods
@@ -117,9 +150,23 @@ export function useLibraryCardCounterPage(props) {
     const userSearchLoading = ref(false);
     const selectedUser = ref(null);
 
-    const form = ref(emptyForm());
+    const form = ref(emptyForm(flowMode.value));
 
     const submitLoading = ref(false);
+
+    const workflowPreview = computed(() => resolveCounterWorkflowPreview(
+        form.value.holder_type,
+        form.value.paid_at_counter,
+    ));
+
+    const canTogglePaid = computed(() => canTogglePaidAtCounter(form.value.holder_type));
+
+    const showFeeSection = computed(() => true);
+
+    const isPaymentAmountReadonly = computed(() => {
+        const ht = form.value.holder_type;
+        return isTeacherHolder(ht) || isExternalHolder(ht);
+    });
 
     function resetCounterPhotoInput() {
         const el = typeof document !== 'undefined' ? document.getElementById('counter-card-photo-input') : null;
@@ -131,22 +178,15 @@ export function useLibraryCardCounterPage(props) {
         selectedUser.value = null;
         userSearch.value = '';
         userHits.value = [];
-        form.value = emptyForm();
+        form.value = emptyForm(mode);
         resetCounterPhotoInput();
     }
 
     watch(
         () => form.value.holder_type,
         (ht) => {
-            if (ht === LibraryCard.HOLDER_TEACHER) {
-                form.value.period_id = '';
-                form.value.class_code = '';
-            } else if (ht === LibraryCard.HOLDER_EXTERNAL) {
-                form.value.faculty_id = '';
-                form.value.period_id = '';
-                form.value.class_code = '';
-            }
-        }
+            applyHolderTypeSideEffects(form.value, ht, flowMode.value);
+        },
     );
 
     let searchTimer = null;
@@ -175,7 +215,9 @@ export function useLibraryCardCounterPage(props) {
     function pickUser(u) {
         selectedUser.value = u;
         form.value.user_id = u.id;
-        form.value.holder_type = mapUserTypeToHolder(u.user_type);
+        const holderType = mapUserTypeToHolder(u.user_type);
+        form.value.holder_type = holderType;
+        applyHolderTypeSideEffects(form.value, holderType, flowMode.value);
         form.value.code = u.code || '';
         form.value.full_name = u.name || '';
         form.value.email = u.email || '';
@@ -196,7 +238,7 @@ export function useLibraryCardCounterPage(props) {
 
     function clearPickedUser() {
         selectedUser.value = null;
-        form.value = emptyForm();
+        form.value = emptyForm(flowMode.value);
         resetCounterPhotoInput();
     }
 
@@ -239,6 +281,9 @@ export function useLibraryCardCounterPage(props) {
             return;
         }
 
+        const payment = buildCounterPaymentPayload(f.holder_type, f.paid_at_counter, f.payment_amount);
+        const preview = resolveCounterWorkflowPreview(f.holder_type, payment.paid_at_counter);
+
         submitLoading.value = true;
         try {
             const fd = new FormData();
@@ -258,13 +303,11 @@ export function useLibraryCardCounterPage(props) {
                 fd.append('class_code', String(f.class_code).trim());
             } else if (f.holder_type === LibraryCard.HOLDER_TEACHER) {
                 fd.append('faculty_id', String(f.faculty_id));
-            } else {
-                if (f.external_organization) {
-                    fd.append('external_organization', String(f.external_organization).trim());
-                }
+            } else if (f.external_organization) {
+                fd.append('external_organization', String(f.external_organization).trim());
             }
-            fd.append('paid_at_counter', f.paid_at_counter ? '1' : '0');
-            fd.append('payment_amount', String(f.payment_amount ?? 0));
+            fd.append('paid_at_counter', payment.paid_at_counter ? '1' : '0');
+            fd.append('payment_amount', String(payment.payment_amount));
             if (f.payment_method) {
                 fd.append('payment_method', f.payment_method);
             }
@@ -275,7 +318,7 @@ export function useLibraryCardCounterPage(props) {
             fd.append('photo', f.photoFile);
 
             await libraryCardsApi.create(fd);
-            toast.success('Đã tạo hồ sơ thẻ.', { title: 'Thành công' });
+            toast.success(successMessageForWorkflow(preview), { title: 'Thành công' });
             setFlowMode(flowMode.value);
         } catch (e) {
             toast.error(buildDuplicateFriendlyMessage(e), { title: 'Lỗi' });
@@ -286,12 +329,21 @@ export function useLibraryCardCounterPage(props) {
 
     const isWithAccount = computed(() => flowMode.value === 'with_account');
 
+    const formReady = computed(() => {
+        if (flowMode.value === 'with_account') {
+            return selectedUser.value !== null;
+        }
+
+        return true;
+    });
+
     return reactive({
         faculties,
         periods,
         flowMode,
         setFlowMode,
         isWithAccount,
+        formReady,
         userSearch,
         userHits,
         userSearchLoading,
@@ -302,6 +354,10 @@ export function useLibraryCardCounterPage(props) {
         form,
         submit,
         submitLoading,
+        workflowPreview,
+        canTogglePaid,
+        showFeeSection,
+        isPaymentAmountReadonly,
         LibraryCard,
     });
 }

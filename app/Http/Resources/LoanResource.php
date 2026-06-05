@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Enums\LoanStatus;
 use App\Enums\LoanType;
+use App\Helpers\LoanHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -41,6 +42,15 @@ class LoanResource extends JsonResource
             'return_date' => $this->return_date,
             'loan_items' => LoanItemResource::collection($this->whenLoaded('items')),
             'sum_fine_amount' => $this->when($this->relationLoaded('items'), (float) $items->sum('fine_amount')),
+            'fine_policy' => $this->when(
+                $this->relationLoaded('libraryCard') && $this->libraryCard !== null,
+                function () {
+                    $helper = app(LoanHelper::class);
+                    $policy = $helper->resolvePolicyForCard($this->libraryCard);
+
+                    return $helper->finePolicySnapshot($policy);
+                }
+            ),
         ];
     }
 }

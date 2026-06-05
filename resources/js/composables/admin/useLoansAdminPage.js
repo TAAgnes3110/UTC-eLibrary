@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { router } from '@inertiajs/vue3';
 import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
 import { loansApi } from '@/api/loans';
+import { callWithSessionFallback, ensureAdminWebSession, sessionApiPost } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { extractApiPaginator } from '@/utils/adminPagination';
 
@@ -277,11 +278,16 @@ export function useLoansAdminPage() {
         const loanIds = [...openLoanIdsForBulk.value];
         bulkReturnLoading.value = true;
         try {
-            await loansApi.bulkReturn({
+            const body = {
                 loan_ids: loanIds,
                 return_date: payload.return_date,
                 condition_on_return: payload.condition_on_return,
-            });
+            };
+            await ensureAdminWebSession();
+            await callWithSessionFallback(
+                () => loansApi.bulkReturn(body),
+                () => sessionApiPost('/loans/bulk-return', body)
+            );
             toast.success(`Đã trả ${loanIds.length} phiếu.`, { title: 'Thành công' });
             showBulkReturnModal.value = false;
             deselectAll();

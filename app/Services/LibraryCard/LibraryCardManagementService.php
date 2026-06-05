@@ -402,7 +402,9 @@ class LibraryCardManagementService
 
             $card->loadMissing('payment');
 
-            if ($this->cardHasRecordedPayment($card)) {
+            if ($this->cardHasRecordedPayment($card) || LibraryCard::holderTypeIsFeeExempt(
+                ($card->holder_type instanceof \BackedEnum ? $card->holder_type->value : (string) $card->holder_type)
+            )) {
                 $card->workflow_status = LibraryCard::WORKFLOW_PENDING_PICKUP;
                 $card->status = LibraryCardStatus::PENDING;
                 $card->issue_date = null;
@@ -775,17 +777,33 @@ class LibraryCardManagementService
     }
 
     /**
+     * Giảng viên miễn lệ phí — dùng khi ghi nhận thanh toán tại quầy.
+     */
+    private function holderTypeIsFeeExempt(LibraryCard $card): bool
+    {
+        $ht = $card->holder_type;
+        $ht = $ht instanceof \BackedEnum ? $ht->value : (string) $ht;
+
+        return LibraryCard::holderTypeIsFeeExempt($ht);
+    }
+
+    /**
      * Ghi nhận thanh toán lệ phí tại quầy
      *
      * @param  array<string, mixed>  $data
      */
     public function recordWalkInPayment(LibraryCard $card, array $data): void
     {
+        $amount = isset($data['payment_amount']) ? (float) $data['payment_amount'] : 0;
+        if ($this->holderTypeIsFeeExempt($card)) {
+            $amount = 0;
+        }
+
         LibraryCardPayment::query()->create([
             'library_card_id' => $card->id,
             'payment_status' => LibraryCard::PAYMENT_PAID,
             'paid_at' => now(),
-            'payment_amount' => isset($data['payment_amount']) ? (float) $data['payment_amount'] : 0,
+            'payment_amount' => $amount,
             'payment_method' => isset($data['payment_method']) ? (string) $data['payment_method'] : 'walk_in',
             'receipt_number' => isset($data['receipt_number']) ? (string) $data['receipt_number'] : null,
         ]);

@@ -4,6 +4,7 @@ import { Head } from '@inertiajs/vue3';
 import { Icon } from '@iconify/vue';
 import { useLibraryCardCounterPage } from '@/composables/admin/useLibraryCardCounterPage';
 import { holderLabel } from '@/config/libraryCardUi';
+import { counterFlowIntro, paidAtCounterCheckboxLabel } from '@/config/libraryCardCounterRules';
 import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth';
 
 const maxDateOfBirth = maxDateOfBirthForInput();
@@ -64,6 +65,10 @@ function onPhotoChange(e) {
             </div>
 
             <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 p-4 sm:p-5 space-y-4">
+                <p class="text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2">
+                    {{ counterFlowIntro(c.flowMode) }}
+                </p>
+
                 <!-- ========== Đã có tài khoản ========== -->
                 <template v-if="c.flowMode === 'with_account'">
                     <div class="space-y-2">
@@ -305,17 +310,69 @@ function onPhotoChange(e) {
                 </template>
 
                 <!-- Thanh toán + ảnh -->
-                <div class="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-3">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <label class="flex items-center gap-2 cursor-pointer min-h-[44px]">
-                            <input v-model="c.form.paid_at_counter" type="checkbox" class="rounded border-slate-300 text-blue-600" />
-                            <span class="text-sm text-slate-700 dark:text-slate-200">Đã thu phí tại quầy</span>
-                        </label>
-                        <div>
-                            <label class="text-xs font-semibold text-slate-500">Số tiền</label>
-                            <input v-model.number="c.form.payment_amount" type="number" min="0" step="1" class="admin-filter-input w-full mt-1 min-h-[44px]" />
-                        </div>
+                <div
+                    v-if="c.formReady"
+                    class="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-3"
+                >
+                    <!-- Dự báo trạng thái quy trình -->
+                    <div
+                        class="rounded-lg border px-3 py-2.5 space-y-0.5"
+                        :class="{
+                            'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40': c.workflowPreview.tone === 'emerald',
+                            'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40': c.workflowPreview.tone === 'blue',
+                            'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40': c.workflowPreview.tone === 'amber',
+                        }"
+                    >
+                        <p class="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                            Sau khi tạo: <span class="font-bold">{{ c.workflowPreview.label }}</span>
+                        </p>
+                        <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                            {{ c.workflowPreview.hint }}
+                        </p>
                     </div>
+
+                    <template v-if="c.showFeeSection">
+                        <p
+                            v-if="c.form.holder_type === c.LibraryCard.HOLDER_TEACHER"
+                            class="text-xs text-emerald-700 dark:text-emerald-300"
+                        >
+                            Cán bộ, giảng viên đang công tác tại trường được miễn lệ phí làm thẻ.
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label
+                                class="flex items-center gap-2 min-h-[44px]"
+                                :class="c.canTogglePaid ? 'cursor-pointer' : 'cursor-default opacity-90'"
+                            >
+                                <input
+                                    v-model="c.form.paid_at_counter"
+                                    type="checkbox"
+                                    class="rounded border-slate-300 text-blue-600"
+                                    :disabled="!c.canTogglePaid"
+                                />
+                                <span class="text-sm text-slate-700 dark:text-slate-200">
+                                    {{ paidAtCounterCheckboxLabel(c.form.holder_type) }}
+                                </span>
+                            </label>
+                            <div>
+                                <label class="text-xs font-semibold text-slate-500">Số tiền (VNĐ)</label>
+                                <input
+                                    v-model.number="c.form.payment_amount"
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    class="admin-filter-input w-full mt-1 min-h-[44px]"
+                                    :readonly="c.isPaymentAmountReadonly"
+                                    :class="c.isPaymentAmountReadonly ? 'bg-slate-100 dark:bg-slate-800 cursor-not-allowed' : ''"
+                                />
+                            </div>
+                        </div>
+                        <p
+                            v-if="c.form.holder_type === c.LibraryCard.HOLDER_STUDENT && !c.form.paid_at_counter"
+                            class="text-[11px] text-amber-700 dark:text-amber-300"
+                        >
+                            Bỏ tick « Đã thu phí » khi sinh viên chưa nộp lệ phí — hồ sơ vào « Chờ duyệt » thay vì « Chờ lấy thẻ ».
+                        </p>
+                    </template>
 
                     <div>
                         <label class="text-xs font-semibold text-slate-500">Ảnh thẻ * (ảnh đại diện trên thẻ)</label>
@@ -325,7 +382,7 @@ function onPhotoChange(e) {
                     <button
                         type="button"
                         class="btn-admin-green inline-flex items-center justify-center gap-2 w-full sm:w-auto min-h-[44px] !h-auto py-2.5 px-4 rounded-lg text-xs font-bold disabled:opacity-50 disabled:pointer-events-none"
-                        :disabled="c.submitLoading || (c.flowMode === 'with_account' && !c.selectedUser)"
+                        :disabled="c.submitLoading"
                         @click="c.submit"
                     >
                         <Icon icon="lucide:id-card" class="w-4 h-4 shrink-0" />

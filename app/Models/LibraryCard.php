@@ -88,6 +88,12 @@ class LibraryCard extends BaseModel
         };
     }
 
+    /** Cán bộ, giảng viên miễn lệ phí làm thẻ (quy định thư viện UTC). */
+    public static function holderTypeIsFeeExempt(string $holderType): bool
+    {
+        return $holderType === self::HOLDER_TYPE_TEACHER;
+    }
+
     public const PAYMENT_PENDING = 'pending';
 
     public const PAYMENT_PAID = 'paid';

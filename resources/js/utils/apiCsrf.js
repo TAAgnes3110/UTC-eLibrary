@@ -2,6 +2,11 @@ import axios from 'axios';
 
 let csrfCookiePromise = null;
 
+/** Xóa cache sau 401/419 hoặc trước thao tác quan trọng — tránh dùng cookie CSRF cũ. */
+export function resetSanctumCsrfCookieCache() {
+    csrfCookiePromise = null;
+}
+
 /**
  * Đọc CSRF từ cookie XSRF-TOKEN hoặc meta (layout Inertia).
  */
@@ -27,9 +32,13 @@ export function getApiCsrfHeaders() {
 /**
  * Sanctum SPA: lấy cookie CSRF trước POST/PUT/PATCH/DELETE tới /api/*.
  */
-export function ensureSanctumCsrfCookie() {
+export function ensureSanctumCsrfCookie({ force = false } = {}) {
     if (typeof window === 'undefined') {
         return Promise.resolve();
+    }
+
+    if (force) {
+        resetSanctumCsrfCookieCache();
     }
 
     if (!csrfCookiePromise) {

@@ -38,10 +38,9 @@ class LibraryCardGuestService
 
             if ($holderType === LibraryCard::HOLDER_TYPE_EXTERNAL) {
                 $this->management->recordWalkInPayment($card, $data);
-            } elseif ($paidAtCounter && in_array($holderType, [
-                LibraryCard::HOLDER_TYPE_STUDENT,
-                LibraryCard::HOLDER_TYPE_TEACHER,
-            ], true)) {
+            } elseif ($paidAtCounter && $holderType === LibraryCard::HOLDER_TYPE_STUDENT) {
+                $this->management->recordWalkInPayment($card, $data);
+            } elseif ($holderType === LibraryCard::HOLDER_TYPE_TEACHER) {
                 $this->management->recordWalkInPayment($card, $data);
             }
 
@@ -73,6 +72,9 @@ class LibraryCardGuestService
      */
     private function resolvePaidAtCounter(array $data, string $holderType, bool $hasLinkedUser): bool
     {
+        if (LibraryCard::holderTypeIsFeeExempt($holderType)) {
+            return true;
+        }
         if (array_key_exists('paid_at_counter', $data)) {
             return filter_var($data['paid_at_counter'], FILTER_VALIDATE_BOOLEAN);
         }
@@ -125,11 +127,7 @@ class LibraryCardGuestService
             }
         } elseif ($holderType === LibraryCard::HOLDER_TYPE_TEACHER) {
             $payload = array_merge($payload, $this->management->teacherAffiliationPayload($data));
-            if ($paidAtCounter) {
-                $payload = $this->management->applyPaidAtCounterPendingPickup($payload);
-            } else {
-                $payload['workflow_status'] = LibraryCard::WORKFLOW_PENDING_REVIEW;
-            }
+            $payload = $this->management->applyPaidAtCounterPendingPickup($payload);
         } else {
             $today = now()->startOfDay();
             $payload['workflow_status'] = LibraryCard::WORKFLOW_ACTIVE;
@@ -160,8 +158,21 @@ class LibraryCardGuestService
             LibraryCard::HOLDER_TYPE_TEACHER,
         ], true)) {
             $params = $payload['params'] ?? [];
+            $counterMeta = [
+                'paid_at_counter' => true,
+                'registered_at' => now()->toIso8601String(),
+                'linked_user_id' => $linkedUser?->id,
+            ];
+            if (LibraryCard::holderTypeIsFeeExempt($holderType)) {
+                $counterMeta['fee_exempt'] = true;
+            }
+            $params['counter_registration'] = array_merge($params['counter_registration'] ?? [], $counterMeta);
+            $payload['params'] = $params;
+        } elseif (LibraryCard::holderTypeIsFeeExempt($holderType)) {
+            $params = $payload['params'] ?? [];
             $params['counter_registration'] = array_merge($params['counter_registration'] ?? [], [
                 'paid_at_counter' => true,
+                'fee_exempt' => true,
                 'registered_at' => now()->toIso8601String(),
                 'linked_user_id' => $linkedUser?->id,
             ]);

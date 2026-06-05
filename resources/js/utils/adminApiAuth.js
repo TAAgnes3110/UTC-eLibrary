@@ -22,7 +22,7 @@ export async function ensureAdminWebSession() {
         return;
     }
     clearClientApiCredentials();
-    await ensureSanctumCsrfCookie();
+    await ensureSanctumCsrfCookie({ force: true });
     await client.get('/auth/user', { skipBearerAuth: true });
 }
 
@@ -52,6 +52,11 @@ export async function callWithSessionFallback(requestFn, sessionRequestFn) {
 
         return sessionRequestFn();
     }
+}
+
+/** GET qua cookie session (trang admin Inertia). */
+export function sessionApiGet(url, config = {}) {
+    return client.get(url, { ...config, skipBearerAuth: true }).then((r) => r.data);
 }
 
 /** POST JSON qua cookie session (sau khi bỏ bearer hết hạn). */

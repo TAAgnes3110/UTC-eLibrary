@@ -458,7 +458,7 @@ class LoanHelper
     /**
      * Tính tiền phạt cho một dòng mượn:
      * - Phạt trễ hạn theo ngày.
-     * - Hư hỏng: (giá sách × % phạt quy định) × (% mức hư / 100).
+     * - Hư hỏng: giá sách × (% mức hư / 100).
      * - Mất sách: (giá × hệ số + phí xử lý) — tương đương 100%.
      */
     private function calculateFineAmount(
@@ -507,15 +507,13 @@ class LoanHelper
         $bookPrice = max(0, (float) ($item->book?->price ?? 0));
         $quantity = (int) $item->quantity;
         $params = is_array($policy->params) ? $policy->params : [];
-        $damageRate = max(0, (float) ($params['damage_fine_percent'] ?? 0.1));
         $lossMultiplier = max(1, (float) ($params['loss_fine_multiplier'] ?? 2));
         $processingFee = max(0, (float) ($params['replacement_processing_fee'] ?? 10000));
 
         if ($conditionOnReturn === LoanItemCondition::DAMAGED->value) {
             $severity = min(100, max(1, $damageSeverityPercent ?? 100));
-            $fullDamageFine = $bookPrice * $damageRate * $quantity;
 
-            return $fullDamageFine * ($severity / 100);
+            return $bookPrice * ($severity / 100) * $quantity;
         }
         if ($conditionOnReturn === LoanItemCondition::LOST->value) {
             return (($bookPrice * $lossMultiplier) + $processingFee) * $quantity;

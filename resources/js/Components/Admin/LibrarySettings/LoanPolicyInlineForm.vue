@@ -1,7 +1,6 @@
 <script setup>
 import { Input } from '@/Components/ui/input';
 import { Checkbox } from '@/Components/ui/checkbox';
-import { clampDamageFinePercentDisplay } from '@/utils/loanPolicyDamageFine';
 
 const props = defineProps({
     form: { type: Object, required: true },
@@ -28,10 +27,6 @@ function clampIntField(key) {
         return;
     }
     props.form[key] = Math.max(0, Math.trunc(n));
-}
-
-function clampDamageFineField() {
-    props.form.damage_fine_percent_pct = clampDamageFinePercentDisplay(props.form.damage_fine_percent_pct);
 }
 </script>
 
@@ -128,33 +123,6 @@ function clampDamageFineField() {
                     </p>
                     <p v-if="err('overdue_fine_per_day')" class="text-xs text-red-600 dark:text-red-400">{{ err('overdue_fine_per_day') }}</p>
                 </div>
-                <div class="space-y-1.5">
-                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Phạt hư hỏng (% giá bìa / cuốn — mức 100% hư)
-                    </label>
-                    <div class="flex items-center gap-2 max-w-xs">
-                        <Input
-                            v-model="form.damage_fine_percent_pct"
-                            type="text"
-                            inputmode="decimal"
-                            class="h-11 rounded-lg flex-1"
-                            :class="errClass('params.damage_fine_percent')"
-                            @blur="clampDamageFineField"
-                        />
-                        <span class="text-sm font-medium text-slate-600 dark:text-slate-300 shrink-0">%</span>
-                    </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-prose">
-                        Khi trả sách báo <span class="font-semibold text-slate-600 dark:text-slate-300">hư hỏng</span>, tiền phạt =
-                        <span class="font-semibold text-slate-600 dark:text-slate-300">giá bìa × % quy định × (% mức hư ÷ 100)</span>
-                        cho <span class="font-semibold text-slate-600 dark:text-slate-300">mỗi cuốn</span>.
-                        Ví dụ: quy định <span class="font-semibold text-slate-700 dark:text-slate-200">10%</span>, sách 100.000 đ, hư 50% → phạt
-                        <span class="font-semibold text-slate-700 dark:text-slate-200">5.000 đ</span>/cuốn (cộng phạt quá hạn nếu có).
-                        <span class="font-semibold text-slate-600 dark:text-slate-300">Mất sách</span> tính theo công thức riêng (100% mức bồi thường).
-                    </p>
-                    <p v-if="err('params.damage_fine_percent')" class="text-xs text-red-600 dark:text-red-400">
-                        {{ err('params.damage_fine_percent') }}
-                    </p>
-                </div>
             </div>
 
             <div class="flex flex-col sm:flex-row gap-4 sm:gap-8 pt-1">
@@ -192,25 +160,6 @@ function clampDamageFineField() {
                 <Checkbox v-model="form.allow_onsite" class="h-5 w-5" />
                 <span class="text-sm text-slate-700 dark:text-slate-300">Đọc / mượn tại chỗ</span>
             </label>
-            <div class="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Phạt hư hỏng (% giá bìa / cuốn — mức 100% hư)
-                </label>
-                <div class="flex items-center gap-2 max-w-xs">
-                    <Input
-                        v-model="form.damage_fine_percent_pct"
-                        type="text"
-                        inputmode="decimal"
-                        class="h-11 rounded-lg flex-1"
-                        :class="errClass('params.damage_fine_percent')"
-                        @blur="clampDamageFineField"
-                    />
-                    <span class="text-sm font-medium text-slate-600 dark:text-slate-300 shrink-0">%</span>
-                </div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-prose">
-                    Áp dụng khi trả tài liệu hư hỏng: phạt theo % giá bìa × mức hư thực tế (thủ thư nhập % khi trả sách).
-                </p>
-            </div>
         </template>
     </div>
 </template>

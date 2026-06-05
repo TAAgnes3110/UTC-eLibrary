@@ -1,6 +1,8 @@
 import client from '@/api/axios';
-import { ensureSanctumCsrfCookie } from '@/utils/apiCsrf';
+import { ensureSanctumCsrfCookie, resetSanctumCsrfCookieCache } from '@/utils/apiCsrf';
 import { clearClientApiCredentials } from '@/utils/apiAuthStorage';
+
+let adminSessionReadyPromise = null;
 
 function isUnauthorizedError(error) {
     return error?.response?.status === 401;
@@ -14,6 +16,11 @@ export function adminApiRateLimitMessage() {
     return 'Hệ thống tạm giới hạn yêu cầu đăng nhập API. Đợi khoảng 1 phút, tải lại trang (F5) rồi thử Lưu lại.';
 }
 
+/** Xóa cache sau 401 — cho phép priming session lại. */
+export function resetAdminWebSessionCache() {
+    adminSessionReadyPromise = null;
+}
+
 /**
  * Trang admin chỉ dùng cookie session — xóa JWT cũ và xác minh /auth/user trước khi Lưu/upload.
  */
@@ -21,9 +28,76 @@ export async function ensureAdminWebSession() {
     if (typeof window === 'undefined') {
         return;
     }
-    clearClientApiCredentials();
-    await ensureSanctumCsrfCookie({ force: true });
-    await client.get('/auth/user', { skipBearerAuth: true });
+    if (adminSessionReadyPromise) {
+        return adminSessionReadyPromise;
+    }
+
+    adminSessionReadyPromise = (async () => {
+        clearClientApiCredentials();
+        await ensureSanctumCsrfCookie({ force: true });
+        await client.get('/auth/user', { skipBearerAuth: true, skipAuthRetry: true });
+    })();
+
+    try {
+        await adminSessionReadyPromise;
+    } catch (error) {
+        resetAdminWebSessionCache();
+        throw error;
+    }
+}
+
+async function fetchAdminApi(method, url, data, config = {}) {
+    await ensureAdminWebSession();
+    const requestConfig = { ...config, skipBearerAuth: true, skipAuthRetry: true };
+
+    const run = () => {
+        if (method === 'get') {
+            return client.get(url, requestConfig);
+        }
+        if (method === 'post') {
+            return client.post(url, data, requestConfig);
+        }
+        if (method === 'put') {
+            return client.put(url, data, requestConfig);
+        }
+        if (method === 'delete') {
+            return client.delete(url, requestConfig);
+        }
+        throw new Error(`Unsupported admin API method: ${method}`);
+    };
+
+    try {
+        return (await run()).data;
+    } catch (error) {
+        if (!isUnauthorizedError(error)) {
+            throw error;
+        }
+        resetAdminWebSessionCache();
+        resetSanctumCsrfCookieCache();
+        clearClientApiCredentials();
+        await ensureAdminWebSession();
+        return (await run()).data;
+    }
+}
+
+/** GET admin qua cookie session — một lần priming, tối đa một retry 401. */
+export function fetchAdminApiGet(url, config = {}) {
+    return fetchAdminApi('get', url, undefined, config);
+}
+
+/** POST JSON admin qua cookie session. */
+export function fetchAdminApiPost(url, payload, config = {}) {
+    return fetchAdminApi('post', url, payload, config);
+}
+
+/** PUT JSON admin qua cookie session. */
+export function fetchAdminApiPut(url, payload, config = {}) {
+    return fetchAdminApi('put', url, payload, config);
+}
+
+/** DELETE admin qua cookie session. */
+export function fetchAdminApiDelete(url, config = {}) {
+    return fetchAdminApi('delete', url, undefined, config);
 }
 
 /** @deprecated Dùng ensureAdminWebSession — admin không dùng JWT localStorage. */
@@ -56,12 +130,16 @@ export async function callWithSessionFallback(requestFn, sessionRequestFn) {
 
 /** GET qua cookie session (trang admin Inertia). */
 export function sessionApiGet(url, config = {}) {
-    return client.get(url, { ...config, skipBearerAuth: true }).then((r) => r.data);
+    return client
+        .get(url, { ...config, skipBearerAuth: true, skipAuthRetry: true })
+        .then((r) => r.data);
 }
 
 /** POST JSON qua cookie session (sau khi bỏ bearer hết hạn). */
-export function sessionApiPost(url, payload) {
-    return client.post(url, payload, { skipBearerAuth: true }).then((r) => r.data);
+export function sessionApiPost(url, payload, config = {}) {
+    return client
+        .post(url, payload, { ...config, skipBearerAuth: true, skipAuthRetry: true })
+        .then((r) => r.data);
 }
 
 /** POST multipart qua cookie session. */
@@ -70,6 +148,7 @@ export function sessionApiPostForm(url, formData, config = {}) {
         .post(url, formData, {
             ...config,
             skipBearerAuth: true,
+            skipAuthRetry: true,
         })
         .then((r) => r.data);
 }
@@ -143,12 +222,16 @@ export function updateDigitalBookViaSession(bookId, payload, pdfFile = null, cov
     );
 }
 
-export function sessionApiPut(url, payload) {
-    return client.put(url, payload, { skipBearerAuth: true }).then((r) => r.data);
+export function sessionApiPut(url, payload, config = {}) {
+    return client
+        .put(url, payload, { ...config, skipBearerAuth: true, skipAuthRetry: true })
+        .then((r) => r.data);
 }
 
-export function sessionApiDelete(url) {
-    return client.delete(url, { skipBearerAuth: true }).then((r) => r.data);
+export function sessionApiDelete(url, config = {}) {
+    return client
+        .delete(url, { ...config, skipBearerAuth: true, skipAuthRetry: true })
+        .then((r) => r.data);
 }
 
 /**

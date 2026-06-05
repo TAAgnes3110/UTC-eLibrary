@@ -3,10 +3,9 @@ import { router } from '@inertiajs/vue3';
 import { route } from '../../../../vendor/tightenco/ziggy/dist/index.js';
 import { loansApi } from '@/api/loans';
 import {
-    callWithSessionFallback,
     ensureAdminWebSession,
-    sessionApiGet,
-    sessionApiPost,
+    fetchAdminApiGet,
+    fetchAdminApiPost,
 } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { extractApiPaginator } from '@/utils/adminPagination';
@@ -110,10 +109,7 @@ export function useLoansAdminPage() {
                 page: loansPageNum.value,
                 per_page: LOANS_PER_PAGE,
             };
-            const res = await callWithSessionFallback(
-                () => loansApi.list(params),
-                () => sessionApiGet('/loans', { params })
-            );
+            const res = await fetchAdminApiGet('/loans', { params });
             const { items, meta } = extractApiPaginator(res, LOANS_PER_PAGE);
             if (requestSerial !== loansRequestSerial) return;
             rows.value = items;
@@ -170,10 +166,6 @@ export function useLoansAdminPage() {
         loadLoans(true);
     }
 
-    /**
-     * Từ khóa tìm kiếm: chỉ tải lại qua @search từ AdminFilterSearch (đã debounce 300ms + emit),
-     * tránh gọi API trùng với watch searchKeyword.
-     */
     watch(
         () => filterValues.value.searchIn,
         () => {
@@ -191,12 +183,6 @@ export function useLoansAdminPage() {
         () => filterValues.value.sort,
         () => {
             scheduleLoansReload({ resetPage: true, delayMs: 120 });
-        }
-    );
-    watch(
-        () => filterValues.value.searchKeyword,
-        () => {
-            scheduleLoansReload({ resetPage: true, delayMs: 350 });
         }
     );
 
@@ -296,11 +282,7 @@ export function useLoansAdminPage() {
                 return_date: payload.return_date,
                 condition_on_return: payload.condition_on_return,
             };
-            await ensureAdminWebSession();
-            await callWithSessionFallback(
-                () => loansApi.bulkReturn(body),
-                () => sessionApiPost('/loans/bulk-return', body)
-            );
+            await fetchAdminApiPost('/loans/bulk-return', body);
             toast.success(`Đã trả ${loanIds.length} phiếu.`, { title: 'Thành công' });
             showBulkReturnModal.value = false;
             deselectAll();

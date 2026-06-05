@@ -2,12 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { loansApi } from '@/api/loans';
-import {
-    callWithSessionFallback,
-    ensureAdminWebSession,
-    sessionApiGet,
-} from '@/utils/adminApiAuth';
+import { fetchAdminApiGet } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { formatDate, formatVnd } from '@/utils/index';
 
@@ -41,11 +36,7 @@ function resolveLoanErrorMessage(error) {
 async function loadDetail() {
     loading.value = true;
     try {
-        await ensureAdminWebSession();
-        const res = await callWithSessionFallback(
-            () => loansApi.get(props.loanId),
-            () => sessionApiGet(`/loans/${props.loanId}`)
-        );
+        const res = await fetchAdminApiGet(`/loans/${props.loanId}`);
         loan.value = extractLoan(res);
     } catch (e) {
         toast.error(resolveLoanErrorMessage(e), { title: 'Lỗi' });

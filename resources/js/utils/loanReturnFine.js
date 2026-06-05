@@ -81,8 +81,7 @@ export function calculateConditionFine({ conditionOnReturn, damagePercent, bookP
         if (severity === null) {
             return 0;
         }
-        const fullDamageFine = price * policy.damage_fine_percent * qty;
-        return fullDamageFine * (severity / 100);
+        return price * (severity / 100) * qty;
     }
     if (conditionOnReturn === 'mat') {
         return (price * policy.loss_fine_multiplier + policy.replacement_processing_fee) * qty;
@@ -116,8 +115,6 @@ export function damagePercentRequired(conditionOnReturn) {
     return conditionOnReturn === 'hong';
 }
 
-export function formatDamageFineRule(finePolicy) {
-    const policy = normalizePolicy(finePolicy);
-    const pct = Math.round(policy.damage_fine_percent * 1000) / 10;
-    return `Phạt hư hỏng: tối đa ${pct}% giá bìa/cuốn (khi hư 100%); nhập % mức hư thực tế khi trả sách.`;
+export function formatDamageFineRule() {
+    return 'Phạt hư hỏng = giá bìa × (% mức hư ÷ 100) / cuốn; nhập % mức hư thực tế khi trả sách.';
 }

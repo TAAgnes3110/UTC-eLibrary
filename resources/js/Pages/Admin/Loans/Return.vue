@@ -2,13 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { loansApi } from '@/api/loans';
-import {
-    callWithSessionFallback,
-    ensureAdminWebSession,
-    sessionApiGet,
-    sessionApiPost,
-} from '@/utils/adminApiAuth';
+import { fetchAdminApiGet, fetchAdminApiPost } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { formatVnd } from '@/utils/index';
 import {
@@ -142,11 +136,7 @@ function resolveReturnErrorMessage(error) {
 async function loadDetail() {
     loading.value = true;
     try {
-        await ensureAdminWebSession();
-        const res = await callWithSessionFallback(
-            () => loansApi.get(props.loanId),
-            () => sessionApiGet(`/loans/${props.loanId}`)
-        );
+        const res = await fetchAdminApiGet(`/loans/${props.loanId}`);
         loan.value = res?.data ?? null;
 
         form.returns = {};
@@ -177,11 +167,7 @@ async function submitReturn() {
     const payload = buildReturnPayload();
     saving.value = true;
     try {
-        await ensureAdminWebSession();
-        await callWithSessionFallback(
-            () => loansApi.returnBooks(props.loanId, payload),
-            () => sessionApiPost(`/loans/${props.loanId}/return`, payload)
-        );
+        await fetchAdminApiPost(`/loans/${props.loanId}/return`, payload);
         toast.success('Trả sách thành công.', { title: 'Thành công' });
         router.visit(route('admin.loans.show', props.loanId));
     } catch (e) {

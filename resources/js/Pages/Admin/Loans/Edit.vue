@@ -2,13 +2,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { Head, router } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { loansApi } from '@/api/loans';
-import {
-    callWithSessionFallback,
-    ensureAdminWebSession,
-    sessionApiGet,
-    sessionApiPut,
-} from '@/utils/adminApiAuth';
+import { fetchAdminApiGet, fetchAdminApiPut } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 
 const props = defineProps({
@@ -32,11 +26,7 @@ function resolveLoanErrorMessage(error) {
 async function loadDetail() {
     loading.value = true;
     try {
-        await ensureAdminWebSession();
-        const res = await callWithSessionFallback(
-            () => loansApi.get(props.loanId),
-            () => sessionApiGet(`/loans/${props.loanId}`)
-        );
+        const res = await fetchAdminApiGet(`/loans/${props.loanId}`);
         loan.value = res?.data ?? null;
         form.due_date = loan.value?.due_date ? String(loan.value.due_date).slice(0, 10) : '';
     } catch (e) {
@@ -53,11 +43,7 @@ async function saveDueDate() {
     }
     saving.value = true;
     try {
-        await ensureAdminWebSession();
-        await callWithSessionFallback(
-            () => loansApi.update(props.loanId, { due_date: form.due_date }),
-            () => sessionApiPut(`/loans/${props.loanId}`, { due_date: form.due_date })
-        );
+        await fetchAdminApiPut(`/loans/${props.loanId}`, { due_date: form.due_date });
         toast.success('Cập nhật ngày hẹn trả thành công.', { title: 'Thành công' });
         router.visit(route('admin.loans.show', props.loanId));
     } catch (e) {

@@ -84,7 +84,6 @@ const {
                         <select
                             v-model="filterValues.status"
                             class="admin-filter-select admin-filter-select-centered min-w-[148px]"
-                            @change="loadLoans(true)"
                         >
                             <option value="">Trạng thái</option>
                             <option value="da_muon">Đang mượn</option>
@@ -94,7 +93,6 @@ const {
                         <select
                             v-model="filterValues.sort"
                             class="admin-filter-select admin-filter-select-centered min-w-[188px]"
-                            @change="loadLoans(true)"
                         >
                             <option value="">Sắp xếp</option>
                             <option value="newest">Mới nhất</option>

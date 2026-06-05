@@ -36,7 +36,7 @@ class LoanItemResource extends JsonResource
     private function fineRuleHint(): ?string
     {
         return match ($this->condition_on_return) {
-            LoanItemCondition::DAMAGED => 'Phạt hư hỏng = (giá sách × % phạt quy định tại 100% hư) × (% mức hư ÷ 100); cộng phạt quá hạn nếu có.',
+            LoanItemCondition::DAMAGED => 'Phạt hư hỏng = giá sách × (% mức hư ÷ 100); cộng phạt quá hạn nếu có.',
             LoanItemCondition::LOST => 'Mất sách = 100% mức phạt quy định (giá × hệ số + phí xử lý); cộng phạt quá hạn nếu có.',
             default => null,
         };

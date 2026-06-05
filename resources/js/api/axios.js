@@ -149,6 +149,10 @@ client.interceptors.response.use(
             return Promise.reject(error);
         }
 
+        if (originalRequest.skipAuthRetry) {
+            return Promise.reject(error);
+        }
+
         if (originalRequest._retry || originalRequest._sessionRetry) {
             return Promise.reject(error);
         }
@@ -179,7 +183,8 @@ client.interceptors.response.use(
         try {
             resetSanctumCsrfCookieCache();
             if (isAdminSpa) {
-                const { ensureAdminWebSession } = await import('@/utils/adminApiAuth');
+                const { ensureAdminWebSession, resetAdminWebSessionCache } = await import('@/utils/adminApiAuth');
+                resetAdminWebSessionCache();
                 await ensureAdminWebSession();
             } else {
                 await ensureSanctumCsrfCookie({ force: true });

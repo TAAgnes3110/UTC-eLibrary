@@ -2,11 +2,6 @@ import { ref, computed, onMounted } from 'vue';
 import { loanPoliciesApi } from '@/api/loanPolicies';
 import { toast } from '@/store/toast';
 import { extractLaravelValidationErrors } from '@/utils/laravelApiError';
-import {
-    DEFAULT_DAMAGE_FINE_PERCENT_DISPLAY,
-    damageFinePercentDisplayToRate,
-    damageFineRateToPercentDisplay,
-} from '@/utils/loanPolicyDamageFine';
 
 export const USER_TYPE_LABELS = {
     STUDENT: 'Sinh viên',
@@ -33,8 +28,6 @@ function emptyForm() {
         allow_onsite: true,
         max_textbooks: '',
         max_reference: '',
-        /** % giá bìa khi hư 100% (hiển thị; lưu API dạng hệ số 0–1) */
-        damage_fine_percent_pct: DEFAULT_DAMAGE_FINE_PERCENT_DISPLAY,
         /** Bản sao params từ server để merge khi PUT */
         _paramsBase: {},
     };
@@ -60,7 +53,6 @@ function rowToForm(row) {
         allow_onsite: row.allow_onsite !== false,
         max_textbooks: row.params?.max_textbooks ?? '',
         max_reference: row.params?.max_reference ?? '',
-        damage_fine_percent_pct: damageFineRateToPercentDisplay(row.params?.damage_fine_percent),
         _paramsBase: row.params && typeof row.params === 'object' ? { ...row.params } : {},
     };
 }
@@ -171,13 +163,6 @@ export function useLibrarySettingsPage() {
             } else {
                 delete p.max_reference;
             }
-        }
-
-        const damagePct = form.damage_fine_percent_pct;
-        if (damagePct !== '' && damagePct !== null && damagePct !== undefined) {
-            p.damage_fine_percent = damageFinePercentDisplayToRate(damagePct);
-        } else {
-            delete p.damage_fine_percent;
         }
 
         return Object.keys(p).length ? p : null;

@@ -49,7 +49,7 @@ class LoanReturnDamageFineTest extends TestCase
             'id' => $itemId,
             'condition_on_return' => 'hong',
             'damage_percent' => 50,
-            'fine_amount' => 5000,
+            'fine_amount' => 50_000,
         ]);
     }
 

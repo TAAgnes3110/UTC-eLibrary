@@ -400,7 +400,6 @@ export const readerRegulationsBorrowingPageStrings = {
     colLoanTerm: "Thời hạn mượn",
     colRenewCount: "Số lần gia hạn",
     colLateFine: "Phạt trễ hạn (đ/ngày/cuốn)",
-    colDamageFine: "Phạt hư hỏng (% giá/cuốn)",
     colMaxTextbooks: "Số sách giáo trình tối đa",
     colMaxReference: "Số sách tham khảo tối đa",
     colBorrowHome: "Cho mượn về nhà",
@@ -418,7 +417,7 @@ export const readerRegulationsBorrowingPageStrings = {
         "Nếu sách quá hạn lâu ngày, thư viện sẽ gửi thông báo yêu cầu trả sách.",
     finesDamageTitle: "Bồi thường thiệt hại",
     finesDamageBody:
-        "Hư hỏng: phạt = giá bìa × % quy định (theo loại thẻ, thường 10% giá bìa/cuốn khi hư 100%) × (% mức hư ÷ 100). Mất sách: bồi thường theo hệ số giá bìa + phí xử lý (100% mức quy định).",
+        "Hư hỏng: phạt = giá bìa × (% mức hư ÷ 100). Ví dụ sách 100.000 đ, hư 50% → phạt 50.000 đ/cuốn. Mất sách: bồi thường theo hệ số giá bìa + phí xử lý.",
     finesNoteTitle: "Lưu ý",
     finesNoteBody1: "Nên kiểm tra kỹ nội quy của từng thư viện cụ thể vì mức phạt có thể khác nhau.",
     finesNoteBody2:

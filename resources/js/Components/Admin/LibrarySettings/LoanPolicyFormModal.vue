@@ -142,25 +142,6 @@ function errClass(key) {
                             {{ fieldErrors.overdue_fine_per_day }}
                         </p>
                     </div>
-                    <div class="space-y-1.5 sm:col-span-2">
-                        <label class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Phạt hư hỏng (% giá bìa / cuốn — mức 100% hư)
-                        </label>
-                        <div class="flex items-center gap-2 max-w-xs">
-                            <Input
-                                v-model="form.damage_fine_percent_pct"
-                                type="text"
-                                inputmode="decimal"
-                                class="h-11 rounded-lg flex-1 dark:bg-slate-800"
-                                :class="errClass('params.damage_fine_percent')"
-                                @update:model-value="clearFieldError('params.damage_fine_percent')"
-                            />
-                            <span class="text-sm font-medium text-slate-600 dark:text-slate-300 shrink-0">%</span>
-                        </div>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-prose">
-                            Phạt = giá bìa × % quy định × (% mức hư ÷ 100) / cuốn khi trả sách hư hỏng (vd. 10%, hư 50% → 5% giá bìa).
-                        </p>
-                    </div>
 
                     <div v-if="!isExternalPolicy" class="space-y-1.5 sm:col-span-2">
                         <p class="text-xs font-medium text-slate-600 dark:text-slate-400">

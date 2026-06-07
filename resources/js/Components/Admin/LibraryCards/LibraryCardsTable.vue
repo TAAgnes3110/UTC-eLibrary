@@ -37,18 +37,11 @@ const tableColspan = computed(() => {
     return n;
 });
 
-const tableMinWidthClass = computed(() => {
-    if (props.reviewMode) {
-        return 'min-w-[840px]';
-    }
-    if (props.showWorkflow && props.showCardStatus) {
-        return 'min-w-[960px]';
-    }
-    if (props.showWorkflow || props.showCardStatus) {
-        return 'min-w-[920px]';
-    }
-    return 'min-w-[880px]';
-});
+const HOLDER_SHORT_LABELS = {
+    student: 'SV',
+    teacher: 'GV',
+    external: 'Ngoài',
+};
 
 const emit = defineEmits(['toggle-all', 'toggle', 'edit', 'delete', 'photo', 'lock', 'approve', 'reject', 'detail', 'confirm-pickup']);
 
@@ -72,7 +65,7 @@ function triggerPhotoChange() {
     closePhotoPreview();
 }
 
-function formatDateTime(value) {
+function formatDateOnly(value) {
     if (!value) return '—';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return '—';
@@ -80,21 +73,23 @@ function formatDateTime(value) {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
     }).format(d);
+}
+
+function holderShortLabel(key) {
+    return HOLDER_SHORT_LABELS[key] ?? holderLabel(key);
 }
 
 </script>
 
 <template>
     <div class="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-800 overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse" :class="tableMinWidthClass">
+        <div class="overflow-x-auto lg:overflow-x-visible">
+            <table class="w-full table-fixed text-left border-collapse">
                 <thead class="bg-gray-50 dark:bg-slate-800/60 border-b border-gray-200 dark:border-slate-700">
                     <tr>
-                        <th class="px-3 py-3 w-11 align-middle">
-                            <span class="admin-table-checkbox-wrap">
+                        <th class="w-10 py-2 pl-2 pr-1 align-middle text-left">
+                            <span class="admin-table-checkbox-wrap--compact">
                                 <input
                                     type="checkbox"
                                     :checked="isAllSelected"
@@ -104,33 +99,33 @@ function formatDateTime(value) {
                                 />
                             </span>
                         </th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Mã thẻ</th>
+                        <th class="w-[9%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">Mã thẻ</th>
                         <th
                             v-if="effectiveShowPhotoColumn"
-                            class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                            class="w-11 px-1 py-2 align-middle text-center text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200"
                         >
-                            Ảnh thẻ
+                            Ảnh
                         </th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Họ tên</th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Email</th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Số điện thoại</th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">Loại thẻ</th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200">
+                        <th class="w-[11%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">Họ tên</th>
+                        <th class="w-[14%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">Email</th>
+                        <th class="w-[10%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">SĐT</th>
+                        <th class="w-[6%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">Loại</th>
+                        <th class="w-[9%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">
                             Ngày tạo
                         </th>
                         <th
                             v-if="showWorkflow"
-                            class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                            class="w-[12%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200"
                         >
-                            Hiệu lực / Quy trình
+                            Hiệu lực
                         </th>
                         <th
                             v-if="showCardStatus"
-                            class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200"
+                            class="w-[8%] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200"
                         >
-                            Trạng thái thẻ
+                            Trạng thái
                         </th>
-                        <th class="px-3 py-3 align-middle whitespace-nowrap text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-200 w-[170px]">Thao tác</th>
+                        <th class="w-[128px] px-2 py-2 align-middle text-left text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-200">Thao tác</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -146,8 +141,8 @@ function formatDateTime(value) {
                         :key="row.id"
                         :class="[selectedIds.includes(row.id) ? 'bg-blue-50 dark:bg-blue-900/15' : 'admin-table-row']"
                     >
-                        <td class="px-3 py-3 align-middle">
-                            <span class="admin-table-checkbox-wrap">
+                        <td class="py-2 pl-2 pr-1 align-middle">
+                            <span class="admin-table-checkbox-wrap--compact">
                                 <input
                                     type="checkbox"
                                     :checked="selectedIds.includes(row.id)"
@@ -156,15 +151,15 @@ function formatDateTime(value) {
                                 />
                             </span>
                         </td>
-                        <td class="px-3 py-3 align-middle whitespace-nowrap">
-                            <p class="font-mono text-[12px] text-slate-700 dark:text-slate-300">
+                        <td class="px-2 py-2 align-middle overflow-hidden">
+                            <span class="block font-mono text-[11px] leading-tight text-slate-700 dark:text-slate-300 truncate" :title="row.card_number || row.code">
                                 {{ row.card_number || row.code || '—' }}
-                            </p>
+                            </span>
                         </td>
-                        <td v-if="effectiveShowPhotoColumn" class="px-3 py-3 align-middle">
+                        <td v-if="effectiveShowPhotoColumn" class="px-1 py-2 align-middle text-center">
                             <button
                                 type="button"
-                                class="w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-slate-200/80 dark:ring-slate-700/80"
+                                class="mx-auto w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-slate-200/80 dark:ring-slate-700/80"
                                 :title="`Xem ảnh thẻ: ${row.full_name || 'Bạn đọc'}`"
                                 @click.stop="openPhotoPreview(row)"
                             >
@@ -176,42 +171,49 @@ function formatDateTime(value) {
                                 />
                             </button>
                         </td>
-                        <td class="px-3 py-3 align-middle max-w-[170px] xl:max-w-[220px]">
-                            <p class="font-semibold text-sm text-slate-900 dark:text-white truncate" :title="row.full_name">
+                        <td class="px-2 py-2 align-middle overflow-hidden">
+                            <span class="block font-semibold text-[12px] leading-tight text-slate-900 dark:text-white truncate" :title="row.full_name">
                                 {{ row.full_name }}
-                            </p>
-                        </td>
-                        <td class="px-3 py-3 align-middle max-w-[190px] xl:max-w-[240px]">
-                            <p class="text-[12px] text-slate-600 dark:text-slate-300 truncate" :title="row.email">{{ row.email }}</p>
-                        </td>
-                        <td class="px-3 py-3 align-middle whitespace-nowrap">
-                            <p class="text-[12px] text-slate-600 dark:text-slate-300">{{ row.phone || '—' }}</p>
-                        </td>
-                        <td class="px-3 py-3 align-middle whitespace-nowrap">
-                            <span class="text-[12px] text-slate-700 dark:text-slate-200">{{ holderLabel(row.holder_type) }}</span>
-                        </td>
-                        <td class="px-3 py-3 align-middle whitespace-nowrap">
-                            <span class="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums">
-                                {{ formatDateTime(row.created_at) }}
                             </span>
                         </td>
-                        <td v-if="showWorkflow" class="px-3 py-3 align-middle max-w-[200px]">
-                            <span class="text-[12px] text-slate-600 dark:text-slate-300 tabular-nums leading-snug">
+                        <td class="px-2 py-2 align-middle overflow-hidden">
+                            <span class="block text-[11px] leading-tight text-slate-600 dark:text-slate-300 truncate" :title="row.email">{{ row.email }}</span>
+                        </td>
+                        <td class="px-2 py-2 align-middle overflow-hidden">
+                            <span class="block text-[11px] leading-tight text-slate-600 dark:text-slate-300 truncate tabular-nums" :title="row.phone">{{ row.phone || '—' }}</span>
+                        </td>
+                        <td class="px-2 py-2 align-middle">
+                            <span
+                                class="block text-[11px] leading-tight font-medium text-slate-700 dark:text-slate-200"
+                                :title="holderLabel(row.holder_type)"
+                            >{{ holderShortLabel(row.holder_type) }}</span>
+                        </td>
+                        <td class="px-2 py-2 align-middle">
+                            <span class="block text-[11px] leading-tight text-slate-600 dark:text-slate-300 tabular-nums whitespace-nowrap">
+                                {{ formatDateOnly(row.created_at) }}
+                            </span>
+                        </td>
+                        <td v-if="showWorkflow" class="px-2 py-2 align-middle overflow-hidden">
+                            <span
+                                class="block text-[11px] leading-tight text-slate-600 dark:text-slate-300 tabular-nums truncate"
+                                :title="libraryCardWorkflowOrValidityCell(row, workflowLabel)"
+                            >
                                 {{ libraryCardWorkflowOrValidityCell(row, workflowLabel) }}
                             </span>
                         </td>
-                        <td v-if="showCardStatus" class="px-3 py-3 align-middle">
+                        <td v-if="showCardStatus" class="px-2 py-2 align-middle">
                             <span
                                 :class="[
-                                    'inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold whitespace-nowrap',
+                                    'inline-flex max-w-full items-center px-1.5 py-0.5 rounded text-[10px] font-semibold',
                                     LIBRARY_CARD_STATUS[Number(row.status)]?.class ?? 'bg-slate-500 dark:bg-slate-600 text-white',
                                 ]"
+                                :title="statusLabel(row.status)"
                             >
                                 {{ statusLabel(row.status) }}
                             </span>
                         </td>
-                        <td class="px-3 py-3 align-middle whitespace-nowrap">
-                            <div class="flex flex-nowrap justify-start gap-1">
+                        <td class="px-2 py-2 align-middle">
+                            <div class="flex flex-nowrap items-center justify-start gap-0.5">
                                 <template v-if="reviewMode">
                                     <button
                                         v-if="showApprove && row.workflow_status === 'pending_review'"
@@ -248,7 +250,7 @@ function formatDateTime(value) {
                                 <button
                                     v-if="row.workflow_status === 'pending_pickup'"
                                     type="button"
-                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
+                                    class="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
                                     title="Xác nhận đã giao thẻ — kích hoạt hiệu lực"
                                     @click="emit('confirm-pickup', row)"
                                 >
@@ -257,7 +259,7 @@ function formatDateTime(value) {
                                 <button
                                     v-if="showApprove && row.workflow_status === 'pending_review'"
                                     type="button"
-                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
+                                    class="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/25 transition-colors"
                                     title="Đồng ý — kích hoạt thẻ"
                                     @click="emit('approve', row)"
                                 >
@@ -265,7 +267,7 @@ function formatDateTime(value) {
                                 </button>
                                 <button
                                     type="button"
-                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                                    class="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                                     title="Chỉnh sửa"
                                     @click="emit('edit', row)"
                                 >
@@ -273,7 +275,7 @@ function formatDateTime(value) {
                                 </button>
                                 <button
                                     type="button"
-                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+                                    class="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md p-1 text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
                                     :title="Number(row.status) === 3 ? 'Mở khóa thẻ' : 'Khóa thẻ'"
                                     @click="emit('lock', row)"
                                 >
@@ -281,7 +283,7 @@ function formatDateTime(value) {
                                 </button>
                                 <button
                                     type="button"
-                                    class="min-h-[36px] min-w-[36px] inline-flex items-center justify-center rounded-lg p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                                    class="min-h-[32px] min-w-[32px] inline-flex items-center justify-center rounded-md p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
                                     title="Xóa mềm"
                                     @click="emit('delete', row)"
                                 >

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\AccessMode;
-use App\Enums\LibraryCardStatus;
 use App\Enums\LoanStatus;
 use App\Enums\LoanType;
 use App\Enums\ResourceType;
@@ -142,6 +141,7 @@ class LoanService
                 'loan_id' => $loan->id,
                 'book_id' => $entry['book_id'],
                 'quantity' => $entry['quantity'],
+                'book_price_at_loan' => $entry['book']->price !== null ? (int) $entry['book']->price : null,
                 'condition_on_loan' => $entry['condition_on_loan'],
                 'notes' => $data['notes'] ?? null,
             ]);
@@ -385,9 +385,7 @@ class LoanService
             ->lockForUpdate()
             ->firstOrFail();
 
-        if ($lockedCard->status === LibraryCardStatus::LOCKED) {
-            throw new RuntimeException('Thẻ đang bị khóa, không thể mượn thêm');
-        }
+        $this->loanHelper->assertCardEligibleForBorrow($lockedCard);
 
         return $lockedCard;
     }

@@ -13,6 +13,7 @@ class LoanItem extends BaseModel
         'loan_id',
         'book_id',
         'quantity',
+        'book_price_at_loan',
         'condition_on_loan',
         'condition_on_return',
         'damage_percent',
@@ -22,6 +23,7 @@ class LoanItem extends BaseModel
 
     protected $casts = [
         'quantity' => 'integer',
+        'book_price_at_loan' => 'integer',
         'condition_on_loan' => LoanItemCondition::class,
         'condition_on_return' => LoanItemCondition::class,
         'damage_percent' => 'integer',

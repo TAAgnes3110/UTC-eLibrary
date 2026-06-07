@@ -5,7 +5,12 @@ import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { fetchAdminApiGet, fetchAdminApiPost } from '@/utils/adminApiAuth';
 import { toast } from '@/store/toast';
 import { formatVnd } from '@/utils/index';
-import { calculateReturnLineFine, damagePercentRequired } from '@/utils/loanReturnFine';
+import {
+    calculateReturnLineFine,
+    damagePercentRequired,
+    finalizeDamagePercent,
+    sanitizeDamagePercentInput,
+} from '@/utils/loanReturnFine';
 
 const props = defineProps({
     loanId: { type: Number, required: true },
@@ -40,13 +45,13 @@ function daysBorrowed(loanDate, returnDate) {
 const borrowedDays = computed(() => daysBorrowed(loan.value?.loan_date, form.return_date));
 
 function resolveBookPrice(item) {
-    const n = Number(item?.book_price ?? item?.book?.price);
+    const n = Number(item?.book_price_at_loan ?? item?.book_price ?? item?.book?.price);
     return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 const damageFineTimers = new Map();
 
-function onDamagePercentInput(itemId) {
+function scheduleFineRecalc(itemId) {
     const existing = damageFineTimers.get(itemId);
     if (existing) {
         clearTimeout(existing);
@@ -58,6 +63,42 @@ function onDamagePercentInput(itemId) {
             recalculateLineFine(itemId);
         }, 300)
     );
+}
+
+function onDamagePercentInput(itemId, event) {
+    const row = form.returns[itemId];
+    if (!row) {
+        return;
+    }
+
+    const { value, exceededMax } = sanitizeDamagePercentInput(event?.target?.value ?? row.damage_percent);
+    row.damage_percent = value;
+    if (event?.target && value !== '' && value !== event.target.value) {
+        event.target.value = String(value);
+    }
+    if (exceededMax) {
+        toast.warn('Hư hỏng (%) không được vượt quá 100.');
+    }
+
+    scheduleFineRecalc(itemId);
+}
+
+function onDamagePercentBlur(itemId, event) {
+    const row = form.returns[itemId];
+    if (!row) {
+        return;
+    }
+
+    const finalized = finalizeDamagePercent(row.damage_percent);
+    if (finalized === null) {
+        return;
+    }
+
+    row.damage_percent = finalized;
+    if (event?.target) {
+        event.target.value = String(finalized);
+    }
+    recalculateLineFine(itemId);
 }
 
 function recalculateLineFine(itemId) {
@@ -141,7 +182,7 @@ function validateReturnForm() {
         }
         if (resolveBookPrice(item) <= 0) {
             toast.warn(
-                `Sách «${item.book_title || 'sách'}» chưa có giá bìa trong hệ thống. Cập nhật giá tại Quản lý sách rồi thử lại.`
+                `Sách «${item.book_title || 'sách'}» chưa có giá bìa lúc mượn. Cập nhật giá sách trước khi lập phiếu hoặc liên hệ quản trị.`
             );
             return false;
         }
@@ -154,7 +195,7 @@ function validateReturnForm() {
         }
         if (resolveBookPrice(item) <= 0) {
             toast.warn(
-                `Sách «${item.book_title || 'sách'}» chưa có giá bìa trong hệ thống. Cập nhật giá tại Quản lý sách rồi thử lại.`
+                `Sách «${item.book_title || 'sách'}» chưa có giá bìa lúc mượn. Cập nhật giá sách trước khi lập phiếu hoặc liên hệ quản trị.`
             );
             return false;
         }
@@ -170,33 +211,11 @@ function resolveReturnErrorMessage(error) {
     return error?.response?.data?.messages || error?.message || 'Không xử lý trả sách được.';
 }
 
-async function enrichMissingBookPrices(items) {
-    const tasks = (items || [])
-        .filter((item) => item?.book_id && resolveBookPrice(item) <= 0)
-        .map(async (item) => {
-            try {
-                const res = await fetchAdminApiGet(`/books/${item.book_id}`);
-                const price = Number(res?.data?.price);
-                if (Number.isFinite(price) && price > 0) {
-                    item.book_price = price;
-                    item.book = { ...(item.book || {}), id: item.book_id, price };
-                }
-            } catch {
-                // Không chặn trả sách — validate sẽ báo nếu vẫn thiếu giá.
-            }
-        });
-
-    if (tasks.length) {
-        await Promise.all(tasks);
-    }
-}
-
 async function loadDetail() {
     loading.value = true;
     try {
         const res = await fetchAdminApiGet(`/loans/${props.loanId}`);
         loan.value = res?.data ?? null;
-        await enrichMissingBookPrices(loan.value?.loan_items);
 
         form.returns = {};
         (loan.value?.loan_items || []).forEach((item) => {
@@ -325,7 +344,8 @@ onMounted(loadDetail);
                                     max="100"
                                     placeholder="1–100"
                                     class="admin-filter-input w-20 min-h-[44px] mx-auto text-center"
-                                    @input="onDamagePercentInput(item.id)"
+                                    @input="onDamagePercentInput(item.id, $event)"
+                                    @blur="onDamagePercentBlur(item.id, $event)"
                                 />
                                 <span
                                     v-else

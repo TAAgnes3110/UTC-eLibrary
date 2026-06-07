@@ -27,9 +27,10 @@ class LoanItemResource extends JsonResource
             'condition_on_return_label' => $this->condition_on_return?->label(),
             'damage_percent' => $this->damage_percent,
             'book_price' => $this->resolveBookPriceForApi(),
+            'book_price_at_loan' => $this->book_price_at_loan !== null ? (float) $this->book_price_at_loan : null,
             'book' => $this->whenLoaded('book', fn () => [
                 'id' => $this->book?->id,
-                'price' => $this->book?->price !== null ? (float) $this->book->price : null,
+                'price' => $this->resolveBookPriceForApi(),
             ]),
             'fine_amount' => $this->fine_amount,
             'fine_rule_hint' => $this->fineRuleHint(),
@@ -39,6 +40,10 @@ class LoanItemResource extends JsonResource
 
     private function resolveBookPriceForApi(): ?float
     {
+        if ($this->book_price_at_loan !== null) {
+            return (float) $this->book_price_at_loan;
+        }
+
         if ($this->relationLoaded('book') && $this->book !== null && $this->book->price !== null) {
             return (float) $this->book->price;
         }

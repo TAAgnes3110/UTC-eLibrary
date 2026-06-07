@@ -118,6 +118,36 @@ export function damagePercentRequired(conditionOnReturn) {
     return conditionOnReturn === 'hong';
 }
 
+/** Chuẩn hóa % hư khi nhập — không cho vượt 100 hoặc dưới 1. */
+export function sanitizeDamagePercentInput(value) {
+    if (value === '' || value === null || value === undefined) {
+        return { value: '', exceededMax: false, belowMin: false };
+    }
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+        return { value: '', exceededMax: false, belowMin: false };
+    }
+    if (n > 100) {
+        return { value: 100, exceededMax: true, belowMin: false };
+    }
+    if (n < 1) {
+        return { value: n, exceededMax: false, belowMin: true };
+    }
+    return { value: n, exceededMax: false, belowMin: false };
+}
+
+/** Làm tròn % hư khi blur — đảm bảo trong khoảng 1–100. */
+export function finalizeDamagePercent(value) {
+    if (value === '' || value === null || value === undefined) {
+        return null;
+    }
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n)) {
+        return null;
+    }
+    return Math.min(100, Math.max(1, n));
+}
+
 export function formatDamageFineRule() {
     return 'Phạt hư hỏng = giá bìa × (% mức hư ÷ 100) / cuốn; nhập % mức hư thực tế khi trả sách.';
 }

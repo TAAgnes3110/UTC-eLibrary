@@ -282,7 +282,13 @@ class LoanController extends Controller
             'returns.*.damage_percent' => ['nullable', 'integer', 'min:1', 'max:100'],
             'returns.*.fine_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
-        $loan = $this->loanService->processReturnBook($validated, $loan);
+
+        try {
+            $loan = $this->loanService->processReturnBook($validated, $loan);
+        } catch (RuntimeException $e) {
+            return ApiResponse::error($e->getMessage(), 422);
+        }
+
         $loan->load(['libraryCard:id,card_number,full_name', 'createdBy:id,name', 'items.book:id,title']);
 
         return ApiResponse::success(new LoanResource($loan), 'Trả sách thành công.');

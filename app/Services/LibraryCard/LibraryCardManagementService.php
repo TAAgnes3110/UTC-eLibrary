@@ -6,6 +6,7 @@ use App\Enums\LibraryCardStatus;
 use App\Enums\RoleType;
 use App\Helpers\FileHelpers;
 use App\Helpers\Helpers;
+use App\Helpers\LoanHelper;
 use App\Helpers\StudentTeacherRegistrationHelper;
 use App\Models\LibraryCard;
 use App\Models\LibraryCardPayment;
@@ -24,6 +25,10 @@ class LibraryCardManagementService
 
     /** @var list<string> */
     private const KEYWORD_SEARCH_COLUMNS = ['card_number', 'code', 'full_name', 'email', 'phone'];
+
+    public function __construct(
+        private LoanHelper $loanHelper
+    ) {}
 
     /**
      * Danh sách thẻ (admin) — lọc theo từ khóa (cột tùy chọn), workflow, loại bạn đọc, trạng thái thẻ.
@@ -154,19 +159,12 @@ class LibraryCardManagementService
             return ['status' => 'not_found'];
         }
 
-        $allowedWorkflows = [
-            LibraryCard::WORKFLOW_ACTIVE,
-        ];
-
-        if (! in_array((string) $card->workflow_status, $allowedWorkflows, true)) {
-            return ['status' => 'not_eligible'];
-        }
-
-        $cardStatus = $card->status instanceof LibraryCardStatus
-            ? $card->status
-            : LibraryCardStatus::tryFrom((int) $card->status);
-        if ($cardStatus === LibraryCardStatus::LOCKED) {
+        $blockReason = $this->loanHelper->borrowEligibilityBlockReason($card);
+        if ($blockReason === 'locked') {
             return ['status' => 'locked'];
+        }
+        if ($blockReason === 'not_eligible') {
+            return ['status' => 'not_eligible'];
         }
 
         return ['status' => 'ok', 'card' => $card];

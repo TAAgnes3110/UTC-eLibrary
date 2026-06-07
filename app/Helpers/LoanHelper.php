@@ -6,6 +6,7 @@ namespace App\Helpers;
 
 use App\Enums\BookPhysicalCondition;
 use App\Enums\BookStatus;
+use App\Enums\LibraryCardStatus;
 use App\Enums\LoanItemCondition;
 use App\Enums\LoanStatus;
 use App\Enums\LoanType;
@@ -25,11 +26,84 @@ use RuntimeException;
 
 class LoanHelper
 {
+    private const SEVERE_OVERDUE_DAYS = 30;
+
     public function __construct(
         private LoanPoliciesService $loanPoliciesService,
         private StorageQuantitySyncService $storageQuantitySyncService,
         private LibrarySettingsService $librarySettings
     ) {}
+
+    /**
+     * Lý do thẻ không đủ điều kiện mượn; null nếu được phép mượn.
+     *
+     * @return 'locked'|'not_eligible'|null
+     */
+    public function borrowEligibilityBlockReason(LibraryCard $card): ?string
+    {
+        $workflow = LibraryCard::normalizeWorkflowStatus(
+            $card->workflow_status instanceof \BackedEnum
+                ? $card->workflow_status->value
+                : (string) $card->workflow_status
+        );
+        if ($workflow !== LibraryCard::WORKFLOW_ACTIVE) {
+            return 'not_eligible';
+        }
+
+        $cardStatus = $card->status instanceof LibraryCardStatus
+            ? $card->status
+            : LibraryCardStatus::tryFrom((int) $card->status);
+        if ($cardStatus === LibraryCardStatus::LOCKED) {
+            return 'locked';
+        }
+        if ($cardStatus !== LibraryCardStatus::ACTIVE) {
+            return 'not_eligible';
+        }
+
+        if ($card->expiry_date !== null && $card->expiry_date->startOfDay()->lt(now()->startOfDay())) {
+            return 'not_eligible';
+        }
+
+        if ($this->cardHasSevereOverdueOpenLoan($card)) {
+            return 'not_eligible';
+        }
+
+        return null;
+    }
+
+    /**
+     * Kiểm tra thẻ trước khi lập phiếu mượn (quầy / duyệt yêu cầu).
+     */
+    public function assertCardEligibleForBorrow(LibraryCard $card): void
+    {
+        $reason = $this->borrowEligibilityBlockReason($card);
+        if ($reason === 'locked') {
+            throw new RuntimeException('Thẻ đang bị khóa, không thể mượn thêm');
+        }
+        if ($reason === 'not_eligible') {
+            if ($card->expiry_date !== null && $card->expiry_date->startOfDay()->lt(now()->startOfDay())) {
+                throw new RuntimeException('Thẻ thư viện đã hết hạn, không thể mượn thêm');
+            }
+            if ($this->cardHasSevereOverdueOpenLoan($card)) {
+                throw new RuntimeException('Thẻ có phiếu mượn quá hạn trên 30 ngày chưa trả, không thể mượn thêm');
+            }
+
+            throw new RuntimeException('Thẻ chưa ở trạng thái được phép mượn (chưa kích hoạt hoặc đã ngưng).');
+        }
+    }
+
+    private function cardHasSevereOverdueOpenLoan(LibraryCard $card): bool
+    {
+        $before = now()->startOfDay()->subDays(self::SEVERE_OVERDUE_DAYS);
+
+        return Loan::query()
+            ->where('library_card_id', $card->id)
+            ->where('deleted', false)
+            ->whereIn('status', [LoanStatus::BORROWED, LoanStatus::OVERDUE])
+            ->whereNotNull('due_date')
+            ->where('due_date', '<', $before)
+            ->exists();
+    }
 
     /**
      * Gom số lượng theo book_id từ danh sách loan items.
@@ -67,7 +141,7 @@ class LoanHelper
         $conditionOnReturn = is_array($linePayload) && array_key_exists('condition_on_return', $linePayload)
             ? $this->normalizeCondition($linePayload['condition_on_return'])
             : $this->normalizeCondition($data['condition_on_return'] ?? null);
-        $damageSeverityPercent = $this->resolveDamageSeverityPercent($conditionOnReturn, $linePayload);
+        $damageSeverityPercent = $this->resolveDamageSeverityPercent($conditionOnReturn, $linePayload, $data);
         $calculatedFineAmount = $this->calculateFineAmount(
             $loan,
             $item,
@@ -92,6 +166,18 @@ class LoanHelper
      *
      * @return array<string, float|string>
      */
+    /**
+     * Giá bìa dùng tính phạt: ưu tiên giá chốt lúc mượn, fallback giá sách hiện tại (phiếu cũ).
+     */
+    public function resolveBookPriceForLoanItem(LoanItem $item): float
+    {
+        if ($item->book_price_at_loan !== null) {
+            return max(0, (float) $item->book_price_at_loan);
+        }
+
+        return max(0, (float) ($item->book?->price ?? 0));
+    }
+
     public function finePolicySnapshot(LoanPolicy $policy): array
     {
         $params = is_array($policy->params) ? $policy->params : [];
@@ -107,9 +193,10 @@ class LoanHelper
     }
 
     /**
+     * @param  array<string, mixed>  $data
      * @param  array<string, mixed>|null  $linePayload
      */
-    private function resolveDamageSeverityPercent(?string $conditionOnReturn, ?array $linePayload): ?int
+    private function resolveDamageSeverityPercent(?string $conditionOnReturn, ?array $linePayload, array $data = []): ?int
     {
         if ($conditionOnReturn === LoanItemCondition::LOST->value) {
             return 100;
@@ -117,11 +204,14 @@ class LoanHelper
         if ($conditionOnReturn !== LoanItemCondition::DAMAGED->value) {
             return null;
         }
-        if (! is_array($linePayload) || ! array_key_exists('damage_percent', $linePayload)) {
-            return 100;
+        if (is_array($linePayload) && array_key_exists('damage_percent', $linePayload)) {
+            return $this->normalizeDamageSeverityPercent($linePayload['damage_percent']);
+        }
+        if (array_key_exists('damage_percent', $data)) {
+            return $this->normalizeDamageSeverityPercent($data['damage_percent']);
         }
 
-        return $this->normalizeDamageSeverityPercent($linePayload['damage_percent']);
+        throw new RuntimeException('Vui lòng nhập % hư hỏng (1–100) khi sách hư hỏng.');
     }
 
     public function normalizeDamageSeverityPercent(mixed $value): int
@@ -484,7 +574,7 @@ class LoanHelper
             $overdueDays = (int) $loan->due_date->diffInDays($loan->return_date);
         }
 
-        $bookPrice = max(0, (float) ($item->book?->price ?? 0));
+        $bookPrice = $this->resolveBookPriceForLoanItem($item);
         $lateMode = $this->librarySettings->getLateReturnFineMode();
         if ($lateMode === LibrarySetting::LOAN_LATE_RETURN_FINE_MODE_PERCENT_BOOK_PRICE_DAILY) {
             $pct = $this->librarySettings->getLateReturnFinePercentOfBook() / 100.0;
@@ -501,7 +591,7 @@ class LoanHelper
         ?string $conditionOnReturn,
         ?int $damageSeverityPercent
     ): float {
-        $bookPrice = max(0, (float) ($item->book?->price ?? 0));
+        $bookPrice = $this->resolveBookPriceForLoanItem($item);
         $quantity = (int) $item->quantity;
         $params = is_array($policy->params) ? $policy->params : [];
         $lossMultiplier = max(1, (float) ($params['loss_fine_multiplier'] ?? 2));

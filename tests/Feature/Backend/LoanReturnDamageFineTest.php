@@ -78,6 +78,33 @@ class LoanReturnDamageFineTest extends TestCase
         ]);
     }
 
+    public function test_return_fine_uses_book_price_at_loan_not_current_book_price(): void
+    {
+        [, $token] = $this->createAdminUserAndToken();
+        [$book, $loanId, $itemId] = $this->seedOpenLoanWithPricedBook(100_000, $token);
+
+        $book->update(['price' => 200_000]);
+
+        $response = $this->postJson("/api/v1/loans/{$loanId}/return", [
+            'return_date' => now()->toDateString(),
+            'returns' => [
+                (string) $itemId => [
+                    'condition_on_return' => 'hong',
+                    'damage_percent' => 50,
+                    'fine_amount' => 0,
+                ],
+            ],
+        ], $this->apiTokenHeaders($token));
+
+        $response->assertStatus(200);
+
+        $this->assertDatabaseHas('loan_items', [
+            'id' => $itemId,
+            'book_price_at_loan' => 100_000,
+            'fine_amount' => 50_000,
+        ]);
+    }
+
     public function test_loan_detail_includes_fine_policy_snapshot(): void
     {
         [, $token] = $this->createAdminUserAndToken();

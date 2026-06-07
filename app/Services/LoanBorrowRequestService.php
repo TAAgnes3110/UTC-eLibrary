@@ -360,6 +360,8 @@ class LoanBorrowRequestService
             throw new RuntimeException('Bạn chưa có thẻ thư viện đang hoạt động để gửi yêu cầu mượn.');
         }
 
+        $this->loanHelper->assertCardEligibleForBorrow($card);
+
         return $card;
     }
 

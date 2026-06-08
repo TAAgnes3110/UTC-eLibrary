@@ -12,7 +12,6 @@ use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -37,22 +36,22 @@ final class BookImportTemplateExport
             ->get(['code', 'name', 'warehouse_id', 'classification_id']);
 
         $sheet1Headers = [
-            "Số đăng ký cá biệt\n(Để trống = hệ thống tự sinh)",
-            "Phân loại sách (*)\nNhập mã hoặc tên (xem sheet 2)",
-            "Tên sách (*)\nBắt buộc khi thêm mới",
-            "Loại sách\n0: Giáo trình, 1: Tham khảo, 2: Tài liệu số",
-            "Tác giả\nNhiều tác giả ngăn cách bằng ';'",
-            "Nhà xuất bản\nNhiều NXB ngăn cách bằng ';'",
-            "Kho sách\nCó thể để trống để hệ thống tự tạo (xem sheet 3)",
-            "Tủ sách\nTùy chọn - có thể thêm ở sheet 4",
+            'Số đăng ký cá biệt',
+            'Phân loại sách (*)',
+            'Tên sách (*)',
+            'Loại sách (0: GT, 1: TK)',
+            'Tác giả',
+            'Nhà xuất bản',
+            'Kho sách',
+            'Tủ sách',
             'Năm xuất bản',
             'Số trang',
-            "Khổ sách\nVD: 24x17cm",
-            "Giá tiền\nĐơn vị: VND",
-            "Số lượng (*)\nPhải > 0",
+            'Khổ sách',
+            'Giá tiền (VND)',
+            'Số lượng (*)',
             'Tóm tắt',
             'Ghi chú',
-            "Mã sách\nTùy chọn - để trống hệ thống tự sinh",
+            'Mã sách',
         ];
 
         $sheets = [
@@ -60,15 +59,16 @@ final class BookImportTemplateExport
                 'title' => 'Sheet0_HuongDan',
                 'headers' => ['Mục', 'Nội dung'],
                 'rows' => [
-                    ['Mục tiêu', 'Nhập sách hàng loạt theo chuẩn UTC eLibrary.'],
-                    ['Nguyên tắc an toàn', 'Import chạy all-or-nothing: chỉ cần 1 dòng lỗi là rollback toàn bộ.'],
-                    ['Bắt buộc nhập', 'Sheet1: Tên sách, Số lượng. Nếu là sách giấy cần thêm Phân loại và Kho.'],
-                    ['Mã tự động', 'Mã kho và Mã sách có thể để trống; hệ thống sẽ tự tạo khi cần.'],
-                    ['Bổ sung danh mục', 'Bạn có thể thêm Phân loại/Kho/Tủ ngay tại Sheet2/3/4 trước khi import.'],
-                    ['Nguồn dữ liệu', 'Sheet2 -> bảng classifications, Sheet3 -> warehouses, Sheet4 -> storage_cabinets.'],
-                    ['Màu cam', 'Cột bắt buộc nhập trên Sheet1.'],
-                    ['Màu xanh lá', 'Cột tùy chọn (khuyến nghị nhập nếu có).'],
-                    ['Màu xanh dương', 'Cột hệ thống có thể tự sinh nếu để trống.'],
+                    ['Mục tiêu', 'Nhập sách in (giáo trình & tham khảo) hàng loạt cho UTC eLibrary.'],
+                    ['Phạm vi', 'Chỉ hỗ trợ 2 loại: 0 = Giáo trình (GT), 1 = Tham khảo (TK). Không nhập tài liệu số ở đây.'],
+                    ['Nguyên tắc an toàn', 'Import all-or-nothing: 1 dòng lỗi là rollback toàn bộ.'],
+                    ['Bắt buộc (Sheet1)', 'Tên sách (*), Số lượng (*) > 0, Phân loại sách (*).'],
+                    ['Khuyến nghị', 'Kho sách (mã KHO-GT / KHO-TK), Loại sách (0 hoặc 1), Tác giả, NXB.'],
+                    ['Mã tự động', 'Số đăng ký cá biệt và Mã sách có thể để trống — hệ thống tự sinh theo kho.'],
+                    ['Kho / Tủ', 'Kho có thể để trống (tự tạo). Tủ sách tùy chọn; có thể bổ sung Sheet4 trước import.'],
+                    ['Nhập dữ liệu', 'Bắt đầu từ dòng 2 Sheet1_Sach (dòng 1 là tiêu đề cột). Không chèn dòng ghi chú giữa header và dữ liệu.'],
+                    ['Sheet phụ', 'Sheet2: phân loại | Sheet3: kho | Sheet4: tủ lưu trữ.'],
+                    ['Màu cam / xanh / dương', 'Cam = bắt buộc | Xanh lá = tùy chọn | Xanh dương = hệ thống tự sinh.'],
                 ],
             ],
             [
@@ -118,38 +118,47 @@ final class BookImportTemplateExport
         $warehouseListFormula = sprintf('=\'%s\'!$A$2:$A$%d', $sheet3->getTitle(), $maxWarehouseRow);
         $cabinetListFormula = sprintf('=\'%s\'!$B$2:$B$%d', $sheet4->getTitle(), $maxCabinetRow);
 
-        $applyRows = 2000;
-        for ($r = 3; $r <= $applyRows; $r++) {
-            $dvClassification = new DataValidation;
-            $dvClassification->setType(DataValidation::TYPE_LIST);
-            $dvClassification->setErrorStyle(DataValidation::STYLE_INFORMATION);
-            $dvClassification->setAllowBlank(false);
-            $dvClassification->setShowInputMessage(true);
-            $dvClassification->setShowErrorMessage(true);
-            $dvClassification->setShowDropDown(true);
-            $dvClassification->setPromptTitle('Phân loại');
-            $dvClassification->setPrompt('Chọn mã phân loại có sẵn hoặc thêm mới ở Sheet2_PhanLoaiSach.');
-            $dvClassification->setErrorTitle('Phân loại chưa hợp lệ');
-            $dvClassification->setError('Hãy bổ sung phân loại vào Sheet2 rồi chọn lại.');
-            $dvClassification->setFormula1($classificationListFormula);
-            // Column B: Phân loại sách (*)
-            $sheet1->getCell('B'.$r)->setDataValidation(clone $dvClassification);
+        $dvClassification = new DataValidation;
+        $dvClassification->setType(DataValidation::TYPE_LIST);
+        $dvClassification->setErrorStyle(DataValidation::STYLE_INFORMATION);
+        $dvClassification->setAllowBlank(false);
+        $dvClassification->setShowInputMessage(true);
+        $dvClassification->setShowErrorMessage(true);
+        $dvClassification->setShowDropDown(true);
+        $dvClassification->setPromptTitle('Phân loại');
+        $dvClassification->setPrompt('Chọn mã phân loại (Sheet2) hoặc nhập mã mới.');
+        $dvClassification->setErrorTitle('Phân loại chưa hợp lệ');
+        $dvClassification->setError('Bổ sung phân loại vào Sheet2 rồi chọn lại.');
+        $dvClassification->setFormula1($classificationListFormula);
 
-            $dvWarehouse = new DataValidation;
-            $dvWarehouse->setType(DataValidation::TYPE_LIST);
-            $dvWarehouse->setErrorStyle(DataValidation::STYLE_INFORMATION);
-            $dvWarehouse->setAllowBlank(true);
-            $dvWarehouse->setShowInputMessage(true);
-            $dvWarehouse->setShowErrorMessage(true);
-            $dvWarehouse->setShowDropDown(true);
-            $dvWarehouse->setPromptTitle('Kho sách');
-            $dvWarehouse->setPrompt('Có thể để trống để hệ thống tự tạo mã kho, hoặc thêm mã ở Sheet3_KhoSach.');
-            $dvWarehouse->setErrorTitle('Kho sách chưa hợp lệ');
-            $dvWarehouse->setError('Hãy bổ sung kho vào Sheet3 rồi chọn lại.');
-            $dvWarehouse->setFormula1($warehouseListFormula);
-            // Column G: Kho sách (*)
-            $sheet1->getCell('G'.$r)->setDataValidation(clone $dvWarehouse);
+        $dvWarehouse = new DataValidation;
+        $dvWarehouse->setType(DataValidation::TYPE_LIST);
+        $dvWarehouse->setErrorStyle(DataValidation::STYLE_INFORMATION);
+        $dvWarehouse->setAllowBlank(true);
+        $dvWarehouse->setShowInputMessage(true);
+        $dvWarehouse->setShowErrorMessage(true);
+        $dvWarehouse->setShowDropDown(true);
+        $dvWarehouse->setPromptTitle('Kho sách');
+        $dvWarehouse->setPrompt('Chọn KHO-GT / KHO-TK hoặc để trống (hệ thống tự tạo).');
+        $dvWarehouse->setErrorTitle('Kho sách chưa hợp lệ');
+        $dvWarehouse->setError('Bổ sung kho vào Sheet3 rồi chọn lại.');
+        $dvWarehouse->setFormula1($warehouseListFormula);
 
+        $dvResourceType = new DataValidation;
+        $dvResourceType->setType(DataValidation::TYPE_LIST);
+        $dvResourceType->setErrorStyle(DataValidation::STYLE_STOP);
+        $dvResourceType->setAllowBlank(true);
+        $dvResourceType->setShowInputMessage(true);
+        $dvResourceType->setShowErrorMessage(true);
+        $dvResourceType->setShowDropDown(true);
+        $dvResourceType->setPromptTitle('Loại sách');
+        $dvResourceType->setPrompt('0 = Giáo trình, 1 = Tham khảo.');
+        $dvResourceType->setErrorTitle('Loại sách không hợp lệ');
+        $dvResourceType->setError('Chỉ nhập 0 (Giáo trình) hoặc 1 (Tham khảo).');
+        $dvResourceType->setFormula1('"0,1"');
+
+        $dvCabinet = null;
+        if ($maxCabinetRow >= 2) {
             $dvCabinet = new DataValidation;
             $dvCabinet->setType(DataValidation::TYPE_LIST);
             $dvCabinet->setErrorStyle(DataValidation::STYLE_INFORMATION);
@@ -158,12 +167,18 @@ final class BookImportTemplateExport
             $dvCabinet->setShowErrorMessage(true);
             $dvCabinet->setShowDropDown(true);
             $dvCabinet->setPromptTitle('Tủ sách');
-            $dvCabinet->setPrompt('Tùy chọn: chọn tên tủ có sẵn hoặc thêm ở Sheet4_TuSach.');
-            $dvCabinet->setErrorTitle('Tủ sách chưa hợp lệ');
-            $dvCabinet->setError('Hãy bổ sung tủ vào Sheet4 rồi chọn lại.');
+            $dvCabinet->setPrompt('Tùy chọn — chọn tủ có sẵn hoặc nhập tên tủ.');
             $dvCabinet->setFormula1($cabinetListFormula);
-            // Column H: Tủ sách
-            $sheet1->getCell('H'.$r)->setDataValidation(clone $dvCabinet);
+        }
+
+        $applyRows = 300;
+        for ($r = 2; $r <= $applyRows; $r++) {
+            $sheet1->getCell('B'.$r)->setDataValidation(clone $dvClassification);
+            $sheet1->getCell('D'.$r)->setDataValidation(clone $dvResourceType);
+            $sheet1->getCell('G'.$r)->setDataValidation(clone $dvWarehouse);
+            if ($dvCabinet instanceof DataValidation) {
+                $sheet1->getCell('H'.$r)->setDataValidation(clone $dvCabinet);
+            }
         }
 
         self::applyProfessionalTemplateStyles($spreadsheet, $sheet0, $sheet1, $sheet2, $sheet3, $sheet4);
@@ -198,13 +213,31 @@ final class BookImportTemplateExport
         $sheet0->getStyle('A1:B200')->getAlignment()->setWrapText(true);
 
         $sheet1->freezePane('A2');
-        foreach (range('A', 'P') as $col) {
-            $sheet1->getColumnDimension($col)->setAutoSize(true);
+        $sheet1ColumnWidths = [
+            'A' => 14,
+            'B' => 16,
+            'C' => 26,
+            'D' => 12,
+            'E' => 18,
+            'F' => 16,
+            'G' => 12,
+            'H' => 18,
+            'I' => 10,
+            'J' => 8,
+            'K' => 10,
+            'L' => 11,
+            'M' => 10,
+            'N' => 18,
+            'O' => 14,
+            'P' => 12,
+        ];
+        foreach ($sheet1ColumnWidths as $col => $width) {
+            $sheet1->getColumnDimension($col)->setWidth($width);
         }
-        $sheet1->getRowDimension(1)->setRowHeight(56);
+        $sheet1->getRowDimension(1)->setRowHeight(32);
         $sheet1->getStyle('A1:P1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         $sheet1->getStyle('A1:P1')->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
-        $sheet1->getStyle('A1:P2001')->getAlignment()->setWrapText(true);
+        $sheet1->getStyle('A1:P300')->getAlignment()->setWrapText(false);
 
         // Cột tự sinh nếu để trống.
         foreach (['A1', 'G1', 'P1'] as $cell) {
@@ -218,19 +251,6 @@ final class BookImportTemplateExport
         foreach (['D1', 'E1', 'F1', 'H1', 'I1', 'J1', 'K1', 'L1', 'N1', 'O1'] as $cell) {
             $sheet1->getStyle($cell)->getFill()->applyFromArray($optionalFill);
         }
-
-        $noteRows = [
-            ['A2', 'Để trống để hệ thống tự sinh số đăng ký theo kho.'],
-            ['B2', 'Chọn mã từ Sheet2 hoặc thêm mới trực tiếp ở Sheet2 trước khi import.'],
-            ['G2', 'Có thể để trống để hệ thống tự tạo kho. Nếu nhập, ưu tiên mã trong file này.'],
-            ['H2', 'Tùy chọn. Nếu cần tạo tủ mới, thêm vào Sheet4 trước khi import.'],
-        ];
-        foreach ($noteRows as [$cell, $text]) {
-            $sheet1->setCellValue($cell, $text);
-        }
-        $sheet1->getStyle('A2:P2')->getFont()->setItalic(true)->setSize(10)->getColor()->setARGB('FF334155');
-        $sheet1->getStyle('A2:P2')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE2E8F0');
-        $sheet1->getStyle('A2:P2')->getBorders()->getBottom()->setBorderStyle(Border::BORDER_THIN)->getColor()->setARGB('FFCBD5E1');
 
         foreach ([$sheet2, $sheet3, $sheet4] as $lookupSheet) {
             $highestCol = $lookupSheet->getHighestColumn();

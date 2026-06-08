@@ -476,7 +476,9 @@ final class FileHelpers
             return ['headers' => [], 'rows' => [], 'total_rows' => 0];
         }
 
-        $spreadsheet = IOFactory::load($filePath);
+        $reader = IOFactory::createReaderForFile($filePath);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($filePath);
         $worksheet = $spreadsheet->getSheet($sheetIndex ?? 0);
         $data = $worksheet->toArray(null, true, true, true);
 
@@ -757,12 +759,32 @@ final class FileHelpers
             if ($value === null || trim((string) $value) === '') {
                 continue;
             }
-            $normalized = mb_strtolower(trim((string) $value));
+            $primary = self::extractHeaderLabel((string) $value);
+            if ($primary === '') {
+                continue;
+            }
+            $normalized = mb_strtolower($primary);
             $normalized = preg_replace('/\s+/', ' ', $normalized) ?: $normalized;
             $headers[$colLetter] = $normalized;
         }
 
         return $headers;
+    }
+
+    /**
+     * Lấy nhãn cột chính từ ô header Excel (bỏ dòng gợi ý phía dưới).
+     */
+    public static function extractHeaderLabel(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $lines = preg_split('/\R/u', $value) ?: [];
+        $primary = trim((string) ($lines[0] ?? ''));
+
+        return $primary;
     }
 
     public static function isEmptyRow(array $values): bool

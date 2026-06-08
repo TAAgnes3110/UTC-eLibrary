@@ -11,8 +11,8 @@ import AdminFilterSearch from '@/Components/Admin/Shared/AdminFilterSearch.vue'
 import AdminPaginationBar from '@/Components/Admin/Shared/AdminPaginationBar.vue'
 import { digitalDocumentsApi } from '@/api/digitalDocuments'
 import {
-    BTN_SUBMISSION_DANGER_ROW,
-    BTN_SUBMISSION_NEUTRAL_ROW,
+    BTN_SUBMISSION_DANGER_COMPACT,
+    BTN_SUBMISSION_NEUTRAL_COMPACT,
     LINK_SUBMISSION_FILE,
     submissionStatusBadgeClass,
 } from '@/config/digitalSubmissionUi'
@@ -538,11 +538,10 @@ function detailTimeLabel(item) {
             </div>
 
             <div v-if="isAuthed" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[1220px] border-collapse text-left text-sm text-slate-800 dark:text-slate-200">
+                    <table class="w-full table-fixed border-collapse text-left text-sm text-slate-800 dark:text-slate-200">
                         <thead class="border-b border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800/80">
                             <tr>
-                                <th class="w-11 px-3 py-3.5 align-middle">
+                                <th class="w-10 px-1.5 py-2.5 align-middle sm:px-2">
                                     <span class="admin-table-checkbox-wrap">
                                         <input
                                             type="checkbox"
@@ -554,31 +553,31 @@ function detailTimeLabel(item) {
                                         />
                                     </span>
                                 </th>
-                                <th class="px-3 py-3.5 align-middle whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="hidden w-[4.5rem] px-2 py-2.5 align-middle whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:table-cell lg:w-[5rem]">
                                     Mã sách
                                 </th>
-                                <th class="px-3 py-3.5 align-middle whitespace-nowrap text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="w-11 px-1 py-2.5 align-middle text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:px-1.5">
                                     <span class="sr-only">Ảnh bìa — bấm để xem trong cửa sổ</span>
                                 </th>
-                                <th class="px-3 py-3.5 align-middle whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="px-2 py-2.5 align-middle text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                     Tên sách
                                 </th>
-                                <th class="px-3 py-3.5 align-middle whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="hidden w-[5.5rem] px-2 py-2.5 align-middle whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 lg:table-cell xl:w-[6.5rem]">
                                     Tác giả
                                 </th>
-                                <th class="px-3 py-3.5 align-middle whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="hidden w-[6.5rem] px-2 py-2.5 align-middle whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 xl:table-cell">
                                     Mô tả
                                 </th>
-                                <th class="w-[1%] whitespace-nowrap px-3 py-3.5 align-middle text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="hidden w-[4.25rem] whitespace-nowrap px-2 py-2.5 align-middle text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:table-cell">
                                     Ngày gửi
                                 </th>
-                                <th class="min-w-[140px] px-3 py-3.5 align-middle whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                                    File đính kèm
+                                <th class="hidden w-[6.5rem] px-2 py-2.5 align-middle whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 md:table-cell">
+                                    File
                                 </th>
-                                <th class="px-3 py-3.5 align-middle text-center whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="w-[4.75rem] px-1.5 py-2.5 align-middle text-center whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:w-[5.25rem] sm:px-2 sm:text-xs">
                                     Trạng thái
                                 </th>
-                                <th class="min-w-[220px] px-3 py-3.5 align-middle text-left whitespace-nowrap text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                <th class="w-[6.5rem] px-1.5 py-2.5 align-middle text-left whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 sm:w-[9.25rem] sm:px-2 sm:text-xs">
                                     Thao tác
                                 </th>
                             </tr>
@@ -589,7 +588,7 @@ function detailTimeLabel(item) {
                             </tr>
                             <template v-else>
                             <tr v-for="item in rows" :key="item.id" class="admin-table-row hover:bg-gray-50/80 dark:hover:bg-slate-800/40">
-                                <td class="px-3 py-3.5 align-middle">
+                                <td class="px-1.5 py-2.5 align-middle sm:px-2">
                                     <span class="admin-table-checkbox-wrap">
                                         <input
                                             type="checkbox"
@@ -599,21 +598,21 @@ function detailTimeLabel(item) {
                                         />
                                     </span>
                                 </td>
-                                <td class="px-3 py-3.5 align-middle">
-                                    <p class="text-sm font-medium tabular-nums tracking-wide font-mono whitespace-nowrap truncate text-slate-600 dark:text-slate-300">
+                                <td class="hidden px-2 py-2.5 align-middle md:table-cell">
+                                    <p class="truncate font-mono text-xs font-medium tabular-nums tracking-wide text-slate-600 dark:text-slate-300" :title="itemBookCode(item)">
                                         {{ itemBookCode(item) }}
                                     </p>
                                 </td>
-                                <td class="px-3 py-3.5 align-middle">
+                                <td class="px-1 py-2.5 align-middle sm:px-1.5">
                                     <button
                                         type="button"
-                                        class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-left ring-1 ring-transparent transition hover:bg-slate-100 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-slate-800 dark:hover:ring-slate-600 dark:focus:ring-blue-400"
+                                        class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-0.5 text-left ring-1 ring-transparent transition hover:bg-slate-100 hover:ring-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-slate-800 dark:hover:ring-slate-600 dark:focus:ring-blue-400"
                                         title="Xem ảnh bìa"
                                         @click="openCoverPreview(item)"
                                     >
                                         <span class="sr-only">Xem ảnh bìa</span>
                                         <span
-                                            class="block h-10 w-8 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:ring-slate-700/80"
+                                            class="block h-9 w-7 overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:ring-slate-700/80 sm:h-10 sm:w-8"
                                         >
                                             <img
                                                 :src="itemCover(item)"
@@ -626,62 +625,70 @@ function detailTimeLabel(item) {
                                         </span>
                                     </button>
                                 </td>
-                                <td class="px-3 py-3.5 align-middle">
-                                    <p class="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-100 line-clamp-2 break-words">
+                                <td class="px-2 py-2.5 align-middle">
+                                    <p class="line-clamp-2 break-words text-xs font-semibold leading-snug text-slate-900 dark:text-slate-100 sm:text-sm" :title="item.title || ''">
                                         {{ item.title || '—' }}
                                     </p>
                                 </td>
-                                <td class="px-3 py-3.5 align-middle">
-                                    <p class="text-sm font-normal leading-snug text-slate-600 dark:text-slate-300 line-clamp-2 break-words text-left">
+                                <td class="hidden px-2 py-2.5 align-middle lg:table-cell">
+                                    <p class="line-clamp-2 break-words text-left text-xs leading-snug text-slate-600 dark:text-slate-300" :title="itemAuthors(item)">
                                         {{ itemAuthors(item) }}
                                     </p>
                                 </td>
-                                <td class="px-3 py-3.5 align-middle">
-                                    <p class="text-sm font-normal leading-snug text-slate-600 dark:text-slate-300 line-clamp-2 break-words text-left">
+                                <td class="hidden px-2 py-2.5 align-middle xl:table-cell">
+                                    <p class="line-clamp-2 break-words text-left text-xs leading-snug text-slate-600 dark:text-slate-300">
                                         {{ stripHtmlToPlainText(item.description) || '—' }}
                                     </p>
                                 </td>
-                                <td class="whitespace-nowrap px-3 py-3.5 align-middle tabular-nums text-slate-600 dark:text-slate-300">
+                                <td class="hidden whitespace-nowrap px-2 py-2.5 align-middle text-xs tabular-nums text-slate-600 dark:text-slate-300 sm:table-cell">
                                     {{ formatDetailDate(item.submitted_at) }}
                                 </td>
-                                <td class="px-3 py-3.5 align-middle">
+                                <td class="hidden px-2 py-2.5 align-middle md:table-cell">
                                     <a
                                         v-if="item.file_url"
                                         :href="item.file_url"
                                         target="_blank"
-                                        :class="['text-sm', LINK_SUBMISSION_FILE]"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-sky-700 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/30 lg:min-h-0 lg:min-w-0 lg:justify-start lg:rounded-none lg:hover:bg-transparent"
+                                        :title="item.original_name || 'Mở file đính kèm'"
                                     >
-                                        {{ item.original_name || 'Mở file đính kèm' }}
+                                        <Icon icon="lucide:file-text" class="h-4 w-4 shrink-0 lg:hidden" aria-hidden="true" />
+                                        <span class="sr-only lg:hidden">{{ item.original_name || 'Mở file đính kèm' }}</span>
+                                        <span class="hidden line-clamp-1 break-all lg:inline" :class="LINK_SUBMISSION_FILE">
+                                            {{ item.original_name || 'PDF' }}
+                                        </span>
                                     </a>
-                                    <span v-else class="text-sm text-slate-500 dark:text-slate-500">—</span>
+                                    <span v-else class="text-xs text-slate-500 dark:text-slate-500">—</span>
                                 </td>
-                                <td class="px-3 py-3.5 align-middle text-center whitespace-nowrap">
+                                <td class="px-1.5 py-2.5 align-middle text-center whitespace-nowrap sm:px-2">
                                     <span
-                                        class="inline-flex min-w-[5.5rem] items-center justify-center rounded-md px-2.5 py-1.5 text-xs font-semibold leading-tight"
+                                        class="inline-flex max-w-full items-center justify-center rounded-md px-1.5 py-1 text-[10px] font-semibold leading-tight sm:px-2 sm:py-1.5 sm:text-xs"
                                         :class="submissionStatusBadgeClass(item.status)"
                                     >
                                         {{ statusLabel[item.status] || item.status }}
                                     </span>
                                 </td>
-                                <td class="px-2 py-3.5 align-middle text-left">
+                                <td class="whitespace-nowrap px-1.5 py-2.5 align-middle text-left sm:px-2">
                                     <div
-                                        class="flex flex-wrap items-center justify-start gap-2"
+                                        class="flex flex-nowrap items-center justify-start gap-1"
                                         role="group"
                                         :aria-label="'Thao tác với đồ án, luận văn: ' + (item.title || '')"
                                     >
                                         <button
                                             type="button"
-                                            :class="BTN_SUBMISSION_NEUTRAL_ROW"
+                                            class="!min-h-[44px] !gap-1 !px-2"
+                                            :class="BTN_SUBMISSION_NEUTRAL_COMPACT"
                                             title="Xem chi tiết — mở cửa sổ thông tin đầy đủ"
                                             @click="openDetail(item)"
                                         >
                                             <Icon icon="lucide:eye" class="h-4 w-4 shrink-0 opacity-90" aria-hidden="true" />
-                                            Chi tiết
+                                            <span class="hidden min-[400px]:inline">Chi tiết</span>
                                         </button>
                                         <button
                                             v-if="canRemoveSubmission(item)"
                                             type="button"
-                                            :class="BTN_SUBMISSION_DANGER_ROW"
+                                            class="!min-h-[44px] !gap-1 !px-2"
+                                            :class="BTN_SUBMISSION_DANGER_COMPACT"
                                             :title="
                                                 item.status === 'pending'
                                                     ? 'Thu hồi yêu cầu duyệt (ẩn khỏi danh sách của bạn)'
@@ -691,7 +698,7 @@ function detailTimeLabel(item) {
                                             @click="removeFromMyList(item)"
                                         >
                                             <Icon icon="lucide:trash-2" class="h-4 w-4 shrink-0" aria-hidden="true" />
-                                            {{ item.status === 'pending' ? 'Thu hồi' : 'Xóa' }}
+                                            <span class="hidden min-[400px]:inline">{{ item.status === 'pending' ? 'Thu hồi' : 'Xóa' }}</span>
                                         </button>
                                     </div>
                                 </td>
@@ -704,7 +711,6 @@ function detailTimeLabel(item) {
                             </template>
                         </tbody>
                     </table>
-                </div>
             </div>
 
             <AdminPaginationBar

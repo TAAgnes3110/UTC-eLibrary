@@ -14,8 +14,10 @@ use App\Models\StorageCabinet;
 use App\Models\Warehouse;
 use App\Support\WarehouseBookIdentifiers;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Throwable;
 
 final class BookImport
@@ -54,8 +56,10 @@ final class BookImport
     public const RESOURCE_TYPE_ALIASES = [
         'loại sách',
         'loai sach',
-        'loại sách (0: giáo trình, 1: tham khảo, 2: tài liệu số)',
-        'loai sach (0: giao trinh, 1: tham khao, 2: tai lieu so)',
+        'loại sách (0: giáo trình, 1: tham khảo)',
+        'loai sach (0: giao trinh, 1: tham khao)',
+        'loại sách (0: gt, 1: tk)',
+        'loai sach (0: gt, 1: tk)',
         'loại tài liệu',
         'loai tai lieu',
         'resource_type',
@@ -117,10 +121,10 @@ final class BookImport
 
     public static function import(UploadedFile $file): array
     {
-        [$rows, $mainSheetIndex] = self::readMainBookRows($file);
-        $classificationRows = self::readOptionalSheetRows($file, $mainSheetIndex + 1);
-        $warehouseRows = self::readOptionalSheetRows($file, $mainSheetIndex + 2);
-        $cabinetRows = self::readOptionalSheetRows($file, $mainSheetIndex + 3);
+        [$rows, $mainSheetIndex, $optionalSheets] = self::readWorkbookSheets($file);
+        $classificationRows = $optionalSheets[$mainSheetIndex + 1] ?? [];
+        $warehouseRows = $optionalSheets[$mainSheetIndex + 2] ?? [];
+        $cabinetRows = $optionalSheets[$mainSheetIndex + 3] ?? [];
 
         $success = 0;
         $skipped = 0;
@@ -135,6 +139,7 @@ final class BookImport
                 $warehouseRows,
                 $cabinetRows,
                 &$success,
+                &$skipped,
                 &$errors,
                 &$currentRowNumber,
                 &$autoWarehouse
@@ -143,6 +148,14 @@ final class BookImport
                 self::syncWarehousesFromSheet($warehouseRows);
                 self::syncCabinetsFromSheet($cabinetRows);
 
+                $classificationByCode = Classification::query()
+                    ->get(['id', 'code', 'name'])
+                    ->keyBy(static fn (Classification $item) => (string) $item->code);
+                $warehouseByCode = Warehouse::query()
+                    ->withTrashed()
+                    ->get(['id', 'code', 'name', 'is_active', 'deleted_at'])
+                    ->keyBy(static fn (Warehouse $item) => (string) $item->code);
+
                 foreach ($rows as $row) {
                     $currentRowNumber = (int) ($row['_row_number'] ?? 0) ?: null;
                     $registrationNumber = FileHelpers::getValueByAliases($row, self::REGISTRATION_NUMBER_ALIASES);
@@ -150,40 +163,54 @@ final class BookImport
                     $title = FileHelpers::getValueByAliases($row, self::TITLE_ALIASES);
                     $authorsRaw = FileHelpers::getValueByAliases($row, self::AUTHORS_ALIASES);
                     $publishersRaw = FileHelpers::getValueByAliases($row, self::PUBLISHERS_ALIASES);
-                    $resourceType = self::normalizeResourceType(
-                        FileHelpers::getValueByAliases($row, self::RESOURCE_TYPE_ALIASES)
-                    );
+                    $resourceTypeRaw = FileHelpers::getValueByAliases($row, self::RESOURCE_TYPE_ALIASES);
                     $warehouseCode = FileHelpers::getValueByAliases($row, self::WAREHOUSE_CODE_ALIASES);
                     $classificationCode = self::normalizeClassificationCode(
                         FileHelpers::getValueByAliases($row, self::CLASSIFICATION_CODE_ALIASES)
                     );
+                    $quantityRaw = FileHelpers::getValueByAliases($row, self::QUANTITY_ALIASES);
 
-                    $quantity = (int) (FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::QUANTITY_ALIASES)) ?? 0);
+                    if (self::shouldSkipImportRow($title, $registrationNumber, $bookCodeFromExcel, $quantityRaw)) {
+                        $skipped++;
 
-                    $missing = [];
-                    if ($quantity <= 0) {
-                        $missing[] = 'Số lượng (*) (phải > 0)';
+                        continue;
                     }
-                    if (! empty($missing)) {
+
+                    $resourceType = self::normalizeResourceType($resourceTypeRaw);
+                    if ($resourceType === ResourceType::DIGITAL->value) {
                         self::abortImport(
                             $errors,
                             $row['_row_number'] ?? null,
-                            'Thiếu/không hợp lệ: '.implode('; ', $missing).'.'
+                            'Loại sách không hợp lệ: chỉ chấp nhận Giáo trình (0) hoặc Tham khảo (1).'
+                        );
+                    }
+
+                    $quantity = (int) (FileHelpers::parseNumber($quantityRaw) ?? 0);
+                    if ($quantity <= 0) {
+                        self::abortImport(
+                            $errors,
+                            $row['_row_number'] ?? null,
+                            'Thiếu/không hợp lệ: Số lượng (*) (phải > 0).'
                         );
                     }
 
                     $classification = null;
                     if ($classificationCode) {
-                        $classification = Classification::query()->where('code', $classificationCode)->first();
+                        $classification = $classificationByCode->get($classificationCode);
                         if (! $classification) {
                             $classification = Classification::query()->create([
                                 'code' => $classificationCode,
                                 'name' => 'Phân loại '.$classificationCode,
                             ]);
+                            $classificationByCode->put($classificationCode, $classification);
                         }
                     }
 
-                    $warehouse = self::resolveWarehouseForImport($warehouseCode, $autoWarehouse);
+                    $warehouse = self::resolveWarehouseForImport($warehouseCode, $autoWarehouse, $warehouseByCode);
+                    if ($resourceType === null) {
+                        $resourceType = self::inferResourceTypeFromWarehouse($warehouse)
+                            ?? self::inferResourceTypeFromBookCode($bookCodeFromExcel);
+                    }
 
                     $publishedYear = FileHelpers::parseYear(FileHelpers::getValueByAliases($row, self::PUBLISHED_YEAR_ALIASES));
                     $pages = FileHelpers::parseNumber(FileHelpers::getValueByAliases($row, self::PAGES_ALIASES));
@@ -262,46 +289,134 @@ final class BookImport
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * Đọc workbook một lần, trả về sheet sách chính và các sheet phụ.
+     *
+     * @return array{0: list<array<string,mixed>>, 1: int, 2: array<int, list<array<string,mixed>>>}
      */
-    private static function readOptionalSheetRows(UploadedFile $file, int $sheetIndex): array
+    private static function readWorkbookSheets(UploadedFile $file): array
     {
+        $filePath = $file->getRealPath() ?: '';
+        if ($filePath === '' || ! is_file($filePath)) {
+            return [[], 0, []];
+        }
+
+        $reader = IOFactory::createReaderForFile($filePath);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($filePath);
+        $optionalSheets = [];
+        $mainSheetIndex = 0;
+        $mainRows = [];
+
         try {
-            $sheet = FileHelpers::readExcel($file, 2, $sheetIndex);
-            if (($sheet['rows'] ?? []) === []) {
-                $sheet = FileHelpers::readExcel($file, 1, $sheetIndex);
+            foreach ($spreadsheet->getAllSheets() as $index => $worksheet) {
+                $rawData = $worksheet->toArray(null, true, true, true);
+                $optionalSheets[$index] = self::parseGenericSheetRows($rawData, 1)['rows'];
+
+                if ($mainRows !== []) {
+                    continue;
+                }
+
+                $bookSheet = self::parseBookSheetRows($rawData);
+                if ($bookSheet['rows'] !== []) {
+                    $mainSheetIndex = $index;
+                    $mainRows = $bookSheet['rows'];
+                }
             }
 
-            return $sheet['rows'] ?? [];
-        } catch (Throwable) {
-            return [];
+            if ($mainRows === [] && isset($optionalSheets[0])) {
+                $mainRows = $optionalSheets[0];
+            }
+        } finally {
+            $spreadsheet->disconnectWorksheets();
         }
+
+        return [$mainRows, $mainSheetIndex, $optionalSheets];
     }
 
     /**
-     * @return array{0: list<array<string,mixed>>, 1: int}
+     * @param  array<int, array<string, mixed>>  $data
+     * @return array{headers: list<string>, rows: list<array<string, mixed>>}
      */
-    private static function readMainBookRows(UploadedFile $file): array
+    private static function parseBookSheetRows(array $data): array
     {
-        foreach ([0, 1] as $index) {
-            foreach ([1, 2] as $headerRow) {
-                try {
-                    $sheet = FileHelpers::readExcel($file, $headerRow, $index);
-                    $headers = array_map(static fn ($v) => (string) $v, $sheet['headers'] ?? []);
-                    $hasTitle = in_array('tên sách (*)', $headers, true) || in_array('tên sách', $headers, true);
-                    $hasQuantity = in_array('số lượng (*)', $headers, true) || in_array('số lượng', $headers, true);
-                    if ($hasTitle && $hasQuantity) {
-                        return [$sheet['rows'] ?? [], $index];
-                    }
-                } catch (Throwable) {
-                    // thử layout khác
-                }
+        foreach ([1, 2] as $headerRow) {
+            if (! isset($data[$headerRow])) {
+                continue;
             }
+
+            $headers = FileHelpers::normalizeHeaders($data[$headerRow]);
+            $headerValues = array_values($headers);
+            $hasTitle = in_array('tên sách (*)', $headerValues, true) || in_array('tên sách', $headerValues, true);
+            $hasQuantity = in_array('số lượng (*)', $headerValues, true) || in_array('số lượng', $headerValues, true);
+            if (! $hasTitle || ! $hasQuantity) {
+                continue;
+            }
+
+            return [
+                'headers' => $headerValues,
+                'rows' => self::mapSheetDataRows($data, $headerRow, $headers),
+            ];
         }
 
-        $fallback = FileHelpers::readExcel($file, 1, 0);
+        return ['headers' => [], 'rows' => []];
+    }
 
-        return [$fallback['rows'] ?? [], 0];
+    /**
+     * @param  array<int, array<string, mixed>>  $data
+     * @return array{headers: list<string>, rows: list<array<string, mixed>>}
+     */
+    private static function parseGenericSheetRows(array $data, int $headerRow = 1): array
+    {
+        if (! isset($data[$headerRow])) {
+            return ['headers' => [], 'rows' => []];
+        }
+
+        $headers = FileHelpers::normalizeHeaders($data[$headerRow]);
+
+        return [
+            'headers' => array_values($headers),
+            'rows' => self::mapSheetDataRows($data, $headerRow, $headers),
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $headers
+     * @return list<array<string, mixed>>
+     */
+    private static function mapSheetDataRows(array $data, int $headerRow, array $headers): array
+    {
+        $rows = [];
+        foreach ($data as $rowIndex => $rowData) {
+            if ($rowIndex <= $headerRow) {
+                continue;
+            }
+            $values = array_values($rowData);
+            if (FileHelpers::isEmptyRow($values)) {
+                continue;
+            }
+
+            $mapped = [];
+            foreach ($headers as $colLetter => $headerName) {
+                $mapped[$headerName] = isset($rowData[$colLetter]) ? trim((string) $rowData[$colLetter]) : null;
+            }
+            $mapped['_row_number'] = (string) $rowIndex;
+            $rows[] = $mapped;
+        }
+
+        return $rows;
+    }
+
+    private static function shouldSkipImportRow(
+        ?string $title,
+        ?string $registrationNumber,
+        ?string $bookCodeFromExcel,
+        ?string $quantityRaw
+    ): bool {
+        if ($title || $registrationNumber || $bookCodeFromExcel) {
+            return false;
+        }
+
+        return $quantityRaw === null || trim($quantityRaw) === '';
     }
 
     private static function syncClassificationsFromSheet(array $rows): void
@@ -434,11 +549,14 @@ final class BookImport
         throw new \RuntimeException('BOOK_IMPORT_ABORT');
     }
 
-    private static function resolveWarehouseForImport(?string $warehouseCode, ?Warehouse &$autoWarehouse = null): Warehouse
-    {
+    private static function resolveWarehouseForImport(
+        ?string $warehouseCode,
+        ?Warehouse &$autoWarehouse = null,
+        ?Collection $warehouseByCode = null
+    ): Warehouse {
         $warehouseCode = trim((string) $warehouseCode);
         if ($warehouseCode !== '') {
-            $warehouse = Warehouse::query()->withTrashed()->where('code', $warehouseCode)->first();
+            $warehouse = $warehouseByCode?->get($warehouseCode);
             if ($warehouse instanceof Warehouse) {
                 if ($warehouse->trashed()) {
                     $warehouse->restore();
@@ -451,11 +569,14 @@ final class BookImport
                 return $warehouse;
             }
 
-            return Warehouse::query()->create([
+            $created = Warehouse::query()->create([
                 'code' => $warehouseCode,
                 'name' => 'Kho '.$warehouseCode,
                 'is_active' => true,
             ]);
+            $warehouseByCode?->put($warehouseCode, $created);
+
+            return $created;
         }
 
         if ($autoWarehouse instanceof Warehouse) {
@@ -468,8 +589,40 @@ final class BookImport
             'name' => 'Kho nhập Excel '.$autoCode,
             'is_active' => true,
         ]);
+        $warehouseByCode?->put($autoCode, $autoWarehouse);
 
         return $autoWarehouse;
+    }
+
+    private static function inferResourceTypeFromWarehouse(Warehouse $warehouse): ?string
+    {
+        $code = strtoupper(trim((string) $warehouse->code));
+        $name = mb_strtolower((string) $warehouse->name);
+
+        if (str_contains($code, 'GT') || str_contains($name, 'giáo trình') || str_contains($name, 'giao trinh')) {
+            return ResourceType::TEXTBOOK->value;
+        }
+        if (str_contains($code, 'TK') || str_contains($name, 'tham khảo') || str_contains($name, 'tham khao')) {
+            return ResourceType::REFERENCE->value;
+        }
+
+        return null;
+    }
+
+    private static function inferResourceTypeFromBookCode(?string $bookCode): ?string
+    {
+        $code = strtoupper(trim((string) $bookCode));
+        if ($code === '') {
+            return null;
+        }
+        if (str_starts_with($code, 'GT-') || str_starts_with($code, 'GT')) {
+            return ResourceType::TEXTBOOK->value;
+        }
+        if (str_starts_with($code, 'TK-') || str_starts_with($code, 'TK')) {
+            return ResourceType::REFERENCE->value;
+        }
+
+        return null;
     }
 
     private static function nextAutoWarehouseCode(): string
@@ -669,7 +822,7 @@ final class BookImport
             $raw === '0' => ResourceType::TEXTBOOK->value,
             $raw === '1' => ResourceType::REFERENCE->value,
             $raw === '2' => ResourceType::DIGITAL->value,
-            in_array($raw, ResourceType::values(), true) => $raw,
+            in_array($raw, [ResourceType::TEXTBOOK->value, ResourceType::REFERENCE->value], true) => $raw,
             str_contains($raw, 'giao trinh') || str_contains($raw, 'giáo trình') => ResourceType::TEXTBOOK->value,
             str_contains($raw, 'tham khao') || str_contains($raw, 'tham khảo') => ResourceType::REFERENCE->value,
             str_contains($raw, 'luan van') || str_contains($raw, 'luận văn') || str_contains($raw, 'thesis') => ResourceType::REFERENCE->value,

@@ -244,6 +244,137 @@ class BookImportTest extends TestCase
         ]);
     }
 
+    public function test_import_skips_template_hint_row_and_reads_multiline_headers(): void
+    {
+        $now = now();
+        $classificationId = DB::table('classifications')->insertGetId([
+            'code' => 'PL-TPL',
+            'name' => 'Phân loại mẫu',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('warehouses')->insertGetId([
+            'code' => 'KHO-GT',
+            'name' => 'Kho giáo trình',
+            'is_active' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $classification = Classification::query()->findOrFail($classificationId);
+
+        $spreadsheet = FileHelpers::createWorkbook([
+            [
+                'title' => 'Sheet0_HuongDan',
+                'headers' => ['Mục', 'Nội dung'],
+                'rows' => [['Hướng dẫn', 'Chỉ nhập giáo trình và tham khảo']],
+            ],
+            [
+                'title' => 'Sheet1_Sach',
+                'headers' => [
+                    "Số đăng ký cá biệt\n(Để trống = hệ thống tự sinh)",
+                    "Phân loại sách (*)\nNhập mã hoặc tên (xem sheet 2)",
+                    "Tên sách (*)\nBắt buộc khi thêm mới",
+                    "Loại sách\n0: Giáo trình, 1: Tham khảo",
+                    "Kho sách\nCó thể để trống",
+                    "Số lượng (*)\nPhải > 0",
+                ],
+                'rows' => [
+                    [
+                        '',
+                        '',
+                        '',
+                        '',
+                        'Có thể để trống để hệ thống tự tạo kho.',
+                        '',
+                    ],
+                    [
+                        '',
+                        $classification->code,
+                        'Sách từ file mẫu cũ',
+                        '0',
+                        'KHO-GT',
+                        '5',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Sheet2_PhanLoaiSach',
+                'headers' => ['Mã', 'Tên'],
+                'rows' => [[$classification->code, $classification->name]],
+            ],
+        ]);
+        $path = storage_path('framework/testing/book-import-template-layout.xlsx');
+        (new Xlsx($spreadsheet))->save($path);
+
+        $file = new UploadedFile(
+            $path,
+            'book-import-template-layout.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $result = BookImport::import($file);
+
+        $this->assertSame('success', $result['status']);
+        $this->assertSame(1, $result['summary']['success']);
+        $this->assertDatabaseHas('books', [
+            'title' => 'Sách từ file mẫu cũ',
+            'quantity' => 5,
+            'resource_type' => 'textbook',
+        ]);
+    }
+
+    public function test_import_rejects_digital_resource_type(): void
+    {
+        $now = now();
+        $classificationId = DB::table('classifications')->insertGetId([
+            'code' => 'PL-DIG',
+            'name' => 'Phân loại digital',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        DB::table('warehouses')->insertGetId([
+            'code' => 'KHO-GT',
+            'name' => 'Kho giáo trình',
+            'is_active' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $classification = Classification::query()->findOrFail($classificationId);
+
+        $spreadsheet = FileHelpers::createWorkbook([
+            [
+                'title' => 'Sheet1_Sach',
+                'headers' => ['Phân loại sách (*)', 'Tên sách (*)', 'Kho sách (*)', 'Số lượng (*)', 'Loại sách'],
+                'rows' => [[
+                    $classification->code,
+                    'Sách tài liệu số',
+                    'KHO-GT',
+                    '1',
+                    '2',
+                ]],
+            ],
+        ]);
+        $path = storage_path('framework/testing/book-import-digital.xlsx');
+        (new Xlsx($spreadsheet))->save($path);
+
+        $file = new UploadedFile(
+            $path,
+            'book-import-digital.xlsx',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            null,
+            true
+        );
+
+        $result = BookImport::import($file);
+
+        $this->assertSame('error', $result['status']);
+        $this->assertStringContainsString('Giáo trình', $result['errors'][0]['message'] ?? '');
+        $this->assertDatabaseMissing('books', ['title' => 'Sách tài liệu số']);
+    }
+
     public function test_import_rolls_back_all_rows_when_any_row_fails(): void
     {
         $now = now();

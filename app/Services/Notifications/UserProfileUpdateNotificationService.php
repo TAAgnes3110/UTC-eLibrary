@@ -8,6 +8,9 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
 
+/**
+ * Thông báo yêu cầu cập nhật hồ sơ (staff + bạn đọc).
+ */
 class UserProfileUpdateNotificationService
 {
     public function __construct(

@@ -12,6 +12,9 @@ use App\Models\Notification;
 use App\Models\User;
 use App\Models\UserProfileUpdateRequest;
 
+/**
+ * Thông báo tổng hợp theo hàng chờ xử lý của staff (chờ duyệt hồ sơ, gia hạn mượn, đồ án/luận văn chờ duyệt…).
+ */
 class StaffWorkQueueNotificationService
 {
     public function __construct(

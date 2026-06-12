@@ -158,6 +158,12 @@ class NotificationService
             ->delete();
     }
 
+    /**
+     * Lấy số lượng thông báo chưa đọc của recipient.
+     * @param string $recipientType
+     * @param int $recipientId
+     * @return int
+     */
     public function unreadCount(string $recipientType, int $recipientId): int
     {
         $this->assertRecipient($recipientType, $recipientId);
@@ -169,6 +175,16 @@ class NotificationService
             ->count();
     }
 
+    /**
+     * Tạo khóa dedupe cho thông báo có entity liên quan.
+     * @param NotificationType|string $type
+     * @param string $recipientType
+     * @param int $recipientId
+     * @param string $entityType
+     * @param int $entityId
+     * @throws InvalidArgumentException
+     * @return string
+     */
     public function buildEntityDedupeKey(
         NotificationType|string $type,
         string $recipientType,
@@ -190,6 +206,16 @@ class NotificationService
         ]);
     }
 
+    /**
+     * Tạo khóa dedupe cho thông báo gộp theo ngày.
+     * @param NotificationType|string $type
+     * @param string $recipientType
+     * @param int $recipientId
+     * @param string $entityType
+     * @param int $entityId
+     * @param Carbon|string $dayBucket
+     * @return string
+     */
     public function buildOverdueDedupeKey(
         NotificationType|string $type,
         string $recipientType,
@@ -311,6 +337,12 @@ class NotificationService
         return $resolved->value;
     }
 
+    /**
+     * Chuyển đổi severity value từ enum hoặc string thành string.
+     * @param NotificationSeverity|string|null $severity
+     * @throws InvalidArgumentException
+     * @return string
+     */
     private function resolveSeverityValue(NotificationSeverity|string|null $severity): string
     {
         if ($severity instanceof NotificationSeverity) {
@@ -328,6 +360,9 @@ class NotificationService
         return $resolved->value;
     }
 
+    /**
+     * Giới hạn số lượng thông báo trên mỗi trang.
+     */
     private function resolvePerPage(int $perPage): int
     {
         return min(max($perPage, 1), 100);

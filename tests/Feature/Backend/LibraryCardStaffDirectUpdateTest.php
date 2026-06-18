@@ -96,4 +96,47 @@ class LibraryCardStaffDirectUpdateTest extends TestCase
         $card->refresh();
         $this->assertSame(LibraryCard::WORKFLOW_PENDING_REVIEW, $card->workflow_status);
     }
+
+    public function test_librarian_can_update_workflow_without_address(): void
+    {
+        $faculty = Faculty::query()->create(['code' => 'F3', 'name' => 'VH', 'is_active' => true]);
+        $period = Period::query()->create(['code' => 'P3', 'name' => 'K65', 'is_active' => true]);
+        $reader = User::factory()->create([
+            'user_type' => RoleType::STUDENT,
+            'avatar' => 'avatars/test.jpg',
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'DH14',
+        ]);
+
+        $card = app(LibraryCardService::class)->createForUserHaveAccount($reader, [
+            'faculty_id' => $faculty->id,
+            'period_id' => $period->id,
+            'class_code' => 'DH14',
+        ]);
+        $card->update([
+            'workflow_status' => LibraryCard::WORKFLOW_PENDING_PAYMENT,
+            'status' => LibraryCardStatus::PENDING,
+            'address' => null,
+        ]);
+
+        [, $token] = $this->createLibrarianUserAndToken();
+
+        $response = $this->putJson(
+            "/api/v1/library-cards/{$card->id}",
+            [
+                'workflow_status' => LibraryCard::WORKFLOW_ACTIVE,
+                'status' => LibraryCardStatus::ACTIVE->value,
+                'faculty_id' => $faculty->id,
+                'period_id' => $period->id,
+                'class_code' => 'DH14',
+            ],
+            $this->apiTokenHeaders($token)
+        );
+
+        $response->assertOk()->assertJsonPath('status', 'success');
+        $card->refresh();
+        $this->assertSame(LibraryCard::WORKFLOW_ACTIVE, $card->workflow_status);
+        $this->assertNull($card->address);
+    }
 }

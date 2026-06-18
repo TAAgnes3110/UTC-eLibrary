@@ -134,7 +134,7 @@ function onSubmit() {
                                 <p v-if="fieldErrors.phone" class="text-xs text-rose-600 mt-0.5">{{ fieldErrors.phone }}</p>
                             </div>
                             <div>
-                                <label class="text-xs font-semibold text-slate-500">Địa chỉ</label>
+                                <label class="text-xs font-semibold text-slate-500">Địa chỉ <span class="font-normal text-slate-400">(tùy chọn khi sửa)</span></label>
                                 <textarea v-model="form.address" rows="2" class="admin-filter-input w-full mt-1 py-2 min-h-[80px]" @input="clearFieldError('address')" />
                                 <p v-if="fieldErrors.address" class="text-xs text-rose-600 mt-0.5">{{ fieldErrors.address }}</p>
                             </div>

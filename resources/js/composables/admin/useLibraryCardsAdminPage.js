@@ -241,7 +241,6 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 full_name: form.value.full_name,
                 email: form.value.email,
                 phone: form.value.phone,
-                address: form.value.address,
                 holder_type: holderType,
                 status: Number(form.value.status),
                 workflow_status: normalizeWorkflowForStaffEdit(form.value.workflow_status),
@@ -251,6 +250,10 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 external_organization: form.value.external_organization?.trim() || null,
                 notes: form.value.notes || null,
             };
+            const addressTrimmed = String(form.value.address ?? '').trim();
+            if (addressTrimmed) {
+                payload.address = addressTrimmed;
+            }
             if (form.value.date_of_birth) {
                 payload.date_of_birth = form.value.date_of_birth;
             }

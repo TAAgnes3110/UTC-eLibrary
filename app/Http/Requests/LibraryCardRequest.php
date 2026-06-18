@@ -43,6 +43,10 @@ class LibraryCardRequest extends BaseRequest
             if ($this->has('status')) {
                 $this->merge(['status' => (int) $this->input('status')]);
             }
+            if ($this->has('address')) {
+                $trimmedAddress = trim((string) $this->input('address'));
+                $this->merge(['address' => $trimmedAddress === '' ? null : $trimmedAddress]);
+            }
         }
 
         if ($this->isMethod('POST') && ! $existing && ! $this->is('api/v1/library-cards/guest-register')) {
@@ -163,9 +167,10 @@ class LibraryCardRequest extends BaseRequest
             ],
             'address' => [
                 'sometimes',
+                'nullable',
                 'string',
                 'max:1000',
-                Rule::unique('library_cards', 'address')->ignore($ignoreId),
+                Rule::unique('library_cards', 'address')->ignore($ignoreId)->whereNull('deleted_at'),
             ],
             'faculty_id' => [
                 Rule::requiredIf($holderIsInternal),

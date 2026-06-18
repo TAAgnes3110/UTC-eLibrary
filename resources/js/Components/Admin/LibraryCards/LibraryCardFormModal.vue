@@ -2,7 +2,7 @@
 import { watch, ref, computed } from 'vue';
 import { Icon } from '@iconify/vue';
 import { LibraryCard } from '@/config/libraryCardConstants';
-import { HOLDER_LABELS, workflowLabel, workflowHint } from '@/config/libraryCardUi';
+import { HOLDER_LABELS, WORKFLOW_STAFF_EDIT_OPTIONS, workflowHint } from '@/config/libraryCardUi';
 import { maxDateOfBirthForInput, minDateOfBirthForInput } from '@/utils/dateOfBirth';
 
 const maxDateOfBirth = maxDateOfBirthForInput();
@@ -44,15 +44,9 @@ const isStudent = computed(() => props.form.holder_type === LibraryCard.HOLDER_S
 const isTeacher = computed(() => props.form.holder_type === LibraryCard.HOLDER_TEACHER);
 const isExternal = computed(() => props.form.holder_type === LibraryCard.HOLDER_EXTERNAL);
 
-const workflowDisplay = computed(() => workflowLabel(props.form.workflow_status));
+const workflowOptions = WORKFLOW_STAFF_EDIT_OPTIONS;
+
 const workflowHelp = computed(() => workflowHint(props.form.workflow_status));
-
-const cardStatusLocked = computed(() => props.form.workflow_status !== 'active');
-
-const cardStatusDisplay = computed(() => {
-    const n = Number(props.form.status);
-    return statusOptions.find((s) => s.value === n)?.label ?? '—';
-});
 
 watch(
     () => props.show,
@@ -75,6 +69,17 @@ watch(
             props.form.faculty_id = null;
             props.form.period_id = null;
             props.form.class_code = '';
+        }
+    }
+);
+
+watch(
+    () => props.form.workflow_status,
+    (ws) => {
+        if (ws === 'active') {
+            props.form.status = 1;
+        } else if (['pending_review', 'pending_payment', 'pending_pickup'].includes(ws)) {
+            props.form.status = 4;
         }
     }
 );
@@ -152,25 +157,32 @@ function onSubmit() {
                         <div v-if="!hideCardStatus">
                             <label class="text-xs font-semibold text-slate-500">Trạng thái thẻ</label>
                             <select
-                                v-if="!cardStatusLocked"
                                 v-model.number="form.status"
                                 class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9"
                             >
                                 <option v-for="s in statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
                             </select>
-                            <p v-else class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ cardStatusDisplay }}</p>
-                            <p v-if="cardStatusLocked" class="mt-1 text-[11px] text-slate-500">Tự đồng bộ theo quy trình — dùng « Xác nhận đã giao thẻ » để chuyển Hoạt động.</p>
+                            <p class="mt-1 text-[11px] text-slate-500">Khóa / Hết hạn chỉ áp dụng khi quy trình « Đang hiệu lực ».</p>
                         </div>
                     </div>
 
-                    <div class="sm:col-span-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3">
-                        <p class="text-xs font-semibold text-slate-500">Quy trình (hệ thống)</p>
-                        <p class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ workflowDisplay }}</p>
-                        <p v-if="workflowHelp" class="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <div class="sm:col-span-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-3 space-y-2">
+                        <div>
+                            <label class="text-xs font-semibold text-slate-500">Quy trình cấp thẻ</label>
+                            <select
+                                v-model="form.workflow_status"
+                                class="admin-filter-input w-full mt-1 min-h-[44px] sm:min-h-0 sm:h-9"
+                                @change="clearFieldError('workflow_status')"
+                            >
+                                <option v-for="w in workflowOptions" :key="w.value" :value="w.value">{{ w.label }}</option>
+                            </select>
+                            <p v-if="fieldErrors.workflow_status" class="text-xs text-rose-600 mt-0.5">{{ fieldErrors.workflow_status }}</p>
+                        </div>
+                        <p v-if="workflowHelp" class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                             {{ workflowHelp }}
                         </p>
-                        <p class="mt-2 text-[11px] text-amber-800 dark:text-amber-200/90">
-                            Duyệt / chờ thanh toán / xác nhận giao thẻ: dùng nút trên bảng hoặc mục « Duyệt yêu cầu » — không đổi quy trình thủ công tại đây.
+                        <p class="text-[11px] text-amber-800 dark:text-amber-200/90">
+                            Thủ thư có thể chỉnh trực tiếp. Chọn « Đang hiệu lực » để kích hoạt mượn sách (hệ thống ghi ngày hiệu lực nếu chưa có).
                         </p>
                     </div>
 

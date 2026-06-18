@@ -516,8 +516,16 @@ class LibraryCardManagementService
     public function updateLibraryCard(LibraryCard $card, array $data): LibraryCard
     {
         return DB::transaction(function () use ($card, $data) {
-            unset($data['workflow_status']);
             $card = $card->fresh();
+
+            if (array_key_exists('workflow_status', $data) && $data['workflow_status'] !== null && $data['workflow_status'] !== '') {
+                $normalized = LibraryCard::normalizeWorkflowStatus((string) $data['workflow_status']);
+                if ($card->workflow_status !== $normalized) {
+                    $card->workflow_status = $normalized;
+                }
+                unset($data['workflow_status']);
+            }
+
             $allowed = array_flip(self::UPDATABLE_ATTRIBUTES);
 
             foreach (array_intersect_key($data, $allowed) as $key => $value) {

@@ -184,7 +184,16 @@ class LibraryCardRequest extends BaseRequest
                 ]),
             ],
             'status' => ['sometimes', 'integer', Rule::in(LibraryCardStatus::values())],
-            'workflow_status' => ['prohibited'],
+            'workflow_status' => [
+                'sometimes',
+                'string',
+                Rule::in([
+                    LibraryCard::WORKFLOW_PENDING_REVIEW,
+                    LibraryCard::WORKFLOW_PENDING_PAYMENT,
+                    LibraryCard::WORKFLOW_PENDING_PICKUP,
+                    LibraryCard::WORKFLOW_ACTIVE,
+                ]),
+            ],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'external_organization' => ['sometimes', 'nullable', 'string', 'max:150'],
             'issue_date' => ['sometimes', 'nullable', 'date'],

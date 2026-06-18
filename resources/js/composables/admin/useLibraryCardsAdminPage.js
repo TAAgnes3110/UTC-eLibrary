@@ -244,6 +244,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 date_of_birth: form.value.date_of_birth || null,
                 holder_type: holderType,
                 status: form.value.status,
+                workflow_status: form.value.workflow_status,
                 faculty_id: holderType === 'external' ? null : form.value.faculty_id,
                 period_id: holderType === 'student' ? form.value.period_id : null,
                 class_code: holderType === 'student' ? form.value.class_code || null : null,

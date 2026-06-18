@@ -95,3 +95,11 @@ export const WORKFLOW_IN_PROGRESS = [
 
 /** Thẻ đủ điều kiện hiển thị tại « Quản lý thẻ » (đã qua duyệt hoặc đang lưu hành) */
 export const WORKFLOW_MANAGEMENT_LIST = ['pending_payment', 'pending_pickup', 'active'];
+
+/** Thủ thư chỉnh trực tiếp trong modal sửa thẻ */
+export const WORKFLOW_STAFF_EDIT_OPTIONS = [
+    { value: 'pending_review', label: 'Chờ duyệt' },
+    { value: 'pending_payment', label: 'Chờ thanh toán' },
+    { value: 'pending_pickup', label: 'Chờ lấy thẻ' },
+    { value: 'active', label: 'Đang hiệu lực' },
+];

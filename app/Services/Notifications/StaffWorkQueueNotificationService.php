@@ -198,7 +198,6 @@ class StaffWorkQueueNotificationService
         if ($count < 1) {
             Notification::query()
                 ->where('dedupe_key', $dedupeKey)
-                ->whereNull('read_at')
                 ->delete();
 
             return;

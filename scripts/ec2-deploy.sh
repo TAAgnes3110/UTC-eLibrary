@@ -53,6 +53,9 @@ docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-
 echo "==> [deploy] Đồng bộ Spatie role cho tài khoản staff (tránh 500 login admin)"
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan library:sync-staff-roles --no-interaction
 
+echo "==> [deploy] Quyền ghi storage/logs (volume Docker)"
+docker compose -f "${COMPOSE_FILE}" exec -T -u root app sh -c 'mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache && chown -R www-data:www-data storage bootstrap/cache && chmod -R ug+rwx storage bootstrap/cache'
+
 echo "==> [deploy] Trạng thái container"
 docker compose -f "${COMPOSE_FILE}" ps
 

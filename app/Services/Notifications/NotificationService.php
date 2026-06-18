@@ -40,12 +40,11 @@ class NotificationService
             if ($dedupeKey !== '') {
                 $existing = Notification::query()
                     ->where('dedupe_key', $dedupeKey)
-                    ->whereNull('read_at')
                     ->lockForUpdate()
                     ->first();
 
                 if ($existing instanceof Notification) {
-                    return $this->updateExistingUnread($existing, $payload);
+                    return $this->updateExistingByDedupe($existing, $payload);
                 }
             }
 
@@ -160,9 +159,6 @@ class NotificationService
 
     /**
      * Lấy số lượng thông báo chưa đọc của recipient.
-     * @param string $recipientType
-     * @param int $recipientId
-     * @return int
      */
     public function unreadCount(string $recipientType, int $recipientId): int
     {
@@ -177,13 +173,8 @@ class NotificationService
 
     /**
      * Tạo khóa dedupe cho thông báo có entity liên quan.
-     * @param NotificationType|string $type
-     * @param string $recipientType
-     * @param int $recipientId
-     * @param string $entityType
-     * @param int $entityId
+     *
      * @throws InvalidArgumentException
-     * @return string
      */
     public function buildEntityDedupeKey(
         NotificationType|string $type,
@@ -208,13 +199,6 @@ class NotificationService
 
     /**
      * Tạo khóa dedupe cho thông báo gộp theo ngày.
-     * @param NotificationType|string $type
-     * @param string $recipientType
-     * @param int $recipientId
-     * @param string $entityType
-     * @param int $entityId
-     * @param Carbon|string $dayBucket
-     * @return string
      */
     public function buildOverdueDedupeKey(
         NotificationType|string $type,
@@ -279,11 +263,16 @@ class NotificationService
     }
 
     /**
+     * Cập nhật bản ghi đã có cùng dedupe_key (kể cả đã đọc) — tránh vi phạm unique trên notifications.dedupe_key.
+     *
      * @param  array<string,mixed>  $payload
      */
-    private function updateExistingUnread(Notification $existing, array $payload): Notification
+    private function updateExistingByDedupe(Notification $existing, array $payload): Notification
     {
         $existing->fill([
+            'recipient_type' => $payload['recipient_type'],
+            'recipient_id' => $payload['recipient_id'],
+            'type' => $payload['type'],
             'title' => $payload['title'],
             'message' => $payload['message'],
             'severity' => $payload['severity'],
@@ -292,6 +281,7 @@ class NotificationService
             'action_url' => $payload['action_url'],
             'meta' => $payload['meta'],
         ]);
+        $existing->read_at = null;
         $existing->save();
 
         return $existing->fresh();
@@ -339,9 +329,8 @@ class NotificationService
 
     /**
      * Chuyển đổi severity value từ enum hoặc string thành string.
-     * @param NotificationSeverity|string|null $severity
+     *
      * @throws InvalidArgumentException
-     * @return string
      */
     private function resolveSeverityValue(NotificationSeverity|string|null $severity): string
     {

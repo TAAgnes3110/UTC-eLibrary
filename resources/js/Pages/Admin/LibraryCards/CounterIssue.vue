@@ -314,23 +314,6 @@ function onPhotoChange(e) {
                     v-if="c.formReady"
                     class="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-3"
                 >
-                    <!-- Dự báo trạng thái quy trình -->
-                    <div
-                        class="rounded-lg border px-3 py-2.5 space-y-0.5"
-                        :class="{
-                            'border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/40': c.workflowPreview.tone === 'emerald',
-                            'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40': c.workflowPreview.tone === 'blue',
-                            'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40': c.workflowPreview.tone === 'amber',
-                        }"
-                    >
-                        <p class="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                            Sau khi tạo: <span class="font-bold">{{ c.workflowPreview.label }}</span>
-                        </p>
-                        <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {{ c.workflowPreview.hint }}
-                        </p>
-                    </div>
-
                     <template v-if="c.showFeeSection">
                         <p
                             v-if="c.form.holder_type === c.LibraryCard.HOLDER_TEACHER"

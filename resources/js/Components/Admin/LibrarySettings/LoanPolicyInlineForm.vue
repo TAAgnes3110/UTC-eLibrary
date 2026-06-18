@@ -70,11 +70,12 @@ function clampIntField(key) {
                         type="number"
                         min="0"
                         step="1"
-                        class="h-11 rounded-lg"
+                        class="h-11 rounded-lg bg-white dark:bg-slate-950"
+                        :class="errClass('max_textbooks')"
                         @blur="clampIntField('max_textbooks')"
                     />
-                    <p v-if="err('params.max_textbooks')" class="text-xs text-red-600 dark:text-red-400">
-                        {{ err('params.max_textbooks') }}
+                    <p v-if="err('params.max_textbooks') || err('max_textbooks')" class="text-xs text-red-600 dark:text-red-400">
+                        {{ err('params.max_textbooks') || err('max_textbooks') }}
                     </p>
                 </div>
                 <div class="space-y-1.5">
@@ -84,11 +85,12 @@ function clampIntField(key) {
                         type="number"
                         min="0"
                         step="1"
-                        class="h-11 rounded-lg"
+                        class="h-11 rounded-lg bg-white dark:bg-slate-950"
+                        :class="errClass('max_reference')"
                         @blur="clampIntField('max_reference')"
                     />
-                    <p v-if="err('params.max_reference')" class="text-xs text-red-600 dark:text-red-400">
-                        {{ err('params.max_reference') }}
+                    <p v-if="err('params.max_reference') || err('max_reference')" class="text-xs text-red-600 dark:text-red-400">
+                        {{ err('params.max_reference') || err('max_reference') }}
                     </p>
                 </div>
             </div>
@@ -101,7 +103,8 @@ function clampIntField(key) {
                         type="number"
                         min="0"
                         step="1"
-                        class="h-11 rounded-lg max-w-xs"
+                        class="h-11 rounded-lg max-w-xs bg-white dark:bg-slate-950"
+                        :class="errClass('max_renewals')"
                         @blur="clampIntField('max_renewals')"
                     />
                 </div>
@@ -113,7 +116,7 @@ function clampIntField(key) {
                         v-model="form.overdue_fine_per_day"
                         type="text"
                         inputmode="decimal"
-                        class="h-11 rounded-lg max-w-xs"
+                        class="h-11 rounded-lg max-w-xs bg-white dark:bg-slate-950"
                         :class="errClass('overdue_fine_per_day')"
                     />
                     <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-prose">
@@ -148,7 +151,7 @@ function clampIntField(key) {
                     type="number"
                     min="0"
                     step="1"
-                    class="h-11 rounded-lg"
+                    class="h-11 rounded-lg bg-white dark:bg-slate-950"
                     @blur="clampIntField('max_books')"
                 />
             </div>

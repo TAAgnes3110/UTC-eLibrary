@@ -156,11 +156,6 @@ export function useLibraryCardCounterPage(props) {
 
     const submitLoading = ref(false);
 
-    const workflowPreview = computed(() => resolveCounterWorkflowPreview(
-        form.value.holder_type,
-        form.value.paid_at_counter,
-    ));
-
     const canTogglePaid = computed(() => canTogglePaidAtCounter(form.value.holder_type));
 
     const showFeeSection = computed(() => true);
@@ -356,7 +351,6 @@ export function useLibraryCardCounterPage(props) {
         form,
         submit,
         submitLoading,
-        workflowPreview,
         canTogglePaid,
         showFeeSection,
         isPaymentAmountReadonly,

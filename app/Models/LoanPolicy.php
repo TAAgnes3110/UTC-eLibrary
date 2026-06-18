@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class LoanPolicy extends BaseModel
 {
+    /** Cột `params` JSON được gán trực tiếp qua Eloquent — không dùng arrParams/toParams(). */
+    protected static bool $persistParamsToDatabase = false;
+
     protected $fillable = [
         'code',
         'name',

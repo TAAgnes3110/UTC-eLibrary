@@ -14,6 +14,14 @@ export function userTypeLabel(value) {
     return USER_TYPE_LABELS[value] ?? value;
 }
 
+function clampInt0(v, fallback = 0) {
+    const n = Number(v);
+    if (Number.isNaN(n)) {
+        return fallback;
+    }
+    return Math.max(0, Math.trunc(n));
+}
+
 function emptyForm() {
     return {
         id: null,
@@ -26,8 +34,8 @@ function emptyForm() {
         overdue_fine_per_day: '0',
         allow_home: true,
         allow_onsite: true,
-        max_textbooks: '',
-        max_reference: '',
+        max_textbooks: 0,
+        max_reference: 0,
         /** Bản sao params từ server để merge khi PUT */
         _paramsBase: {},
     };
@@ -51,8 +59,14 @@ function rowToForm(row) {
                 : '0',
         allow_home: !!row.allow_home,
         allow_onsite: row.allow_onsite !== false,
-        max_textbooks: row.params?.max_textbooks ?? '',
-        max_reference: row.params?.max_reference ?? '',
+        max_textbooks:
+            row.params?.max_textbooks !== undefined && row.params?.max_textbooks !== null
+                ? clampInt0(row.params.max_textbooks, 0)
+                : 0,
+        max_reference:
+            row.params?.max_reference !== undefined && row.params?.max_reference !== null
+                ? clampInt0(row.params.max_reference, 0)
+                : 0,
         _paramsBase: row.params && typeof row.params === 'object' ? { ...row.params } : {},
     };
 }
@@ -126,13 +140,6 @@ export function useLibrarySettingsPage() {
     onMounted(() => {
         fetchPolicies();
     });
-    function clampInt0(v, fallback = 0) {
-        const n = Number(v);
-        if (Number.isNaN(n)) {
-            return fallback;
-        }
-        return Math.max(0, Math.trunc(n));
-    }
 
     /** Chuỗi số thập phân ≥ 0 (khớp decimal:0,2 phía server). */
     function clampFineString(raw) {
@@ -151,18 +158,8 @@ export function useLibrarySettingsPage() {
             delete p.max_textbooks;
             delete p.max_reference;
         } else {
-            const mt = form.max_textbooks;
-            const mr = form.max_reference;
-            if (mt !== '' && mt !== null && mt !== undefined) {
-                p.max_textbooks = clampInt0(mt);
-            } else {
-                delete p.max_textbooks;
-            }
-            if (mr !== '' && mr !== null && mr !== undefined) {
-                p.max_reference = clampInt0(mr);
-            } else {
-                delete p.max_reference;
-            }
+            p.max_textbooks = clampInt0(form.max_textbooks, 0);
+            p.max_reference = clampInt0(form.max_reference, 0);
         }
 
         return Object.keys(p).length ? p : null;

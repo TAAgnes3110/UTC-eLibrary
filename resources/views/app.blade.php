@@ -7,7 +7,7 @@
         <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
         <meta name="mobile-web-app-capable" content="yes">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <link rel="icon" href="{{ asset('images/default-avatar.png') }}" type="image/png">
         {{-- Font: dùng font hệ thống để chạy offline. Bật lại 3 dòng dưới nếu có mạng và muốn dùng Inter/Sora. --}}
         {{-- <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

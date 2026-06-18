@@ -61,7 +61,7 @@ const {
                 </p>
 
                 <div v-else class="space-y-3">
-                    <LoanPolicyAccordion title="Học sinh" :open="openStudent" @toggle="toggleStudent">
+                    <LoanPolicyAccordion title="Sinh viên" :open="openStudent" @toggle="toggleStudent">
                         <LoanPolicyInlineForm
                             v-if="studentForm.id"
                             mode="internal"
@@ -71,7 +71,7 @@ const {
                         <p v-else class="text-sm text-slate-500">Chưa có cấu hình cho nhóm này.</p>
                     </LoanPolicyAccordion>
 
-                    <LoanPolicyAccordion title="Giáo viên" :open="openTeacher" @toggle="toggleTeacher">
+                    <LoanPolicyAccordion title="Giảng viên" :open="openTeacher" @toggle="toggleTeacher">
                         <LoanPolicyInlineForm
                             v-if="teacherForm.id"
                             mode="internal"

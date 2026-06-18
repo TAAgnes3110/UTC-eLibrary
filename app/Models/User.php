@@ -8,7 +8,6 @@ use App\Models\Traits\HasAuditFields;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -98,7 +97,7 @@ class User extends Authenticatable implements JWTSubject
         return $this->getKey();
     }
 
-    public function getJWTCustomClaims()
+    public function getJWTCustomClaims(): array
     {
         return [
             'id' => $this->id,
@@ -107,8 +106,32 @@ class User extends Authenticatable implements JWTSubject
             'email' => $this->email,
             'phone' => $this->phone,
             'avatar' => $this->avatar,
-            'roles' => $this->getRoleNames(),
-            'permissions' => $this->getPermissionNames(),
+            'roles' => $this->safeRoleNames(),
+            'permissions' => $this->safePermissionNames(),
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function safeRoleNames(): array
+    {
+        try {
+            return $this->getRoleNames()->values()->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function safePermissionNames(): array
+    {
+        try {
+            return $this->getPermissionNames()->values()->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 }

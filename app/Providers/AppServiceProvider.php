@@ -77,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
                     'date_of_birth' => $user->date_of_birth?->format('Y-m-d'),
                     'gender' => $user->gender,
                     'address' => $user->address,
-                    'roles' => $user->getRoleNames()->values()->all(),
+                    'roles' => $user->safeRoleNames(),
                     'is_active' => (bool) $user->is_active,
                     'email_verified_at' => $user->email_verified_at?->toIso8601String(),
                     'user_type' => $user->user_type instanceof RoleType ? $user->user_type->value : $user->user_type,

@@ -1,32 +1,19 @@
 import axios from 'axios';
-
-function getCsrfHeaders() {
-    const row = document.cookie.split('; ').find((r) => r.startsWith('XSRF-TOKEN='));
-    if (row) {
-        const val = decodeURIComponent(row.split('=').slice(1).join('='));
-        return { 'X-XSRF-TOKEN': val };
-    }
-    const meta = document.querySelector('meta[name="csrf-token"]');
-    if (meta?.content) {
-        return { 'X-CSRF-TOKEN': meta.content };
-    }
-    return {};
-}
-
-function baseHeaders() {
-    return {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-    };
-}
+import {
+    ensureSanctumCsrfCookie,
+    getApiCsrfHeaders,
+    resetSanctumCsrfCookieCache,
+} from '@/utils/apiCsrf';
 
 async function postLoginOnce(payload) {
+    await ensureSanctumCsrfCookie();
     const { data } = await axios.post('/login', payload, {
         withCredentials: true,
         headers: {
-            ...baseHeaders(),
-            ...getCsrfHeaders(),
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            ...getApiCsrfHeaders(),
         },
     });
     return data;
@@ -43,14 +30,8 @@ export async function postWebLogin(payload) {
             throw error;
         }
 
-        await axios.get('/login', {
-            withCredentials: true,
-            headers: {
-                Accept: 'text/html',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-
+        resetSanctumCsrfCookieCache();
+        await ensureSanctumCsrfCookie({ force: true });
         return postLoginOnce(payload);
     }
 }

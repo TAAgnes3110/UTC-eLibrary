@@ -64,11 +64,23 @@ class CurrentUser
         }
         $this->rolesAndPermissionsLoaded = true;
 
-        if (method_exists($this->user, 'getRoleNames')) {
-            $this->roles = $this->user->getRoleNames()->toArray();
+        if (method_exists($this->user, 'safeRoleNames')) {
+            $this->roles = $this->user->safeRoleNames();
+        } elseif (method_exists($this->user, 'getRoleNames')) {
+            try {
+                $this->roles = $this->user->getRoleNames()->toArray();
+            } catch (\Throwable) {
+                $this->roles = [];
+            }
         }
-        if (method_exists($this->user, 'getPermissionNames')) {
-            $this->permissions = $this->user->getPermissionNames()->toArray();
+        if (method_exists($this->user, 'safePermissionNames')) {
+            $this->permissions = $this->user->safePermissionNames();
+        } elseif (method_exists($this->user, 'getPermissionNames')) {
+            try {
+                $this->permissions = $this->user->getPermissionNames()->toArray();
+            } catch (\Throwable) {
+                $this->permissions = [];
+            }
         }
     }
 

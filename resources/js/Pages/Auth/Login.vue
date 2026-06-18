@@ -107,6 +107,7 @@ const { showPassword, form, submit } = useLoginPage({ fromRegister });
                             <input
                                 id="login"
                                 type="text"
+                                autocomplete="username"
                                 placeholder="Email hoặc Mã định danh"
                                 v-model="form.login"
                                 class="h-12 w-full border border-white/5 bg-white/5 pl-11 pr-4 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300 outline-none"
@@ -125,6 +126,7 @@ const { showPassword, form, submit } = useLoginPage({ fromRegister });
                             <input
                                 id="password"
                                 :type="showPassword ? 'text' : 'password'"
+                                autocomplete="current-password"
                                 placeholder="••••••••"
                                 v-model="form.password"
                                 class="h-12 w-full border border-white/5 bg-white/5 pl-11 pr-12 rounded-xl text-white placeholder:text-slate-600 focus:bg-blue-600/10 focus:border-blue-500/50 shadow-inner transition-all duration-300 outline-none"

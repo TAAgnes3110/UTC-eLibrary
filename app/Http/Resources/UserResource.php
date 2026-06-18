@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Helpers\FileHelpers;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
 
@@ -10,16 +11,7 @@ class UserResource extends JsonResource
 {
     public function toArray($request)
     {
-        $avatar = $this->avatar;
-        $mediaDisk = (string) config('filesystems.media_disk', 'public');
-        /** @var \Illuminate\Filesystem\FilesystemAdapter $mediaStorage */
-        $mediaStorage = Storage::disk($mediaDisk);
-        if (! empty($avatar) && ! str_starts_with($avatar, 'http')) {
-            // Backward-compatible with legacy avatar paths saved under public/avatars.
-            $avatar = $mediaDisk === 'public' && str_starts_with($avatar, 'avatars/')
-                ? asset(ltrim($avatar, '/'))
-                : $mediaStorage->url($avatar);
-        }
+        $avatar = $this->resolveAvatarUrl();
         $userType = $this->user_type instanceof \BackedEnum ? $this->user_type->value : $this->user_type;
         $status = 'active';
         if ($this->trashed()) {
@@ -84,5 +76,29 @@ class UserResource extends JsonResource
                 'email' => $this->deletedBy->email,
             ] : null),
         ];
+    }
+
+    private function resolveAvatarUrl(): string
+    {
+        $avatar = $this->avatar;
+        if (empty($avatar)) {
+            return FileHelpers::mediaDefaultUrl('avatar');
+        }
+        if (str_starts_with($avatar, 'http')) {
+            return $avatar;
+        }
+
+        try {
+            $mediaDisk = (string) config('filesystems.media_disk', 'public');
+            /** @var FilesystemAdapter $mediaStorage */
+            $mediaStorage = Storage::disk($mediaDisk);
+            if ($mediaDisk === 'public' && str_starts_with($avatar, 'avatars/')) {
+                return asset(ltrim($avatar, '/'));
+            }
+
+            return $mediaStorage->url($avatar) ?: FileHelpers::mediaDefaultUrl('avatar');
+        } catch (\Throwable) {
+            return FileHelpers::mediaDefaultUrl('avatar');
+        }
     }
 }

@@ -2,13 +2,15 @@
 
 namespace App\Services;
 
-use App\Helpers\AuthHelper;
 use App\Enums\RoleType;
+use App\Helpers\AuthHelper;
 use App\Models\Customer;
 use App\Models\User;
 use App\Services\LibraryCard\LibraryCardManagementService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use PHPOpenSourceSaver\JWTAuth\Facades\JWTAuth;
 
 class AuthService
@@ -30,8 +32,21 @@ class AuthService
             ->orWhereHas('libraryCard', fn ($q) => $q->where('card_number', $loginField))
             ->first();
 
-        if (! $user || ! $token = JWTAuth::attempt(['email' => $user->email, 'password' => $password])) {
+        if (! $user || ! Hash::check($password, $user->password)) {
             return ['error' => __('messages.invalid_credentials')];
+        }
+
+        try {
+            $token = JWTAuth::fromUser($user);
+        } catch (\Throwable $e) {
+            Log::error('Không tạo được JWT khi đăng nhập.', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'user_type' => $user->user_type instanceof RoleType ? $user->user_type->value : $user->user_type,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['error' => __('Không thể hoàn tất đăng nhập. Vui lòng liên hệ quản trị viên.'), 'code' => 500];
         }
 
         return ['user' => $user, 'token' => $token];

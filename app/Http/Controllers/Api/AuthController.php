@@ -41,7 +41,9 @@ class AuthController extends Controller
         );
 
         if (isset($result['error'])) {
-            return ApiResponse::json(['status' => 'error', 'messages' => $result['error']], 401);
+            $code = (int) ($result['code'] ?? 401);
+
+            return ApiResponse::json(['status' => 'error', 'messages' => $result['error']], $code);
         }
 
         Auth::guard('web')->login($result['user'], $remember);
@@ -58,17 +60,29 @@ class AuthController extends Controller
             ]);
         }
 
-        $payload = [
-            'status' => 'success',
-            'messages' => __('messages.success_login'),
-            'token' => $result['token'],
-            'user' => new UserResource($user),
-        ];
-        if ($staffWorkQueue !== null) {
-            $payload['staff_work_queue'] = $staffWorkQueue;
-        }
+        try {
+            $payload = [
+                'status' => 'success',
+                'messages' => __('messages.success_login'),
+                'token' => $result['token'],
+                'user' => new UserResource($user),
+            ];
+            if ($staffWorkQueue !== null) {
+                $payload['staff_work_queue'] = $staffWorkQueue;
+            }
 
-        return ApiResponse::json($payload, 200);
+            return ApiResponse::json($payload, 200);
+        } catch (\Throwable $e) {
+            Log::error('Lỗi serialize user khi đăng nhập.', [
+                'user_id' => $user->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ApiResponse::json([
+                'status' => 'error',
+                'messages' => __('Không thể hoàn tất đăng nhập. Vui lòng liên hệ quản trị viên.'),
+            ], 500);
+        }
     }
 
     public function register(RegisterRequest $request): JsonResponse

@@ -50,6 +50,9 @@ docker compose -f "${COMPOSE_FILE}" exec -T app sh -c 'rm -f bootstrap/cache/rou
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan route:clear --no-interaction 2>/dev/null || true
 docker compose -f "${COMPOSE_FILE}" exec -T app php artisan optimize:clear --no-interaction
 
+echo "==> [deploy] Đồng bộ Spatie role cho tài khoản staff (tránh 500 login admin)"
+docker compose -f "${COMPOSE_FILE}" exec -T app php artisan library:sync-staff-roles --no-interaction
+
 echo "==> [deploy] Trạng thái container"
 docker compose -f "${COMPOSE_FILE}" ps
 

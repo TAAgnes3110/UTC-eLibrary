@@ -62,8 +62,8 @@ class UserResource extends JsonResource
                 'start_year' => $this->period->start_year,
                 'end_year' => $this->period->end_year,
             ] : null),
-            'roles' => $this->whenLoaded('roles', fn () => $this->getRoleNames()),
-            'permissions' => $this->whenLoaded('permissions', fn () => $this->getAllPermissions()->pluck('name')),
+            'roles' => $this->whenLoaded('roles', fn () => $this->resource->safeRoleNames()),
+            'permissions' => $this->whenLoaded('permissions', fn () => $this->resource->safePermissionNames()),
 
             'library_card' => $this->whenLoaded(
                 'libraryCard',

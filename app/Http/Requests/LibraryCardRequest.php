@@ -33,6 +33,18 @@ class LibraryCardRequest extends BaseRequest
                 : LibraryCard::HOLDER_TYPE_EXTERNAL;
             $this->merge(['holder_type' => $resolvedHolderType]);
         }
+        if ($this->isMethod('PUT') || $this->isMethod('PATCH')) {
+            $workflowStatus = $this->input('workflow_status');
+            if ($workflowStatus !== null && $workflowStatus !== '') {
+                $this->merge([
+                    'workflow_status' => LibraryCard::normalizeWorkflowStatus((string) $workflowStatus),
+                ]);
+            }
+            if ($this->has('status')) {
+                $this->merge(['status' => (int) $this->input('status')]);
+            }
+        }
+
         if ($this->isMethod('POST') && ! $existing && ! $this->is('api/v1/library-cards/guest-register')) {
             $uid = $this->input('user_id');
             $ht = (string) $this->input('holder_type');

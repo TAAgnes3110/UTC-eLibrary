@@ -109,6 +109,12 @@ function onSubmit() {
                 </div>
 
                 <form class="p-4 space-y-4" @submit.prevent="onSubmit">
+                    <div
+                        v-if="fieldErrors.general"
+                        class="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
+                    >
+                        {{ fieldErrors.general }}
+                    </div>
                     <div>
                         <p class="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Thông tin cá nhân</p>
                         <div class="mt-2 space-y-3">

@@ -65,6 +65,23 @@ export const LOAN_POLICY_FORM_FIELD_MAP = {
     params: 'params',
 };
 
+export const LIBRARY_CARD_ERROR_DISPLAY_KEYS = new Set([
+    'full_name',
+    'email',
+    'phone',
+    'address',
+    'date_of_birth',
+    'holder_type',
+    'status',
+    'workflow_status',
+    'faculty_id',
+    'period_id',
+    'class_code',
+    'external_organization',
+    'notes',
+    'general',
+]);
+
 export const USER_ERROR_DISPLAY_KEYS = new Set([
     'name',
     'email',

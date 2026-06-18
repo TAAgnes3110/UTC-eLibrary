@@ -103,3 +103,18 @@ export const WORKFLOW_STAFF_EDIT_OPTIONS = [
     { value: 'pending_pickup', label: 'Chờ lấy thẻ' },
     { value: 'active', label: 'Đang hiệu lực' },
 ];
+
+/** Chuẩn hóa quy trình legacy (draft / expired / revoked) trước khi gửi API. */
+export function normalizeWorkflowForStaffEdit(key) {
+    const raw = String(key ?? '').trim();
+    if (WORKFLOW_STAFF_EDIT_OPTIONS.some((option) => option.value === raw)) {
+        return raw;
+    }
+    if (raw === 'draft') {
+        return 'pending_review';
+    }
+    if (raw === 'expired' || raw === 'revoked') {
+        return 'active';
+    }
+    return 'pending_review';
+}

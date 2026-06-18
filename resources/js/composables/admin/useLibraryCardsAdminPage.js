@@ -3,8 +3,9 @@ import apiClient from '@/api/axios';
 import { libraryCardsApi } from '@/api/libraryCards';
 import { toast } from '@/store/toast';
 import { useApiFieldErrors } from '@/composables/useApiFieldErrors';
-import { LIBRARY_CARD_SEARCH_IN_OPTIONS } from '@/config/libraryCardUi';
+import { LIBRARY_CARD_SEARCH_IN_OPTIONS, normalizeWorkflowForStaffEdit } from '@/config/libraryCardUi';
 import { extractApiPaginator } from '@/utils/adminPagination';
+import { getLaravelErrorMessage, LIBRARY_CARD_ERROR_DISPLAY_KEYS } from '@/utils/laravelApiError';
 
 const FIELD_MAP = {
     full_name: 'full_name',
@@ -207,7 +208,7 @@ export function useLibraryCardsAdminPage(props, options = {}) {
         clearField: clearFormFieldError,
         applyAxios422: applyFormErrors,
         clearAll: clearFormErrors,
-    } = useApiFieldErrors(FIELD_MAP);
+    } = useApiFieldErrors(FIELD_MAP, { displayKeys: LIBRARY_CARD_ERROR_DISPLAY_KEYS });
 
     function openEditModal(row) {
         clearFormErrors();
@@ -219,10 +220,10 @@ export function useLibraryCardsAdminPage(props, options = {}) {
             address: row.address ?? '',
             date_of_birth: row.date_of_birth ? String(row.date_of_birth).slice(0, 10) : '',
             holder_type: row.holder_type ?? 'student',
-            status: Number(row.status) || 1,
-            workflow_status: row.workflow_status ?? 'active',
-            faculty_id: row.faculty_id ?? null,
-            period_id: row.period_id ?? null,
+            status: row.status != null && row.status !== '' ? Number(row.status) : 4,
+            workflow_status: normalizeWorkflowForStaffEdit(row.workflow_status),
+            faculty_id: row.faculty_id ?? row.faculty?.id ?? null,
+            period_id: row.period_id ?? row.period?.id ?? null,
             class_code: row.class_code ?? '',
             external_organization: row.external_organization ?? '',
             notes: row.notes ?? '',
@@ -241,23 +242,28 @@ export function useLibraryCardsAdminPage(props, options = {}) {
                 email: form.value.email,
                 phone: form.value.phone,
                 address: form.value.address,
-                date_of_birth: form.value.date_of_birth || null,
                 holder_type: holderType,
-                status: form.value.status,
-                workflow_status: form.value.workflow_status,
+                status: Number(form.value.status),
+                workflow_status: normalizeWorkflowForStaffEdit(form.value.workflow_status),
                 faculty_id: holderType === 'external' ? null : form.value.faculty_id,
                 period_id: holderType === 'student' ? form.value.period_id : null,
                 class_code: holderType === 'student' ? form.value.class_code || null : null,
                 external_organization: form.value.external_organization?.trim() || null,
                 notes: form.value.notes || null,
             };
+            if (form.value.date_of_birth) {
+                payload.date_of_birth = form.value.date_of_birth;
+            }
             await libraryCardsApi.update(form.value.id, payload);
             toast.success('Đã cập nhật thẻ.', { title: 'Thành công' });
             showModal.value = false;
             await loadCards();
         } catch (e) {
             if (e?.response?.status === 422) {
-                applyFormErrors(e?.response?.data);
+                applyFormErrors(e);
+                toast.error(getLaravelErrorMessage(e, 'Dữ liệu không hợp lệ. Kiểm tra các trường được đánh dấu.'), {
+                    title: 'Không lưu được',
+                });
             } else {
                 toast.error(e?.response?.data?.messages || 'Không lưu được.', { title: 'Lỗi' });
             }
